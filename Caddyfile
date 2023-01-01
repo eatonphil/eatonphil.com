@@ -12,7 +12,7 @@ https://eatonphil.com {
 		output file /var/log/eatonphil.com.access.log {
 			roll_size 1gb
 			roll_keep 15
-			roll_keep_for 36500 # 100 years
+			roll_keep_for 36500d # 100 years
 		}
 	}
 }
@@ -31,7 +31,7 @@ https://lists.eatonphil.com {
 		output file /var/log/lists.eatonphil.com.access.log {
 			roll_size 1gb
 			roll_keep 15
-			roll_keep_for 36500 # 100 years
+			roll_keep_for 36500d # 100 years
 		}
 	}
 }
