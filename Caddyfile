@@ -50,7 +50,7 @@ https://notes.eatonphil.com {
 		output file /var/log/notes.eatonphil.com.access.log {
 			roll_size 1gb
 			roll_keep 15
-			roll_keep_for 36500 # 100 years
+			roll_keep_for 36500d # 100 years
 		}
 	}
 }
