@@ -5,6 +5,7 @@ set -eu
 cd ~/eatonphil.com
 git reset --hard
 git pull
-
-sudo cp Caddyfile /etc/caddy/Caddyfile
-sudo service caddy restart
+sudo rm -rf /usr/share/caddy/*
+sudo mv docs/* /usr/share/caddy/
+sudo chown -R caddy:caddy /usr/share/caddy/
+sudo restorecon -r /usr/share/caddy/

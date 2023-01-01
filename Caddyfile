@@ -2,7 +2,7 @@ https://eatonphil.com {
     encode zstd gzip
     
     # Set this path to your site's directory.
-    root * /home/fedora/eatonphil.com/home
+    root * /usr/share/caddy/home
 
     # Enable the static file server.
     file_server
@@ -12,7 +12,7 @@ https://lists.eatonphil.com {
     encode zstd gzip
     
     # Set this path to your site's directory.
-    root * /home/fedora/eatonphil.com/lists
+    root * /usr/share/caddy/lists
 
     # Enable the static file server.
     file_server
@@ -22,7 +22,7 @@ https://notes.eatonphil.com {
     encode zstd gzip
     
     # Set this path to your site's directory.
-    root * /home/fedora/eatonphil.com/notes/docs
+    root * /usr/share/caddy/lists/docs
 
     # Enable the static file server.
     file_server
