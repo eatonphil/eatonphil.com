@@ -1,31 +1,31 @@
 https://eatonphil.com {
-    encode zstd gzip
-    
-    # Set this path to your site's directory.
-    root * /usr/share/caddy/home
+	encode zstd gzip
+	
+	# Set this path to your site's directory.
+	root * /usr/share/caddy/home
 
-    # Enable the static file server.
-    file_server
+	# Enable the static file server.
+	file_server
 }
 
 https://lists.eatonphil.com {
-    encode zstd gzip
-    
-    # Set this path to your site's directory.
-    root * /usr/share/caddy/lists
+	encode zstd gzip
+	
+	# Set this path to your site's directory.
+	root * /usr/share/caddy/lists
 
-    # Enable the static file server.
-    file_server
+	# Enable the static file server.
+	file_server
 }
 
 https://notes.eatonphil.com {
-    encode zstd gzip
-    
-    # Set this path to your site's directory.
-    root * /usr/share/caddy/notes/docs
+	encode zstd gzip
+	
+	# Set this path to your site's directory.
+	root * /usr/share/caddy/notes/docs
 
-    # Enable the static file server.
-    file_server
+	# Enable the static file server.
+	file_server
 }
 
 import Caddyfile.d/*.caddyfile
