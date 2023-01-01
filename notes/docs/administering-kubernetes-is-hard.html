@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    
+    <title>Administering Kubernetes is hard | notes.eatonphil.com</title>
+    <meta name="description" content="Administering Kubernetes is hard" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/styles/default.min.css" />
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter">
+    
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <div>
+          <div class="row">
+	    <div>
+	      <a href="/" class="sm-link">
+		Archive
+              </a>
+	      <a href="/favorites.html" class="sm-link">
+		Popular
+              </a>
+	      <a href="/about.html" class="sm-link">
+		About
+              </a>
+	      <a href="/discord.html" class="sm-link">
+		Discord
+              </a>
+	      <a href="/rss.xml" class="sm-link">
+		RSS
+              </a>
+	    </div>
+	    
+	    <div class="subscribe">
+              <a href="https://docs.google.com/forms/d/e/1FAIpQLSchaYjB6mq0SHmFL_J1wbB7E4SwUk23Dja2K7mfjtYH5o48fw/viewform?usp=sf_link">
+		Subscribe
+              </a>
+	    </div>
+	  </div>
+
+	  	  <div class="row">
+	    <div style="font-size: small; padding-right: 10px">
+	      Elsewhere:
+	    </div>
+
+	    <div>
+	      <a href="https://www.linkedin.com/in/eatonphil" class="sm-link">
+		LinkedIn
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://hachyderm.io/@eatonphil" class="sm-link" rel="me">
+		Mastodon
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://twitter.com/phil_eaton" class="sm-link">
+		Twitter
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://github.com/eatonphil" class="sm-link">
+		GitHub
+              </a>
+	    </div>
+	  </div>
+
+	  <hr />
+          <h2>September 30, 2019</h2>
+          <h1>Administering Kubernetes is hard</h1>
+          <div class="row" style="padding-bottom: 5px">
+            <div class="tags"><a href="/tags/orchestration.html" class="tag">orchestration</a><a href="/tags/aws.html" class="tag">aws</a><a href="/tags/docker.html" class="tag">docker</a><a href="/tags/kubernetes.html" class="tag">kubernetes</a></div>
+          </div>
+	</div>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="col-6">
+        <p>Kubernetes is easy to use after some exposure; it's pretty convenient
+too. But it is super hard to set up.</p>
+<p><a href="https://eksctl.io">eksctl</a> is a good tool for folks who don't want to
+spend hours/days/weeks debugging VPC configuration in 1000s of lines
+of CloudFormation. None of the other tools seem to be that much easier
+to use (kops, kubeadm, etc.).</p>
+<p>But even with EKS and eksctl you are constrained to Amazon Linux
+worker nodes. AMIs are practically impossible to discover.</p>
+<p>I haven't spent much time with GKE.</p>
+<p>And while eksctl operates on the right level for developers needing to
+administrate small/medium-sized systems, it... doesn't exist outside
+EKS.</p>
+<p>It is unfortunate the only major container orchestration system is
+this complex to administer. The user-facing APIs are pretty solid and
+guide toward sustainable system design. It is <em>really</em> hard to see the
+value for most companies with medium-sized deployments tasked with
+administration. Among serious proprietary alternatives, sure, there's
+ECS and Google App Engine. But there's little advantage in existing
+Kubernetes user knowledge. The OSS alternatives don't have the
+adoption to seem like a good investment.</p>
+<p>OpenStack's <a href="https://wiki.openstack.org/wiki/Magnum">magnum</a> or
+OpenShift seem like possible high-level providers for a generic
+environment. But neither are particularly known for stability.</p>
+<p>In all, the ecosystem has gotten friendlier. There will probably be a
+time in the future (3-5 years from now?) when Kubernetes is fairly
+easy to administer.</p>
+<p>I'd love to hear your thoughts and experiences administering
+Kubernetes.</p>
+<style>.feedback{display:initial;}</style>
+	<hr />
+	<div class="feedback">
+	  <h4>Feedback</h4>
+	  <p><small>As always,
+	  please <a href="mailto:phil@eatonphil.com">email</a>
+	  or <a href="https://twitter.com/phil_eaton">tweet me</a>
+	    with questions, corrections, or ideas!</small></p>
+	</div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="container">
+	<div>
+	  <div class="row">
+	    <div class="feedback">
+	      <p>Frequent Topics</p>
+	      <div class="tags"><a href="/tags/javascript.html" class="tag">javascript (24)</a><a href="/tags/parsing.html" class="tag">parsing (19)</a><a href="/tags/databases.html" class="tag">databases (17)</a><a href="/tags/postgres.html" class="tag">postgres (13)</a><a href="/tags/golang.html" class="tag">golang (13)</a><a href="/tags/compilers.html" class="tag">compilers (13)</a><a href="/tags/sql.html" class="tag">sql (10)</a><a href="/tags/python.html" class="tag">python (8)</a><a href="/tags/management.html" class="tag">management (8)</a><a href="/tags/lisp.html" class="tag">lisp (8)</a><a href="/tags/interpreters.html" class="tag">interpreters (8)</a><a href="/tags/json.html" class="tag">json (7)</a><a href="/tags/go.html" class="tag">go (7)</a><a href="/tags/linux.html" class="tag">linux (6)</a><a href="/tags/books.html" class="tag">books (6)</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64 (5)</a><a href="/tags/typescript.html" class="tag">typescript (5)</a><a href="/tags/learning.html" class="tag">learning (5)</a><a href="/tags/communication.html" class="tag">communication (5)</a><a href="/tags/zig.html" class="tag">zig (4)</a></div>
+	    </div>
+	  </div>
+
+	  <div class="row">
+	    <div>
+	      <a href="/about.html" class="sm-link">
+		About
+              </a>
+	      <a href="/favorites.html" class="sm-link">
+		Popular
+              </a>
+	      <a href="/" class="sm-link">
+		Archive
+              </a>
+	      <a href="/discord.html" class="sm-link">
+		Discord
+              </a>
+	      <a href="/rss.xml" class="sm-link">
+		RSS
+              </a>
+	    </div>
+
+	    <div class="subscribe">
+              <a href="https://docs.google.com/forms/d/e/1FAIpQLSchaYjB6mq0SHmFL_J1wbB7E4SwUk23Dja2K7mfjtYH5o48fw/viewform?usp=sf_link">
+		Subscribe
+              </a>
+	    </div>
+	  </div>
+
+	  <div class="row">
+	    <div style="font-size: small; padding-right: 10px">
+	      Elsewhere:
+	    </div>
+
+	    <div>
+	      <a href="https://www.linkedin.com/in/eatonphil" class="sm-link">
+		LinkedIn
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://hachyderm.io/@eatonphil" class="sm-link" rel="me">
+		Mastodon
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://twitter.com/phil_eaton" class="sm-link">
+		Twitter
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://github.com/eatonphil" class="sm-link">
+		GitHub
+              </a>
+	    </div>
+	  </div>
+	</div>
+      </div>
+    </footer>
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-58109156-2');
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/highlight.min.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+  </body>
+</html>

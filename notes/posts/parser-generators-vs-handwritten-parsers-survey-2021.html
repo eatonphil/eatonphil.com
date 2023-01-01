@@ -1,0 +1,168 @@
+# Parser generators vs. handwritten parsers: surveying major language implementations in 2021
+## August 21, 2021
+###### parsing,compilers,interpreters
+
+Developers often think parser generators are the sole legit way to
+build programming language frontends, possibly because compiler
+courses in university teach lex/yacc variants. But do any modern
+programming languages actually use parser generators anymore?
+
+To find out, this post presents a non-definitive survey of the parsing
+techniques used by various major programming language implementations.
+
+### CPython: PEG parser
+
+Until CPython 3.10 (which hasn't been released yet) the default parser
+was built using [pgen](https://www.python.org/dev/peps/pep-0269/), a
+custom parser generator. The team thought the PEG parser was a [better
+fit for expressing the
+language](https://www.python.org/dev/peps/pep-0617/). At the time the
+switch from pgen to PEG parser improved speed 10% but increased memory
+usage by 10% as well.
+
+The PEG grammar is defined
+[here](https://github.com/python/cpython/blob/v3.9.6/Grammar/python.gram). (It
+is getting renamed in 3.10 though so check the directory for a file of
+a similar name if you browse 3.10+).
+
+<p class="note">
+  This section was corrected
+  by <a href="https://www.reddit.com/r/ProgrammingLanguages/comments/p8vvcs/parser_generators_vs_handwritten_parsers/h9tbuve/?utm_source=reddit&utm_medium=web2x&context=3">MegaIng</a> on Reddit. Originally
+  I mistakenly claimed the previous parser was
+  handwritten. It was not.
+  <br /><br />
+  Thanks <a href="https://twitter.com/jryans">J. Ryan Stinnett</a> for
+  a correction about the change in speed in the new PEG parser.
+</p>
+
+### GCC: Handwritten
+
+Source code for the C parser available
+[here](https://github.com/gcc-mirror/gcc/blob/master/gcc/c/c-parser.c). It
+used to use Bison until [GCC 4.1 in 2006](The old Bison-based C and
+Objective-C parser has been replaced by a new, faster hand-written
+recursive-descent parser.  ). The C++ parser also switched from Bison
+to a handwritten parser [2 years
+earlier](https://gcc.gnu.org/gcc-3.4/changes.html).
+
+### Clang: Handwritten
+
+Not only handwritten but the same _file_ handles parsing C,
+Objective-C and C++. Source code is available
+[here](https://github.com/llvm/llvm-project/blob/llvmorg-12.0.1/clang/lib/Parse/Parser.cpp).
+
+### Ruby: Yacc-like Parser Generator
+
+Ruby uses Bison (thanks for the
+[correction](https://twitter.com/kddnewton/status/1430912896473739271)!). The
+grammar for the language can be found
+[here](https://github.com/ruby/ruby/blob/v3_0_2/parse.y).
+
+### V8 JavaScript: Handwritten
+
+Source code available [here](https://github.com/v8/v8/blob/9.5.38/src/parsing/parser.cc).
+
+### Zend Engine PHP: Yacc-like Parser Generator
+
+Source code available [here](https://github.com/php/php-src/blob/php-8.0.9/Zend/zend_language_parser.y).
+
+### TypeScript: Handwritten
+
+Source code available [here](https://github.com/microsoft/TypeScript/blob/v4.3.5/src/compiler/parser.ts).
+
+### Bash: Yacc-like Parser Generator
+
+Source code for the grammar is available
+[here](http://git.savannah.gnu.org/cgit/bash.git/tree/parse.y?h=bash-5.1).
+
+### Chromium CSS Parser: Handwritten
+
+Source code available [here](https://github.com/chromium/chromium/blob/95.0.4617.2/third_party/blink/renderer/core/css/parser/css_parser_impl.cc).
+
+### Java (OpenJDK): Handwritten
+
+You can find the source code
+[here](https://github.com/openjdk/jdk/blob/jdk-18%2B11/src/jdk.compiler/share/classes/com/sun/tools/javac/parser/JavacParser.java).
+
+Some [older
+commentary](https://openjdk.java.net/projects/compiler-grammar/) calls
+this implementation fragile. But a Java contributor [suggests the
+situation has improved since Java
+8](https://twitter.com/BrianGoetz/status/1429227723055042568).
+
+### Golang: Handwritten
+
+Until Go 1.6 the compiler used a yacc-based parser. The source code
+for that grammar is available
+[here](https://github.com/golang/go/blob/go1.5/src/cmd/compile/internal/gc/y.go).
+
+In Go 1.6 they switched to a handwritten parser. You can find that
+change [here](https://go-review.googlesource.com/c/go/+/16665/). There
+was a reported 18% speed increase when parsing files and a reported 3%
+speed increase in building the compiler itself when switching.
+
+You can find the source code for the compiler's parser
+[here](https://github.com/golang/go/blob/go1.17/src/cmd/compile/internal/syntax/parser.go).
+
+### Roslyn: Handwritten
+
+The C# parser source code is available
+[here](https://github.com/dotnet/roslyn/blob/Visual-Studio-2019-Version-16.11/src/Compilers/CSharp/Portable/Parser/LanguageParser.cs). The
+Visual Basic parser source code is
+[here](https://github.com/dotnet/roslyn/blob/Visual-Studio-2019-Version-16.11/src/Compilers/VisualBasic/Portable/Parser/Parser.vb).
+
+A C# contributor mentioned a few key reasons for using a handwritten parser [here](https://news.ycombinator.com/item?id=13915150).
+
+### Lua: Handwritten
+
+Source code available [here](https://github.com/lua/lua/blob/v5.4.3/lparser.c).
+
+### Swift: Handwritten
+
+Source code available [here](https://github.com/apple/swift/blob/swift-5.4.2-RELEASE/lib/Parse/Parser.cpp).
+
+### R: Yacc-like Parser Generator
+
+I couldn't find it at first but
+[Liorithiel](https://www.reddit.com/r/programming/comments/p8vv1l/parser_generators_vs_handwritten_parsers/h9tl763/?utm_source=reddit&utm_medium=web2x&context=3)
+showed me the parser source code is
+[here](https://github.com/wch/r-source/blob/trunk/src/main/gram.y).
+
+### Julia: Handwritten ... in Scheme
+
+Julia's parser is handwritten but not in Julia. It's in Scheme! Source code available [here](https://github.com/JuliaLang/julia/blob/v1.6.2/src/julia-parser.scm).
+
+### PostgreSQL: Yacc-like Parser Generator
+
+PostgreSQL uses Bison for parsing queries. Source code for the grammar
+available
+[here](https://github.com/postgres/postgres/blob/REL_13_STABLE/src/backend/parser/gram.y).
+
+### MySQL: Yacc Parser Generator
+
+Source code for the grammar available
+[here](https://github.com/mysql/mysql-server/blob/8.0/sql/sql_yacc.yy).
+
+### SQLite: Yacc-like Parser Generator
+
+SQLite uses its own parser generator called
+[Lemon](https://www.sqlite.org/lemon.html). Source code for the
+grammary is available
+[here](https://github.com/sqlite/sqlite/blob/version-3.36.0/src/parse.y).
+
+### Summary
+
+Of the [2021 Redmonk top 10
+languages](https://redmonk.com/sogrady/2021/03/01/language-rankings-1-21/),
+8 of them have a handwritten parser. Ruby and Python use parser generators.
+
+Although parser generators are still used in major language
+implementations, maybe it's time for universities to start teaching
+handwritten parsing?
+
+<p class="note">
+  This tweet was published before I was corrected about Python's
+  parser. It should say 8/10 but I cannot edit the tweet.
+</p>
+
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">Let&#39;s actually survey the parsing techniques used by major programming languages in 2021 (with links to code 👾).<br><br>In this post we discover that 9/10 of the top languages by <a href="https://twitter.com/redmonk?ref_src=twsrc%5Etfw">@redmonk</a> use a handwritten parser as opposed to a parser generator. 😱<a href="https://t.co/M69TqN78G5">https://t.co/M69TqN78G5</a> <a href="https://t.co/sGsdDmwshB">pic.twitter.com/sGsdDmwshB</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1429137493019045899?ref_src=twsrc%5Etfw">August 21, 2021</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>

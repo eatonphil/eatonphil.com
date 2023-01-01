@@ -1,0 +1,31 @@
+https://eatonphil.com {
+    encode zstd gzip
+    
+    # Set this path to your site's directory.
+    root * /home/fedora/eatonphil.com/home
+
+    # Enable the static file server.
+    file_server
+}
+
+https://lists.eatonphil.com {
+    encode zstd gzip
+    
+    # Set this path to your site's directory.
+    root * /home/fedora/eatonphil.com/lists
+
+    # Enable the static file server.
+    file_server
+}
+
+https://notes.eatonphil.com {
+    encode zstd gzip
+    
+    # Set this path to your site's directory.
+    root * /home/fedora/eatonphil.com/notes/docs
+
+    # Enable the static file server.
+    file_server
+}
+
+import Caddyfile.d/*.caddyfile

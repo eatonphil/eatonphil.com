@@ -1,0 +1,365 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0 auto;
+    padding: 0;
+    color: black;
+    font-size: 1.1rem;
+    font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-style: normal;
+    font-variant: normal;
+    font-weight: normal;
+}
+
+h1 {
+    margin: 1rem 0 .5rem 0;
+}
+
+h2 {
+    font-size: 1rem;
+    line-height: 1.1rem;
+    margin: 0;
+    padding-top: 15px;
+    margin-bottom: -10px;
+}
+
+h2.fp-h2 {
+    font-size: 1.5rem;
+}
+
+h3 {
+    font-size: 1.4rem;
+    line-height: 1.6rem;
+}
+h3.fp-h3 {
+    font-size: 1.2rem;
+    margin-bottom: 0;
+}
+
+h4 {
+    font-size: 1.3rem;
+}
+
+p + h2, pre + h2,
+p + h3, pre + h3,
+p + h4, pre + h4,
+p + h5, pre + h5,
+p + h6, pre + h6 {
+    margin-top: 50px;
+}
+
+p, li {
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    line-height: 1.7rem;
+}
+
+p:last-child, li:last-child {
+    margin-bottom: 0;
+}
+
+a {
+    color: rgb(0 95 255);
+    text-decoration: none;
+}
+
+blockquote {
+    background: #efefef;
+    padding: 1px 15px 15px 15px;
+    font-size: .9rem;
+}
+
+.code-caption {
+    font-size: .8rem;
+    color: #777;
+    display: block;
+    margin-bottom: -1.5em;
+}
+
+p code {
+    background: #f0f0f0;
+    color: #1f7199;
+}
+
+code {
+    font-family: monospace;
+}
+
+img {
+    width: 640px;
+    max-width: 100%;
+}
+
+footer {
+    margin: 50px 0;
+}
+
+.banner {
+    background: black;
+    color: white;
+    display: block;
+    padding: 15px 0;
+}
+
+.banner a {
+    color: white;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+}
+
+.container {
+    width: 650px;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0 15px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.container > * {
+    width: 100%;
+}
+
+header .container > div {
+    padding-bottom: 15px;
+}
+
+header .notes {
+    font-size: .8rem;
+    color: #777;
+}
+
+header .container {
+    padding: 30px 15px 0 15px;
+}
+
+.tagline {
+    font-size: 14px;
+    padding: 15px 0;
+}
+
+.subscribe {
+    flex: 1;
+    text-align: right;
+}
+
+.subscribe a {
+    font-size: 1rem;
+    border: 3px solid rgb(0, 95, 255);
+    background: rgb(0, 95, 255);
+    padding: 5px;
+    color: white;
+}
+
+.subscribe a:hover {
+    background: white;
+    color: black;
+}
+
+aside {
+    padding: 15px;
+    padding-top: 0;
+    background: honeydew;
+    border: 1px solid #eee;
+}
+
+aside p {
+    line-height: initial;
+}
+
+.hljs {
+    padding: 2rem;
+    max-height: 1000px;
+    border: 1px solid #ddd;
+    background: white;
+    width: 800px;
+    margin-left: -100px;
+}
+
+.title {
+    color: #333;
+    margin: 0;
+    padding: 0;
+    line-height: initial;
+}
+
+.subtitle {
+    color: #555;
+    font-variant: small-caps;
+    font-weight: 500;
+}
+
+.tags {
+    padding-bottom: 5px;
+}
+
+.tag {
+    display: inline-block;
+    margin-right: 10px;
+    margin-bottom: 5px;
+    padding: 3px 5px;
+    background: #efefef;
+    color: #777;
+    font-size: .9rem;
+}
+
+.about img {
+    float: left;
+    height: 200px;
+    width: 200px;
+    margin-right: 15px;
+}
+
+.summary .tags {
+    padding: 5px 0;
+}
+
+.summary .tag {
+    font-size: .9rem;
+}
+
+.fp-project, .summary {
+    margin-bottom: 30px;
+}
+
+.summary-subtitle {
+    color: #333;
+    font-size: .9rem;
+}
+
+.sm-link {
+    display: inline-block;
+    padding: 10px 0;
+    padding-right: 15px;
+    font-size: small;
+}
+
+.note {
+    line-height: 1.4rem;
+    border: 1px solid #f0f0f0;
+    border-left: 1px solid rgb(0, 95, 255);
+    padding: 15px;
+}
+
+.note, .note p, .note a {
+    font-size: .8rem;
+}
+
+.note-header {
+    background: transparent;
+    font-weight: bold;
+}
+
+.fp-section {
+    margin-top: 4rem;
+}
+
+.fp-h2 {
+    margin-bottom: 1rem;
+}
+
+.fp-section:first-of-type {
+    margin-top: 2rem;
+}
+
+.fp-section:last-of-type {
+    margin-bottom: 2rem;
+}
+
+.fp-section p {
+    font-size: 1rem;
+}
+
+.fp-section:not(:first) a {
+    font-size: 1.2rem;
+}
+
+.fp-project {
+    display: block;
+}
+
+.fp-project div {
+    padding: 5px 0;
+}
+
+.fp-project div a {
+    font-size: .9rem;
+}
+
+.fp-project p {
+    color: #333;
+    margin: 0;
+    font-size: .9rem;
+}
+
+.feedback {
+    display: none;
+}
+
+table {
+    border: 1px solid #ddd;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+th, td {
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-collapse: collapse;
+}
+
+@media (max-width: 650px) {
+    pre {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .col-3 {
+	width: 30%;
+    }
+}
+
+@media only screen and (min-device-width : 320px) and (max-device-width : 480px) {
+    .fp-section {
+        margin: 0 -15px;
+        padding: 1rem;
+    }
+
+    .fp-section:last-of-type {
+        margin-bottom: 0;
+    }
+
+    .fp-section:first-of-type {
+	margin-top: 0;
+    }
+
+    .container {
+	display: block;
+    }
+
+    .col-6 {
+	width: 100%;
+    }
+
+    .col-3 {
+	width: 100%;
+    }
+
+    .hljs {
+	width: 100%;
+	margin-left: 0;
+    }
+}
+
+#share {
+    margin-top: 30px;
+}

@@ -1,0 +1,56 @@
+# Book Review: ANSI Common Lisp
+## March 25, 2018
+###### common lisp,paul graham,books
+
+#### Score: 4.5 / 5
+
+Paul Graham and his editor(s) are excellent. His prose is light and
+easy to follow. The only awkward component of the book's organization
+is that he tends to use a concept one section before explicitly
+introducing and defining that concept. I'm not sure yet if this is a
+good or bad thing.
+
+### As a learning resource
+
+Among books recommended to potential Lispers, *ANSI Common Lisp* is
+typically written off. Graham's style of Lisp is called
+"non-idiomatic". That's fair, both *ANSI Common Lisp* and *On Lisp*
+feature aspects of Common Lisp that lend themselves to functional
+programming. And as those of you who've read *Practical Common Lisp*
+know, Common Lisp (unlike Scheme) was not designed to be a functional
+programming language. Ultimately *ANSI Common Lisp* covers the same
+topics *Practical Common Lisp* does, if not more. But *ANSI Common
+Lisp* is better written, in less space, and with shorter examples.
+
+I'm impressed at Graham's ability to summarize. There is a graphic
+illustrating symbols as a structure composed of a name, a value, a
+function, a package, and a property list. Although other resources
+(books and otherwise) mention symbols as having one or more of these
+components, his graphic was the first representation that clicked for
+me. He also provides clarity about packages being namespaces for
+*names* (symbols) not objects or functions.
+
+And toward the end of the book, there is a discussion on the
+"instance" abstraction (relative to the class definitions themselves)
+being more powerful than plain "objects" that carry around methods
+themselves. This has been the single most useful discussion on the
+implementation of object-oriented constructs I've read yet.
+
+### Digression on Practical Common Lisp
+
+*Practical Common Lisp* is often called the best introduction to
+Common Lisp. After reading both, I'd give *Practical Common Lisp*
+second place or call it a tie. The issue with *Practical Common Lisp*
+is that it takes too long to get anywhere and the practical chapters
+themselves are just as much a slog. And for as big as it is,
+*Practical Common Lisp* still doesn't include some major (potentially
+confusing) aspects of "modern" Common Lisp like ASDF, Quicklisp,
+production deployment strategies, etc.
+
+Even after having read *Practical Common Lisp* I wasn't really clear
+how to pull together all the libraries I needed to get anything real
+done (e.g. scripting against an HTTP API or interacting with a SQL
+database). This is not to say that *Practical Common Lisp* is a bad
+book, it is a good book. But I definitely don't recommend reading it
+without also reading *ANSI Common Lisp*. And regardless, there are
+still a few of those modern concepts neither book covers.

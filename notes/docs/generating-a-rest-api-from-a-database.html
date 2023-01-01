@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    
+    <title>Generating a REST API from a database | notes.eatonphil.com</title>
+    <meta name="description" content="Generating a REST API from a database" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/styles/default.min.css" />
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter">
+    
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <div>
+          <div class="row">
+	    <div>
+	      <a href="/" class="sm-link">
+		Archive
+              </a>
+	      <a href="/favorites.html" class="sm-link">
+		Popular
+              </a>
+	      <a href="/about.html" class="sm-link">
+		About
+              </a>
+	      <a href="/discord.html" class="sm-link">
+		Discord
+              </a>
+	      <a href="/rss.xml" class="sm-link">
+		RSS
+              </a>
+	    </div>
+	    
+	    <div class="subscribe">
+              <a href="https://docs.google.com/forms/d/e/1FAIpQLSchaYjB6mq0SHmFL_J1wbB7E4SwUk23Dja2K7mfjtYH5o48fw/viewform?usp=sf_link">
+		Subscribe
+              </a>
+	    </div>
+	  </div>
+
+	  	  <div class="row">
+	    <div style="font-size: small; padding-right: 10px">
+	      Elsewhere:
+	    </div>
+
+	    <div>
+	      <a href="https://www.linkedin.com/in/eatonphil" class="sm-link">
+		LinkedIn
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://hachyderm.io/@eatonphil" class="sm-link" rel="me">
+		Mastodon
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://twitter.com/phil_eaton" class="sm-link">
+		Twitter
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://github.com/eatonphil" class="sm-link">
+		GitHub
+              </a>
+	    </div>
+	  </div>
+
+	  <hr />
+          <h2>June 6, 2020</h2>
+          <h1>Generating a REST API from a database</h1>
+          <div class="row" style="padding-bottom: 5px">
+            <div class="tags"><a href="/tags/dbcore.html" class="tag">dbcore</a><a href="/tags/golang.html" class="tag">golang</a><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/mysql.html" class="tag">mysql</a><a href="/tags/sql.html" class="tag">sql</a><a href="/tags/f-sharp.html" class="tag">f-sharp</a></div>
+          </div>
+	</div>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="col-6">
+        <p>I recently published an <a href="https://eatonphil.github.io/dbcore/">alpha version of a code generation tool,
+DBCore,</a> that reads a database
+schema from PostgreSQL or MySQL and generates an entire Go API with
+CRUD operations, pagination, filtering, and authentication.</p>
+<p><img src="https://pbs.twimg.com/media/EZJ7TvNXQAEgraD?format=png&name=large" /></p>
+<p>But more than just generating code like
+<a href="https://github.com/xo/xo">xo/xo</a> or <a href="https://gnorm.org/">gnorm</a>,
+DBCore defines a standard REST API that can be implemented in any
+language -- and includes a reference implementation in Go. I'm eager
+to add Java and Ruby implementations as well. And I'd be more than
+happy to accept community contributions.</p>
+<h3 id="boilerplate-&amp;-code-generation">Boilerplate &amp; code generation</h3><p>Web application boilerplate is boring. You should do it once from
+scratch (preferably down to the socket layer) and never do it again. I
+struggled for the last few years to find the right system to reduce
+boilerplate. If I were building a new line-of-business application as
+an employee I'd pick one of Rails, ASP.NET, Spring, Django, or
+similar.</p>
+<p>I've never worked on one of those frameworks professionally and I've
+never been able to force myself to learn any of them in my free
+time. But even if I could use one of these, none of them get close to
+giving you an entire functioning application with authentication,
+pagination, filtering all based on your existing database.</p>
+<p>Over the last few years though I've relied heavily on code generation
+for Go projects. Code generation is basically the only way to conserve
+type-safe code in Go. But it's similarly
+<a href="https://www.jooq.org/doc/3.13/manual/code-generation/">popular</a> in
+more powerful languages like Java.</p>
+<p>However none of the existing projects give you much flexibility or
+provide you with enough templates to be useful.</p>
+<h3 id="dbcore">DBCore</h3><p>DBCore is written in F# and can be distributed as a static
+binary on all systems .NET now supports (read: not just Windows!).</p>
+<p>Reading from MySQL or PostgreSQL is supported but I'd like to see that
+extended to include SQLite, Oracle, and MS SQL at least.</p>
+<p>As mentioned, currently DBCore only provides a Go REST API
+template. That only solves half the problem of building an application
+though. And while there are some projects that can generate an admin
+CRUD interface for you, I want to see that more tightly integrated
+into DBCore. So I'll be introducing a new template for a browser
+application as well. For each table in the database it will generate a
+page showing paginated entries and allow you to create, update, and
+delete.</p>
+<p>Finally, while the tool only currently has a concept of "browser" and
+"api" templates, the project should be able to accept any kind of
+template and generate any text based on any database schema.</p>
+<p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">New blog post, background and goals for dbcore<a href="https://t.co/XW9gUCtvr0">https://t.co/XW9gUCtvr0</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1269467766727327745?ref_src=twsrc%5Etfw">June 7, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
+<style>.feedback{display:initial;}</style>
+	<hr />
+	<div class="feedback">
+	  <h4>Feedback</h4>
+	  <p><small>As always,
+	  please <a href="mailto:phil@eatonphil.com">email</a>
+	  or <a href="https://twitter.com/phil_eaton">tweet me</a>
+	    with questions, corrections, or ideas!</small></p>
+	</div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="container">
+	<div>
+	  <div class="row">
+	    <div class="feedback">
+	      <p>Frequent Topics</p>
+	      <div class="tags"><a href="/tags/javascript.html" class="tag">javascript (24)</a><a href="/tags/parsing.html" class="tag">parsing (19)</a><a href="/tags/databases.html" class="tag">databases (17)</a><a href="/tags/postgres.html" class="tag">postgres (13)</a><a href="/tags/golang.html" class="tag">golang (13)</a><a href="/tags/compilers.html" class="tag">compilers (13)</a><a href="/tags/sql.html" class="tag">sql (10)</a><a href="/tags/python.html" class="tag">python (8)</a><a href="/tags/management.html" class="tag">management (8)</a><a href="/tags/lisp.html" class="tag">lisp (8)</a><a href="/tags/interpreters.html" class="tag">interpreters (8)</a><a href="/tags/json.html" class="tag">json (7)</a><a href="/tags/go.html" class="tag">go (7)</a><a href="/tags/linux.html" class="tag">linux (6)</a><a href="/tags/books.html" class="tag">books (6)</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64 (5)</a><a href="/tags/typescript.html" class="tag">typescript (5)</a><a href="/tags/learning.html" class="tag">learning (5)</a><a href="/tags/communication.html" class="tag">communication (5)</a><a href="/tags/zig.html" class="tag">zig (4)</a></div>
+	    </div>
+	  </div>
+
+	  <div class="row">
+	    <div>
+	      <a href="/about.html" class="sm-link">
+		About
+              </a>
+	      <a href="/favorites.html" class="sm-link">
+		Popular
+              </a>
+	      <a href="/" class="sm-link">
+		Archive
+              </a>
+	      <a href="/discord.html" class="sm-link">
+		Discord
+              </a>
+	      <a href="/rss.xml" class="sm-link">
+		RSS
+              </a>
+	    </div>
+
+	    <div class="subscribe">
+              <a href="https://docs.google.com/forms/d/e/1FAIpQLSchaYjB6mq0SHmFL_J1wbB7E4SwUk23Dja2K7mfjtYH5o48fw/viewform?usp=sf_link">
+		Subscribe
+              </a>
+	    </div>
+	  </div>
+
+	  <div class="row">
+	    <div style="font-size: small; padding-right: 10px">
+	      Elsewhere:
+	    </div>
+
+	    <div>
+	      <a href="https://www.linkedin.com/in/eatonphil" class="sm-link">
+		LinkedIn
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://hachyderm.io/@eatonphil" class="sm-link" rel="me">
+		Mastodon
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://twitter.com/phil_eaton" class="sm-link">
+		Twitter
+              </a>
+	    </div>
+
+	    <div>
+	      <a href="https://github.com/eatonphil" class="sm-link">
+		GitHub
+              </a>
+	    </div>
+	  </div>
+	</div>
+      </div>
+    </footer>
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-58109156-2');
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/highlight.min.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+  </body>
+</html>
