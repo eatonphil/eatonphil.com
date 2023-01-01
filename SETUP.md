@@ -1,4 +1,4 @@
-Basic steps:
+Basic steps inside a server:
 
 ```
 $ sudo dnf update -y
@@ -6,7 +6,11 @@ $ sudo dnf install -y caddy fail2ban git
 $ cd /usr/share/caddy
 $ sudo rm -rf *
 $ cd ~
-$ git clone https://github.com/eatonphil/notes.eatonphil.com
+$ git clone https://github.com/eatonphil/eatonphil.com
+
+# Set up logs
+$ sudo mkdir /var/log/caddy
+$ sudo chown -R caddy:caddy /var/log/caddy
 ```
 
 Tips:
