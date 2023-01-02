@@ -55,4 +55,23 @@ https://notes.eatonphil.com {
 	}
 }
 
+https://letters.eatonphil.com {
+	encode zstd gzip
+	
+	# Set this path to your site's directory.
+	root * /usr/share/caddy/letters
+
+	# Enable the static file server.
+	file_server
+
+	log {
+		# TODO: figure out a backup solution
+		output file /var/log/caddy/letters.eatonphil.com.access.log {
+			roll_size 1gb
+			roll_keep 15
+			roll_keep_for 36500d # 100 years
+		}
+	}
+}
+
 import Caddyfile.d/*.caddyfile
