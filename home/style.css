@@ -45,11 +45,21 @@ h4 {
     font-size: 1.3rem;
 }
 
-p + h2, pre + h2,
-p + h3, pre + h3,
-p + h4, pre + h4,
-p + h5, pre + h5,
-p + h6, pre + h6 {
+p + h2,
+p + h3,
+p + h4,
+p + h5,
+p + h6,
+pre + h2,
+pre + h3,
+pre + h4,
+pre + h5,
+pre + h6,
+ul + h2,
+ul + h3,
+ul + h4,
+ul + h5,
+ul + h6{
     margin-top: 50px;
 }
 
