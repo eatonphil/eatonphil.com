@@ -3,6 +3,13 @@ Basic steps inside a server:
 ```
 $ sudo dnf update -y
 $ sudo dnf install -y caddy fail2ban git
+
+# Make sure all the services are running permanently
+$ sudo systemctl enable caddy
+$ sudo systemctl start caddy
+$ sudo systemctl enable fail2ban
+$ sudo systemctl start fail2ban
+
 $ cd /usr/share/caddy
 $ sudo rm -rf *
 $ cd ~
