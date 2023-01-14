@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Sat, 14 Jan 2023 02:56:13 +0000</lastBuildDate><item><title>The year in books: 2022</title><link>http://notes.eatonphil.com/2023-01-12-year-in-books.html</link><description>&lt;p&gt;In 2022 I &lt;a href="https://www.goodreads.com/challenges/11636-2022-reading-challenge"&gt;finished 20
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Sat, 14 Jan 2023 03:08:43 +0000</lastBuildDate><item><title>The year in books: 2022</title><link>http://notes.eatonphil.com/2023-01-12-year-in-books.html</link><description>&lt;p&gt;In 2022 I &lt;a href="https://www.goodreads.com/challenges/11636-2022-reading-challenge"&gt;finished 20
 books&lt;/a&gt;
 spanning 15,801 pages.  3 more than I read in 2021, but about twice
 the number of pages. 3 fiction and 17 non-fiction. Another ~30 started
@@ -67,7 +67,19 @@ became such an outspoken progressive activist from being quite
 conservative.&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/17082810-abraham-lincoln"&gt;Abraham Lincoln: A Life, Volume One&lt;/a&gt; by Michael Burlingame&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/17082819-abraham-lincoln"&gt;Abraham Lincoln: A Life, Volume Two&lt;/a&gt; by Michael Burlingame&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/34237826-grant"&gt;Grant&lt;/a&gt; by Ron Chernow&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/34237826-grant"&gt;Grant&lt;/a&gt; by Ron
+Chernow: Among famous generals of the Civil War, somehow Robert
+E. Lee and Stonewall Jackson came to mind to me more readily than
+Grant. I'm glad I read this book because the popularity of Southern
+generals today seems like revisionism. This book makes strong
+arguments that while Lee was a great officer, he could only think in
+terms of short-term tactics and the Virginia region. Whereas Grant
+was the first (US, anyway) officer to consider and command (via
+telegraph) all theaters of war at once, every day. And this book
+redeems his presidency somewhat. His progressive adoption of freed
+Black people and work to make them equal citizens is highly
+commendable. Even with the horror of what happened in the South
+after the war ended.&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/40929.The_Rise_of_Theodore_Roosevelt"&gt;The Rise of Theodore
 Roosevelt&lt;/a&gt;
 by Edmund Morris: First in a three-volume series about the 26th
