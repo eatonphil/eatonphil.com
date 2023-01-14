@@ -1,5 +1,102 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 11 Jan 2023 20:26:16 +0000</lastBuildDate><item><title>Is it worth writing about?</title><link>http://notes.eatonphil.com/is-it-worth-writing-about.html</link><description>&lt;p&gt;You acquire a skill or experience through time and effort,
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Sat, 14 Jan 2023 02:56:13 +0000</lastBuildDate><item><title>The year in books: 2022</title><link>http://notes.eatonphil.com/2023-01-12-year-in-books.html</link><description>&lt;p&gt;In 2022 I &lt;a href="https://www.goodreads.com/challenges/11636-2022-reading-challenge"&gt;finished 20
+books&lt;/a&gt;
+spanning 15,801 pages.  3 more than I read in 2021, but about twice
+the number of pages. 3 fiction and 17 non-fiction. Another ~30 started
+but not finished.&lt;/p&gt;
+&lt;p&gt;I had a hard time reading books while I was trying to start my own
+company. But I also discovered audiobooks. I would put on a book and
+listen while I did my chores. Only 5 of the 20 books I finished were
+physical (or kindle) books. The other 15 were audiobooks.&lt;/p&gt;
+&lt;h3 id="non-fiction:-13-to-recommend"&gt;Non-fiction: 13 to recommend&lt;/h3&gt;&lt;p&gt;After I started read Robert Caro's Master of the Senate I got hooked
+on history and felt less daunted about larger books.&lt;/p&gt;
+&lt;p&gt;The only non-fiction I read in 2022 was US and UK history.&lt;/p&gt;
+&lt;p&gt;Here were my favorites:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/86525.Master_of_the_Senate"&gt;Master of the
+Senate&lt;/a&gt;
+by Robert Caro: Covering more than just Lyndon B. Johnson but the
+history of the Senate and the Civil Rights movements in the US. This
+book is now on my &lt;a href="https://lists.eatonphil.com/book-recommendations.html"&gt;list of best
+books&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/19809.The_Last_Lion"&gt;The Last Lion: Winston Spencer Churchill: Visions of Glory,
+1874-1932&lt;/a&gt;
+by William Manchester: First in a three-volume series about
+Churchill. He's an especially interesting guy to read about because
+he served in UK politics 1901 to his retirement (for the second
+time) as UK Prime Minister in 1955. He was First Lord of the
+Admiralty in World War 1 before he, more famously, become Prime
+Minister during World War 2. This entire series is on my list of
+best books.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/42547.The_Autobiography_of_Martin_Luther_King_Jr_"&gt;The Autobiography of Martin Luther King,
+Jr.&lt;/a&gt;:
+Sad and revealing. Though it doesn't talk much about his legacy
+since it only includes his writings.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/13049569-the-passage-of-power"&gt;Passage of
+Power&lt;/a&gt;
+by Robert Caro: Covering LBJ's pathetic failed attempts at the
+presidency before becoming JFK's Vice President, up to JFK's
+assassination. Still a very good book. I can't wait for Caro's final
+book to come out.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/2279.Truman"&gt;Truman&lt;/a&gt; by David
+McCullough: I always thought Truman was a lame nerd but he actually
+had a very interesting life (and as I'd later discover, is far from
+the lamest president. Wilson hands down takes that place.) And
+unlike most other famous politicians I read about, he had a great
+relationship with his wife. He was honest and respectable and was
+the first US president to normalize relations with Mexico since the
+Mexican-American War (that U.S. Grant and Robert E. Lee fought in in
+the 1840s).&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/55751.The_Last_Lion"&gt;The Last Lion: Winston Spencer Churchill: Alone,
+1932-40&lt;/a&gt; by
+William Manchester: The second book in the series. Pretty
+depressing because it's a decade of Churchill noticing Nazi German
+behavior and stressing UK preparedness and the UK ignoring him and
+Nazi Germany.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/746673.The_Last_Lion"&gt;The Last Lion: Winston Spencer Churchill: Defender of the Realm,
+1940-1965&lt;/a&gt;
+by William Manchester: The final book in the series, covering his
+Prime Ministership.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/884536.Eleanor_Roosevelt_Volume_1"&gt;Eleanor Roosevelt, Volume 1: The Early Years,
+1884-1933&lt;/a&gt;
+by Blanche Wiesen Cook: Her background and many problems, as the
+daughter of Theodore Roosevelt's brother and later husband of their
+distant cousin, is pretty hard to relate to. Still it was quite
+interesting to hear about her life and early activities how she
+became such an outspoken progressive activist from being quite
+conservative.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/17082810-abraham-lincoln"&gt;Abraham Lincoln: A Life, Volume One&lt;/a&gt; by Michael Burlingame&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/17082819-abraham-lincoln"&gt;Abraham Lincoln: A Life, Volume Two&lt;/a&gt; by Michael Burlingame&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/34237826-grant"&gt;Grant&lt;/a&gt; by Ron Chernow&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/40929.The_Rise_of_Theodore_Roosevelt"&gt;The Rise of Theodore
+Roosevelt&lt;/a&gt;
+by Edmund Morris: First in a three-volume series about the 26th
+President. I read somewhere that it can feel impossible to read a
+bad biography of Roosevelt because he was such an interesting
+human. That may be true. This book didn't disappoint. Roosevelt
+growing up in a townhouse in Manhattan, going to Harvard, buying a
+farm on Long Island is all hard to relate to. His Puritanical morals
+and machismo were also difficult to get past. But he was a very
+interesting guy.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/40923.Theodore_Rex"&gt;Theodore
+Rex&lt;/a&gt; by
+Edmund Morris: Second in the series, covering the entirety of
+Roosevelt's presidency. Like the first volume, a great read. I
+always used to think Roosevelt was a pure war-monger. But he helped
+avert war with the UK and Germany over Venezuelan debt-default. And
+he later received the Nobel Peace Prize for mediating peace between
+Japan and Russia in 1905.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="fiction:-1-to-recommend"&gt;Fiction: 1 to recommend&lt;/h3&gt;&lt;p&gt;Of the three I read last year, I really enjoyed one:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/18950097-the-leopard"&gt;The
+Leopard&lt;/a&gt;
+by Giuseppe Tomasi di Lampedusa: A gentle piece of historical
+fiction set during the 1860s in Sicily during and after the
+unification of Italy. I learned about this book from a Rick Stein
+episode in the Mediterranean Escapes series.&lt;/li&gt;
+&lt;/ul&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-12-year-in-books.html</guid><pubDate>Thu, 12 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Is it worth writing about?</title><link>http://notes.eatonphil.com/is-it-worth-writing-about.html</link><description>&lt;p&gt;You acquire a skill or experience through time and effort,
 then downplay the impact of writing and sharing the learning
 process.&lt;/p&gt;
 &lt;p&gt;Professionals seem naturally to imagine a high bar for what
@@ -1896,14 +1993,6 @@ out!&lt;/p&gt;
 &lt;li&gt;Friendly and helpful crowd :)&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3 id="discuss"&gt;Discuss&lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;&lt;a href="https://www.linkedin.com/posts/eatonphil_been-hacking-on-a-port-of-my-old-gosql-project-activity-6997741617545629696-5H9t?utm_source=share&amp;amp;utm_medium=member_desktop"&gt;LinkedIn&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://twitter.com/phil_eaton/status/1591974393130934273"&gt;Twitter&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://lobste.rs/s/ophvp3/writing_sql_database_take_two_zig_rocksdb"&gt;Lobste.rs&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/databasedevelopment/comments/yulvb9/writing_a_sql_database_take_two_zig_and_rocksdb/"&gt;r/databasedevelopment&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/Zig/comments/yulv5p/writing_a_sql_database_take_two_zig_and_rocksdb/"&gt;r/zig&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://discord.multiprocess.io"&gt;discord.multiprocess.io #dbs&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;Spent a month hacking on it and happy to finally have this post out.&lt;br&gt;&lt;br&gt;Let&amp;#39;s build a basic SQL database in Zig on top of RocksDB. 😃&lt;a href="https://t.co/fkSnaEKsya"&gt;https://t.co/fkSnaEKsya&lt;/a&gt; &lt;a href="https://t.co/adfpMvvvOn"&gt;pic.twitter.com/adfpMvvvOn&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@phil_eaton) &lt;a href="https://twitter.com/phil_eaton/status/1591974393130934273?ref_src=twsrc%5Etfw"&gt;November 14, 2022&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
 </description><guid isPermaLink="false">http://notes.eatonphil.com/zigrocks-sql.html</guid><pubDate>Sun, 13 Nov 2022 00:00:00 +0000</pubDate></item><item><title>A minimal RocksDB example with Zig</title><link>http://notes.eatonphil.com/zigrocks.html</link><description>&lt;p&gt;I mostly programmed in Go the last few years. So every time I
@@ -5339,12 +5428,6 @@ an unstructured format when every table has fixed structure. But
 hopefully now you have an idea of how a project like this &lt;em&gt;could be
 structured&lt;/em&gt;. And there's the beginnings of a framework for filling in
 syntax/edge cases over time.&lt;/p&gt;
-&lt;p&gt;Join the discussion on the &lt;a href="https://discord.multiprocess.io/"&gt;Multiprocess Discord #hacking-dbs
-channel&lt;/a&gt;,
-&lt;a href="https://www.reddit.com/r/databasedevelopment"&gt;/r/databasedevelopment&lt;/a&gt;,
-&lt;a href="https://news.ycombinator.com/"&gt;Hacker News&lt;/a&gt;,
-&lt;a href="https://lobste.rs/"&gt;Lobsters&lt;/a&gt; or
-&lt;a href="https://twitter.com/phil_eaton"&gt;Twitter&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;New blog post is up :) Let&amp;#39;s build a distributed postgres proof of concept.&lt;a href="https://t.co/Z8BDzF1bUw"&gt;https://t.co/Z8BDzF1bUw&lt;/a&gt; &lt;a href="https://t.co/aSkOjr9Yrh"&gt;pic.twitter.com/aSkOjr9Yrh&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@phil_eaton) &lt;a href="https://twitter.com/phil_eaton/status/1526598365634605058?ref_src=twsrc%5Etfw"&gt;May 17, 2022&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
 </description><guid isPermaLink="false">http://notes.eatonphil.com/distributed-postgres.html</guid><pubDate>Tue, 17 May 2022 00:00:00 +0000</pubDate></item><item><title>SQLite in Go, with and without cgo</title><link>http://notes.eatonphil.com/sqlite-in-go-with-and-without-cgo.html</link><description>&lt;head&gt;
     &lt;meta http-equiv="refresh" content="4;URL='https://datastation.multiprocess.io/blog/2022-05-12-sqlite-in-go-with-and-without-cgo.html'" /&gt;
@@ -25442,7 +25525,6 @@ forty-one so far (on track for fifty-five or so).&lt;/p&gt;
 &lt;a href="https://www.goodreads.com/eatonphil"&gt;Goodreads&lt;/a&gt;. I particularly enjoy
 their reading challenge system that lets you know if you are on track
 to meet your reading goal for the year.&lt;/p&gt;
-&lt;p&gt;Send &lt;a href="https://twitter.com/phil_eaton"&gt;me&lt;/a&gt; book recommendations!&lt;/p&gt;
 </description><guid isPermaLink="false">http://notes.eatonphil.com/why-and-how-to-read-books.html</guid><pubDate>Wed, 26 Sep 2018 00:00:00 +0000</pubDate></item><item><title>Compiling dynamic programming languages</title><link>http://notes.eatonphil.com/compiling-dynamic-programming-languages.html</link><description>&lt;p&gt;It can be difficult to disassociate the idea that dynamically typed
 programming languages are tied to byte-code interpreters (e.g. YARV
 Ruby, CPython, V8, Zend Engine, etc.). But for many languages, a
