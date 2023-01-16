@@ -8,7 +8,6 @@ from feedgen.feed import FeedGenerator
 
 STATIC = [
     'style.css',
-    'favicon.ico',
 ]
 
 POST_SUMMARY = """

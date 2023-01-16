@@ -1,5 +1,10 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Sat, 14 Jan 2023 03:08:43 +0000</lastBuildDate><item><title>The year in books: 2022</title><link>http://notes.eatonphil.com/2023-01-12-year-in-books.html</link><description>&lt;p&gt;In 2022 I &lt;a href="https://www.goodreads.com/challenges/11636-2022-reading-challenge"&gt;finished 20
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Mon, 16 Jan 2023 16:45:32 +0000</lastBuildDate><item><title>Live coding a Scheme-like language in Go, part 2: parsing</title><link>http://notes.eatonphil.com/2023-01-15-livescheme-part-two.html</link><description>&lt;head&gt;
+    &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=5ttFEPQopXc'" /&gt;
+&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
+&lt;a href="https://www.youtube.com/watch?v=5ttFEPQopXc"&gt;here&lt;/a&gt;
+if you are not redirected.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-15-livescheme-part-two.html</guid><pubDate>Sun, 15 Jan 2023 00:00:00 +0000</pubDate></item><item><title>The year in books: 2022</title><link>http://notes.eatonphil.com/2023-01-12-year-in-books.html</link><description>&lt;p&gt;In 2022 I &lt;a href="https://www.goodreads.com/challenges/11636-2022-reading-challenge"&gt;finished 20
 books&lt;/a&gt;
 spanning 15,801 pages.  3 more than I read in 2021, but about twice
 the number of pages. 3 fiction and 17 non-fiction. Another ~30 started
@@ -26,8 +31,8 @@ Churchill. He's an especially interesting guy to read about because
 he served in UK politics 1901 to his retirement (for the second
 time) as UK Prime Minister in 1955. He was First Lord of the
 Admiralty in World War 1 before he, more famously, become Prime
-Minister during World War 2. This entire series is on my list of
-best books.&lt;/li&gt;
+Minister during World War 2. This entire series is on my &lt;a href="https://lists.eatonphil.com/book-recommendations.html"&gt;list of best
+books&lt;/a&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/42547.The_Autobiography_of_Martin_Luther_King_Jr_"&gt;The Autobiography of Martin Luther King,
 Jr.&lt;/a&gt;:
 Sad and revealing. Though it doesn't talk much about his legacy
@@ -108,7 +113,27 @@ fiction set during the 1860s in Sicily during and after the
 unification of Italy. I learned about this book from a Rick Stein
 episode in the Mediterranean Escapes series.&lt;/li&gt;
 &lt;/ul&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-12-year-in-books.html</guid><pubDate>Thu, 12 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Is it worth writing about?</title><link>http://notes.eatonphil.com/is-it-worth-writing-about.html</link><description>&lt;p&gt;You acquire a skill or experience through time and effort,
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-12-year-in-books.html</guid><pubDate>Thu, 12 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Live coding a Scheme-like language in Go, part 1: a basic lexer</title><link>http://notes.eatonphil.com/2023-01-08-livescheme-part-one.html</link><description>&lt;head&gt;
+    &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=lZNhZI-dN9k'" /&gt;
+&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
+&lt;a href="https://www.youtube.com/watch?v=lZNhZI-dN9k"&gt;here&lt;/a&gt;
+if you are not redirected.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-08-livescheme-part-one.html</guid><pubDate>Sun, 08 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Favorite compiler and interpreter resources</title><link>http://notes.eatonphil.com/2023-01-04-compiler-resources.html</link><description>&lt;head&gt;
+    &lt;meta http-equiv="refresh" content="4;URL='https://lists.eatonphil.com/compilers-and-interpreters.html'" /&gt;
+&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
+&lt;a href="https://lists.eatonphil.com/compilers-and-interpreters.html"&gt;here&lt;/a&gt;
+if you are not redirected.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-04-compiler-resources.html</guid><pubDate>Thu, 05 Jan 2023 00:00:00 +0000</pubDate></item><item><title>General book recommendations</title><link>http://notes.eatonphil.com/2023-01-04-book-recommendations.html</link><description>&lt;head&gt;
+    &lt;meta http-equiv="refresh" content="4;URL='https://lists.eatonphil.com/book-recommendations.html'" /&gt;
+&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
+&lt;a href="https://lists.eatonphil.com/book-recommendations.html"&gt;here&lt;/a&gt;
+if you are not redirected.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-04-book-recommendations.html</guid><pubDate>Wed, 04 Jan 2023 00:00:00 +0000</pubDate></item><item><title>In response to a frontend developer asking about database development</title><link>http://notes.eatonphil.com/2023-01-01-letter-to-a-frontend-developer-asking-about-database-development.html</link><description>&lt;head&gt;
+    &lt;meta http-equiv="refresh" content="4;URL='https://letters.eatonphil.com/2023-01-01-letter-to-a-frontend-developer-asking-about-database-development.html'" /&gt;
+&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
+&lt;a href="https://letters.eatonphil.com/2023-01-01-letter-to-a-frontend-developer-asking-about-database-development.html"&gt;here&lt;/a&gt;
+if you are not redirected.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-01-letter-to-a-frontend-developer-asking-about-database-development.html</guid><pubDate>Sun, 01 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Is it worth writing about?</title><link>http://notes.eatonphil.com/is-it-worth-writing-about.html</link><description>&lt;p&gt;You acquire a skill or experience through time and effort,
 then downplay the impact of writing and sharing the learning
 process.&lt;/p&gt;
 &lt;p&gt;Professionals seem naturally to imagine a high bar for what
