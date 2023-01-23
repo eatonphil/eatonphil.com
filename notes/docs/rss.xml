@@ -1,13 +1,19 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Mon, 23 Jan 2023 23:09:01 +0000</lastBuildDate><item><title>An effective product manager</title><link>http://notes.eatonphil.com/effective-product-manager.html</link><description>&lt;p&gt;There are three specific activities I have loved in some product
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Mon, 23 Jan 2023 23:11:37 +0000</lastBuildDate><item><title>An effective product manager</title><link>http://notes.eatonphil.com/effective-product-manager.html</link><description>&lt;p&gt;There are three specific activities I have loved in some product
 managers I've worked with (and missed in others).&lt;/p&gt;
+&lt;p&gt;tldr;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Talk with customers and prospects&lt;/li&gt;
+&lt;li&gt;Develop and share a vision&lt;/li&gt;
+&lt;li&gt;Evangelize&lt;/li&gt;
+&lt;/ul&gt;
 &lt;h3 id="talk-with-customers-and-prospects"&gt;Talk with customers and prospects&lt;/h3&gt;&lt;p&gt;As a product manager, your superpower over engineering is to have
 spent time with customers and prospects. You should have (or develop)
 a good understanding of the market and your product's potential.&lt;/p&gt;
 &lt;p&gt;The only way you can do this is by spending time, over time, with
 customers and prospects. Understanding their workflows and their
 issues.&lt;/p&gt;
-&lt;h3 id="develop-a-vision-for-the-product"&gt;Develop a vision for the product&lt;/h3&gt;&lt;p&gt;Cynical folks will cringe at the word "vision" but it is a serious and
+&lt;h3 id="develop-and-share-a-vision"&gt;Develop and share a vision&lt;/h3&gt;&lt;p&gt;Cynical folks will cringe at the word "vision" but it is a serious and
 necessary part of a successful organization.&lt;/p&gt;
 &lt;p&gt;As a product manager, you should stablish and share a path for
 engineering to follow based on your understanding of customers,
