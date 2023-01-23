@@ -1,5 +1,40 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Mon, 16 Jan 2023 16:45:32 +0000</lastBuildDate><item><title>Live coding a Scheme-like language in Go, part 2: parsing</title><link>http://notes.eatonphil.com/2023-01-15-livescheme-part-two.html</link><description>&lt;head&gt;
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Mon, 23 Jan 2023 23:09:01 +0000</lastBuildDate><item><title>An effective product manager</title><link>http://notes.eatonphil.com/effective-product-manager.html</link><description>&lt;p&gt;There are three specific activities I have loved in some product
+managers I've worked with (and missed in others).&lt;/p&gt;
+&lt;h3 id="talk-with-customers-and-prospects"&gt;Talk with customers and prospects&lt;/h3&gt;&lt;p&gt;As a product manager, your superpower over engineering is to have
+spent time with customers and prospects. You should have (or develop)
+a good understanding of the market and your product's potential.&lt;/p&gt;
+&lt;p&gt;The only way you can do this is by spending time, over time, with
+customers and prospects. Understanding their workflows and their
+issues.&lt;/p&gt;
+&lt;h3 id="develop-a-vision-for-the-product"&gt;Develop a vision for the product&lt;/h3&gt;&lt;p&gt;Cynical folks will cringe at the word "vision" but it is a serious and
+necessary part of a successful organization.&lt;/p&gt;
+&lt;p&gt;As a product manager, you should stablish and share a path for
+engineering to follow based on your understanding of customers,
+prospects, the market, and the company.&lt;/p&gt;
+&lt;p&gt;This is the "roadmap" and "prioritization". But prioritization is
+useless without a long-term vision.&lt;/p&gt;
+&lt;p&gt;The roadmap should represent (and broadly demonstrate) a concrete and
+meaningful goal. A goal that you can and should adjust over time as
+the company and market changes.&lt;/p&gt;
+&lt;h3 id="evangelize"&gt;Evangelize&lt;/h3&gt;&lt;p&gt;In bigger organizations there might be dedicated evangelism teams. But
+product managers must drive this work.&lt;/p&gt;
+&lt;p&gt;Evangelism should fit the vision you've developed.&lt;/p&gt;
+&lt;p&gt;And in the absense of dedicated evangelism teams, product managers
+should be creating demos, writing blog posts, and testing the solution
+with customers and prospects.&lt;/p&gt;
+&lt;p&gt;Again, it's fine for dedicated teams outside of product management to
+do bits of that work. But it must be driven and led by the product
+manager.&lt;/p&gt;
+&lt;h3 id="it's-hard"&gt;It's hard&lt;/h3&gt;&lt;p&gt;Observed as I have from outside, being an effective product
+manager feels like a massively challenging task.&lt;/p&gt;
+&lt;p&gt;It's so easy to go without talking to customers, to get sucked into
+day-to-day issues and not create a vision, and to allow evangelism to
+happen ad-hoc.&lt;/p&gt;
+&lt;h3 id="my-ideas,-your-ideas"&gt;My ideas, your ideas&lt;/h3&gt;&lt;p&gt;These are my ideas based on my
+&lt;a href="https://eatonphil.com/"&gt;experience&lt;/a&gt;. You may have your own ideas. If
+mine help you, great! If they don't, great!&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/effective-product-manager.html</guid><pubDate>Mon, 23 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Live coding a Scheme-like language in Go, part 2: parsing</title><link>http://notes.eatonphil.com/2023-01-15-livescheme-part-two.html</link><description>&lt;head&gt;
     &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=5ttFEPQopXc'" /&gt;
 &lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
 &lt;a href="https://www.youtube.com/watch?v=5ttFEPQopXc"&gt;here&lt;/a&gt;
