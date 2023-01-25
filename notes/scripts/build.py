@@ -42,7 +42,6 @@ HOME_PAGE = """
 </div>
 
 <div class="fp-section fp-section--notes">
-  <h2 class="fp-h2">Notes</h2>
   {notes}
 </div>
 """
