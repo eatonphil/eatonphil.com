@@ -8,7 +8,6 @@ from feedgen.feed import FeedGenerator
 
 STATIC = [
     'style.css',
-    'favicon.ico',
 ]
 
 POST_SUMMARY = """
@@ -166,6 +165,10 @@ def main():
 
     for f in STATIC:
         shutil.copy(f, os.path.join('docs', f))
+
+        if f == "style.css":
+            for other_folder in ['lists', 'letters', 'home']:
+                shutil.copy(f, os.path.join('../', other_folder, 'style.css'))
 
     fg = FeedGenerator()
     for url, title, date, post, content, _ in reversed(post_data):

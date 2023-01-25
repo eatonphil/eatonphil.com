@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 11 Jan 2023 20:26:16 +0000</lastBuildDate><item><title>Is it worth writing about?</title><link>http://notes.eatonphil.com/is-it-worth-writing-about.html</link><description>&lt;p&gt;You acquire a skill or experience through time and effort,
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 25 Jan 2023 22:31:45 +0000</lastBuildDate><item><title>Is it worth writing about?</title><link>http://notes.eatonphil.com/is-it-worth-writing-about.html</link><description>&lt;p&gt;You acquire a skill or experience through time and effort,
 then downplay the impact of writing and sharing the learning
 process.&lt;/p&gt;
 &lt;p&gt;Professionals seem naturally to imagine a high bar for what
@@ -1896,14 +1896,6 @@ out!&lt;/p&gt;
 &lt;li&gt;Friendly and helpful crowd :)&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3 id="discuss"&gt;Discuss&lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;&lt;a href="https://www.linkedin.com/posts/eatonphil_been-hacking-on-a-port-of-my-old-gosql-project-activity-6997741617545629696-5H9t?utm_source=share&amp;amp;utm_medium=member_desktop"&gt;LinkedIn&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://twitter.com/phil_eaton/status/1591974393130934273"&gt;Twitter&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://lobste.rs/s/ophvp3/writing_sql_database_take_two_zig_rocksdb"&gt;Lobste.rs&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/databasedevelopment/comments/yulvb9/writing_a_sql_database_take_two_zig_and_rocksdb/"&gt;r/databasedevelopment&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/Zig/comments/yulv5p/writing_a_sql_database_take_two_zig_and_rocksdb/"&gt;r/zig&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://discord.multiprocess.io"&gt;discord.multiprocess.io #dbs&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;Spent a month hacking on it and happy to finally have this post out.&lt;br&gt;&lt;br&gt;Let&amp;#39;s build a basic SQL database in Zig on top of RocksDB. 😃&lt;a href="https://t.co/fkSnaEKsya"&gt;https://t.co/fkSnaEKsya&lt;/a&gt; &lt;a href="https://t.co/adfpMvvvOn"&gt;pic.twitter.com/adfpMvvvOn&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@phil_eaton) &lt;a href="https://twitter.com/phil_eaton/status/1591974393130934273?ref_src=twsrc%5Etfw"&gt;November 14, 2022&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
 </description><guid isPermaLink="false">http://notes.eatonphil.com/zigrocks-sql.html</guid><pubDate>Sun, 13 Nov 2022 00:00:00 +0000</pubDate></item><item><title>A minimal RocksDB example with Zig</title><link>http://notes.eatonphil.com/zigrocks.html</link><description>&lt;p&gt;I mostly programmed in Go the last few years. So every time I
@@ -5339,12 +5331,6 @@ an unstructured format when every table has fixed structure. But
 hopefully now you have an idea of how a project like this &lt;em&gt;could be
 structured&lt;/em&gt;. And there's the beginnings of a framework for filling in
 syntax/edge cases over time.&lt;/p&gt;
-&lt;p&gt;Join the discussion on the &lt;a href="https://discord.multiprocess.io/"&gt;Multiprocess Discord #hacking-dbs
-channel&lt;/a&gt;,
-&lt;a href="https://www.reddit.com/r/databasedevelopment"&gt;/r/databasedevelopment&lt;/a&gt;,
-&lt;a href="https://news.ycombinator.com/"&gt;Hacker News&lt;/a&gt;,
-&lt;a href="https://lobste.rs/"&gt;Lobsters&lt;/a&gt; or
-&lt;a href="https://twitter.com/phil_eaton"&gt;Twitter&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;New blog post is up :) Let&amp;#39;s build a distributed postgres proof of concept.&lt;a href="https://t.co/Z8BDzF1bUw"&gt;https://t.co/Z8BDzF1bUw&lt;/a&gt; &lt;a href="https://t.co/aSkOjr9Yrh"&gt;pic.twitter.com/aSkOjr9Yrh&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@phil_eaton) &lt;a href="https://twitter.com/phil_eaton/status/1526598365634605058?ref_src=twsrc%5Etfw"&gt;May 17, 2022&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
 </description><guid isPermaLink="false">http://notes.eatonphil.com/distributed-postgres.html</guid><pubDate>Tue, 17 May 2022 00:00:00 +0000</pubDate></item><item><title>SQLite in Go, with and without cgo</title><link>http://notes.eatonphil.com/sqlite-in-go-with-and-without-cgo.html</link><description>&lt;head&gt;
     &lt;meta http-equiv="refresh" content="4;URL='https://datastation.multiprocess.io/blog/2022-05-12-sqlite-in-go-with-and-without-cgo.html'" /&gt;
@@ -25442,7 +25428,6 @@ forty-one so far (on track for fifty-five or so).&lt;/p&gt;
 &lt;a href="https://www.goodreads.com/eatonphil"&gt;Goodreads&lt;/a&gt;. I particularly enjoy
 their reading challenge system that lets you know if you are on track
 to meet your reading goal for the year.&lt;/p&gt;
-&lt;p&gt;Send &lt;a href="https://twitter.com/phil_eaton"&gt;me&lt;/a&gt; book recommendations!&lt;/p&gt;
 </description><guid isPermaLink="false">http://notes.eatonphil.com/why-and-how-to-read-books.html</guid><pubDate>Wed, 26 Sep 2018 00:00:00 +0000</pubDate></item><item><title>Compiling dynamic programming languages</title><link>http://notes.eatonphil.com/compiling-dynamic-programming-languages.html</link><description>&lt;p&gt;It can be difficult to disassociate the idea that dynamically typed
 programming languages are tied to byte-code interpreters (e.g. YARV
 Ruby, CPython, V8, Zend Engine, etc.). But for many languages, a
