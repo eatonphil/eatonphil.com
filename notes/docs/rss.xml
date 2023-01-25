@@ -1,5 +1,190 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 25 Jan 2023 22:31:45 +0000</lastBuildDate><item><title>Is it worth writing about?</title><link>http://notes.eatonphil.com/is-it-worth-writing-about.html</link><description>&lt;p&gt;You acquire a skill or experience through time and effort,
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 25 Jan 2023 22:32:54 +0000</lastBuildDate><item><title>An effective product manager</title><link>http://notes.eatonphil.com/effective-product-manager.html</link><description>&lt;p&gt;There are three specific activities I have loved in some product
+managers I've worked with (and missed in others).&lt;/p&gt;
+&lt;p&gt;tldr;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Talk with customers and prospects&lt;/li&gt;
+&lt;li&gt;Develop and share a vision&lt;/li&gt;
+&lt;li&gt;Evangelize&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="talk-with-customers-and-prospects"&gt;Talk with customers and prospects&lt;/h3&gt;&lt;p&gt;As a product manager, your superpower over engineering is to have
+spent time with customers and prospects. You should have (or develop)
+a good understanding of the market and your product's potential.&lt;/p&gt;
+&lt;p&gt;The only way you can do this is by spending time, over time, with
+customers and prospects. Understanding their workflows and their
+issues.&lt;/p&gt;
+&lt;h3 id="develop-and-share-a-vision"&gt;Develop and share a vision&lt;/h3&gt;&lt;p&gt;Cynical folks will cringe at the word "vision" but it is a serious and
+necessary part of a successful organization.&lt;/p&gt;
+&lt;p&gt;As a product manager, you should stablish and share a path for
+engineering to follow based on your understanding of customers,
+prospects, the market, and the company.&lt;/p&gt;
+&lt;p&gt;This is the "roadmap" and "prioritization". But prioritization is
+useless without a long-term vision.&lt;/p&gt;
+&lt;p&gt;The roadmap should represent (and broadly demonstrate) a concrete and
+meaningful goal. A goal that you can and should adjust over time as
+the company and market changes.&lt;/p&gt;
+&lt;h3 id="evangelize"&gt;Evangelize&lt;/h3&gt;&lt;p&gt;In bigger organizations there might be dedicated evangelism teams. But
+product managers must drive this work.&lt;/p&gt;
+&lt;p&gt;Evangelism should fit the vision you've developed.&lt;/p&gt;
+&lt;p&gt;And in the absense of dedicated evangelism teams, product managers
+should be creating demos, writing blog posts, and testing the solution
+with customers and prospects.&lt;/p&gt;
+&lt;p&gt;Again, it's fine for dedicated teams outside of product management to
+do bits of that work. But it must be driven and led by the product
+manager.&lt;/p&gt;
+&lt;h3 id="it's-hard"&gt;It's hard&lt;/h3&gt;&lt;p&gt;Observed as I have from outside, being an effective product
+manager feels like a massively challenging task.&lt;/p&gt;
+&lt;p&gt;It's so easy to go without talking to customers, to get sucked into
+day-to-day issues and not create a vision, and to allow evangelism to
+happen ad-hoc.&lt;/p&gt;
+&lt;p&gt;Then there's the fact you don't live in a vacuum. You may have a boss
+in product management. Your engineering peers may have competing
+priorities. You may have a hard time understanding the founders or
+CEO. In a large company, you may not even have a CEO.&lt;/p&gt;
+&lt;h3 id="my-ideas,-your-ideas"&gt;My ideas, your ideas&lt;/h3&gt;&lt;p&gt;These are my ideas based on my
+&lt;a href="https://eatonphil.com/"&gt;experience&lt;/a&gt;. You may have your own ideas. If
+mine help you, great! If they don't, great!&lt;/p&gt;
+&lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;I&amp;#39;ve been considering recently what makes an effective product manager. So I wrote down a few of my thoughts.&lt;br&gt;&lt;br&gt;What I&amp;#39;ve loved the most in some PMs and missed the most in others.&lt;br&gt;&lt;br&gt;I&amp;#39;d likewise love to hear what you think!&lt;a href="https://t.co/5vTWTNhs68"&gt;https://t.co/5vTWTNhs68&lt;/a&gt; &lt;a href="https://t.co/vXjPY9fiVT"&gt;pic.twitter.com/vXjPY9fiVT&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@eatonphil) &lt;a href="https://twitter.com/eatonphil/status/1617661616593723394?ref_src=twsrc%5Etfw"&gt;January 23, 2023&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/effective-product-manager.html</guid><pubDate>Mon, 23 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Live coding a Scheme-like language in Go, part 3: AST walking interpreter</title><link>http://notes.eatonphil.com/2023-01-22-livescheme-part-three.html</link><description>&lt;head&gt;
+    &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=YwmGcverSHI'" /&gt;
+&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
+&lt;a href="https://www.youtube.com/watch?v=YwmGcverSHI"&gt;here&lt;/a&gt;
+if you are not redirected.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-22-livescheme-part-three.html</guid><pubDate>Sun, 22 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Live coding a Scheme-like language in Go, part 2: parsing</title><link>http://notes.eatonphil.com/2023-01-15-livescheme-part-two.html</link><description>&lt;head&gt;
+    &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=5ttFEPQopXc'" /&gt;
+&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
+&lt;a href="https://www.youtube.com/watch?v=5ttFEPQopXc"&gt;here&lt;/a&gt;
+if you are not redirected.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-15-livescheme-part-two.html</guid><pubDate>Sun, 15 Jan 2023 00:00:00 +0000</pubDate></item><item><title>The year in books: 2022</title><link>http://notes.eatonphil.com/2023-01-12-year-in-books.html</link><description>&lt;p&gt;In 2022 I &lt;a href="https://www.goodreads.com/challenges/11636-2022-reading-challenge"&gt;finished 20
+books&lt;/a&gt;
+spanning 15,801 pages.  3 more than I read in 2021, but about twice
+the number of pages. 3 fiction and 17 non-fiction. Another ~30 started
+but not finished.&lt;/p&gt;
+&lt;p&gt;I had a hard time reading books while I was trying to start my own
+company. But I also discovered audiobooks. I would put on a book and
+listen while I did my chores. Only 5 of the 20 books I finished were
+physical (or kindle) books. The other 15 were audiobooks.&lt;/p&gt;
+&lt;h3 id="non-fiction:-13-to-recommend"&gt;Non-fiction: 13 to recommend&lt;/h3&gt;&lt;p&gt;After I started read Robert Caro's Master of the Senate I got hooked
+on history and felt less daunted about larger books.&lt;/p&gt;
+&lt;p&gt;The only non-fiction I read in 2022 was US and UK history.&lt;/p&gt;
+&lt;p&gt;Here were my favorites:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/86525.Master_of_the_Senate"&gt;Master of the
+Senate&lt;/a&gt;
+by Robert Caro: Covering more than just Lyndon B. Johnson but the
+history of the Senate and the Civil Rights movements in the US. This
+book is now on my &lt;a href="https://lists.eatonphil.com/book-recommendations.html"&gt;list of best
+books&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/19809.The_Last_Lion"&gt;The Last Lion: Winston Spencer Churchill: Visions of Glory,
+1874-1932&lt;/a&gt;
+by William Manchester: First in a three-volume series about
+Churchill. He's an especially interesting guy to read about because
+he served in UK politics 1901 to his retirement (for the second
+time) as UK Prime Minister in 1955. He was First Lord of the
+Admiralty in World War 1 before he, more famously, become Prime
+Minister during World War 2. This entire series is on my &lt;a href="https://lists.eatonphil.com/book-recommendations.html"&gt;list of best
+books&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/42547.The_Autobiography_of_Martin_Luther_King_Jr_"&gt;The Autobiography of Martin Luther King,
+Jr.&lt;/a&gt;:
+Sad and revealing. Though it doesn't talk much about his legacy
+since it only includes his writings.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/13049569-the-passage-of-power"&gt;Passage of
+Power&lt;/a&gt;
+by Robert Caro: Covering LBJ's pathetic failed attempts at the
+presidency before becoming JFK's Vice President, up to JFK's
+assassination. Still a very good book. I can't wait for Caro's final
+book to come out.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/2279.Truman"&gt;Truman&lt;/a&gt; by David
+McCullough: I always thought Truman was a lame nerd but he actually
+had a very interesting life (and as I'd later discover, is far from
+the lamest president. Wilson hands down takes that place.) And
+unlike most other famous politicians I read about, he had a great
+relationship with his wife. He was honest and respectable and was
+the first US president to normalize relations with Mexico since the
+Mexican-American War (that U.S. Grant and Robert E. Lee fought in in
+the 1840s).&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/55751.The_Last_Lion"&gt;The Last Lion: Winston Spencer Churchill: Alone,
+1932-40&lt;/a&gt; by
+William Manchester: The second book in the series. Pretty
+depressing because it's a decade of Churchill noticing Nazi German
+behavior and stressing UK preparedness and the UK ignoring him and
+Nazi Germany.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/746673.The_Last_Lion"&gt;The Last Lion: Winston Spencer Churchill: Defender of the Realm,
+1940-1965&lt;/a&gt;
+by William Manchester: The final book in the series, covering his
+Prime Ministership.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/884536.Eleanor_Roosevelt_Volume_1"&gt;Eleanor Roosevelt, Volume 1: The Early Years,
+1884-1933&lt;/a&gt;
+by Blanche Wiesen Cook: Her background and many problems, as the
+daughter of Theodore Roosevelt's brother and later husband of their
+distant cousin, is pretty hard to relate to. Still it was quite
+interesting to hear about her life and early activities how she
+became such an outspoken progressive activist from being quite
+conservative.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/17082810-abraham-lincoln"&gt;Abraham Lincoln: A Life, Volume One&lt;/a&gt; by Michael Burlingame&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/17082819-abraham-lincoln"&gt;Abraham Lincoln: A Life, Volume Two&lt;/a&gt; by Michael Burlingame&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/34237826-grant"&gt;Grant&lt;/a&gt; by Ron
+Chernow: Among famous generals of the Civil War, somehow Robert
+E. Lee and Stonewall Jackson came to mind to me more readily than
+Grant. I'm glad I read this book because the popularity of Southern
+generals today seems like revisionism. This book makes strong
+arguments that while Lee was a great officer, he could only think in
+terms of short-term tactics and the Virginia region. Whereas Grant
+was the first (US, anyway) officer to consider and command (via
+telegraph) all theaters of war at once, every day. And this book
+redeems his presidency somewhat. His progressive adoption of freed
+Black people and work to make them equal citizens is highly
+commendable. Even with the horror of what happened in the South
+after the war ended.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/40929.The_Rise_of_Theodore_Roosevelt"&gt;The Rise of Theodore
+Roosevelt&lt;/a&gt;
+by Edmund Morris: First in a three-volume series about the 26th
+President. I read somewhere that it can feel impossible to read a
+bad biography of Roosevelt because he was such an interesting
+human. That may be true. This book didn't disappoint. Roosevelt
+growing up in a townhouse in Manhattan, going to Harvard, buying a
+farm on Long Island is all hard to relate to. His Puritanical morals
+and machismo were also difficult to get past. But he was a very
+interesting guy.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/40923.Theodore_Rex"&gt;Theodore
+Rex&lt;/a&gt; by
+Edmund Morris: Second in the series, covering the entirety of
+Roosevelt's presidency. Like the first volume, a great read. I
+always used to think Roosevelt was a pure war-monger. But he helped
+avert war with the UK and Germany over Venezuelan debt-default. And
+he later received the Nobel Peace Prize for mediating peace between
+Japan and Russia in 1905.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="fiction:-1-to-recommend"&gt;Fiction: 1 to recommend&lt;/h3&gt;&lt;p&gt;Of the three I read last year, I really enjoyed one:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.goodreads.com/book/show/18950097-the-leopard"&gt;The
+Leopard&lt;/a&gt;
+by Giuseppe Tomasi di Lampedusa: A gentle piece of historical
+fiction set during the 1860s in Sicily during and after the
+unification of Italy. I learned about this book from a Rick Stein
+episode in the Mediterranean Escapes series.&lt;/li&gt;
+&lt;/ul&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-12-year-in-books.html</guid><pubDate>Thu, 12 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Live coding a Scheme-like language in Go, part 1: a basic lexer</title><link>http://notes.eatonphil.com/2023-01-08-livescheme-part-one.html</link><description>&lt;head&gt;
+    &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=lZNhZI-dN9k'" /&gt;
+&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
+&lt;a href="https://www.youtube.com/watch?v=lZNhZI-dN9k"&gt;here&lt;/a&gt;
+if you are not redirected.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-08-livescheme-part-one.html</guid><pubDate>Sun, 08 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Favorite compiler and interpreter resources</title><link>http://notes.eatonphil.com/2023-01-04-compiler-resources.html</link><description>&lt;head&gt;
+    &lt;meta http-equiv="refresh" content="4;URL='https://lists.eatonphil.com/compilers-and-interpreters.html'" /&gt;
+&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
+&lt;a href="https://lists.eatonphil.com/compilers-and-interpreters.html"&gt;here&lt;/a&gt;
+if you are not redirected.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-04-compiler-resources.html</guid><pubDate>Thu, 05 Jan 2023 00:00:00 +0000</pubDate></item><item><title>General book recommendations</title><link>http://notes.eatonphil.com/2023-01-04-book-recommendations.html</link><description>&lt;head&gt;
+    &lt;meta http-equiv="refresh" content="4;URL='https://lists.eatonphil.com/book-recommendations.html'" /&gt;
+&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
+&lt;a href="https://lists.eatonphil.com/book-recommendations.html"&gt;here&lt;/a&gt;
+if you are not redirected.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-04-book-recommendations.html</guid><pubDate>Wed, 04 Jan 2023 00:00:00 +0000</pubDate></item><item><title>In response to a frontend developer asking about database development</title><link>http://notes.eatonphil.com/2023-01-01-letter-to-a-frontend-developer-asking-about-database-development.html</link><description>&lt;head&gt;
+    &lt;meta http-equiv="refresh" content="4;URL='https://letters.eatonphil.com/2023-01-01-letter-to-a-frontend-developer-asking-about-database-development.html'" /&gt;
+&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
+&lt;a href="https://letters.eatonphil.com/2023-01-01-letter-to-a-frontend-developer-asking-about-database-development.html"&gt;here&lt;/a&gt;
+if you are not redirected.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-01-letter-to-a-frontend-developer-asking-about-database-development.html</guid><pubDate>Sun, 01 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Is it worth writing about?</title><link>http://notes.eatonphil.com/is-it-worth-writing-about.html</link><description>&lt;p&gt;You acquire a skill or experience through time and effort,
 then downplay the impact of writing and sharing the learning
 process.&lt;/p&gt;
 &lt;p&gt;Professionals seem naturally to imagine a high bar for what

@@ -46,6 +46,7 @@ HOME_PAGE = """
   {notes}
 </div>
 """
+MAIL = open("mail.html").read()
 TEMPLATE = open('template.html').read()
 TAG = "Notes on software development"
 
@@ -119,7 +120,7 @@ def main():
         except:
             t = out_file.split('.')[0].title()
             with open('docs/' + out_file, 'w') as f:
-                f.write(TEMPLATE.format(post=output, meta="", tag=t, subtitle="", title="", tags="", frequent_tags=""))
+                f.write(TEMPLATE.format(post=output, meta="", tag=t, subtitle="", title="", tags="", frequent_tags="", full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL))
             continue
 
         tags = tags_raw.split(",")
@@ -143,7 +144,7 @@ def main():
 
     for (out_file, title, date, _, output, tags_html) in post_data:
         with open('docs/' + out_file, 'w') as f:
-            f.write(TEMPLATE.format(post=output+showfeedback, title=title, subtitle=date, tag=title, tags=tags_html, meta="", frequent_tags=frequent_tags))
+            f.write(TEMPLATE.format(post=output+showfeedback, title=title, subtitle=date, tag=title, tags=tags_html, meta="", frequent_tags=frequent_tags, full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL))
 
     post_data.sort(key=lambda post: datetime.strptime(post[2], '%B %d, %Y'))
     post_data.reverse()
@@ -161,7 +162,7 @@ def main():
         tags=frequent_tags)
     with open('docs/index.html', 'w') as f:
         meta = '<meta name="google-site-verification" content="s-Odt0Dj7WZzEk6hLV28wLyR5LeGQFoopUV3IDNO6bM" />\n    '
-        f.write(TEMPLATE.format(post=home_page, title="", tag=TAG, subtitle="", tags="", meta=meta, frequent_tags=""))
+        f.write(TEMPLATE.format(post=home_page, title="", tag=TAG, subtitle="", tags="", meta=meta, frequent_tags="", full_url="https://notes.eatonphil.com", mail=MAIL))
 
     for f in STATIC:
         shutil.copy(f, os.path.join('docs', f))
@@ -214,17 +215,18 @@ Sitemap: https://notes.eatonphil.com/sitemap.xml""")
         tag_index.append(f'<a href="/tags/{tag.replace(" ", "-").replace("/", "-")}.html" class="tag {"tag--common" if i < 20 else ""}">{tag} ({count})</a>')
     with open('docs/tags/index.html', 'w') as f:
         index_page = f'<div class="tags">{"".join(tag_index)}</div>'
-        f.write(TEMPLATE.format(post=index_page, title="All Topics", tag="All Topics", subtitle="", tags="", meta="", frequent_tags=""))
+        f.write(TEMPLATE.format(post=index_page, title="All Topics", tag="All Topics", subtitle="", tags="", meta="", frequent_tags="", full_url="https://notes.eatonphil.com/tags/", mail=MAIL))
 
     # Write each individual tag page
     for tag in all_tags:
         posts = all_tags[tag]
-        with open('docs/tags/%s.html' % tag.replace(' ', '-').replace('/', '-'), 'w') as f:
+        file_name = '%s.html' % tag.replace(' ', '-').replace('/', '-')
+        with open('docs/tags/'+file_name, 'w') as f:
             posts.sort(key=lambda post: datetime.strptime(post[2], '%B %d, %Y'))
             posts.reverse()
             tag_page = TAG_PAGE.format(tag)
             tag_page += "\n".join([TAG_SUMMARY.format(*args) for args in posts])
-            f.write(TEMPLATE.format(post=tag_page, title="", tag=TAG, subtitle="", tags="", meta="", frequent_tags=""))
+            f.write(TEMPLATE.format(post=tag_page, title="", tag=TAG, subtitle="", tags="", meta="", frequent_tags="", full_url="https://notes.eatonphil.com/tags/"+file_name, mail=MAIL))
 
 
 if __name__ == '__main__':
