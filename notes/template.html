@@ -2,19 +2,13 @@
 <html>
   <head>
     {meta}<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-
     <link rel="canonical" href="{full_url}">
-    
     <title>{tag} | notes.eatonphil.com</title>
     <meta name="description" content="{tag}" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/styles/default.min.css" />
-
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter">
-    
     <link rel="stylesheet" type="text/css" href="/style.css" />
-
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
   <body>
@@ -35,15 +29,14 @@
 	      <a href="/rss.xml" class="sm-link">
 		RSS
               </a>
-	    </div>
-	    
-	    <div class="subscribe">
-              <a href="https://docs.google.com/forms/d/e/1FAIpQLSchaYjB6mq0SHmFL_J1wbB7E4SwUk23Dja2K7mfjtYH5o48fw/viewform?usp=sf_link">
-		Subscribe
-              </a>
+	      
+	      <div class="subscribe">                                     
+		<a href="{full_url}#subscribe">       
+		  Subscribe          
+		</a>
+              </div>
 	    </div>
 	  </div>
-
 	  <hr />
           <h2>{subtitle}</h2>
           <h1>{title}</h1>
@@ -53,7 +46,6 @@
 	</div>
       </div>
     </header>
-
     <div class="container">
       <div class="col-6">
         {post}
@@ -61,13 +53,12 @@
 	<div class="feedback">
 	  <h4>Feedback</h4>
 	  <p><small>As always,
-	  please <a href="mailto:phil@eatonphil.com">email</a>
-	  or <a href="https://twitter.com/eatonphil">tweet me</a>
-	    with questions, corrections, or ideas!</small></p>
+	      please <a href="mailto:phil@eatonphil.com">email</a>
+	      or <a href="https://twitter.com/eatonphil">tweet me</a>
+	      with questions, corrections, or ideas!</small></p>
 	</div>
       </div>
     </div>
-
     <footer>
       <div class="container">
 	<div>
@@ -77,45 +68,21 @@
 	      <div class="tags">{frequent_tags}</div>
 	    </div>
 	  </div>
-
-	  <div class="row">
-	    <div>
-	      <a href="https://eatonphil.com" class="sm-link">
-		Home
-              </a>
-	      <a href="/favorites.html" class="sm-link">
-		Popular
-              </a>
-	      <a href="/" class="sm-link">
-		Notes
-              </a>
-	      <a href="/rss.xml" class="sm-link">
-		RSS
-              </a>
-	    </div>
-
-	    <div class="subscribe">
-              <a href="https://docs.google.com/forms/d/e/1FAIpQLSchaYjB6mq0SHmFL_J1wbB7E4SwUk23Dja2K7mfjtYH5o48fw/viewform?usp=sf_link">
-		Subscribe
-              </a>
-	    </div>
+	  <div class="row" id="subscribe">
+	    {mail}
 	  </div>
 	</div>
       </div>
     </footer>
-
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){{dataLayer.push(arguments);}}
       gtag('js', new Date());
-
       gtag('config', 'UA-58109156-2');
     </script>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/highlight.min.js"></script>
     <script>hljs.initHighlightingOnLoad();</script>
-
     <script src="https://cdn.usefathom.com/script.js" data-site="CEPUOLOQ" defer></script>
   </body>
 </html>
