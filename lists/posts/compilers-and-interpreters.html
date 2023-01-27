@@ -1,272 +1,244 @@
-<title>Favorite compiler and interpreter resources</title>
+title = Favorite compiler and interpreter resources
+date = Last updated Jan 5, 2023
 
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<link href="./style.css" rel="stylesheet" type="text/css" />
-<meta charset="utf-8">
+---
 
-<header>
-  <div class="container">
-    <div>
-      <div class="row">
-	<a class="sm-link" href="https://eatonphil.com">Home</a>
+<p>
+  My personal path, a hobbyist, was focused at first on
+  interpreters for Brainfuck, Scheme, lower-case forth, and
+  lower-case lisp. I had a bit of "formal" undergraduate training
+  in one PL course and one compilers course I took before I
+  dropped out, but for the most part I hacked on stuff since then
+  for fun and education.
+</p>
+<p>
+  After I was confident implementing some of those minimal
+  languages, I moved on to minimal versions of Lua,
+  JavaScript/TypeScript, Python, SQL and Go; varying between
+  implementing AST interpreters, bytecode VMs and native-code
+  compilers (via C, LLVM, and x86). Either using the language's
+  first-party parser or implementing my own handwritten parser.
+</p>
 
-	<a class="sm-link" href="/">Lists</a>
+#### Some blind spots
+<p>
+  I have never implemented garbage collection myself (at best I've
+  hooked into the host language's GC, similar to using libgc). I
+  haven't implemented register allocation since the college
+  compilers course. I haven't implemented JIT compilation. I
+  haven't spent very much time targeting Windows or macOS or
+  anything other than Linux/x86_64.
+</p>
 
-	<a class="sm-link" href="https://notes.eatonphil.com/rss.xml">RSS</a>
-      </div>
-    </div>
-  </div>
-</header>
+### The popularity of lisps and forths
+<p>
+  You might wonder why so many PL/compiler resources focus on
+  languages like lower-case lisp. Basically, parsing more common
+  languages is more tedious because they have more syntax. So it
+  takes you longer to get a working language implementation
+  compared to the sparse syntax of a lisp (or a forth).
+</p>
+<p>
+  Once you get the hang of it with a forth or lisp though it's
+  easy to bring that skill to "normal" languages. Although you
+  will then need to pick up a technique for handling operator
+  precedence (discussed below).
+</p>
 
-<div class="container">
-  <div>
-    <h1>Favorite compiler and interpreter resources</h1>
-    <h2>Last updated Jan 5, 2023</h2>
-    <br />
-    <hr />
+<h3>Introductory</h3>
+<p>
+  These helped me out and I think are reasonable to recommend to
+  others. The list is not long because I have not explored that
+  many broad introductory texts. And many that I did (listed
+  further below) I really didn't like.
+</p>
+<ul>
+  <li><a href="https://norvig.com/lispy.html">Peter Norvig's Lisp in Python</a></li>
+  <li><a href="https://github.com/kanaka/mal">Make a lisp</a></li>
+</ul>
 
+<h3>Parsing (operator precedence)</h3>
+<p>
+  First
+  off, <a href="https://notes.eatonphil.com/parser-generators-vs-handwritten-parsers-survey-2021.html">real
+    world languages generally don't use parser
+    generators</a>. Parser generators are also harder to learn, and
+  are another dependency and build step. So you can happily skip.
+</p>
+<p>
+  If you still want to learn how to use a parser generator, look
+  at books that are otherwise not ones I recommend like Modern
+  Compiler Implementation in Java/C/ML or at The Dragon Book.
+</p>
+<p>
+  You can pick up the basics of handwritten parsers from the items
+  in the Introductory section above. The major complex part
+  remaining is operator precedence. Even though I've implemented
+  it a few times, I need to go and look up an explanation again
+  every time.
+</p>
+<p>
+  Basically, look up <strong>Shunting Yard</strong>, <strong>Pratt
+    Parsing</strong>, or <strong>Precedence Climbing</strong>. There
+  were one or two pages that helped me out in particular but I
+  can't find them at the moment.
+</p>
+<p>
+  Andy Chu of Oil Shell has
+  a <a href="https://www.oilshell.org/blog/2017/03/31.html">survey
+    of various explanations</a> that you may find useful.
+</p>
+
+<h3>Code generation</h3>
+<ul>
+  <li><a href="https://legacy.cs.indiana.edu/~dyb/pubs/ddcg.pdf">Destination-Driven Code Generation</a></li>
+  <li><a href="https://github.com/eatonphil/one-pass-code-generation-in-v8/blob/main/One-pass%20Code%20Generation%20in%20V8.pdf">One-pass Code Generation in V8</a></li>
+  <li><a href="https://arxiv.org/pdf/1611.00467.pdf">A Performance Survey on Stack-based and Register-based Virtual Machines</a></li>
+  <li><a href="https://www.usenix.org/legacy/events%2Fvee05%2Ffull_papers/p153-yunhe.pdf">Virtual Machine Showdown: Stack Versus Registers</a></li>
+  <li><a href="https://eli.thegreenplace.net/2013/11/05/how-to-jit-an-introduction">How to JIT - an introduction</a></li>
+  <li><a href="https://eli.thegreenplace.net/2017/adventures-in-jit-compilation-part-1-an-interpreter/">Adventures in JIT compilation: Part 1 - an interpreter</a></li>
+</ul>
+
+<h3>(Non-introductory) books</h3>
+<ul>
+  <li>
+    <a href="https://www.goodreads.com/book/show/1168500.LISP_in_Small_Pieces">LISP in Small Pieces</a> by Christian Queinnec
     <p>
-      My personal path, a hobbyist, was focused at first on
-      interpreters for Brainfuck, Scheme, lower-case forth, and
-      lower-case lisp. I had a bit of "formal" undergraduate training
-      in one PL course and one compilers course I took before I
-      dropped out, but for the most part I hacked on stuff since then
-      for fun and education.
+      <small>
+	Notes: The final chapter ends (oddly enough) with building
+	a little forth implementation. This book is one of my
+	favorite technical books.
+      </small>
     </p>
+  </li>
+  <li>
+    <a href="https://www.t3x.org/lsi/index.html">Lisp System Implementation</a> by Nils M Holm
     <p>
-      After I was confident implementing some of those minimal
-      languages, I moved on to minimal versions of Lua,
-      JavaScript/TypeScript, Python, SQL and Go; varying between
-      implementing AST interpreters, bytecode VMs and native-code
-      compilers (via C, LLVM, and x86). Either using the language's
-      first-party parser or implementing my own handwritten parser.
+      <small>
+	Notes: A literate walkthrough of a lisp implementation in C.
+      </small>
     </p>
-    
-    <h4>Some blind spots</h4>
+  </li>
+  <li>
+    <a href="https://www.goodreads.com/en/book/show/2493232">Compiler Construction</a> by Niklaus Wirth
+  </li>
+</ul>
+
+<h3>Hacking on existing languages</h3>
+<ul>
+  <li>Taq Karim's <a href="https://mottaquikarim.github.io/dev/posts/hacking-python-with-spells-from-harry-potter/">series on hacking CPython</a></li>
+  <li>Avinash Sajjanshetty's <a href="https://avi.im/blag/2021/rc-day-24/">Hacking Go compiler to add a new keyword</a></li>
+</ul>
+
+<h3>Blogs</h3>
+<p>
+  Various blogs and pages I've enjoyed reading and/or found
+  helpful.
+</p>
+<ul>
+  <li><a href="https://v8.dev/blog">The V8 Blog</a></li>
+  <li>Older posts on the <a href="https://webkit.org/blog">WebKit blog</a> such as when they <a href="https://webkit.org/blog/189/announcing-squirrelfish/">implemented their first bytecode VM</a></li>
+  <li>Max Bernstein's <a href="https://bernsteinbear.com/pl-resources/">Programming languages resources</a> page</li>
+  <li><a href="https://wingolog.org/">Andy Wingo's blog</a></li>
+  <li><a href="https://tratt.net/laurie/">Laurence Tratt's blog</a></li>
+  <li>Peter Bex's <a href="https://www.more-magic.net/archive.html">posts on Chicken Scheme</a></li>
+  <li><a href="https://stefan-marr.de/">Stefan Marr's blog</a></li>
+</ul>
+
+<h3>Pedagogical projects</h3>
+<ul>
+  <li><a href="https://github.com/nornagon/jonesforth/blob/master/jonesforth.S">Jones FORTH</a></li>
+  <li>Chris Seaton's <a href="https://github.com/chrisseaton/rhizome">just-in-time compiler (JIT) for Ruby, implemented in pure Ruby</a></li>
+</ul>
+
+<h3>Stuff I've written</h3>
+<p>
+  I can't evaluate my own stuff objectively but this is my list so
+  I'm going to share with you the various resources I've written
+  on the broad subject of compilers and interpreters.
+</p>
+<h4>More focused on parsing</h4>
+<ul>
+  <li><a href="https://notes.eatonphil.com/exploring-plpgsql.html">Writing a simple JSON parser in PL/pgSQL</a></li>
+  <li><a href="https://notes.eatonphil.com/writing-a-simple-json-library-in-modern-cpp.html">Writing a simple JSON parser in C++</a></li>
+  <li><a href="https://notes.eatonphil.com/writing-a-template-library-in-python.html">Writing a Jinja-inspired template library in Python</a></li>
+  <li><a href="https://notes.eatonphil.com/writing-a-simple-json-path-parser.html">Writing a simple JSON path parser in JavaScript</a></li>
+  <li><a href="https://notes.eatonphil.com/writing-a-simple-json-parser.html">Writing a simple JSON parser in Python</a></li>
+</ul>
+
+<h4>Language implementation more generally</h4>
+<ul>
+  <li><a href="https://notes.eatonphil.com/lua-in-rust.html">Writing a minimal Lua implementation with a virtual machine from scratch in Rust</a></li>
+  <li><a href="https://notes.eatonphil.com/zigrocks-sql.html">Writing a SQL database, take two: Zig and RocksDB</a></li>
+  <li><a href="https://notes.eatonphil.com/documentdb.html">Writing a document database from scratch in Go: Lucene-like filters and indexes</a></li>
+  <li><a href="https://notes.eatonphil.com/exploring-plpgsql-forth-like.html">Implementing a forth-like interpreter in PL/pgSQL</a></li>
+  <li><a href="https://notes.eatonphil.com/database-basics.html">Writing a SQL database from scratch in Go</a></li>
+  <li><a href="https://notes.eatonphil.com/compiler-basics-an-x86-upgrade.html">Compiling a lisp to LLVM and x86 assembly in JavaScript</a></li>
+</ul>
+
+<h3>Communities</h3>
+<ul>
+  <li><a href="https://www.reddit.com/r/Compilers/">/r/Compilers</a></li>
+  <li><a href="https://www.reddit.com/r/ProgrammingLanguages/">/r/ProgrammingLanguages</a></li>
+  <li><a href="https://discord.multiprocess.io/">#pl channel</a> on the hacker Discord I host</li>
+</ul>
+
+<h3>Stuff I'd like to find or see written about</h3>
+<p>
+  If you know of anything here or end up writing about one of these, let me know! 
+</p>
+<ul>
+  <li>Survey of bytecode instructions across various VMs, and the implications (sort of like RISC vs CISC but for language VMs)</li>
+  <li>Survey of object representations in dynamic languages, and the implications</li>
+  <li>Survey of calling conventions across computer architectures and bytecode VMs, and the implications</li>
+</ul>
+
+<h3>Heard good things</h3>
+<p>
+  I haven't tried these out, but I commonly see them
+  recommended.
+</p>
+<ul>
+  <li>Bob Nystrom's <a href="https://craftinginterpreters.com/">Crafting Interpreters</a></li>
+  <li>Dave Beazley's <a href="https://www.dabeaz.com/compiler.html">Write a Compiler</a> course</li>
+  <li>Thorsten Ball's <a href="https://thorstenball.com/books/">Writing an Interpreter in Go</a> and Writing a Compiler in Go</li>
+  <li>Tim Morgan's <a href="https://www.youtube.com/playlist?list=PLWUx_XkUoGTq-nkbhnk6PN4m109ISo5BX">Hacking Natalie (a Ruby implementation) Youtube series</a></li>
+  <li>Andreas Kling's Youtube series on <a href="https://www.youtube.com/watch?v=3RO1Jtve6v8&list=PLMOpZvQB55bf2J-TgMOejaViKhN_VkPdE">Language hacking: Jakt</a> and <a href="https://www.youtube.com/watch?v=gDjNjztQZBw&list=PLMOpZvQB55beChggmvk-sUm8X_vSezpqL">Let's build a JavaScript Bytecode VM</a></li>
+</ul>
+
+<h3>Conspicuous books not on the list</h3>
+<p>
+  As you dig further into compilers/interpreters maybe you want to
+  check these out. I own them and try to browse them occasionally
+  but overall I'm not a fan. If you like them, great!
+</p>
+<ul>
+  <li>Structure and Interpretation of Computer Programs (SICP)</li>
+  <li>Compilers: Principles, Techniques, and Tools (aka "The Dragon Book")</li>
+  <li>
+    The Little Typer
     <p>
-      I have never implemented garbage collection myself (at best I've
-      hooked into the host language's GC, similar to using libgc). I
-      haven't implemented register allocation since the college
-      compilers course. I haven't implemented JIT compilation. I
-      haven't spent very much time targeting Windows or macOS or
-      anything other than Linux/x86_64.
+      <small>
+	Notes: I know some people like it but boy do I abhor both
+	the style and content of this book. It is extremely
+	complicated and the whimsical style just makes me
+	angry. Maybe The Little Schemer is better since the topic
+	is less complex. I'm scared to try it.
+      </small>
     </p>
-
-    <h3>The popularity of lisps and forths</h3>
+  </li>
+  <li>
+    Modern Compiler Implementation in Java/ML/C
     <p>
-      You might wonder why so many PL/compiler resources focus on
-      languages like lower-case lisp. Basically, parsing more common
-      languages is more tedious because they have more syntax. So it
-      takes you longer to get a working language implementation
-      compared to the sparse syntax of a lisp (or a forth).
+      <small>
+	Notes: This one was the text for the compilers course I
+	took in college and I loved that course. But ultimately
+	I'm not sure this book is as good as some other resources
+	listed above (in aggregate).
+      </small>
     </p>
-    <p>
-      Once you get the hang of it with a forth or lisp though it's
-      easy to bring that skill to "normal" languages. Although you
-      will then need to pick up a technique for handling operator
-      precedence (discussed below).
-    </p>
+  </li>
+</ul>
 
-    <h3>Introductory</h3>
-    <p>
-      These helped me out and I think are reasonable to recommend to
-      others. The list is not long because I have not explored that
-      many broad introductory texts. And many that I did (listed
-      further below) I really didn't like.
-    </p>
-    <ul>
-      <li><a href="https://norvig.com/lispy.html">Peter Norvig's Lisp in Python</a></li>
-      <li><a href="https://github.com/kanaka/mal">Make a lisp</a></li>
-    </ul>
-
-    <h3>Parsing (operator precedence)</h3>
-    <p>
-      First
-      off, <a href="https://notes.eatonphil.com/parser-generators-vs-handwritten-parsers-survey-2021.html">real
-      world languages generally don't use parser
-      generators</a>. Parser generators are also harder to learn, and
-      are another dependency and build step. So you can happily skip.
-    </p>
-    <p>
-      If you still want to learn how to use a parser generator, look
-      at books that are otherwise not ones I recommend like Modern
-      Compiler Implementation in Java/C/ML or at The Dragon Book.
-    </p>
-    <p>
-      You can pick up the basics of handwritten parsers from the items
-      in the Introductory section above. The major complex part
-      remaining is operator precedence. Even though I've implemented
-      it a few times, I need to go and look up an explanation again
-      every time.
-    </p>
-    <p>
-      Basically, look up <strong>Shunting Yard</strong>, <strong>Pratt
-      Parsing</strong>, or <strong>Precedence Climbing</strong>. There
-      were one or two pages that helped me out in particular but I
-      can't find them at the moment.
-    </p>
-    <p>
-      Andy Chu of Oil Shell has
-      a <a href="https://www.oilshell.org/blog/2017/03/31.html">survey
-      of various explanations</a> that you may find useful.
-    </p>
-
-    <h3>Code generation</h3>
-    <ul>
-      <li><a href="https://legacy.cs.indiana.edu/~dyb/pubs/ddcg.pdf">Destination-Driven Code Generation</a></li>
-      <li><a href="https://github.com/eatonphil/one-pass-code-generation-in-v8/blob/main/One-pass%20Code%20Generation%20in%20V8.pdf">One-pass Code Generation in V8</a></li>
-      <li><a href="https://arxiv.org/pdf/1611.00467.pdf">A Performance Survey on Stack-based and Register-based Virtual Machines</a></li>
-      <li><a href="https://www.usenix.org/legacy/events%2Fvee05%2Ffull_papers/p153-yunhe.pdf">Virtual Machine Showdown: Stack Versus Registers</a></li>
-      <li><a href="https://eli.thegreenplace.net/2013/11/05/how-to-jit-an-introduction">How to JIT - an introduction</a></li>
-      <li><a href="https://eli.thegreenplace.net/2017/adventures-in-jit-compilation-part-1-an-interpreter/">Adventures in JIT compilation: Part 1 - an interpreter</a></li>
-    </ul>
-
-    <h3>(Non-introductory) books</h3>
-    <ul>
-      <li>
-	<a href="https://www.goodreads.com/book/show/1168500.LISP_in_Small_Pieces">LISP in Small Pieces</a> by Christian Queinnec
-	<p>
-	  <small>
-	    Notes: The final chapter ends (oddly enough) with building
-	    a little forth implementation. This book is one of my
-	    favorite technical books.
-	  </small>
-	</p>
-      </li>
-      <li>
-	<a href="https://www.t3x.org/lsi/index.html">Lisp System Implementation</a> by Nils M Holm
-	<p>
-	  <small>
-	    Notes: A literate walkthrough of a lisp implementation in C.
-	  </small>
-	</p>
-      </li>
-      <li>
-	<a href="https://www.goodreads.com/en/book/show/2493232">Compiler Construction</a> by Niklaus Wirth
-      </li>
-    </ul>
-
-    <h3>Hacking on existing languages</h3>
-    <ul>
-      <li>Taq Karim's <a href="https://mottaquikarim.github.io/dev/posts/hacking-python-with-spells-from-harry-potter/">series on hacking CPython</a></li>
-      <li>Avinash Sajjanshetty's <a href="https://avi.im/blag/2021/rc-day-24/">Hacking Go compiler to add a new keyword</a></li>
-    </ul>
-
-    <h3>Blogs</h3>
-    <p>
-      Various blogs and pages I've enjoyed reading and/or found
-      helpful.
-    </p>
-    <ul>
-      <li><a href="https://v8.dev/blog">The V8 Blog</a></li>
-      <li>Older posts on the <a href="https://webkit.org/blog">WebKit blog</a> such as when they <a href="https://webkit.org/blog/189/announcing-squirrelfish/">implemented their first bytecode VM</a></li>
-      <li>Max Bernstein's <a href="https://bernsteinbear.com/pl-resources/">Programming languages resources</a> page</li>
-      <li><a href="https://wingolog.org/">Andy Wingo's blog</a></li>
-      <li><a href="https://tratt.net/laurie/">Laurence Tratt's blog</a></li>
-      <li>Peter Bex's <a href="https://www.more-magic.net/archive.html">posts on Chicken Scheme</a></li>
-      <li><a href="https://stefan-marr.de/">Stefan Marr's blog</a></li>
-    </ul>
-
-    <h3>Pedagogical projects</h3>
-    <ul>
-      <li><a href="https://github.com/nornagon/jonesforth/blob/master/jonesforth.S">Jones FORTH</a></li>
-      <li>Chris Seaton's <a href="https://github.com/chrisseaton/rhizome">just-in-time compiler (JIT) for Ruby, implemented in pure Ruby</a></li>
-    </ul>
-
-    <h3>Stuff I've written</h3>
-    <p>
-      I can't evaluate my own stuff objectively but this is my list so
-      I'm going to share with you the various resources I've written
-      on the broad subject of compilers and interpreters.
-    </p>
-    <h4>More focused on parsing</h4>
-    <ul>
-      <li><a href="https://notes.eatonphil.com/exploring-plpgsql.html">Writing a simple JSON parser in PL/pgSQL</a></li>
-      <li><a href="https://notes.eatonphil.com/writing-a-simple-json-library-in-modern-cpp.html">Writing a simple JSON parser in C++</a></li>
-      <li><a href="https://notes.eatonphil.com/writing-a-template-library-in-python.html">Writing a Jinja-inspired template library in Python</a></li>
-      <li><a href="https://notes.eatonphil.com/writing-a-simple-json-path-parser.html">Writing a simple JSON path parser in JavaScript</a></li>
-      <li><a href="https://notes.eatonphil.com/writing-a-simple-json-parser.html">Writing a simple JSON parser in Python</a></li>
-    </ul>
-
-    <h4>Language implementation more generally</h4>
-    <ul>
-      <li><a href="https://notes.eatonphil.com/lua-in-rust.html">Writing a minimal Lua implementation with a virtual machine from scratch in Rust</a></li>
-      <li><a href="https://notes.eatonphil.com/zigrocks-sql.html">Writing a SQL database, take two: Zig and RocksDB</a></li>
-      <li><a href="https://notes.eatonphil.com/documentdb.html">Writing a document database from scratch in Go: Lucene-like filters and indexes</a></li>
-      <li><a href="https://notes.eatonphil.com/exploring-plpgsql-forth-like.html">Implementing a forth-like interpreter in PL/pgSQL</a></li>
-      <li><a href="https://notes.eatonphil.com/database-basics.html">Writing a SQL database from scratch in Go</a></li>
-      <li><a href="https://notes.eatonphil.com/compiler-basics-an-x86-upgrade.html">Compiling a lisp to LLVM and x86 assembly in JavaScript</a></li>
-    </ul>
-
-    <h3>Communities</h3>
-    <ul>
-      <li><a href="https://www.reddit.com/r/Compilers/">/r/Compilers</a></li>
-      <li><a href="https://www.reddit.com/r/ProgrammingLanguages/">/r/ProgrammingLanguages</a></li>
-      <li><a href="https://discord.multiprocess.io/">#pl channel</a> on the hacker Discord I host</li>
-    </ul>
-
-    <h3>Stuff I'd like to find or see written about</h3>
-    <p>
-      If you know of anything here or end up writing about one of these, let me know! 
-    </p>
-    <ul>
-      <li>Survey of bytecode instructions across various VMs, and the implications (sort of like RISC vs CISC but for language VMs)</li>
-      <li>Survey of object representations in dynamic languages, and the implications</li>
-      <li>Survey of calling conventions across computer architectures and bytecode VMs, and the implications</li>
-    </ul>
-
-    <h3>Heard good things</h3>
-    <p>
-      I haven't tried these out, but I commonly see them
-      recommended.
-    </p>
-    <ul>
-      <li>Bob Nystrom's <a href="https://craftinginterpreters.com/">Crafting Interpreters</a></li>
-      <li>Dave Beazley's <a href="https://www.dabeaz.com/compiler.html">Write a Compiler</a> course</li>
-      <li>Thorsten Ball's <a href="https://thorstenball.com/books/">Writing an Interpreter in Go</a> and Writing a Compiler in Go</li>
-      <li>Tim Morgan's <a href="https://www.youtube.com/playlist?list=PLWUx_XkUoGTq-nkbhnk6PN4m109ISo5BX">Hacking Natalie (a Ruby implementation) Youtube series</a></li>
-      <li>Andreas Kling's Youtube series on <a href="https://www.youtube.com/watch?v=3RO1Jtve6v8&list=PLMOpZvQB55bf2J-TgMOejaViKhN_VkPdE">Language hacking: Jakt</a> and <a href="https://www.youtube.com/watch?v=gDjNjztQZBw&list=PLMOpZvQB55beChggmvk-sUm8X_vSezpqL">Let's build a JavaScript Bytecode VM</a></li>
-    </ul>
-
-    <h3>Conspicuous books not on the list</h3>
-    <p>
-      As you dig further into compilers/interpreters maybe you want to
-      check these out. I own them and try to browse them occasionally
-      but overall I'm not a fan. If you like them, great!
-    </p>
-    <ul>
-      <li>Structure and Interpretation of Computer Programs (SICP)</li>
-      <li>Compilers: Principles, Techniques, and Tools (aka "The Dragon Book")</li>
-      <li>
-	The Little Typer
-	<p>
-	  <small>
-	    Notes: I know some people like it but boy do I abhor both
-	    the style and content of this book. It is extremely
-	    complicated and the whimsical style just makes me
-	    angry. Maybe The Little Schemer is better since the topic
-	    is less complex. I'm scared to try it.
-	  </small>
-	</p>
-      </li>
-      <li>
-	Modern Compiler Implementation in Java/ML/C
-	<p>
-	  <small>
-	    Notes: This one was the text for the compilers course I
-	    took in college and I loved that course. But ultimately
-	    I'm not sure this book is as good as some other resources
-	    listed above (in aggregate).
-	  </small>
-	</p>
-      </li>
-    </ul>
-
-    <h4>Share</h4>
-    <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I threw together a page with a few of my favorite resources for learning and hacking on compilers/interpreters<a href="https://t.co/741TDxDLEO">https://t.co/741TDxDLEO</a> <a href="https://t.co/tErFu9sjdy">pic.twitter.com/tErFu9sjdy</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1610671962048847872?ref_src=twsrc%5Etfw">January 4, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-
-    <br>
-  </div>
-</div>
-
-<script src="https://cdn.usefathom.com/script.js" data-site="CEPUOLOQ" defer></script>
+<h4>Share</h4>
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">I threw together a page with a few of my favorite resources for learning and hacking on compilers/interpreters<a href="https://t.co/741TDxDLEO">https://t.co/741TDxDLEO</a> <a href="https://t.co/tErFu9sjdy">pic.twitter.com/tErFu9sjdy</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1610671962048847872?ref_src=twsrc%5Etfw">January 4, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>

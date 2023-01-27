@@ -40,7 +40,7 @@ https://notes.eatonphil.com {
 	encode zstd gzip
 	
 	# Set this path to your site's directory.
-	root * /usr/share/caddy/notes/build
+	root * /usr/share/caddy/notes/docs
 
 	# Enable the static file server.
 	file_server

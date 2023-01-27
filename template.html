@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <link rel="canonical" href="{{ .Page.FullURL }}">
-    <title>{{ .Tag }} | notes.eatonphil.com</title>
-    <meta name="description" content="{{ .Tag }}" />
+    <link rel="canonical" href="{{ .Page.CanonicalURL }}">
+    <title>{{ .Page.Title }} | {{ .Domain }}</title>
+    <meta name="description" content="{{ .Page.Title }}" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/styles/default.min.css" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter">
@@ -20,20 +20,24 @@
 	      <a href="https://eatonphil.com" class="sm-link">
 		Home
               </a>
+	      {{ if .Section }}
 	      <a href="/" class="sm-link">
-		Notes
+		{{ .Section }}
               </a>
+	      {{ end }}
+	      {{ if eq .Section "Notes" }}
 	      <a href="/favorites.html" class="sm-link">
 		Popular
               </a>
-	      <a href="/rss.xml" class="sm-link">
+	      {{ end }}
+	      <a href="https://notes.eatonphil.com/rss.xml" class="sm-link">
 		RSS
               </a>
 	    </div>
-	    	      
-	    <div class="subscribe">                                     
-	      <a href="{{ .Page.FullURL }}#subscribe">       
-		Subscribe          
+
+	    <div class="subscribe">
+	      <a href="{{ .Page.CanonicalURL }}#subscribe">
+		Subscribe
 	      </a>
             </div>
 	  </div>
