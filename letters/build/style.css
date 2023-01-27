@@ -79,6 +79,11 @@ p, li {
     line-height: 1.7rem;
 }
 
+li p {
+    margin-top: 0;
+    padding-bottom: 5px;
+}
+
 p:last-child, li:last-child {
     margin-bottom: 0;
 }
