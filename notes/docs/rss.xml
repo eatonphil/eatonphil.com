@@ -1,5 +1,93 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 25 Jan 2023 23:11:16 +0000</lastBuildDate><item><title>An effective product manager</title><link>http://notes.eatonphil.com/effective-product-manager.html</link><description>&lt;p&gt;There are three specific activities I have loved in some product
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 31 Jan 2023 02:01:41 +0000</lastBuildDate><item><title>Lessons learned streaming building a Scheme-like interpreter in Go</title><link>http://notes.eatonphil.com/2023-01-30-livescheme.html</link><description>&lt;p&gt;I wanted to practice making coding videos so I did a &lt;a href="https://www.youtube.com/watch?v=lZNhZI-dN9k&amp;amp;list=PLjJMyANAIVHEgUOK2cU0hrvSwFPNHT2a7"&gt;four-part
+series&lt;/a&gt;
+on writing a basic Scheme-like language (minus macros and arrays and
+tons of stuff).&lt;/p&gt;
+&lt;p&gt;I picked this simple topic because I wanted a low-stakes way to learn
+what I did not know about making videos.&lt;/p&gt;
+&lt;p&gt;Here was the end result (nothing crazy):&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs scheme"&gt;$ go build
+$ cat examples/fib.scm
+(func fib (a)
+      (if (&amp;lt; a 2)
+          a
+          (+ (fib (- a 1)) (fib (- a 2)))))
+
+(fib 11)
+$ ./livescheme examples/fib.scm
+89
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The code for the project is
+&lt;a href="https://github.com/eatonphil/livescheme"&gt;here&lt;/a&gt;.&lt;/p&gt;
+&lt;h3 id="video-archives"&gt;Video archives&lt;/h3&gt;&lt;p&gt;Here are the four episodes! Each about an hour long. One per week for
+four weeks.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=lZNhZI-dN9k"&gt;Part 1: A lexer&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=5ttFEPQopXc"&gt;Part 2: Parsing&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=YwmGcverSHI"&gt;Part 3: AST walking interpreter&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=skDhTWILH8I"&gt;Part 4: Cleanup and Fibonacci&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="live-live"&gt;Live live&lt;/h3&gt;&lt;p&gt;The videos were &lt;a href="https://twitch.tv/eatonphil"&gt;streamed to Twitch&lt;/a&gt;
+live.&lt;/p&gt;
+&lt;p&gt;I didn't prep for them because I wanted to show warts and all. The
+thought process.&lt;/p&gt;
+&lt;p&gt;But some things turned out to be tricky to explain without preparation
+(function calling conventions, mostly).&lt;/p&gt;
+&lt;p&gt;Overall hopefully the series was somewhat useful.&lt;/p&gt;
+&lt;h3 id="full-screen-windows"&gt;Full screen windows&lt;/h3&gt;&lt;p&gt;The first episode I did I didn't make sure that the terminal window
+was captured full screen. So some of my code went off the bottom of
+the video. That was dumb.&lt;/p&gt;
+&lt;p&gt;I even have a tmux mode-line at the bottom of the terminal app that I
+could have looked for to notice it didn't exist in the OBS view.&lt;/p&gt;
+&lt;p&gt;So I made sure to have the full window in view after the first
+episode.&lt;/p&gt;
+&lt;h3 id="twitch-moderation"&gt;Twitch moderation&lt;/h3&gt;&lt;p&gt;&lt;a href="https://safety.twitch.tv/s/article/Protect-your-channel-with-Shield-Mode"&gt;Twitch Shield
+Mode&lt;/a&gt;
+is great. But the default setting prevents folks from commenting live
+until they've followed you for 2 weeks or something.&lt;/p&gt;
+&lt;p&gt;For someone starting a channel that doesn't make much sense. So in my
+first video I disabled it so folks could chat. And then some crypto
+scammer came in. Go figure.&lt;/p&gt;
+&lt;p&gt;After the first video I turned Shield Mode back on but set the minimum
+follow time to 10 minutes I think.&lt;/p&gt;
+&lt;h3 id="obs-studio"&gt;OBS Studio&lt;/h3&gt;&lt;p&gt;I used &lt;a href="https://obsproject.com/"&gt;OBS Studio&lt;/a&gt; to record. I was
+frustrated with it for a while because the video would lag so much
+when I tested out streaming. After playing around with Twitch Studio
+and giving up on it for being too simple, I messed with OBS video
+settings enough to get my video to not lag. Unfortunately I can't
+remember what settings I used.&lt;/p&gt;
+&lt;h3 id="noise-gate-/-pop-filter"&gt;Noise Gate / pop filter&lt;/h3&gt;&lt;p&gt;The &lt;a href="https://obsproject.com/kb/noise-gate-filter"&gt;Noise Gate Filter&lt;/a&gt;
+is awesome. My mechanical keyboard sounded obnoxious before I turned
+it on. I was considering getting a pop filter but then discovered that
+the Noise Gate Filter is built in, you just have to turn it on.&lt;/p&gt;
+&lt;h3 id="scenes"&gt;Scenes&lt;/h3&gt;&lt;p&gt;It also took me a while to understand OBS Scenes but then I realized I
+can use them to have an intro graphic (without the mic on!), a main
+coding scene (focused on my terminal and with my webcam overlayed),
+and a "back soon" graphic if I needed it.&lt;/p&gt;
+&lt;p&gt;To get the mic off you have to &lt;a href="https://obsproject.com/forum/threads/mute-one-specific-scene.43661/"&gt;disable the mic
+globally&lt;/a&gt;
+(it's on globally by default) and then add it as an input only to the
+scenes you want.&lt;/p&gt;
+&lt;h3 id="storage-and-export-to-youtube"&gt;Storage and export to YouTube&lt;/h3&gt;&lt;p&gt;Twitch doesn't store streams by default. You have to turn on &lt;a href="https://help.twitch.tv/s/article/video-on-demand?language=en_US"&gt;Video on
+Demand&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Even when it's turned on the videos only seem to be stored for 1 week. Maybe that's configurable but I didn't see it.&lt;/p&gt;
+&lt;p&gt;In any case it's not a problem because you can set up a YouTube
+connection. Then after a stream is complete you find the stream video
+and click Export. It takes about a minute to upload the hour long
+videos I did. Though YouTube post-processing took a while longer after
+that.&lt;/p&gt;
+&lt;h3 id="next?"&gt;Next?&lt;/h3&gt;&lt;p&gt;I'm forced to take a break from recording these videos for the next
+two weeks since I'll be &lt;a href="https://systemsdistributed.com/"&gt;in Cape
+Town&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;I haven't decided yet if I'll continue this series (not something I'm
+extremely excited about since everyone builds a Scheme-like language).&lt;/p&gt;
+&lt;p&gt;I'd like to have a project that I can keep contributing to over time
+but I don't see very much value in doing that based on a Scheme or any
+lisp-like.&lt;/p&gt;
+&lt;p&gt;Maybe I'll do a basic JavaScript implementation next. Or another basic
+SQL database. Dunno.&lt;/p&gt;
+&lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;Now that I&amp;#39;m done that series on the Scheme-like interpreter in Go (at least for a few weeks), I wrote down a few thoughts about the experience and the Twitch and OBS Studio setup.&lt;br&gt;&lt;br&gt;Up next after Cape Town? Not totally sure yet!&lt;a href="https://t.co/bgdO1ZI5Ow"&gt;https://t.co/bgdO1ZI5Ow&lt;/a&gt; &lt;a href="https://t.co/E1kwMRcCWY"&gt;pic.twitter.com/E1kwMRcCWY&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@eatonphil) &lt;a href="https://twitter.com/eatonphil/status/1620239367037157376?ref_src=twsrc%5Etfw"&gt;January 31, 2023&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-30-livescheme.html</guid><pubDate>Mon, 30 Jan 2023 00:00:00 +0000</pubDate></item><item><title>An effective product manager</title><link>http://notes.eatonphil.com/effective-product-manager.html</link><description>&lt;p&gt;There are three specific activities I have loved in some product
 managers I've worked with (and missed in others).&lt;/p&gt;
 &lt;p&gt;tldr;&lt;/p&gt;
 &lt;ul&gt;
@@ -45,17 +133,7 @@ CEO. In a large company, you may not even have a CEO.&lt;/p&gt;
 &lt;a href="https://eatonphil.com/"&gt;experience&lt;/a&gt;. You may have your own ideas. If
 mine help you, great! If they don't, great!&lt;/p&gt;
 &lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;I&amp;#39;ve been considering recently what makes an effective product manager. So I wrote down a few of my thoughts.&lt;br&gt;&lt;br&gt;What I&amp;#39;ve loved the most in some PMs and missed the most in others.&lt;br&gt;&lt;br&gt;I&amp;#39;d likewise love to hear what you think!&lt;a href="https://t.co/5vTWTNhs68"&gt;https://t.co/5vTWTNhs68&lt;/a&gt; &lt;a href="https://t.co/vXjPY9fiVT"&gt;pic.twitter.com/vXjPY9fiVT&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@eatonphil) &lt;a href="https://twitter.com/eatonphil/status/1617661616593723394?ref_src=twsrc%5Etfw"&gt;January 23, 2023&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/effective-product-manager.html</guid><pubDate>Mon, 23 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Live coding a Scheme-like language in Go, part 3: AST walking interpreter</title><link>http://notes.eatonphil.com/2023-01-22-livescheme-part-three.html</link><description>&lt;head&gt;
-    &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=YwmGcverSHI'" /&gt;
-&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
-&lt;a href="https://www.youtube.com/watch?v=YwmGcverSHI"&gt;here&lt;/a&gt;
-if you are not redirected.&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-22-livescheme-part-three.html</guid><pubDate>Sun, 22 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Live coding a Scheme-like language in Go, part 2: parsing</title><link>http://notes.eatonphil.com/2023-01-15-livescheme-part-two.html</link><description>&lt;head&gt;
-    &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=5ttFEPQopXc'" /&gt;
-&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
-&lt;a href="https://www.youtube.com/watch?v=5ttFEPQopXc"&gt;here&lt;/a&gt;
-if you are not redirected.&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-15-livescheme-part-two.html</guid><pubDate>Sun, 15 Jan 2023 00:00:00 +0000</pubDate></item><item><title>The year in books: 2022</title><link>http://notes.eatonphil.com/2023-01-12-year-in-books.html</link><description>&lt;p&gt;In 2022 I &lt;a href="https://www.goodreads.com/challenges/11636-2022-reading-challenge"&gt;finished 20
+</description><guid isPermaLink="false">http://notes.eatonphil.com/effective-product-manager.html</guid><pubDate>Mon, 23 Jan 2023 00:00:00 +0000</pubDate></item><item><title>The year in books: 2022</title><link>http://notes.eatonphil.com/2023-01-12-year-in-books.html</link><description>&lt;p&gt;In 2022 I &lt;a href="https://www.goodreads.com/challenges/11636-2022-reading-challenge"&gt;finished 20
 books&lt;/a&gt;
 spanning 15,801 pages.  3 more than I read in 2021, but about twice
 the number of pages. 3 fiction and 17 non-fiction. Another ~30 started
@@ -164,12 +242,7 @@ fiction set during the 1860s in Sicily during and after the
 unification of Italy. I learned about this book from a Rick Stein
 episode in the Mediterranean Escapes series.&lt;/li&gt;
 &lt;/ul&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-12-year-in-books.html</guid><pubDate>Thu, 12 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Live coding a Scheme-like language in Go, part 1: a basic lexer</title><link>http://notes.eatonphil.com/2023-01-08-livescheme-part-one.html</link><description>&lt;head&gt;
-    &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=lZNhZI-dN9k'" /&gt;
-&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
-&lt;a href="https://www.youtube.com/watch?v=lZNhZI-dN9k"&gt;here&lt;/a&gt;
-if you are not redirected.&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-08-livescheme-part-one.html</guid><pubDate>Sun, 08 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Favorite compiler and interpreter resources</title><link>http://notes.eatonphil.com/2023-01-04-compiler-resources.html</link><description>&lt;head&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-12-year-in-books.html</guid><pubDate>Thu, 12 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Favorite compiler and interpreter resources</title><link>http://notes.eatonphil.com/2023-01-04-compiler-resources.html</link><description>&lt;head&gt;
     &lt;meta http-equiv="refresh" content="4;URL='https://lists.eatonphil.com/compilers-and-interpreters.html'" /&gt;
 &lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
 &lt;a href="https://lists.eatonphil.com/compilers-and-interpreters.html"&gt;here&lt;/a&gt;

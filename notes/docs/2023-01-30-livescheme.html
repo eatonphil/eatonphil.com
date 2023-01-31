@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <link rel="canonical" href="https://notes.eatonphil.com/2023-01-08-livescheme-part-one.html">
-    <title>Live coding a Scheme-like language in Go, part 1: a basic lexer | notes.eatonphil.com</title>
-    <meta name="description" content="Live coding a Scheme-like language in Go, part 1: a basic lexer" />
+    <link rel="canonical" href="https://notes.eatonphil.com/2023-01-30-livescheme.html">
+    <title>Lessons learned streaming building a Scheme-like interpreter in Go | notes.eatonphil.com</title>
+    <meta name="description" content="Lessons learned streaming building a Scheme-like interpreter in Go" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/styles/default.min.css" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter">
@@ -32,27 +32,110 @@
 	    </div>
 	    	      
 	    <div class="subscribe">                                     
-	      <a href="https://notes.eatonphil.com/2023-01-08-livescheme-part-one.html#subscribe">       
+	      <a href="https://notes.eatonphil.com/2023-01-30-livescheme.html#subscribe">       
 		Subscribe          
 	      </a>
             </div>
 	  </div>
 	  <hr />
-          <h2>January 8, 2023</h2>
-          <h1>Live coding a Scheme-like language in Go, part 1: a basic lexer</h1>
+          <h2>January 30, 2023</h2>
+          <h1>Lessons learned streaming building a Scheme-like interpreter in Go</h1>
           <div class="row" style="padding-bottom: 5px">
-            <div class="tags"><a href="/tags/golang.html" class="tag">golang</a><a href="/tags/interpreters.html" class="tag">interpreters</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/video.html" class="tag">video</a></div>
+            <div class="tags"><a href="/tags/golang.html" class="tag">golang</a><a href="/tags/interpreters.html" class="tag">interpreters</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/lisp.html" class="tag">lisp</a><a href="/tags/scheme.html" class="tag">scheme</a></div>
           </div>
 	</div>
       </div>
     </header>
     <div class="container">
       <div class="col-6">
-        <head>
-    <meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=lZNhZI-dN9k'" />
-</head><p>This is an external post of mine. Click
-<a href="https://www.youtube.com/watch?v=lZNhZI-dN9k">here</a>
-if you are not redirected.</p>
+        <p>I wanted to practice making coding videos so I did a <a href="https://www.youtube.com/watch?v=lZNhZI-dN9k&amp;list=PLjJMyANAIVHEgUOK2cU0hrvSwFPNHT2a7">four-part
+series</a>
+on writing a basic Scheme-like language (minus macros and arrays and
+tons of stuff).</p>
+<p>I picked this simple topic because I wanted a low-stakes way to learn
+what I did not know about making videos.</p>
+<p>Here was the end result (nothing crazy):</p>
+<pre><code class="hljs scheme">$ go build
+$ cat examples/fib.scm
+(func fib (a)
+      (if (&lt; a 2)
+          a
+          (+ (fib (- a 1)) (fib (- a 2)))))
+
+(fib 11)
+$ ./livescheme examples/fib.scm
+89
+</code></pre>
+<p>The code for the project is
+<a href="https://github.com/eatonphil/livescheme">here</a>.</p>
+<h3 id="video-archives">Video archives</h3><p>Here are the four episodes! Each about an hour long. One per week for
+four weeks.</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=lZNhZI-dN9k">Part 1: A lexer</a></li>
+<li><a href="https://www.youtube.com/watch?v=5ttFEPQopXc">Part 2: Parsing</a></li>
+<li><a href="https://www.youtube.com/watch?v=YwmGcverSHI">Part 3: AST walking interpreter</a></li>
+<li><a href="https://www.youtube.com/watch?v=skDhTWILH8I">Part 4: Cleanup and Fibonacci</a></li>
+</ul>
+<h3 id="live-live">Live live</h3><p>The videos were <a href="https://twitch.tv/eatonphil">streamed to Twitch</a>
+live.</p>
+<p>I didn't prep for them because I wanted to show warts and all. The
+thought process.</p>
+<p>But some things turned out to be tricky to explain without preparation
+(function calling conventions, mostly).</p>
+<p>Overall hopefully the series was somewhat useful.</p>
+<h3 id="full-screen-windows">Full screen windows</h3><p>The first episode I did I didn't make sure that the terminal window
+was captured full screen. So some of my code went off the bottom of
+the video. That was dumb.</p>
+<p>I even have a tmux mode-line at the bottom of the terminal app that I
+could have looked for to notice it didn't exist in the OBS view.</p>
+<p>So I made sure to have the full window in view after the first
+episode.</p>
+<h3 id="twitch-moderation">Twitch moderation</h3><p><a href="https://safety.twitch.tv/s/article/Protect-your-channel-with-Shield-Mode">Twitch Shield
+Mode</a>
+is great. But the default setting prevents folks from commenting live
+until they've followed you for 2 weeks or something.</p>
+<p>For someone starting a channel that doesn't make much sense. So in my
+first video I disabled it so folks could chat. And then some crypto
+scammer came in. Go figure.</p>
+<p>After the first video I turned Shield Mode back on but set the minimum
+follow time to 10 minutes I think.</p>
+<h3 id="obs-studio">OBS Studio</h3><p>I used <a href="https://obsproject.com/">OBS Studio</a> to record. I was
+frustrated with it for a while because the video would lag so much
+when I tested out streaming. After playing around with Twitch Studio
+and giving up on it for being too simple, I messed with OBS video
+settings enough to get my video to not lag. Unfortunately I can't
+remember what settings I used.</p>
+<h3 id="noise-gate-/-pop-filter">Noise Gate / pop filter</h3><p>The <a href="https://obsproject.com/kb/noise-gate-filter">Noise Gate Filter</a>
+is awesome. My mechanical keyboard sounded obnoxious before I turned
+it on. I was considering getting a pop filter but then discovered that
+the Noise Gate Filter is built in, you just have to turn it on.</p>
+<h3 id="scenes">Scenes</h3><p>It also took me a while to understand OBS Scenes but then I realized I
+can use them to have an intro graphic (without the mic on!), a main
+coding scene (focused on my terminal and with my webcam overlayed),
+and a "back soon" graphic if I needed it.</p>
+<p>To get the mic off you have to <a href="https://obsproject.com/forum/threads/mute-one-specific-scene.43661/">disable the mic
+globally</a>
+(it's on globally by default) and then add it as an input only to the
+scenes you want.</p>
+<h3 id="storage-and-export-to-youtube">Storage and export to YouTube</h3><p>Twitch doesn't store streams by default. You have to turn on <a href="https://help.twitch.tv/s/article/video-on-demand?language=en_US">Video on
+Demand</a>.</p>
+<p>Even when it's turned on the videos only seem to be stored for 1 week. Maybe that's configurable but I didn't see it.</p>
+<p>In any case it's not a problem because you can set up a YouTube
+connection. Then after a stream is complete you find the stream video
+and click Export. It takes about a minute to upload the hour long
+videos I did. Though YouTube post-processing took a while longer after
+that.</p>
+<h3 id="next?">Next?</h3><p>I'm forced to take a break from recording these videos for the next
+two weeks since I'll be <a href="https://systemsdistributed.com/">in Cape
+Town</a>.</p>
+<p>I haven't decided yet if I'll continue this series (not something I'm
+extremely excited about since everyone builds a Scheme-like language).</p>
+<p>I'd like to have a project that I can keep contributing to over time
+but I don't see very much value in doing that based on a Scheme or any
+lisp-like.</p>
+<p>Maybe I'll do a basic JavaScript implementation next. Or another basic
+SQL database. Dunno.</p>
+<p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Now that I&#39;m done that series on the Scheme-like interpreter in Go (at least for a few weeks), I wrote down a few thoughts about the experience and the Twitch and OBS Studio setup.<br><br>Up next after Cape Town? Not totally sure yet!<a href="https://t.co/bgdO1ZI5Ow">https://t.co/bgdO1ZI5Ow</a> <a href="https://t.co/E1kwMRcCWY">pic.twitter.com/E1kwMRcCWY</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1620239367037157376?ref_src=twsrc%5Etfw">January 31, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
 	<div class="feedback">
 	  <h4>Feedback</h4>
@@ -70,7 +153,7 @@ if you are not redirected.</p>
 	  <div class="row">
 	    <div class="feedback">
 	      <h4>Frequent Topics</h4>
-	      <div class="tags"><a href="/tags/javascript.html" class="tag">javascript (24)</a><a href="/tags/parsing.html" class="tag">parsing (22)</a><a href="/tags/databases.html" class="tag">databases (18)</a><a href="/tags/golang.html" class="tag">golang (16)</a><a href="/tags/compilers.html" class="tag">compilers (14)</a><a href="/tags/postgres.html" class="tag">postgres (13)</a><a href="/tags/interpreters.html" class="tag">interpreters (12)</a><a href="/tags/sql.html" class="tag">sql (10)</a><a href="/tags/python.html" class="tag">python (8)</a><a href="/tags/management.html" class="tag">management (8)</a><a href="/tags/lisp.html" class="tag">lisp (8)</a><a href="/tags/books.html" class="tag">books (8)</a><a href="/tags/json.html" class="tag">json (7)</a><a href="/tags/go.html" class="tag">go (7)</a><a href="/tags/linux.html" class="tag">linux (6)</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64 (5)</a><a href="/tags/typescript.html" class="tag">typescript (5)</a><a href="/tags/learning.html" class="tag">learning (5)</a><a href="/tags/communication.html" class="tag">communication (5)</a><a href="/tags/zig.html" class="tag">zig (4)</a></div>
+	      <div class="tags"><a href="/tags/javascript.html" class="tag">javascript (24)</a><a href="/tags/parsing.html" class="tag">parsing (20)</a><a href="/tags/databases.html" class="tag">databases (18)</a><a href="/tags/golang.html" class="tag">golang (14)</a><a href="/tags/compilers.html" class="tag">compilers (14)</a><a href="/tags/postgres.html" class="tag">postgres (13)</a><a href="/tags/sql.html" class="tag">sql (10)</a><a href="/tags/interpreters.html" class="tag">interpreters (10)</a><a href="/tags/lisp.html" class="tag">lisp (9)</a><a href="/tags/python.html" class="tag">python (8)</a><a href="/tags/management.html" class="tag">management (8)</a><a href="/tags/books.html" class="tag">books (8)</a><a href="/tags/json.html" class="tag">json (7)</a><a href="/tags/go.html" class="tag">go (7)</a><a href="/tags/linux.html" class="tag">linux (6)</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64 (5)</a><a href="/tags/typescript.html" class="tag">typescript (5)</a><a href="/tags/scheme.html" class="tag">scheme (5)</a><a href="/tags/learning.html" class="tag">learning (5)</a><a href="/tags/communication.html" class="tag">communication (5)</a></div>
 	    </div>
 	  </div>
 	  <div class="row" id="subscribe">
