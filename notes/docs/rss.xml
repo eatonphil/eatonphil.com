@@ -1,5 +1,72 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 25 Jan 2023 23:11:16 +0000</lastBuildDate><item><title>An effective product manager</title><link>http://notes.eatonphil.com/effective-product-manager.html</link><description>&lt;p&gt;There are three specific activities I have loved in some product
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 31 Jan 2023 01:40:29 +0000</lastBuildDate><item><title>Building a Scheme-like AST-walking interpreter in Golang, live</title><link>http://notes.eatonphil.com/livescheme.html</link><description>&lt;p&gt;I wanted to practice making coding videos so I did a four-part series
+on writing a basic Scheme-like language (minus macros and arrays and
+tons of stuff). I picked something simple like this because I wanted
+to see what went wrong as I learned to make videos.&lt;/p&gt;
+&lt;p&gt;Here was the end project (nothing crazy):&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs scheme"&gt;$ go build
+$ cat examples/fib.scm
+(func fib (a)
+      (if (&amp;lt; a 2)
+          a
+          (+ (fib (- a 1)) (fib (- a 2)))))
+
+(fib 11)
+$ ./livescheme examples/fib.scm
+89
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The code for the project is
+&lt;a href="https://github.com/eatonphil/livescheme"&gt;here&lt;/a&gt;.&lt;/p&gt;
+&lt;h3 id="video-archives"&gt;Video archives&lt;/h3&gt;&lt;p&gt;Here are the four episodes!&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=lZNhZI-dN9k"&gt;Part 1: A lexer&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=5ttFEPQopXc"&gt;Part 2: Parsing&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=YwmGcverSHI"&gt;Part 3: AST walking interpreter&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=skDhTWILH8I"&gt;Part 4: Cleanup and Fibonacci&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="live-live"&gt;Live live&lt;/h3&gt;&lt;p&gt;The videos were &lt;a href="https://twitch.tv/eatonphil"&gt;streamed to Twitch&lt;/a&gt;
+live, one per week for four weeks.&lt;/p&gt;
+&lt;p&gt;I didn't do prep for them because I wanted to show warts and all. The
+thought process.&lt;/p&gt;
+&lt;p&gt;But some things turned out to be tricky to explain without preparation
+(function calling conventions, mostly).&lt;/p&gt;
+&lt;p&gt;Overall hopefully the series was somewhat useful.&lt;/p&gt;
+&lt;h3 id="full-screen-windows"&gt;Full screen windows&lt;/h3&gt;&lt;p&gt;The first episode I did I didn't make sure that the terminal window
+was captured full screen. So some of my code went off the bottom of
+the video. That was dumb.&lt;/p&gt;
+&lt;p&gt;I even have a tmux mode-line at the bottom of the terminal app that I
+could have looked for to notice it didn't exist in the OBS view.&lt;/p&gt;
+&lt;p&gt;So I made sure to have the full window in view after the first
+episode.&lt;/p&gt;
+&lt;h3 id="obs-studio"&gt;OBS Studio&lt;/h3&gt;&lt;p&gt;I used &lt;a href="https://obsproject.com/"&gt;OBS Studio&lt;/a&gt; to record. I was
+frustrated with it for a while because the video would lag so much
+when I tested out streaming. After playing around with Twitch Studio
+and giving up on it for being too simple, I messed with OBS video
+settings enough to get my video to not lag. Unfortunately I can't
+remember what settings I used.&lt;/p&gt;
+&lt;h3 id="noise-gate-/-pop-filter"&gt;Noise Gate / pop filter&lt;/h3&gt;&lt;p&gt;The &lt;a href="https://obsproject.com/kb/noise-gate-filter"&gt;Noise Gate Filter&lt;/a&gt;
+is awesome. My mechanical keyboard sounded obnoxious before I turned
+it on. I was considering getting a pop filter but then discovered that
+the Noise Gate Filter is built in, you just have to turn it on.&lt;/p&gt;
+&lt;h3 id="scenes"&gt;Scenes&lt;/h3&gt;&lt;p&gt;It also took me a while to understand OBS Scenes but then I realized I
+can use them to have an intro graphic (without the mic on!), a main
+coding scene (focused on my terminal and with my webcam overlayed),
+and a "back soon" graphic if I needed it.&lt;/p&gt;
+&lt;p&gt;To get the mic off you have to &lt;a href="https://obsproject.com/forum/threads/mute-one-specific-scene.43661/"&gt;disable the mic
+globally&lt;/a&gt;
+(it's on globally by default) and then add it as an input only to the
+scenes you want.&lt;/p&gt;
+&lt;h3 id="next?"&gt;Next?&lt;/h3&gt;&lt;p&gt;I'm forced to take a break from recording these videos for the next
+two weeks since I'll be &lt;a href="https://systemsdistributed.com/"&gt;in Cape
+Town&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;I haven't decided yet if I'll continue this series (not something I'm
+extremely excited about since everyone builds a Scheme-like language).&lt;/p&gt;
+&lt;p&gt;I'd like to have a project that I can keep contributing to over time
+but I don't see very much value in doing that based on a Scheme or any
+lisp-like.&lt;/p&gt;
+&lt;p&gt;Maybe I'll do a basic JavaScript implementation next. Or another basic
+SQL database. Dunno.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/livescheme.html</guid><pubDate>Mon, 30 Jan 2023 00:00:00 +0000</pubDate></item><item><title>An effective product manager</title><link>http://notes.eatonphil.com/effective-product-manager.html</link><description>&lt;p&gt;There are three specific activities I have loved in some product
 managers I've worked with (and missed in others).&lt;/p&gt;
 &lt;p&gt;tldr;&lt;/p&gt;
 &lt;ul&gt;
