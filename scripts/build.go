@@ -1,12 +1,12 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"path"
 	"strings"
-	"bufio"
-	"bytes"
 	"text/template"
 )
 
@@ -30,49 +30,60 @@ func copyFile(in, out string) {
 	}
 }
 
-var SECTIONS = []struct{
+var STATIC_FILES = []string{
+	"style.css",
+}
+
+var SECTIONS = []struct {
 	name string
-	ctx map[string]any
+	ctx  map[string]any
 }{
 	{
 		"notes",
 		map[string]any{
-			"Tag": "Notes by a software developer",
+			"Tag":     "Notes by a software developer",
 			"Section": "Notes",
 		},
 	},
 	{
 		"letters",
 		map[string]any{
-			"Tag": "Letters by a software developer",
+			"Tag":     "Letters by a software developer",
 			"Section": "Letters",
 		},
 	},
 	{
 		"lists",
 		map[string]any{
-			"Tag": "Phil Eaton's Lists",
+			"Tag":     "Phil Eaton's Lists",
 			"Section": "Lists",
 		},
 	},
 	{
 		"home",
 		map[string]any{
-			"Tag": "Phil Eaton",
+			"Tag":     "Phil Eaton",
 			"Section": "",
 		},
 	},
 }
 
 type Doc struct {
-	Title string
-	Date string
-	Tags []string
-	Body string
+	Title        string
+	Date         string
+	Tags         []string
+	Body         string
 	CanonicalURL string
 }
 
-func parseDoc(docPath string) Doc {
+// Returns the doc and the last modified time
+func parseDoc(docPath string) (Doc, string) {
+	file, err := os.Stat(docPath)
+	if err != nil {
+		panic(err)
+	}
+	lastModified := file.ModTime().Format("2006-01-02")
+
 	contents, err := os.ReadFile(docPath)
 	if err != nil {
 		panic(err)
@@ -138,7 +149,7 @@ func parseDoc(docPath string) Doc {
 	outWriter.Flush()
 	d.Body = string(out.Bytes())
 
-	return d
+	return d, lastModified
 }
 
 func buildSection(t *template.Template, section string, ctx map[string]any) {
@@ -147,10 +158,12 @@ func buildSection(t *template.Template, section string, ctx map[string]any) {
 		panic(err)
 	}
 
+	sitemap := `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`
+
 	for _, f := range files {
 		inputPath := path.Join(section, "posts", f.Name())
 		fmt.Println("Building", inputPath)
-		doc := parseDoc(inputPath)
+		doc, modified := parseDoc(inputPath)
 
 		outputPath := path.Join(section, "build", f.Name())
 		if strings.HasSuffix(f.Name(), ".md") {
@@ -158,7 +171,7 @@ func buildSection(t *template.Template, section string, ctx map[string]any) {
 		}
 
 		o, err := os.Create(outputPath)
-		if err != nil  {
+		if err != nil {
 			panic(err)
 		}
 
@@ -167,7 +180,17 @@ func buildSection(t *template.Template, section string, ctx map[string]any) {
 			canonicalEnd = "/" + f.Name()
 		}
 		doc.CanonicalURL = ctx["Domain"].(string) + canonicalEnd
-				
+
+		siteMapURL := doc.CanonicalURL
+		if canonicalEnd == "/" {
+			siteMapURL = ctx["Domain"].(string)
+		}
+		sitemap += fmt.Sprintf(`
+  <url>
+    <loc>https://%s</loc>
+    <lastmod>%s</lastmod>
+  </url>`, siteMapURL, modified)
+
 		ctx["Page"] = doc
 		err = t.Execute(o, ctx)
 		if err != nil {
@@ -179,6 +202,19 @@ func buildSection(t *template.Template, section string, ctx map[string]any) {
 			panic(err)
 		}
 	}
+
+	sitemap += "\n</urlset>"
+	err = os.WriteFile(path.Join(section, "build", "sitemap.xml"), []byte(sitemap), os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+
+	err = os.WriteFile(path.Join(section, "build", "robots.txt"), []byte(fmt.Sprintf(`
+User-agent: *
+Allow: /
+
+Sitemap: https://%s/sitemap.xml
+`, ctx["Domain"].(string))), os.ModePerm)
 }
 
 func main() {
@@ -220,8 +256,10 @@ func main() {
 			panic(err)
 		}
 
-		// Copy in style.css
-		copyFile("style.css", path.Join(buildPath, "style.css"))
+		// Copy in static files
+		for _, f := range STATIC_FILES {
+			copyFile(f, path.Join(buildPath, f))
+		}
 
 		// Render all templates
 		section.ctx["Mail"] = string(mailFile)
