@@ -209,8 +209,8 @@ func buildSection(t *template.Template, section string, ctx map[string]any) {
 		panic(err)
 	}
 
-	err = os.WriteFile(path.Join(section, "build", "robots.txt"), []byte(fmt.Sprintf(`
-User-agent: *
+	err = os.WriteFile(path.Join(section, "build", "robots.txt"), []byte(fmt.Sprintf(
+		`User-agent: *
 Allow: /
 
 Sitemap: https://%s/sitemap.xml
