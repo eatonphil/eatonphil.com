@@ -1,9 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 31 Jan 2023 01:41:47 +0000</lastBuildDate><item><title>Building a Scheme-like AST-walking interpreter in Golang, live</title><link>http://notes.eatonphil.com/2023-01-30-livescheme.html</link><description>&lt;p&gt;I wanted to practice making coding videos so I did a four-part series
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 31 Jan 2023 01:47:38 +0000</lastBuildDate><item><title>Livestreaming a Scheme-like interpreter in Go, reflection</title><link>http://notes.eatonphil.com/2023-01-30-livescheme.html</link><description>&lt;p&gt;I wanted to practice making coding videos so I did a &lt;a href="https://www.youtube.com/watch?v=lZNhZI-dN9k&amp;amp;list=PLjJMyANAIVHEgUOK2cU0hrvSwFPNHT2a7"&gt;four-part
+series&lt;/a&gt;
 on writing a basic Scheme-like language (minus macros and arrays and
-tons of stuff). I picked something simple like this because I wanted
-to see what went wrong as I learned to make videos.&lt;/p&gt;
-&lt;p&gt;Here was the end project (nothing crazy):&lt;/p&gt;
+tons of stuff).&lt;/p&gt;
+&lt;p&gt;I picked this simple topic because I wanted a low-stakes way to learn
+what I did not know about making videos.&lt;/p&gt;
+&lt;p&gt;Here was the end result (nothing crazy):&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs scheme"&gt;$ go build
 $ cat examples/fib.scm
 (func fib (a)
@@ -17,7 +19,8 @@ $ ./livescheme examples/fib.scm
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;The code for the project is
 &lt;a href="https://github.com/eatonphil/livescheme"&gt;here&lt;/a&gt;.&lt;/p&gt;
-&lt;h3 id="video-archives"&gt;Video archives&lt;/h3&gt;&lt;p&gt;Here are the four episodes!&lt;/p&gt;
+&lt;h3 id="video-archives"&gt;Video archives&lt;/h3&gt;&lt;p&gt;Here are the four episodes! Each about an hour long. One per week for
+four weeks.&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=lZNhZI-dN9k"&gt;Part 1: A lexer&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=5ttFEPQopXc"&gt;Part 2: Parsing&lt;/a&gt;&lt;/li&gt;
@@ -25,8 +28,8 @@ $ ./livescheme examples/fib.scm
 &lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=skDhTWILH8I"&gt;Part 4: Cleanup and Fibonacci&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3 id="live-live"&gt;Live live&lt;/h3&gt;&lt;p&gt;The videos were &lt;a href="https://twitch.tv/eatonphil"&gt;streamed to Twitch&lt;/a&gt;
-live, one per week for four weeks.&lt;/p&gt;
-&lt;p&gt;I didn't do prep for them because I wanted to show warts and all. The
+live.&lt;/p&gt;
+&lt;p&gt;I didn't prep for them because I wanted to show warts and all. The
 thought process.&lt;/p&gt;
 &lt;p&gt;But some things turned out to be tricky to explain without preparation
 (function calling conventions, mostly).&lt;/p&gt;
@@ -38,6 +41,15 @@ the video. That was dumb.&lt;/p&gt;
 could have looked for to notice it didn't exist in the OBS view.&lt;/p&gt;
 &lt;p&gt;So I made sure to have the full window in view after the first
 episode.&lt;/p&gt;
+&lt;h3 id="twitch-moderation"&gt;Twitch moderation&lt;/h3&gt;&lt;p&gt;&lt;a href="https://safety.twitch.tv/s/article/Protect-your-channel-with-Shield-Mode"&gt;Twitch Shield
+Mode&lt;/a&gt;
+is great. But the default setting prevents folks from commenting live
+until they've followed you for 2 weeks or something.&lt;/p&gt;
+&lt;p&gt;For someone starting a channel that doesn't make much sense. So in my
+first video I disabled it so folks could chat. And then some crypto
+scammer came in. Go figure.&lt;/p&gt;
+&lt;p&gt;After the first video I turned Shield Mode back on but set the minimum
+follow time to 10 minutes I think.&lt;/p&gt;
 &lt;h3 id="obs-studio"&gt;OBS Studio&lt;/h3&gt;&lt;p&gt;I used &lt;a href="https://obsproject.com/"&gt;OBS Studio&lt;/a&gt; to record. I was
 frustrated with it for a while because the video would lag so much
 when I tested out streaming. After playing around with Twitch Studio

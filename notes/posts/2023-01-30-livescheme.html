@@ -1,13 +1,16 @@
-# Building a Scheme-like AST-walking interpreter in Golang, live
+# Livestreaming a Scheme-like interpreter in Go, reflection
 ## January 30, 2023
 ###### golang,interpreters,parsing,lisp,scheme
 
-I wanted to practice making coding videos so I did a four-part series
+I wanted to practice making coding videos so I did a [four-part
+series](https://www.youtube.com/watch?v=lZNhZI-dN9k&list=PLjJMyANAIVHEgUOK2cU0hrvSwFPNHT2a7)
 on writing a basic Scheme-like language (minus macros and arrays and
-tons of stuff). I picked something simple like this because I wanted
-to see what went wrong as I learned to make videos.
+tons of stuff).
 
-Here was the end project (nothing crazy):
+I picked this simple topic because I wanted a low-stakes way to learn
+what I did not know about making videos.
+
+Here was the end result (nothing crazy):
 
 ```scheme
 $ go build
@@ -27,7 +30,8 @@ The code for the project is
 
 ### Video archives
 
-Here are the four episodes!
+Here are the four episodes! Each about an hour long. One per week for
+four weeks.
 
 * [Part 1: A lexer](https://www.youtube.com/watch?v=lZNhZI-dN9k)
 * [Part 2: Parsing](https://www.youtube.com/watch?v=5ttFEPQopXc)
@@ -37,9 +41,9 @@ Here are the four episodes!
 ### Live live
 
 The videos were [streamed to Twitch](https://twitch.tv/eatonphil)
-live, one per week for four weeks.
+live.
 
-I didn't do prep for them because I wanted to show warts and all. The
+I didn't prep for them because I wanted to show warts and all. The
 thought process.
 
 But some things turned out to be tricky to explain without preparation
@@ -58,6 +62,21 @@ could have looked for to notice it didn't exist in the OBS view.
 
 So I made sure to have the full window in view after the first
 episode.
+
+
+### Twitch moderation
+
+[Twitch Shield
+Mode](https://safety.twitch.tv/s/article/Protect-your-channel-with-Shield-Mode)
+is great. But the default setting prevents folks from commenting live
+until they've followed you for 2 weeks or something.
+
+For someone starting a channel that doesn't make much sense. So in my
+first video I disabled it so folks could chat. And then some crypto
+scammer came in. Go figure.
+
+After the first video I turned Shield Mode back on but set the minimum
+follow time to 10 minutes I think.
 
 ### OBS Studio
 

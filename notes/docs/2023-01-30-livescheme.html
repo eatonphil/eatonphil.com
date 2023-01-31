@@ -3,8 +3,8 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <link rel="canonical" href="https://notes.eatonphil.com/2023-01-30-livescheme.html">
-    <title>Building a Scheme-like AST-walking interpreter in Golang, live | notes.eatonphil.com</title>
-    <meta name="description" content="Building a Scheme-like AST-walking interpreter in Golang, live" />
+    <title>Livestreaming a Scheme-like interpreter in Go, reflection | notes.eatonphil.com</title>
+    <meta name="description" content="Livestreaming a Scheme-like interpreter in Go, reflection" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/styles/default.min.css" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter">
@@ -39,7 +39,7 @@
 	  </div>
 	  <hr />
           <h2>January 30, 2023</h2>
-          <h1>Building a Scheme-like AST-walking interpreter in Golang, live</h1>
+          <h1>Livestreaming a Scheme-like interpreter in Go, reflection</h1>
           <div class="row" style="padding-bottom: 5px">
             <div class="tags"><a href="/tags/golang.html" class="tag">golang</a><a href="/tags/interpreters.html" class="tag">interpreters</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/lisp.html" class="tag">lisp</a><a href="/tags/scheme.html" class="tag">scheme</a></div>
           </div>
@@ -48,11 +48,13 @@
     </header>
     <div class="container">
       <div class="col-6">
-        <p>I wanted to practice making coding videos so I did a four-part series
+        <p>I wanted to practice making coding videos so I did a <a href="https://www.youtube.com/watch?v=lZNhZI-dN9k&amp;list=PLjJMyANAIVHEgUOK2cU0hrvSwFPNHT2a7">four-part
+series</a>
 on writing a basic Scheme-like language (minus macros and arrays and
-tons of stuff). I picked something simple like this because I wanted
-to see what went wrong as I learned to make videos.</p>
-<p>Here was the end project (nothing crazy):</p>
+tons of stuff).</p>
+<p>I picked this simple topic because I wanted a low-stakes way to learn
+what I did not know about making videos.</p>
+<p>Here was the end result (nothing crazy):</p>
 <pre><code class="hljs scheme">$ go build
 $ cat examples/fib.scm
 (func fib (a)
@@ -66,7 +68,8 @@ $ ./livescheme examples/fib.scm
 </code></pre>
 <p>The code for the project is
 <a href="https://github.com/eatonphil/livescheme">here</a>.</p>
-<h3 id="video-archives">Video archives</h3><p>Here are the four episodes!</p>
+<h3 id="video-archives">Video archives</h3><p>Here are the four episodes! Each about an hour long. One per week for
+four weeks.</p>
 <ul>
 <li><a href="https://www.youtube.com/watch?v=lZNhZI-dN9k">Part 1: A lexer</a></li>
 <li><a href="https://www.youtube.com/watch?v=5ttFEPQopXc">Part 2: Parsing</a></li>
@@ -74,8 +77,8 @@ $ ./livescheme examples/fib.scm
 <li><a href="https://www.youtube.com/watch?v=skDhTWILH8I">Part 4: Cleanup and Fibonacci</a></li>
 </ul>
 <h3 id="live-live">Live live</h3><p>The videos were <a href="https://twitch.tv/eatonphil">streamed to Twitch</a>
-live, one per week for four weeks.</p>
-<p>I didn't do prep for them because I wanted to show warts and all. The
+live.</p>
+<p>I didn't prep for them because I wanted to show warts and all. The
 thought process.</p>
 <p>But some things turned out to be tricky to explain without preparation
 (function calling conventions, mostly).</p>
@@ -87,6 +90,15 @@ the video. That was dumb.</p>
 could have looked for to notice it didn't exist in the OBS view.</p>
 <p>So I made sure to have the full window in view after the first
 episode.</p>
+<h3 id="twitch-moderation">Twitch moderation</h3><p><a href="https://safety.twitch.tv/s/article/Protect-your-channel-with-Shield-Mode">Twitch Shield
+Mode</a>
+is great. But the default setting prevents folks from commenting live
+until they've followed you for 2 weeks or something.</p>
+<p>For someone starting a channel that doesn't make much sense. So in my
+first video I disabled it so folks could chat. And then some crypto
+scammer came in. Go figure.</p>
+<p>After the first video I turned Shield Mode back on but set the minimum
+follow time to 10 minutes I think.</p>
 <h3 id="obs-studio">OBS Studio</h3><p>I used <a href="https://obsproject.com/">OBS Studio</a> to record. I was
 frustrated with it for a while because the video would lag so much
 when I tested out streaming. After playing around with Twitch Studio
