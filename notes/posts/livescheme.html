@@ -1,0 +1,104 @@
+# Building a Scheme-like AST-walking interpreter in Golang, live
+## January 30, 2023
+###### golang,interpreters,parsing,lisp,scheme
+
+I wanted to practice making coding videos so I did a four-part series
+on writing a basic Scheme-like language (minus macros and arrays and
+tons of stuff). I picked something simple like this because I wanted
+to see what went wrong as I learned to make videos.
+
+Here was the end project (nothing crazy):
+
+```scheme
+$ go build
+$ cat examples/fib.scm
+(func fib (a)
+      (if (< a 2)
+          a
+          (+ (fib (- a 1)) (fib (- a 2)))))
+
+(fib 11)
+$ ./livescheme examples/fib.scm
+89
+```
+
+The code for the project is
+[here](https://github.com/eatonphil/livescheme).
+
+### Video archives
+
+Here are the four episodes!
+
+* [Part 1: A lexer](https://www.youtube.com/watch?v=lZNhZI-dN9k)
+* [Part 2: Parsing](https://www.youtube.com/watch?v=5ttFEPQopXc)
+* [Part 3: AST walking interpreter](https://www.youtube.com/watch?v=YwmGcverSHI)
+* [Part 4: Cleanup and Fibonacci](https://www.youtube.com/watch?v=skDhTWILH8I)
+
+### Live live
+
+The videos were [streamed to Twitch](https://twitch.tv/eatonphil)
+live, one per week for four weeks.
+
+I didn't do prep for them because I wanted to show warts and all. The
+thought process.
+
+But some things turned out to be tricky to explain without preparation
+(function calling conventions, mostly).
+
+Overall hopefully the series was somewhat useful.
+
+### Full screen windows
+
+The first episode I did I didn't make sure that the terminal window
+was captured full screen. So some of my code went off the bottom of
+the video. That was dumb.
+
+I even have a tmux mode-line at the bottom of the terminal app that I
+could have looked for to notice it didn't exist in the OBS view.
+
+So I made sure to have the full window in view after the first
+episode.
+
+### OBS Studio
+
+I used [OBS Studio](https://obsproject.com/) to record. I was
+frustrated with it for a while because the video would lag so much
+when I tested out streaming. After playing around with Twitch Studio
+and giving up on it for being too simple, I messed with OBS video
+settings enough to get my video to not lag. Unfortunately I can't
+remember what settings I used.
+
+### Noise Gate / pop filter
+
+The [Noise Gate Filter](https://obsproject.com/kb/noise-gate-filter)
+is awesome. My mechanical keyboard sounded obnoxious before I turned
+it on. I was considering getting a pop filter but then discovered that
+the Noise Gate Filter is built in, you just have to turn it on.
+
+### Scenes
+
+It also took me a while to understand OBS Scenes but then I realized I
+can use them to have an intro graphic (without the mic on!), a main
+coding scene (focused on my terminal and with my webcam overlayed),
+and a "back soon" graphic if I needed it.
+
+To get the mic off you have to [disable the mic
+globally](https://obsproject.com/forum/threads/mute-one-specific-scene.43661/)
+(it's on globally by default) and then add it as an input only to the
+scenes you want.
+
+### Next?
+
+I'm forced to take a break from recording these videos for the next
+two weeks since I'll be [in Cape
+Town](https://systemsdistributed.com/).
+
+I haven't decided yet if I'll continue this series (not something I'm
+extremely excited about since everyone builds a Scheme-like language).
+
+I'd like to have a project that I can keep contributing to over time
+but I don't see very much value in doing that based on a Scheme or any
+lisp-like.
+
+Maybe I'll do a basic JavaScript implementation next. Or another basic
+SQL database. Dunno.
