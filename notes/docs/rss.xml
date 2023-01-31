@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 31 Jan 2023 01:40:29 +0000</lastBuildDate><item><title>Building a Scheme-like AST-walking interpreter in Golang, live</title><link>http://notes.eatonphil.com/livescheme.html</link><description>&lt;p&gt;I wanted to practice making coding videos so I did a four-part series
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 31 Jan 2023 01:41:47 +0000</lastBuildDate><item><title>Building a Scheme-like AST-walking interpreter in Golang, live</title><link>http://notes.eatonphil.com/2023-01-30-livescheme.html</link><description>&lt;p&gt;I wanted to practice making coding videos so I did a four-part series
 on writing a basic Scheme-like language (minus macros and arrays and
 tons of stuff). I picked something simple like this because I wanted
 to see what went wrong as I learned to make videos.&lt;/p&gt;
@@ -66,7 +66,7 @@ but I don't see very much value in doing that based on a Scheme or any
 lisp-like.&lt;/p&gt;
 &lt;p&gt;Maybe I'll do a basic JavaScript implementation next. Or another basic
 SQL database. Dunno.&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/livescheme.html</guid><pubDate>Mon, 30 Jan 2023 00:00:00 +0000</pubDate></item><item><title>An effective product manager</title><link>http://notes.eatonphil.com/effective-product-manager.html</link><description>&lt;p&gt;There are three specific activities I have loved in some product
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-30-livescheme.html</guid><pubDate>Mon, 30 Jan 2023 00:00:00 +0000</pubDate></item><item><title>An effective product manager</title><link>http://notes.eatonphil.com/effective-product-manager.html</link><description>&lt;p&gt;There are three specific activities I have loved in some product
 managers I've worked with (and missed in others).&lt;/p&gt;
 &lt;p&gt;tldr;&lt;/p&gt;
 &lt;ul&gt;
@@ -112,17 +112,7 @@ CEO. In a large company, you may not even have a CEO.&lt;/p&gt;
 &lt;a href="https://eatonphil.com/"&gt;experience&lt;/a&gt;. You may have your own ideas. If
 mine help you, great! If they don't, great!&lt;/p&gt;
 &lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;I&amp;#39;ve been considering recently what makes an effective product manager. So I wrote down a few of my thoughts.&lt;br&gt;&lt;br&gt;What I&amp;#39;ve loved the most in some PMs and missed the most in others.&lt;br&gt;&lt;br&gt;I&amp;#39;d likewise love to hear what you think!&lt;a href="https://t.co/5vTWTNhs68"&gt;https://t.co/5vTWTNhs68&lt;/a&gt; &lt;a href="https://t.co/vXjPY9fiVT"&gt;pic.twitter.com/vXjPY9fiVT&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@eatonphil) &lt;a href="https://twitter.com/eatonphil/status/1617661616593723394?ref_src=twsrc%5Etfw"&gt;January 23, 2023&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/effective-product-manager.html</guid><pubDate>Mon, 23 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Live coding a Scheme-like language in Go, part 3: AST walking interpreter</title><link>http://notes.eatonphil.com/2023-01-22-livescheme-part-three.html</link><description>&lt;head&gt;
-    &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=YwmGcverSHI'" /&gt;
-&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
-&lt;a href="https://www.youtube.com/watch?v=YwmGcverSHI"&gt;here&lt;/a&gt;
-if you are not redirected.&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-22-livescheme-part-three.html</guid><pubDate>Sun, 22 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Live coding a Scheme-like language in Go, part 2: parsing</title><link>http://notes.eatonphil.com/2023-01-15-livescheme-part-two.html</link><description>&lt;head&gt;
-    &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=5ttFEPQopXc'" /&gt;
-&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
-&lt;a href="https://www.youtube.com/watch?v=5ttFEPQopXc"&gt;here&lt;/a&gt;
-if you are not redirected.&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-15-livescheme-part-two.html</guid><pubDate>Sun, 15 Jan 2023 00:00:00 +0000</pubDate></item><item><title>The year in books: 2022</title><link>http://notes.eatonphil.com/2023-01-12-year-in-books.html</link><description>&lt;p&gt;In 2022 I &lt;a href="https://www.goodreads.com/challenges/11636-2022-reading-challenge"&gt;finished 20
+</description><guid isPermaLink="false">http://notes.eatonphil.com/effective-product-manager.html</guid><pubDate>Mon, 23 Jan 2023 00:00:00 +0000</pubDate></item><item><title>The year in books: 2022</title><link>http://notes.eatonphil.com/2023-01-12-year-in-books.html</link><description>&lt;p&gt;In 2022 I &lt;a href="https://www.goodreads.com/challenges/11636-2022-reading-challenge"&gt;finished 20
 books&lt;/a&gt;
 spanning 15,801 pages.  3 more than I read in 2021, but about twice
 the number of pages. 3 fiction and 17 non-fiction. Another ~30 started
@@ -231,12 +221,7 @@ fiction set during the 1860s in Sicily during and after the
 unification of Italy. I learned about this book from a Rick Stein
 episode in the Mediterranean Escapes series.&lt;/li&gt;
 &lt;/ul&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-12-year-in-books.html</guid><pubDate>Thu, 12 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Live coding a Scheme-like language in Go, part 1: a basic lexer</title><link>http://notes.eatonphil.com/2023-01-08-livescheme-part-one.html</link><description>&lt;head&gt;
-    &lt;meta http-equiv="refresh" content="4;URL='https://www.youtube.com/watch?v=lZNhZI-dN9k'" /&gt;
-&lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
-&lt;a href="https://www.youtube.com/watch?v=lZNhZI-dN9k"&gt;here&lt;/a&gt;
-if you are not redirected.&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-08-livescheme-part-one.html</guid><pubDate>Sun, 08 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Favorite compiler and interpreter resources</title><link>http://notes.eatonphil.com/2023-01-04-compiler-resources.html</link><description>&lt;head&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-01-12-year-in-books.html</guid><pubDate>Thu, 12 Jan 2023 00:00:00 +0000</pubDate></item><item><title>Favorite compiler and interpreter resources</title><link>http://notes.eatonphil.com/2023-01-04-compiler-resources.html</link><description>&lt;head&gt;
     &lt;meta http-equiv="refresh" content="4;URL='https://lists.eatonphil.com/compilers-and-interpreters.html'" /&gt;
 &lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
 &lt;a href="https://lists.eatonphil.com/compilers-and-interpreters.html"&gt;here&lt;/a&gt;
