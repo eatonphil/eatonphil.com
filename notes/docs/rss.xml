@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 31 Jan 2023 01:48:32 +0000</lastBuildDate><item><title>Lessons learned streaming building a Scheme-like interpreter in Go</title><link>http://notes.eatonphil.com/2023-01-30-livescheme.html</link><description>&lt;p&gt;I wanted to practice making coding videos so I did a &lt;a href="https://www.youtube.com/watch?v=lZNhZI-dN9k&amp;amp;list=PLjJMyANAIVHEgUOK2cU0hrvSwFPNHT2a7"&gt;four-part
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 31 Jan 2023 01:54:47 +0000</lastBuildDate><item><title>Lessons learned streaming building a Scheme-like interpreter in Go</title><link>http://notes.eatonphil.com/2023-01-30-livescheme.html</link><description>&lt;p&gt;I wanted to practice making coding videos so I did a &lt;a href="https://www.youtube.com/watch?v=lZNhZI-dN9k&amp;amp;list=PLjJMyANAIVHEgUOK2cU0hrvSwFPNHT2a7"&gt;four-part
 series&lt;/a&gt;
 on writing a basic Scheme-like language (minus macros and arrays and
 tons of stuff).&lt;/p&gt;
@@ -68,6 +68,14 @@ and a "back soon" graphic if I needed it.&lt;/p&gt;
 globally&lt;/a&gt;
 (it's on globally by default) and then add it as an input only to the
 scenes you want.&lt;/p&gt;
+&lt;h3 id="storage-and-export-to-youtube"&gt;Storage and export to YouTube&lt;/h3&gt;&lt;p&gt;Twitch doesn't store streams by default. You have to turn on &lt;a href="https://help.twitch.tv/s/article/video-on-demand?language=en_US"&gt;Video on
+Demand&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Even when it's turned on the videos only seem to be stored for 1 week. Maybe that's configurable but I didn't see it.&lt;/p&gt;
+&lt;p&gt;In any case it's not a problem because you can set up a YouTube
+connection. Then after a stream is complete you find the stream video
+and click Export. It takes about a minute to upload the hour long
+videos I did. Though YouTube post-processing took a while longer after
+that.&lt;/p&gt;
 &lt;h3 id="next?"&gt;Next?&lt;/h3&gt;&lt;p&gt;I'm forced to take a break from recording these videos for the next
 two weeks since I'll be &lt;a href="https://systemsdistributed.com/"&gt;in Cape
 Town&lt;/a&gt;.&lt;/p&gt;
