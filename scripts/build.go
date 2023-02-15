@@ -60,6 +60,13 @@ var SECTIONS = []struct {
 		},
 	},
 	{
+		"shouldiwriteablogpostaboutit",
+		map[string]any{
+			"Tag": "Should I write a blog post about it? Yes.",
+			"Section": "",
+		},
+	},
+	{
 		"home",
 		map[string]any{
 			"Tag":     "Phil Eaton",
