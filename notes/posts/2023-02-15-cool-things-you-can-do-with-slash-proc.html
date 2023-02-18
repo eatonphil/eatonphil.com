@@ -1,0 +1,32 @@
+# Cool things you can do with /proc
+## February 15, 2023
+###### linux
+
+How often do you use `netstat` or `ps` or `pstree`? How often do you
+try to look up how to discover something related to a process, just to
+be told you need to install some hipster command line tool like `lsof`
+or `ss` just to solve that problem?
+
+Well, the neat thing is that all (?) of this information is available
+for you in `/proc`. `/proc` is a [virtual
+filesystem](https://tldp.org/LDP/Linux-Filesystem-Hierarchy/html/proc.html)
+with information about all running processes.
+
+<p class="note">
+  The nasty thing about <code>/proc</code> is that there doesn't seem
+  to be any way to access its info as structured data. The official
+  Linux interface to process info is... text files...
+</p>
+
+There is a folder inside `/proc` for every process that is currently
+running.
+
+Here are a few useful recipes to get you started.
+
+### Find the parent process ID of some process by process ID
+
+```bash
+$ cat /proc/$pid/status | grep PPid | awk '{print $2}'
+```
+
+### Find all open ports by process ID
