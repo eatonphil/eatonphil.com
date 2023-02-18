@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Sat, 18 Feb 2023 19:12:48 +0000</lastBuildDate><item><title>Conclusion</title><link>http://notes.eatonphil.com/2023-02-18-neil-gabler-walt-disney-notes.html</link><description>&lt;p&gt;Disney was a celebrity by his mid-30s, Disney the company was famous
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Sat, 18 Feb 2023 19:13:45 +0000</lastBuildDate><item><title>Raw notes from Neil Gabler's Walt Disney</title><link>http://notes.eatonphil.com/2023-02-18-neil-gabler-walt-disney-notes.html</link><description>&lt;p&gt;Disney was a celebrity by his mid-30s, Disney the company was famous
 by 1930s.&lt;/p&gt;
 &lt;p&gt;Even though politically the 1930s was considered the decade of
 Roosevelt (elected President in 1933), culturally the 1930s was
@@ -37,7 +37,7 @@ Times&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;Added &lt;a href="https://d23.com/the-wonderful-things-about-walt-disneys-wonderful-world-of-color/"&gt;color to TV
 shows&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;Disney hired fine arts teachers to come and teach employees. From time
+&lt;h3 id="snow-white"&gt;Snow White&lt;/h3&gt;&lt;p&gt;Disney hired fine arts teachers to come and teach employees. From time
 to time he forced the artists to take night classes.&lt;/p&gt;
 &lt;p&gt;They trained for years(?) before &lt;em&gt;starting&lt;/em&gt; the animation of Snow
 White and did almost all the animation in the last 10 months or so
@@ -54,7 +54,7 @@ ended up just tracing them, called
 &lt;a href="https://imgur.com/gallery/IZkSR"&gt;rotoscoping&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;The Snow White voice cast were quite famous at the time. We wouldn't
 know it now but it was basically an ensemble cast.&lt;/p&gt;
-&lt;p&gt;Ran low on money so they produced films for the &lt;a href="https://en.wikipedia.org/wiki/List_of_Walt_Disney%27s_World_War_II_productions_for_Armed_Forces"&gt;US
+&lt;h3 id="world-war-2"&gt;World War 2&lt;/h3&gt;&lt;p&gt;Ran low on money so they produced films for the &lt;a href="https://en.wikipedia.org/wiki/List_of_Walt_Disney%27s_World_War_II_productions_for_Armed_Forces"&gt;US
 Government&lt;/a&gt;. &lt;a href="https://www.smithsonianmag.com/history/how-disney-propaganda-shaped-life-on-the-home-front-during-wwii-180979057/"&gt;Propaganda&lt;/a&gt;,
 basically. But also &lt;a href="https://www.youtube.com/watch?v=kRVFQs2XYy4"&gt;instructional
 videos&lt;/a&gt;.&lt;/p&gt;
@@ -62,7 +62,7 @@ videos&lt;/a&gt;.&lt;/p&gt;
 (1941)&lt;/a&gt;
 and established unions. If Disney was a dick before this, he became a
 much bigger dick after this.&lt;/p&gt;
-&lt;p&gt;Got into television with ABC initially. First Hollywood company to do
+&lt;h3 id="post-war"&gt;Post War&lt;/h3&gt;&lt;p&gt;Got into television with ABC initially. First Hollywood company to do
 so. Arrangement with ABC was in part to finance Disneyland. (Not
 covered in the book but Disney &lt;a href="https://www.nytimes.com/1995/08/01/business/media-business-merger-walt-disney-acquire-abc-19-billion-deal-build-giant-for.html"&gt;eventually took over
 ABC&lt;/a&gt;,
@@ -71,7 +71,7 @@ not before eventually splitting ABC and working with NBC though.)&lt;/p&gt;
 Disneyland, this under WED (what is now Walt Disney Imagineering).&lt;/p&gt;
 &lt;p&gt;After Disneyland launched he moved on to world fairs and eventually
 Disneyworld. He died of lung cancer before completing Disneyworld.&lt;/p&gt;
-&lt;ul&gt;
+&lt;h3 id="tidbits"&gt;Tidbits&lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;a href="https://www.disneyplus.com/video/aa400cf1-a54d-4187-997d-573711c88697"&gt;The Reluctant
 Dragon&lt;/a&gt;,
 a throwaway film because they needed money when they went public. It
@@ -80,7 +80,7 @@ make a film out of his book. He stumbles around the new Disney
 Burbank Studio through art classes and musicians practicing,
 uncovering how Disney films are made in the process.&lt;/li&gt;
 &lt;/ul&gt;
-&lt;ul&gt;
+&lt;h3 id="questions"&gt;Questions&lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;What were the other major animation studies? Even if Snow White was
 the first animated feature film, surely others must have rushed to
 copy the success. Who were they?&lt;ul&gt;
@@ -88,7 +88,7 @@ copy the success. Who were they?&lt;ul&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;Basically after every turn he'd get tired of the stuff he had already
+&lt;h3 id="conclusion"&gt;Conclusion&lt;/h3&gt;&lt;p&gt;Basically after every turn he'd get tired of the stuff he had already
 done (and killed at doing) to do something new. From animated shorts
 to feature films to television to Disneyland to Disneyworld and EPCOT.&lt;/p&gt;
 &lt;p&gt;To his employees he was a huge dick. They'd be in constant fear of
