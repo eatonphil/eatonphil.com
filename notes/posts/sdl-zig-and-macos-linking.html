@@ -1,0 +1,81 @@
+# Desktop applications, graphics stacks, and macOS linking
+## March 5, 2023
+###### macos,graphics,sdl,zig
+
+When tech companies build desktop apps, more and more it's Electron or
+some other [webview](https://en.wikipedia.org/wiki/WebView).
+
+Spotify [ditched their native apps for
+CEF](https://engineering.atspotify.com/2019/03/building-spotifys-new-web-player/). Slack
+had [only ever been written as a webview
+app.](https://slack.engineering/building-hybrid-applications-with-electron/)
+VS Code [is an Electron
+app](https://github.com/microsoft/vscode/blob/adc51fb212867182d29d154b78bdaf42489b3c4d/src/main.js#L27). Discord
+uses Electron.
+
+Some major programming tools aren't webviews, but these feel like the
+minority. JetBrains uses
+[Swing](https://github.com/JetBrains/intellij-community/blob/d626ed9534135c841b815b7d134b8216298a9dc3/java/idea-ui/src/com/intellij/ide/projectWizard/ProjectCategory.java#L9). GTK
+was built for GIMP and GIMP still uses it. Sublime is [built on
+Skia](https://thume.ca/2016/12/03/disassembling-sublime-text/). Eclipse
+is built on
+[SWT](https://en.wikipedia.org/wiki/Standard_Widget_Toolkit) which
+under the hood may use GTK or other OS-specific libraries.
+
+Open-source code tends to use GTK or QT or
+[ImGui](https://github.com/ocornut/imgui). Open-source users normally
+value time-to-result in GUIs, and the resulting performance, more so
+than ability to sculpt the UI and UX. GTK and ImGui are easy to use
+but seem to have limited customizability. QT is easy to use and highly
+customizable but the license is only definitely friendly for
+open-source users.
+
+Tech companies wanting to build cross-platform apps seem to prefer to
+high JavaScript developers and web designers (probably because there
+are more of them and thus hiring is easier). So they stick with
+webviews.
+
+The rare company only interested in catering to macOS users may use
+macOS specific UI code (like [OmniGroup selling
+OmniGraffle](https://www.omnigroup.com/omnigraffle)).
+
+Older companies may offer Windows-only products with Windows Forms
+(WinForms), or offer cross-platform applications and with Java Swing
+or JavaFX.
+
+Obviously there are no rules here, but there seem to be patterns.
+
+### Soul-searching
+
+Chrome-based frameworks like CEF or Electron give you a lot. All your
+knowledge with HTML and JavaScript and CSS transfers. You get to reuse
+huge amounts of code between your web application and your desktop
+application. Publishing steps (like code signing) on Windows and macOS
+are well-documented.
+
+The problem is that Chrome-based frameworks like CEF or Electron give
+you a lot. These apps take huge amounts of RAM even when your
+application isn't doing much. Being a memory hog isn't necessarily
+intrinsic to using a webview, but it's common enough so as to be
+something to consider.
+
+In reality though most applications don't need an entire browser to
+run. Most applications themselves aren't highly manipulatable.
+
+The advantage of a browser is that it can run highly variable
+workloads. But when your own application's workload likely isn't
+highly variable. Most CRUD apps, form-based apps, and even many
+developer tools don't need to be able to visualize and display
+arbitrary user input.
+
+So when you ship your application bundled as a webview you're shipping
+at a layer of abstraction significantly above what is necessary.
+
+Wasting user resources is not amazing UX. What options are there?
+
+### Outside
+
+GTK, Swing, and ImGui didn't seem flexible. JavaFX, QT, and Xamarin
+had too high a learning curve. WinForms and SwiftUI/AppKit/UIKit are
+not cross-platform.
+
