@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Sat, 18 Feb 2023 19:36:31 +0000</lastBuildDate><item><title>Notes from Neal Gabler's Walt Disney</title><link>http://notes.eatonphil.com/2023-02-18-neal-gabler-walt-disney-notes.html</link><description>&lt;p&gt;Disney was a celebrity by his mid-30s, Disney the company was famous
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 07 Mar 2023 23:10:54 +0000</lastBuildDate><item><title>Notes from Neal Gabler's Walt Disney</title><link>http://notes.eatonphil.com/2023-02-18-neal-gabler-walt-disney-notes.html</link><description>&lt;p&gt;Disney was a celebrity by his mid-30s, Disney the company was famous
 by 1930s.&lt;/p&gt;
 &lt;p&gt;Even though politically the 1930s was considered the decade of
 Roosevelt (elected President in 1933), culturally the 1930s was
@@ -11501,17 +11501,15 @@ a similar name if you browse 3.10+).&lt;/p&gt;
   Thanks &lt;a href="https://twitter.com/jryans"&gt;J. Ryan Stinnett&lt;/a&gt; for
   a correction about the change in speed in the new PEG parser.
 &lt;/p&gt;&lt;h3 id="gcc:-handwritten"&gt;GCC: Handwritten&lt;/h3&gt;&lt;p&gt;Source code for the C parser available
-&lt;a href="https://github.com/gcc-mirror/gcc/blob/master/gcc/c/c-parser.c"&gt;here&lt;/a&gt;. It
-used to use Bison until &lt;a href="The old Bison-based C and
-Objective-C parser has been replaced by a new, faster hand-written
-recursive-descent parser."&gt;GCC 4.1 in 2006&lt;/a&gt;. The C++ parser also switched from Bison
-to a handwritten parser &lt;a href="https://gcc.gnu.org/gcc-3.4/changes.html"&gt;2 years
+&lt;a href="https://github.com/gcc-mirror/gcc/blob/releases/gcc-12.1.0/gcc/c/c-parser.cc"&gt;here&lt;/a&gt;. It
+used to use Bison until &lt;a href="https://gcc.gnu.org/gcc-4.1/changes.html"&gt;GCC 4.1 in
+2006&lt;/a&gt;. The C++ parser also
+switched from Bison to a handwritten parser &lt;a href="https://gcc.gnu.org/gcc-3.4/changes.html"&gt;2 years
 earlier&lt;/a&gt;.&lt;/p&gt;
 &lt;h3 id="clang:-handwritten"&gt;Clang: Handwritten&lt;/h3&gt;&lt;p&gt;Not only handwritten but the same &lt;em&gt;file&lt;/em&gt; handles parsing C,
 Objective-C and C++. Source code is available
 &lt;a href="https://github.com/llvm/llvm-project/blob/llvmorg-12.0.1/clang/lib/Parse/Parser.cpp"&gt;here&lt;/a&gt;.&lt;/p&gt;
-&lt;h3 id="ruby:-yacc-like-parser-generator"&gt;Ruby: Yacc-like Parser Generator&lt;/h3&gt;&lt;p&gt;Ruby uses Bison (thanks for the
-&lt;a href="https://twitter.com/kddnewton/status/1430912896473739271"&gt;correction&lt;/a&gt;!). The
+&lt;h3 id="ruby:-yacc-like-parser-generator"&gt;Ruby: Yacc-like Parser Generator&lt;/h3&gt;&lt;p&gt;Ruby uses Bison. The
 grammar for the language can be found
 &lt;a href="https://github.com/ruby/ruby/blob/v3_0_2/parse.y"&gt;here&lt;/a&gt;.&lt;/p&gt;
 &lt;h3 id="v8-javascript:-handwritten"&gt;V8 JavaScript: Handwritten&lt;/h3&gt;&lt;p&gt;Source code available &lt;a href="https://github.com/v8/v8/blob/9.5.38/src/parsing/parser.cc"&gt;here&lt;/a&gt;.&lt;/p&gt;
