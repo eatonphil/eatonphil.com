@@ -190,7 +190,7 @@ fn run(alloc: std.mem.Allocator, cmds: []const u8) void {
 But there are some things that will fail quite frequently (like
 running subprocesses or interacting with the filesystem in general).
 
-Panicing (like what happens if `@panic()` or `unreachable` is hit) in
+Panicing (like what happens if `@panic()` <s>or `unreachable`</s> is hit) in
 these situations is all good until you have things that you want to
 get cleaned up.
 
