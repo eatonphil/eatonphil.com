@@ -34,6 +34,37 @@ programmed in GC languages that do the allocations behind the scenes.
 Furthermore, memory allocation can fail. Zig makes allocation failures
 explicit. So lots of things in Zig code need to handle failure.
 
+Selectively omitting error handling is not allowed:
+
+```zig
+const std = @import("std");
+
+fn thing(a: std.mem.Allocator) !void {
+    std.fmt.allocPrint(a, "", .{});
+}
+
+pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
+    const allocator = arena.allocator();
+    try thing(allocator);
+}
+```
+
+Run `zig run test.zig`:
+
+```shell
+test.zig:4:23: error: error is ignored
+    std.fmt.allocPrint(a, "", .{});
+    ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+test.zig:4:23: note: consider using 'try', 'catch', or 'if'
+referenced by:
+    main: test.zig:12:9
+    callMain: /home/phil/vendor/zig-linux-x86_64-0.11.0-dev.2213+515e1c93e/lib/std/start.zig:617:32
+    remaining reference traces hidden; use '-freference-trace' to see all reference traces
+```
+
 This ends up meaning lots of code like:
 
 ```zig
@@ -296,7 +327,7 @@ necessary at the parser layer:
       x = good_value;
       break;
     } else |err| switch (err) {
-      .else => {
+      else => {
         // do something that should fix it for the next time
         tries -= 1;
       },

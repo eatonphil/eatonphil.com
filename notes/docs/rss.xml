@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 22 Mar 2023 13:18:09 +0000</lastBuildDate><item><title>Errors and Zig</title><link>http://notes.eatonphil.com/errors-and-zig.html</link><description>&lt;p&gt;At TigerBeetle these last few weeks I've been doing a mix of
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 22 Mar 2023 15:55:45 +0000</lastBuildDate><item><title>Errors and Zig</title><link>http://notes.eatonphil.com/errors-and-zig.html</link><description>&lt;p&gt;At TigerBeetle these last few weeks I've been doing a mix of
 documenting client libraries, writing sample code for client
 libraries, and writing integration tests against the sample code.&lt;/p&gt;
 &lt;p&gt;The client library documentation is generated with a Zig script. The
@@ -21,6 +21,31 @@ operations I'm used to allocate memory. I've previously only
 programmed in GC languages that do the allocations behind the scenes.&lt;/p&gt;
 &lt;p&gt;Furthermore, memory allocation can fail. Zig makes allocation failures
 explicit. So lots of things in Zig code need to handle failure.&lt;/p&gt;
+&lt;p&gt;Selectively omitting error handling is not allowed:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;const std = @import(&amp;quot;std&amp;quot;);
+
+fn thing(a: std.mem.Allocator) !void {
+    std.fmt.allocPrint(a, &amp;quot;&amp;quot;, .{});
+}
+
+pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
+    const allocator = arena.allocator();
+    try thing(allocator);
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Run &lt;code&gt;zig run test.zig&lt;/code&gt;:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs shell"&gt;test.zig:4:23: error: error is ignored
+    std.fmt.allocPrint(a, &amp;quot;&amp;quot;, .{});
+    ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+test.zig:4:23: note: consider using &amp;#39;try&amp;#39;, &amp;#39;catch&amp;#39;, or &amp;#39;if&amp;#39;
+referenced by:
+    main: test.zig:12:9
+    callMain: /home/phil/vendor/zig-linux-x86_64-0.11.0-dev.2213+515e1c93e/lib/std/start.zig:617:32
+    remaining reference traces hidden; use &amp;#39;-freference-trace&amp;#39; to see all reference traces
+&lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;This ends up meaning lots of code like:&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs zig"&gt;fn do_stuff(
   alloc: std.mem.Allocator, // Let&amp;#39;s assume this is an arena allocator so I don&amp;#39;t care about freeing.
@@ -222,7 +247,7 @@ necessary at the parser layer:&lt;/p&gt;
       x = good_value;
       break;
     } else |err| switch (err) {
-      .else =&amp;gt; {
+      else =&amp;gt; {
         // do something that should fix it for the next time
         tries -= 1;
       },

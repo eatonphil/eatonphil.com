@@ -70,6 +70,31 @@ operations I'm used to allocate memory. I've previously only
 programmed in GC languages that do the allocations behind the scenes.</p>
 <p>Furthermore, memory allocation can fail. Zig makes allocation failures
 explicit. So lots of things in Zig code need to handle failure.</p>
+<p>Selectively omitting error handling is not allowed:</p>
+<pre><code class="hljs zig">const std = @import(&quot;std&quot;);
+
+fn thing(a: std.mem.Allocator) !void {
+    std.fmt.allocPrint(a, &quot;&quot;, .{});
+}
+
+pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
+    const allocator = arena.allocator();
+    try thing(allocator);
+}
+</code></pre>
+<p>Run <code>zig run test.zig</code>:</p>
+<pre><code class="hljs shell">test.zig:4:23: error: error is ignored
+    std.fmt.allocPrint(a, &quot;&quot;, .{});
+    ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+test.zig:4:23: note: consider using &#39;try&#39;, &#39;catch&#39;, or &#39;if&#39;
+referenced by:
+    main: test.zig:12:9
+    callMain: /home/phil/vendor/zig-linux-x86_64-0.11.0-dev.2213+515e1c93e/lib/std/start.zig:617:32
+    remaining reference traces hidden; use &#39;-freference-trace&#39; to see all reference traces
+</code></pre>
 <p>This ends up meaning lots of code like:</p>
 <pre><code class="hljs zig">fn do_stuff(
   alloc: std.mem.Allocator, // Let&#39;s assume this is an arena allocator so I don&#39;t care about freeing.
@@ -271,7 +296,7 @@ necessary at the parser layer:</p>
       x = good_value;
       break;
     } else |err| switch (err) {
-      .else =&gt; {
+      else =&gt; {
         // do something that should fix it for the next time
         tries -= 1;
       },
