@@ -197,9 +197,10 @@ these situations is all good until you have things that you want to
 get cleaned up.</p>
 <p class="note">
   My <a href="https://matklad.github.io/">coworker</a> points out I'm
-  wrongly conflating <code>unreachable</code> and <code>@panic()</code> since depending on
-  the release mode, hitting <code>unreachable<code> is actually undefined
-  behavior whereas <code>@panic()</code> is always a panic.
+  wrongly conflating <code>unreachable</code>
+  and <code>@panic()</code> since depending on the release mode,
+  hitting <code>unreachable</code> is actually undefined behavior
+  whereas <code>@panic()</code> is always a panic.
 </p><p>Panics don't trigger <code>defer</code> or <code>errdefer</code> statements. So if you have
 a script that starts a background process or creates a temporary
 directory, and if you panic in that script, the script won't be able

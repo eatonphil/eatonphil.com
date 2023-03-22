@@ -196,9 +196,10 @@ get cleaned up.
 
 <p class="note">
   My <a href="https://matklad.github.io/">coworker</a> points out I'm
-  wrongly conflating <code>unreachable</code> and <code>@panic()</code> since depending on
-  the release mode, hitting <code>unreachable<code> is actually undefined
-  behavior whereas <code>@panic()</code> is always a panic.
+  wrongly conflating <code>unreachable</code>
+  and <code>@panic()</code> since depending on the release mode,
+  hitting <code>unreachable</code> is actually undefined behavior
+  whereas <code>@panic()</code> is always a panic.
 </p>
 
 Panics don't trigger `defer` or `errdefer` statements. So if you have
