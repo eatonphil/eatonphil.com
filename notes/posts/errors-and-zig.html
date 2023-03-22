@@ -1,0 +1,366 @@
+# Errors and Zig
+## March 21, 2023
+###### zig
+
+At TigerBeetle these last few weeks I've been doing a mix of
+documenting client libraries, writing sample code for client
+libraries, and writing integration tests against the sample code.
+
+The client library documentation is generated with a Zig script. The
+sample code is integration tested with a Zig script. A bunch of Zig
+scripts.
+
+It's not the same
+[rigorous](https://github.com/tigerbeetledb/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
+sort of Zig as the main database. (We're generally more lax about
+scripts and test code.)
+
+*And I'm specifically writing this post on my personal blog since my
+script code is not under incredible scrutiny.*
+
+Furthermore, I'm still new to Zig. Since I'm still learning, there
+have been a few things that tripped me up.
+
+And now that I've written this out, I realize most of my stumbling was
+related to errors.
+
+### Failure
+
+Lots of things in programs allocate memory. This sounds dumb and
+obvious but before programming Zig I really did not appreciate how
+many operations I'm used to allocate memory. I've previously only
+programmed in GC languages that do the allocations behind the scenes.
+
+Furthermore, memory allocation can fail. Zig makes allocation failures
+explicit. So lots of things in Zig code need to handle failure.
+
+This ends up meaning lots of code like:
+
+```zig
+fn do_stuff(
+  alloc: std.mem.Allocator, // Let's assume this is an arena allocator so I don't care about freeing.
+  stuff: Stuff,
+) !void {
+  var x = std.ArrayList([]const u8).init(alloc);
+  try x.appendSlice(&[_][]const u8{
+    "first of something",
+    "one more",
+  });
+  try x.append(stuff.thing);
+  try x.append(try std.fmt.allocPrint(alloc, "build some string {s}.\n", .{stuff.athing}));
+
+  var other_stuff = try std.fmt.allocPrint(alloc, "things... {s}", .{blah});
+
+  try do_other_stuff(x.items, other_stuff);
+}
+```
+
+You have `try`-es all over the place.
+
+### Limits of `try`
+
+Now I don't have a problem with acknowledging that allocations can
+fail. At least not in non-scripts. In scripts like I've been writing
+though I don't really care.
+
+Having all of those `try`-es is just extra typing all over the place.
+
+It would be nice if I could have instead done:
+
+```zig
+fn do_stuff(
+  alloc: std.mem.Allocator, // Let's assume this is an arena allocator so I don't care about freeing.
+  stuff: Stuff,
+) !void {
+  var x = std.ArrayList([]const u8).init(alloc);
+  try {
+      x.appendSlice(&[_][]const u8{
+      "first of something",
+      "one more",
+    });
+    x.append(stuff.thing);
+    x.append(std.fmt.allocPrint(alloc, "build some string {s}.\n", .{stuff.athing}));
+    
+    var other_stuff = std.fmt.allocPrint(alloc, "things... {s}", .{blah});
+    
+    do_other_stuff(x.items, other_stuff);
+  }
+}
+```
+
+But Zig's `try` doesn't work like that. I'm not sure why not. But the
+Zig developers are sensible so I'm sure there's a good reason.
+
+Still, are there other options?
+
+### `catch unreachable`
+
+So the problem isn't just that you have to acknowledge memory
+allocation failures but that these failures within every helper
+function need to be acknowledged by the caller of the helper
+function. Failures infiltrate the entire call tree.
+
+You can avoid this by instead of `try`-ing everything, mark error
+conditions as `unreachable`.
+
+```zig
+fn do_stuff(
+  alloc: std.mem.Allocator, // Let's assume this is an arena allocator so I don't care about freeing.
+  stuff: Stuff,
+) void {
+  var x = std.ArrayList([]const u8).init(alloc);
+  x.appendSlice(&[_][]const u8{
+    "first of something",
+    "one more",
+  }) catch unreachable;
+  x.append(stuff.thing) catch unreachable;
+  x.append(std.fmt.allocPrint(alloc, "build some string {s}.\n", .{stuff.athing}) catch unreachable) catch unreachable;
+  
+  var other_stuff = std.fmt.allocPrint(alloc, "things... {s}", .{blah}) catch unreachable;
+  
+  do_other_stuff(x.items, other_stuff) catch unreachable;
+}
+```
+
+As you can see from the function signature, this function no longer
+returns any error at all. But it could possibly panic.
+
+Now in scripts, for things like memory allocations that can fail, I
+actually think it's reasonable to mark allocation failures as
+unreachable.
+
+But I took it a bit further. Using `@panic` or `unreachable` in
+general failure conditions.
+
+```zig
+fn run(alloc: std.mem.Allocator, cmds: []const u8) void {
+  var res = try std.ChildProcess.exec(.{
+      .allocator = self.allocator,
+      .argv = cmd,
+  });
+  switch (res.term) {
+      .Exited => |code| {
+          if (code != 0) {
+              @panic("Expected command to succeed.");
+          }
+      },
+
+      else => unreachable,
+  }
+}
+```
+
+### Handling panics
+
+But there are some things that will fail quite frequently (like
+running subprocesses or interacting with the filesystem in general).
+
+Panicing (like what happens if `@panic()` or `unreachable` is hit) in
+these situations is all good until you have things that you want to
+get cleaned up.
+
+Panics don't trigger `defer` or `errdefer` statements. So if you have
+a script that starts a background process or creates a temporary
+directory, and if you panic in that script, the script won't be able
+to run `defer` steps to stop the background process or delete the
+temporary directory.
+
+There are panic handlers in Zig (not yet documented, Ctrl-f for "TODO:
+pub fn panic" in the [Zig
+docs](https://ziglang.org/documentation/master/). But I'd just be
+getting further from useful if I went in that direction.
+
+### Zig errors
+
+So I stopped panic-ing everywhere and switched to using real Zig
+errors, like:
+
+```zig
+fn run(alloc: std.mem.Allocator, cmds: []const u8) !void {
+  var res = try std.ChildProcess.exec(.{
+    .allocator = self.allocator,
+    .argv = cmd,
+  });
+  switch (res.term) {
+    .Exited => |code| {
+      if (code != 0) {
+        std.debug.print("Expected command to succeed.\n", .{});
+        return error.RunCommandFailed;
+      }
+    },
+
+    else => unreachable,
+  }
+}
+```
+
+It's pretty sweet. You get to make up a new `error` enum wherever
+you'd like.
+
+It is unfortunate you can't (currently) include a payload with the
+error return value. There's an [active issue discussing
+it](https://github.com/ziglang/zig/issues/2647).
+
+But so far I've been able to work around that, as seen in that example
+above, by logging before returning an error. Since most of the time
+the payload you want to return is detailed information to provide
+context.
+
+This logging is fine in a CLI application but probably not everything
+you'd want in a library. I'm not sure.
+
+### Handling errors with `if`
+
+Ok so now that I'm fully bought into Zig errors there were still a few
+more things that tripped me up.
+
+First is that you can handle errors a few ways. You already saw the
+first one with just `try`.
+
+```zig
+  var x = try thingThatCouldFail();
+```
+
+This will cause the function the statement is inside to short-circuit,
+returning immediately, if `thingThatCouldFail` has an error result.
+
+But then I wanted to retry a function that could fail in a loop after
+handling the error.
+
+```zig
+  var x: SomeType = somedefault;
+  while (tries > 0) {
+    if (thingThatCouldFail()) |good_value| {
+	  x = good_value;
+	  break;
+	}
+	
+	// do something that should fix it for the next time
+	tries -= 1;
+  }
+```
+
+But that isn't a real syntax. The Zig docs show an example of how you
+can use `if` with an `error` function:
+
+```zig
+fn doAThing(str: []u8) void {
+    if (parseU64(str, 10)) |number| {
+        doSomethingWithNumber(number);
+    } else |err| switch (err) {
+        error.Overflow => {
+            // handle overflow...
+        },
+        // we promise that InvalidChar won't happen (or crash in debug mode if it does)
+        error.InvalidChar => unreachable,
+    }
+}
+```
+
+But I don't care about the error at this moment (maybe I should, but I
+don't right now).
+
+So I tried:
+
+```zig
+  var x: SomeType = somedefault;
+  while (tries > 0) {
+    if (thingThatCouldFail()) |good_value| {
+	  x = good_value;
+	  break;
+	} else {
+	  // do something that should fix it for the next time
+	  tries -= 1;
+	}
+  }
+```
+
+But that gives me an obscure type error.
+
+I was stumped here for a while until I decided to try the whole syntax
+in that example. And it turns out that at least the capture part is
+necessary at the parser layer:
+
+```zig
+  var x: SomeType = somedefault;
+  while (tries > 0) {
+    if (thingThatCouldFail()) |good_value| {
+	  x = good_value;
+	  break;
+	} else |err| switch (err) {
+	  .else => {
+	    // do something that should fix it for the next time
+	    tries -= 1;
+	  },
+	}
+  }
+```
+
+And eventually I guessed an unnamed error variable might also work
+without the switch, and that was correct:
+
+```zig
+  var x: SomeType = somedefault;
+  while (tries > 0) {
+    if (thingThatCouldFail()) |good_value| {
+	  x = good_value;
+	  break;
+	} else |_| {
+	  // do something that should fix it for the next time
+	  tries -= 1;
+	}
+  }
+```
+
+Nice!
+
+### `catch` blocks
+
+One last thing that I was stumbling around with was that when you use
+`catch` with a function that returns an error or some non-void value,
+the catch must return a value of the same type as the function.
+
+The Zig docs show a simple example:
+
+```zig
+const number = parseU64(str, 10) catch 13;
+```
+
+But I also use `catch` with blocks sometimes:
+
+```zig
+const number = parseU64(str, 10) catch {
+  // do some more complex stuff, maybe log, who knows
+};
+```
+
+But that won't compile. So the "trick" is to combine Zig's [named
+blocks](https://ziglang.org/documentation/master/#Blocks) with
+`catch`.
+
+```zig
+const number = parseU64(str, 10) catch blk: {
+  // do some more complex stuff, maybe log, who knows
+  
+  // and then "return" a result
+  break :blk 13;
+};
+```
+
+### Contributing to Zig docs
+
+I didn't want to write this post without offering some of my examples
+to the docs. While there's a dedicated effort around autodoc, the tool
+that builds docs for the standard library, I haven't yet stumbled on
+docs for contributing the main Zig docs.
+
+So I grepped in the Zig repo `git grep 'Blocks are expressions.'` for
+a phrase that showed up in the HTML docs and found
+`doc/langref.html.in`.
+
+Through someone on the [Zig Programming Language
+Discord](https://discord.gg/gxsFFjE) I was then pointed at running
+`zig build docs` in the repo root to generate the HTML.
+
+And now I've got a [PR up](https://github.com/ziglang/zig/pull/15042)!
+We'll see what folks think.
