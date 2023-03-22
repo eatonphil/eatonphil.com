@@ -27,8 +27,8 @@ related to errors.
 ### Failure
 
 Lots of things in programs allocate memory. This sounds dumb and
-obvious but before programming Zig I really did not appreciate how
-many operations I'm used to allocate memory. I've previously only
+obvious but before programming Zig I did not appreciate how many
+operations I'm used to allocate memory. I've previously only
 programmed in GC languages that do the allocations behind the scenes.
 
 Furthermore, memory allocation can fail. Zig makes allocation failures
@@ -60,7 +60,7 @@ You have `try`-es all over the place.
 ### Limits of `try`
 
 Now I don't have a problem with acknowledging that allocations can
-fail. At least not in non-scripts. In scripts like I've been writing
+fail. At least outside of scripts. In scripts like I've been writing
 though I don't really care.
 
 Having all of those `try`-es is just extra typing all over the place.
@@ -88,7 +88,7 @@ fn do_stuff(
 }
 ```
 
-But Zig's `try` doesn't work like that. I'm not sure why not. But the
+But Zig's `try` doesn't work like that. I'm not sure why not. The
 Zig developers are sensible so I'm sure there's a good reason.
 
 Still, are there other options?
@@ -100,8 +100,12 @@ allocation failures but that these failures within every helper
 function need to be acknowledged by the caller of the helper
 function. Failures infiltrate the entire call tree.
 
-You can avoid this by instead of `try`-ing everything, mark error
-conditions as `unreachable`.
+Now of course these potential failures would exist whether or not Zig
+exposed them. So I don't mean to say it's Zig's fault for exposing
+them.
+
+But you can avoid failure handling by instead of `try`-ing everything,
+mark error conditions as `unreachable`.
 
 ```zig
 fn do_stuff(
@@ -135,17 +139,17 @@ general failure conditions.
 ```zig
 fn run(alloc: std.mem.Allocator, cmds: []const u8) void {
   var res = try std.ChildProcess.exec(.{
-      .allocator = self.allocator,
-      .argv = cmd,
+    .allocator = self.allocator,
+    .argv = cmd,
   });
   switch (res.term) {
-      .Exited => |code| {
-          if (code != 0) {
-              @panic("Expected command to succeed.");
-          }
-      },
+    .Exited => |code| {
+      if (code != 0) {
+        @panic("Expected command to succeed.");
+      }
+    },
 
-      else => unreachable,
+    else => unreachable,
   }
 }
 ```
@@ -168,7 +172,7 @@ temporary directory.
 There are panic handlers in Zig (not yet documented, Ctrl-f for "TODO:
 pub fn panic" in the [Zig
 docs](https://ziglang.org/documentation/master/). But I'd just be
-getting further from useful if I went in that direction.
+getting further from what seems sensible if I went in that direction.
 
 ### Zig errors
 
@@ -209,13 +213,17 @@ context.
 This logging is fine in a CLI application but probably not everything
 you'd want in a library. I'm not sure.
 
+And now without panics, functions that deal with `error` enums and
+`try` work with `defer` and `errdefer` again! Cleanup of my
+background processes and temporary directories happens like I want.
+
 ### Handling errors with `if`
 
 Ok so now that I'm fully bought into Zig errors there were still a few
 more things that tripped me up.
 
 First is that you can handle errors a few ways. You already saw the
-first one with just `try`.
+first one with `try`.
 
 ```zig
   var x = try thingThatCouldFail();
@@ -231,12 +239,12 @@ handling the error.
   var x: SomeType = somedefault;
   while (tries > 0) {
     if (thingThatCouldFail()) |good_value| {
-	  x = good_value;
-	  break;
-	}
-	
-	// do something that should fix it for the next time
-	tries -= 1;
+      x = good_value;
+      break;
+    }
+    
+    // do something that should fix it for the next time
+    tries -= 1;
   }
 ```
 
@@ -245,15 +253,15 @@ can use `if` with an `error` function:
 
 ```zig
 fn doAThing(str: []u8) void {
-    if (parseU64(str, 10)) |number| {
-        doSomethingWithNumber(number);
-    } else |err| switch (err) {
-        error.Overflow => {
-            // handle overflow...
-        },
-        // we promise that InvalidChar won't happen (or crash in debug mode if it does)
-        error.InvalidChar => unreachable,
-    }
+  if (parseU64(str, 10)) |number| {
+    doSomethingWithNumber(number);
+  } else |err| switch (err) {
+    error.Overflow => {
+      // handle overflow...
+    },
+    // we promise that InvalidChar won't happen (or crash in debug mode if it does)
+    error.InvalidChar => unreachable,
+  }
 }
 ```
 
@@ -266,12 +274,12 @@ So I tried:
   var x: SomeType = somedefault;
   while (tries > 0) {
     if (thingThatCouldFail()) |good_value| {
-	  x = good_value;
-	  break;
-	} else {
-	  // do something that should fix it for the next time
-	  tries -= 1;
-	}
+      x = good_value;
+      break;
+    } else {
+      // do something that should fix it for the next time
+      tries -= 1;
+    }
   }
 ```
 
@@ -285,14 +293,14 @@ necessary at the parser layer:
   var x: SomeType = somedefault;
   while (tries > 0) {
     if (thingThatCouldFail()) |good_value| {
-	  x = good_value;
-	  break;
-	} else |err| switch (err) {
-	  .else => {
-	    // do something that should fix it for the next time
-	    tries -= 1;
-	  },
-	}
+      x = good_value;
+      break;
+    } else |err| switch (err) {
+      .else => {
+        // do something that should fix it for the next time
+        tries -= 1;
+      },
+    }
   }
 ```
 
@@ -303,12 +311,12 @@ without the switch, and that was correct:
   var x: SomeType = somedefault;
   while (tries > 0) {
     if (thingThatCouldFail()) |good_value| {
-	  x = good_value;
-	  break;
-	} else |_| {
-	  // do something that should fix it for the next time
-	  tries -= 1;
-	}
+      x = good_value;
+      break;
+    } else |_| {
+      // do something that should fix it for the next time
+      tries -= 1;
+    }
   }
 ```
 
@@ -318,7 +326,7 @@ Nice!
 
 One last thing that I was stumbling around with was that when you use
 `catch` with a function that returns an error or some non-void value,
-the catch must return a value of the same type as the function.
+the catch must "return" a value of the same type as the function.
 
 The Zig docs show a simple example:
 
@@ -354,12 +362,12 @@ to the docs. While there's a dedicated effort around autodoc, the tool
 that builds docs for the standard library, I haven't yet stumbled on
 docs for contributing the main Zig docs.
 
-So I grepped in the Zig repo `git grep 'Blocks are expressions.'` for
-a phrase that showed up in the HTML docs and found
+So I grepped in the Zig repo `git grep 'Blocks are expressions.'`, a
+phrase that showed up in the HTML docs, and found
 `doc/langref.html.in`.
 
-Through someone on the [Zig Programming Language
-Discord](https://discord.gg/gxsFFjE) I was then pointed at running
+Then someone on the [Zig Programming Language
+Discord](https://discord.gg/gxsFFjE) pointed me at running
 `zig build docs` in the repo root to generate the HTML.
 
 And now I've got a [PR up](https://github.com/ziglang/zig/pull/15042)!

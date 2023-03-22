@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 22 Mar 2023 01:21:28 +0000</lastBuildDate><item><title>Errors and Zig</title><link>http://notes.eatonphil.com/errors-and-zig.html</link><description>&lt;p&gt;At TigerBeetle these last few weeks I've been doing a mix of
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 22 Mar 2023 13:18:09 +0000</lastBuildDate><item><title>Errors and Zig</title><link>http://notes.eatonphil.com/errors-and-zig.html</link><description>&lt;p&gt;At TigerBeetle these last few weeks I've been doing a mix of
 documenting client libraries, writing sample code for client
 libraries, and writing integration tests against the sample code.&lt;/p&gt;
 &lt;p&gt;The client library documentation is generated with a Zig script. The
@@ -16,8 +16,8 @@ have been a few things that tripped me up.&lt;/p&gt;
 &lt;p&gt;And now that I've written this out, I realize most of my stumbling was
 related to errors.&lt;/p&gt;
 &lt;h3 id="failure"&gt;Failure&lt;/h3&gt;&lt;p&gt;Lots of things in programs allocate memory. This sounds dumb and
-obvious but before programming Zig I really did not appreciate how
-many operations I'm used to allocate memory. I've previously only
+obvious but before programming Zig I did not appreciate how many
+operations I'm used to allocate memory. I've previously only
 programmed in GC languages that do the allocations behind the scenes.&lt;/p&gt;
 &lt;p&gt;Furthermore, memory allocation can fail. Zig makes allocation failures
 explicit. So lots of things in Zig code need to handle failure.&lt;/p&gt;
@@ -41,7 +41,7 @@ explicit. So lots of things in Zig code need to handle failure.&lt;/p&gt;
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;You have &lt;code&gt;try&lt;/code&gt;-es all over the place.&lt;/p&gt;
 &lt;h3 id="limits-of-&lt;code&gt;try&lt;/code&gt;"&gt;Limits of &lt;code&gt;try&lt;/code&gt;&lt;/h3&gt;&lt;p&gt;Now I don't have a problem with acknowledging that allocations can
-fail. At least not in non-scripts. In scripts like I've been writing
+fail. At least outside of scripts. In scripts like I've been writing
 though I don't really care.&lt;/p&gt;
 &lt;p&gt;Having all of those &lt;code&gt;try&lt;/code&gt;-es is just extra typing all over the place.&lt;/p&gt;
 &lt;p&gt;It would be nice if I could have instead done:&lt;/p&gt;
@@ -64,15 +64,18 @@ though I don't really care.&lt;/p&gt;
   }
 }
 &lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;But Zig's &lt;code&gt;try&lt;/code&gt; doesn't work like that. I'm not sure why not. But the
+&lt;p&gt;But Zig's &lt;code&gt;try&lt;/code&gt; doesn't work like that. I'm not sure why not. The
 Zig developers are sensible so I'm sure there's a good reason.&lt;/p&gt;
 &lt;p&gt;Still, are there other options?&lt;/p&gt;
 &lt;h3 id="&lt;code&gt;catch-unreachable&lt;/code&gt;"&gt;&lt;code&gt;catch unreachable&lt;/code&gt;&lt;/h3&gt;&lt;p&gt;So the problem isn't just that you have to acknowledge memory
 allocation failures but that these failures within every helper
 function need to be acknowledged by the caller of the helper
 function. Failures infiltrate the entire call tree.&lt;/p&gt;
-&lt;p&gt;You can avoid this by instead of &lt;code&gt;try&lt;/code&gt;-ing everything, mark error
-conditions as &lt;code&gt;unreachable&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Now of course these potential failures would exist whether or not Zig
+exposed them. So I don't mean to say it's Zig's fault for exposing
+them.&lt;/p&gt;
+&lt;p&gt;But you can avoid failure handling by instead of &lt;code&gt;try&lt;/code&gt;-ing everything,
+mark error conditions as &lt;code&gt;unreachable&lt;/code&gt;.&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs zig"&gt;fn do_stuff(
   alloc: std.mem.Allocator, // Let&amp;#39;s assume this is an arena allocator so I don&amp;#39;t care about freeing.
   stuff: Stuff,
@@ -99,17 +102,17 @@ unreachable.&lt;/p&gt;
 general failure conditions.&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs zig"&gt;fn run(alloc: std.mem.Allocator, cmds: []const u8) void {
   var res = try std.ChildProcess.exec(.{
-      .allocator = self.allocator,
-      .argv = cmd,
+    .allocator = self.allocator,
+    .argv = cmd,
   });
   switch (res.term) {
-      .Exited =&amp;gt; |code| {
-          if (code != 0) {
-              @panic(&amp;quot;Expected command to succeed.&amp;quot;);
-          }
-      },
+    .Exited =&amp;gt; |code| {
+      if (code != 0) {
+        @panic(&amp;quot;Expected command to succeed.&amp;quot;);
+      }
+    },
 
-      else =&amp;gt; unreachable,
+    else =&amp;gt; unreachable,
   }
 }
 &lt;/code&gt;&lt;/pre&gt;
@@ -126,7 +129,7 @@ temporary directory.&lt;/p&gt;
 &lt;p&gt;There are panic handlers in Zig (not yet documented, Ctrl-f for "TODO:
 pub fn panic" in the &lt;a href="https://ziglang.org/documentation/master/"&gt;Zig
 docs&lt;/a&gt;. But I'd just be
-getting further from useful if I went in that direction.&lt;/p&gt;
+getting further from what seems sensible if I went in that direction.&lt;/p&gt;
 &lt;h3 id="zig-errors"&gt;Zig errors&lt;/h3&gt;&lt;p&gt;So I stopped panic-ing everywhere and switched to using real Zig
 errors, like:&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs zig"&gt;fn run(alloc: std.mem.Allocator, cmds: []const u8) !void {
@@ -157,10 +160,13 @@ the payload you want to return is detailed information to provide
 context.&lt;/p&gt;
 &lt;p&gt;This logging is fine in a CLI application but probably not everything
 you'd want in a library. I'm not sure.&lt;/p&gt;
+&lt;p&gt;And now without panics, functions that deal with &lt;code&gt;error&lt;/code&gt; enums and
+&lt;code&gt;try&lt;/code&gt; work with &lt;code&gt;defer&lt;/code&gt; and &lt;code&gt;errdefer&lt;/code&gt; again! Cleanup of my
+background processes and temporary directories happens like I want.&lt;/p&gt;
 &lt;h3 id="handling-errors-with-&lt;code&gt;if&lt;/code&gt;"&gt;Handling errors with &lt;code&gt;if&lt;/code&gt;&lt;/h3&gt;&lt;p&gt;Ok so now that I'm fully bought into Zig errors there were still a few
 more things that tripped me up.&lt;/p&gt;
 &lt;p&gt;First is that you can handle errors a few ways. You already saw the
-first one with just &lt;code&gt;try&lt;/code&gt;.&lt;/p&gt;
+first one with &lt;code&gt;try&lt;/code&gt;.&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs zig"&gt;  var x = try thingThatCouldFail();
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;This will cause the function the statement is inside to short-circuit,
@@ -181,15 +187,15 @@ handling the error.&lt;/p&gt;
 &lt;p&gt;But that isn't a real syntax. The Zig docs show an example of how you
 can use &lt;code&gt;if&lt;/code&gt; with an &lt;code&gt;error&lt;/code&gt; function:&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs zig"&gt;fn doAThing(str: []u8) void {
-    if (parseU64(str, 10)) |number| {
-        doSomethingWithNumber(number);
-    } else |err| switch (err) {
-        error.Overflow =&amp;gt; {
-            // handle overflow...
-        },
-        // we promise that InvalidChar won&amp;#39;t happen (or crash in debug mode if it does)
-        error.InvalidChar =&amp;gt; unreachable,
-    }
+  if (parseU64(str, 10)) |number| {
+    doSomethingWithNumber(number);
+  } else |err| switch (err) {
+    error.Overflow =&amp;gt; {
+      // handle overflow...
+    },
+    // we promise that InvalidChar won&amp;#39;t happen (or crash in debug mode if it does)
+    error.InvalidChar =&amp;gt; unreachable,
+  }
 }
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;But I don't care about the error at this moment (maybe I should, but I
@@ -239,7 +245,7 @@ without the switch, and that was correct:&lt;/p&gt;
 &lt;p&gt;Nice!&lt;/p&gt;
 &lt;h3 id="&lt;code&gt;catch&lt;/code&gt;-blocks"&gt;&lt;code&gt;catch&lt;/code&gt; blocks&lt;/h3&gt;&lt;p&gt;One last thing that I was stumbling around with was that when you use
 &lt;code&gt;catch&lt;/code&gt; with a function that returns an error or some non-void value,
-the catch must return a value of the same type as the function.&lt;/p&gt;
+the catch must "return" a value of the same type as the function.&lt;/p&gt;
 &lt;p&gt;The Zig docs show a simple example:&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs zig"&gt;const number = parseU64(str, 10) catch 13;
 &lt;/code&gt;&lt;/pre&gt;
@@ -262,11 +268,11 @@ blocks&lt;/a&gt; with
 to the docs. While there's a dedicated effort around autodoc, the tool
 that builds docs for the standard library, I haven't yet stumbled on
 docs for contributing the main Zig docs.&lt;/p&gt;
-&lt;p&gt;So I grepped in the Zig repo &lt;code&gt;git grep 'Blocks are expressions.'&lt;/code&gt; for
-a phrase that showed up in the HTML docs and found
+&lt;p&gt;So I grepped in the Zig repo &lt;code&gt;git grep 'Blocks are expressions.'&lt;/code&gt;, a
+phrase that showed up in the HTML docs, and found
 &lt;code&gt;doc/langref.html.in&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;Through someone on the &lt;a href="https://discord.gg/gxsFFjE"&gt;Zig Programming Language
-Discord&lt;/a&gt; I was then pointed at running
+&lt;p&gt;Then someone on the &lt;a href="https://discord.gg/gxsFFjE"&gt;Zig Programming Language
+Discord&lt;/a&gt; pointed me at running
 &lt;code&gt;zig build docs&lt;/code&gt; in the repo root to generate the HTML.&lt;/p&gt;
 &lt;p&gt;And now I've got a &lt;a href="https://github.com/ziglang/zig/pull/15042"&gt;PR up&lt;/a&gt;!
 We'll see what folks think.&lt;/p&gt;
