@@ -195,7 +195,12 @@ running subprocesses or interacting with the filesystem in general).</p>
 <p>Panicing (like what happens if <code>@panic()</code> or <code>unreachable</code> is hit) in
 these situations is all good until you have things that you want to
 get cleaned up.</p>
-<p>Panics don't trigger <code>defer</code> or <code>errdefer</code> statements. So if you have
+<p class="note">
+  My <a href="https://matklad.github.io/">coworker</a> points out I'm
+  wrongly conflating `unreachable` and `@panic()` since depending on
+  the release mode, hitting `unreachable` is actually undefined
+  behavior whereas `@panic()` is always a panic.
+</p><p>Panics don't trigger <code>defer</code> or <code>errdefer</code> statements. So if you have
 a script that starts a background process or creates a temporary
 directory, and if you panic in that script, the script won't be able
 to run <code>defer</code> steps to stop the background process or delete the
