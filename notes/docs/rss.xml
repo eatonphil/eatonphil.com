@@ -1,5 +1,80 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 22 Mar 2023 17:23:43 +0000</lastBuildDate><item><title>Errors and Zig</title><link>http://notes.eatonphil.com/errors-and-zig.html</link><description>&lt;p&gt;At TigerBeetle these last few weeks I've been doing a mix of
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 16 May 2023 20:15:25 +0000</lastBuildDate><item><title>My favorite software subreddits</title><link>http://notes.eatonphil.com/high-quality-subreddits-you-should-be-following.html</link><description>&lt;p class="note"&gt;
+  Originally published on December 5, 2021.
+&lt;/p&gt;&lt;p&gt;If you are an experienced software developer whose only exposure to
+reddit is dank memes, &lt;a href="https://reddit.com/r/programming"&gt;proggit&lt;/a&gt; or even
+language-specific subreddits like
+&lt;a href="https://reddit.com/r/python"&gt;/r/python&lt;/a&gt;, you're missing out.&lt;/p&gt;
+&lt;p&gt;What follows are my favorite subreddits in tech. My criteria is that:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;The subreddit topic is relevant to advancing as a programmer&lt;/li&gt;
+&lt;li&gt;Posts generally go into good depth&lt;/li&gt;
+&lt;li&gt;The comments stay on topic&lt;/li&gt;
+&lt;li&gt;And the shit-posting is minimal&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;This list isn't hard to guess at if you consider advanced topics
+in software. But I wanted to share because I think it's worth
+explicitly supporting high-quality subreddits.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.reddit.com/r/EmuDev/"&gt;/r/EmuDev&lt;/a&gt;&lt;ul&gt;
+&lt;li&gt;My favorite sub of all. Also has a &lt;a href="https://www.reddit.com/r/EmuDev/comments/9mop2q/join_the_official_remudev_chat_on_discord/"&gt;phenomenal Discord group&lt;/a&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.reddit.com/r/programminglanguages"&gt;/r/ProgrammingLanguages&lt;/a&gt;&lt;ul&gt;
+&lt;li&gt;Focuses a little more on PLT topics (parsing techniques, syntax, type systems) than on compiling and interpreting techniques, but still good.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.reddit.com/r/DatabaseDevelopment/"&gt;/r/DatabaseDevelopment&lt;/a&gt;&lt;ul&gt;
+&lt;li&gt;Full disclosure: I started this subreddit last week, it's at 2.7k+ members at time of publishing.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.reddit.com/r/ReverseEngineering/"&gt;/r/ReverseEngineering&lt;/a&gt;&lt;ul&gt;
+&lt;li&gt;The largest subreddit on this list but still has pretty good posts.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.reddit.com/r/esolangs/"&gt;/r/EsoLangs&lt;/a&gt;&lt;ul&gt;
+&lt;li&gt;One of the best/most fun intros to programming languages/compilers/interpreters is through languages like Brainfuck. This sub does a good job of keeping the fun going.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.reddit.com/r/Compilers/"&gt;/r/Compilers&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.reddit.com/r/GraphicsProgramming/"&gt;/r/GraphicsProgramming&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;While some language subreddits are pretty good, they are more so a
+mixed bag than some of the topic-specific subreddits here. So they
+don't make my list, more on principle than anything else.&lt;/p&gt;
+&lt;p&gt;If there is a good one already, send me it!&lt;/p&gt;
+&lt;h3 id="what-am-i-missing?"&gt;What am I missing?&lt;/h3&gt;&lt;p&gt;Am I missing other amazing subreddits? Just don't say
+language-specific ones. :)&lt;/p&gt;
+&lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;I wrote a new blog post on my favorite subreddits; ones I think any experienced programmer would benefit from following. It starts with my favorite of all: /r/EmuDev.&lt;br&gt;&lt;br&gt;Am I missing any? Just don&amp;#39;t say language-specific ones!&lt;a href="https://t.co/OtM2tk8HOn"&gt;https://t.co/OtM2tk8HOn&lt;/a&gt; &lt;a href="https://t.co/QZWSEofP7A"&gt;pic.twitter.com/QZWSEofP7A&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@phil_eaton) &lt;a href="https://twitter.com/phil_eaton/status/1467536007448965129?ref_src=twsrc%5Etfw"&gt;December 5, 2021&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/high-quality-subreddits-you-should-be-following.html</guid><pubDate>Tue, 16 May 2023 00:00:00 +0000</pubDate></item><item><title>Two books I recommend to developers</title><link>http://notes.eatonphil.com/books-developers-should-read.html</link><description>&lt;p class="note"&gt;
+  Originally published on February 1, 2021. The original version
+  included two books I don't think are actually so worthwhile. This
+  list is down to two. I think that's a good thing actually.
+&lt;/p&gt;&lt;p&gt;These are the books I recommend to developers wanting to improve their
+skills as professional programmers because of high information
+density, believable premises/examples, and being well edited.&lt;/p&gt;
+&lt;p&gt;You don't need to read books to improve as a developer but
+they are unparalleled in quickly helping you gain depth in a subject.&lt;/p&gt;
+&lt;h3 id="high-performance-browser-networking"&gt;High Performance Browser Networking&lt;/h3&gt;&lt;p&gt;If you deal with networks, you would probably benefit from this book.
+It is a thorough high level introduction to mobile networks, browser
+network protocols, and fundementals of networking.&lt;/p&gt;
+&lt;h3 id="designing-data-intensive-applications"&gt;Designing Data-Intensive Applications&lt;/h3&gt;&lt;p&gt;If you use a database (including an in-memory array of items you
+search periodically) or if you build APIs, you would probably benefit
+from this book. A solid introduction to distributed computing, data
+transfer, indexing, etc.&lt;/p&gt;
+&lt;h3 id="that's-it!"&gt;That's it!&lt;/h3&gt;&lt;p&gt;Generic software books conspicuously not on this list for
+me:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Clean Code&lt;/li&gt;
+&lt;li&gt;JavaScript the Good Parts&lt;/li&gt;
+&lt;li&gt;Design Patterns/Gang of Four&lt;/li&gt;
+&lt;li&gt;Structure and Interpretation of Computer Programs&lt;/li&gt;
+&lt;li&gt;A Philosophy of Software Design&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;They're not all bad but give nowhere near as much return for the
+investment of your time.&lt;/p&gt;
+&lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;Four books I recommend to professional developers wanting to improve their craft, and a few I&amp;#39;d not&lt;a href="https://t.co/1aTrfqZ9bd"&gt;https://t.co/1aTrfqZ9bd&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@phil_eaton) &lt;a href="https://twitter.com/phil_eaton/status/1356391931274756096?ref_src=twsrc%5Etfw"&gt;February 2, 2021&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/books-developers-should-read.html</guid><pubDate>Tue, 16 May 2023 00:00:00 +0000</pubDate></item><item><title>Errors and Zig</title><link>http://notes.eatonphil.com/errors-and-zig.html</link><description>&lt;p&gt;At TigerBeetle these last few weeks I've been doing a mix of
 documenting client libraries, writing sample code for client
 libraries, and writing integration tests against the sample code.&lt;/p&gt;
 &lt;p&gt;The client library documentation is generated with a Zig script. The
@@ -9498,62 +9573,7 @@ revisit some of those aforementioned inefficiencies.&lt;/p&gt;
 &lt;/head&gt;&lt;p&gt;This is an external post of mine. Click
 &lt;a href="https://datastation.multiprocess.io/blog/2021-12-16-sqlserver-in-github-actions.html"&gt;here&lt;/a&gt;
 if you are not redirected.&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/sqlserver-in-github-actions.html</guid><pubDate>Thu, 16 Dec 2021 00:00:00 +0000</pubDate></item><item><title>My favorite software subreddits</title><link>http://notes.eatonphil.com/high-quality-subreddits-you-should-be-following.html</link><description>&lt;p&gt;If you are an experienced software developer whose only exposure to
-reddit is dank memes, &lt;a href="https://reddit.com/r/programming"&gt;proggit&lt;/a&gt; or even
-language-specific subreddits like
-&lt;a href="https://reddit.com/r/python"&gt;/r/python&lt;/a&gt;, you're missing out.&lt;/p&gt;
-&lt;p&gt;What follows are my favorite subreddits in tech. My criteria is that:&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;The subreddit topic is relevant to advancing as a programmer&lt;/li&gt;
-&lt;li&gt;Posts generally go into good depth&lt;/li&gt;
-&lt;li&gt;The comments stay on topic&lt;/li&gt;
-&lt;li&gt;And the shit-posting is minimal&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;This list isn't hard to guess at if you consider advanced topics
-in software. But I wanted to share because I think it's worth
-explicitly supporting high-quality subreddits.&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/EmuDev/"&gt;/r/EmuDev&lt;/a&gt;&lt;ul&gt;
-&lt;li&gt;My favorite sub of all. Also has a &lt;a href="https://www.reddit.com/r/EmuDev/comments/9mop2q/join_the_official_remudev_chat_on_discord/"&gt;phenomenal Discord group&lt;/a&gt;.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/programminglanguages"&gt;/r/ProgrammingLanguages&lt;/a&gt;&lt;ul&gt;
-&lt;li&gt;Focuses a little more on PLT topics (parsing techniques, syntax, type systems) than on compiling and interpreting techniques, but still good.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/DatabaseDevelopment/"&gt;/r/DatabaseDevelopment&lt;/a&gt;&lt;ul&gt;
-&lt;li&gt;Full disclosure: I started this subreddit last week, it's at 400+ members at time of publishing.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/ReverseEngineering/"&gt;/r/ReverseEngineering&lt;/a&gt;&lt;ul&gt;
-&lt;li&gt;The largest subreddit on this list but still has pretty good posts.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/esolangs/"&gt;/r/EsoLangs&lt;/a&gt;&lt;ul&gt;
-&lt;li&gt;One of the best/most fun intros to programming languages/compilers/interpreters is through languages like Brainfuck. This sub does a good job of keeping the fun going.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/UniKernel/"&gt;/r/UniKernel&lt;/a&gt;&lt;ul&gt;
-&lt;li&gt;The smallest on this list but given its size they've done a pretty good job of sharing good posts.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/GraphicsProgramming/"&gt;/r/GraphicsProgramming&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3 id="special-mention"&gt;Special mention&lt;/h3&gt;&lt;p&gt;These subreddits are on great topics but haven't been maintained
-well. They either need new moderators to revitalize them or there
-needs to be a good alternative I can point you to.&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/retroprogramming/"&gt;/r/RetroProgramming&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href="https://www.reddit.com/r/DistributedSystems/"&gt;/r/DistributedSystems&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3 id="networking?"&gt;Networking?&lt;/h3&gt;&lt;p&gt;I'm still looking for a high-quality subreddit on networking
-internals, software-defined networking, etc. Most of the existing
-networking subreddits are oriented toward system/network
-administrators.&lt;/p&gt;
-&lt;p&gt;If there is a good one already, send me it! If there's not, consider starting it!&lt;/p&gt;
-&lt;h3 id="what-am-i-missing?"&gt;What am I missing?&lt;/h3&gt;&lt;p&gt;Am I missing other amazing subreddits? Just don't say language-specific ones!&lt;/p&gt;
-&lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;I wrote a new blog post on my favorite subreddits; ones I think any experienced programmer would benefit from following. It starts with my favorite of all: /r/EmuDev.&lt;br&gt;&lt;br&gt;Am I missing any? Just don&amp;#39;t say language-specific ones!&lt;a href="https://t.co/OtM2tk8HOn"&gt;https://t.co/OtM2tk8HOn&lt;/a&gt; &lt;a href="https://t.co/QZWSEofP7A"&gt;pic.twitter.com/QZWSEofP7A&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@phil_eaton) &lt;a href="https://twitter.com/phil_eaton/status/1467536007448965129?ref_src=twsrc%5Etfw"&gt;December 5, 2021&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/high-quality-subreddits-you-should-be-following.html</guid><pubDate>Sun, 05 Dec 2021 00:00:00 +0000</pubDate></item><item><title>Implementing zip archiving in Golang: unzipping</title><link>http://notes.eatonphil.com/implementing-zip-in-go-unzipping.html</link><description>&lt;p&gt;&lt;small&gt;All code for this post is &lt;a href="https://github.com/eatonphil/gozip"&gt;available on Github&lt;/a&gt;.&lt;/small&gt;&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/sqlserver-in-github-actions.html</guid><pubDate>Thu, 16 Dec 2021 00:00:00 +0000</pubDate></item><item><title>Implementing zip archiving in Golang: unzipping</title><link>http://notes.eatonphil.com/implementing-zip-in-go-unzipping.html</link><description>&lt;p&gt;&lt;small&gt;All code for this post is &lt;a href="https://github.com/eatonphil/gozip"&gt;available on Github&lt;/a&gt;.&lt;/small&gt;&lt;/p&gt;
 &lt;p&gt;Let's take a look at how zip files work. Take a small file for example:&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs bash"&gt;$ cat hello.text
 Hello!
@@ -13287,36 +13307,7 @@ in Python:&lt;/p&gt;
 only tail recursion.&lt;/p&gt;
 &lt;p&gt;Happy recursion!&lt;/p&gt;
 &lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;Reimplementing standard library functions without for loops is a great way to get better at recursion and you don&amp;#39;t need to use a functional programming language to do so&lt;a href="https://t.co/JiPnXMQW3l"&gt;https://t.co/JiPnXMQW3l&lt;/a&gt; &lt;a href="https://t.co/MHwX5t70HT"&gt;pic.twitter.com/MHwX5t70HT&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@phil_eaton) &lt;a href="https://twitter.com/phil_eaton/status/1368602496168497154?ref_src=twsrc%5Etfw"&gt;March 7, 2021&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/practicing-recursion.html</guid><pubDate>Sun, 07 Mar 2021 00:00:00 +0000</pubDate></item><item><title>Four books professional developers should read (and a few you don't need to)</title><link>http://notes.eatonphil.com/books-developers-should-read.html</link><description>&lt;p&gt;These are the books I recommend to developers wanting to improve their
-skills as professional programmers because of high information
-density, believable premises/examples, and being well edited.&lt;/p&gt;
-&lt;p&gt;You don't need to read books to improve as a developer but
-they are unparalleled in quickly helping you gain depth in a subject.&lt;/p&gt;
-&lt;h3 id="effective-python:-90-specific-ways-to-write-better-python"&gt;Effective Python: 90 Specific Ways to Write Better Python&lt;/h3&gt;&lt;p&gt;If you're a Python developer wanting to improve your craft you should
-read this. Good Python starts with a deep understanding of the
-standard library and language.&lt;/p&gt;
-&lt;h3 id="high-performance-browser-networking"&gt;High Performance Browser Networking&lt;/h3&gt;&lt;p&gt;If your code is triggered by a desktop or mobile browser you should
-read this. It is a thorough high level introduction to mobile
-networks, browser network protocols, and fundementals of networking.&lt;/p&gt;
-&lt;h3 id="designing-data-intensive-applications"&gt;Designing Data-Intensive Applications&lt;/h3&gt;&lt;p&gt;If your databases and APIs are a bottleneck you should read this. A
-solid introduction to distributed computing, data transfer, indexing,
-etc.&lt;/p&gt;
-&lt;h3 id="site-reliability-engineering:-how-google-runs-production-services"&gt;Site Reliability Engineering: How Google Runs Production Services&lt;/h3&gt;&lt;p&gt;If you are responsible for services in production you should read
-this. It's Google specific but is an excellent background on practices
-for monitoring and maintaining production environments.&lt;/p&gt;
-&lt;h3 id="that's-it!"&gt;That's it!&lt;/h3&gt;&lt;p&gt;Generic software books conspicuously not on this list for
-me:&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;Clean Code&lt;/li&gt;
-&lt;li&gt;JavaScript the Good Parts&lt;/li&gt;
-&lt;li&gt;Design Patterns/Gang of Four&lt;/li&gt;
-&lt;li&gt;Structure and Interpretation of Computer Programs&lt;/li&gt;
-&lt;li&gt;A Philosophy of Software Design&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;They're not all bad but give nowhere near as much return for the
-investment of your time.&lt;/p&gt;
-&lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;Four books I recommend to professional developers wanting to improve their craft, and a few I&amp;#39;d not&lt;a href="https://t.co/1aTrfqZ9bd"&gt;https://t.co/1aTrfqZ9bd&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@phil_eaton) &lt;a href="https://twitter.com/phil_eaton/status/1356391931274756096?ref_src=twsrc%5Etfw"&gt;February 2, 2021&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
-</description><guid isPermaLink="false">http://notes.eatonphil.com/books-developers-should-read.html</guid><pubDate>Mon, 01 Feb 2021 00:00:00 +0000</pubDate></item><item><title>Extending gosql to supporting LIMIT and OFFSET</title><link>http://notes.eatonphil.com/extending-gosql-to-support-limit-and-offset.html</link><description>&lt;p&gt;It's been a few months since I picked up
+</description><guid isPermaLink="false">http://notes.eatonphil.com/practicing-recursion.html</guid><pubDate>Sun, 07 Mar 2021 00:00:00 +0000</pubDate></item><item><title>Extending gosql to supporting LIMIT and OFFSET</title><link>http://notes.eatonphil.com/extending-gosql-to-support-limit-and-offset.html</link><description>&lt;p&gt;It's been a few months since I picked up
 &lt;a href="https://github.com/eatonphil/gosql"&gt;gosql&lt;/a&gt; and I wanted to use it to
 prototype a SQL interface for data stored in S3. But one missing
 critical feature in gosql is &lt;code&gt;LIMIT&lt;/code&gt; and &lt;code&gt;OFFSET&lt;/code&gt; support. This post walks

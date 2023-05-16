@@ -213,10 +213,6 @@
     <lastmod>2021-01-23</lastmod>
  </url>
   <url>
-    <loc>https://notes.eatonphil.com/books-developers-should-read.html</loc>
-    <lastmod>2021-02-01</lastmod>
- </url>
-  <url>
     <loc>https://notes.eatonphil.com/practicing-recursion.html</loc>
     <lastmod>2021-03-07</lastmod>
  </url>
@@ -295,10 +291,6 @@
   <url>
     <loc>https://notes.eatonphil.com/implementing-zip-in-go-unzipping.html</loc>
     <lastmod>2021-11-23</lastmod>
- </url>
-  <url>
-    <loc>https://notes.eatonphil.com/high-quality-subreddits-you-should-be-following.html</loc>
-    <lastmod>2021-12-05</lastmod>
  </url>
   <url>
     <loc>https://notes.eatonphil.com/sqlserver-in-github-actions.html</loc>
@@ -439,5 +431,13 @@
   <url>
     <loc>https://notes.eatonphil.com/errors-and-zig.html</loc>
     <lastmod>2023-03-21</lastmod>
+ </url>
+  <url>
+    <loc>https://notes.eatonphil.com/books-developers-should-read.html</loc>
+    <lastmod>2023-05-16</lastmod>
+ </url>
+  <url>
+    <loc>https://notes.eatonphil.com/high-quality-subreddits-you-should-be-following.html</loc>
+    <lastmod>2023-05-16</lastmod>
  </url>
 </urlset>
