@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 16 May 2023 20:15:25 +0000</lastBuildDate><item><title>My favorite software subreddits</title><link>http://notes.eatonphil.com/high-quality-subreddits-you-should-be-following.html</link><description>&lt;p class="note"&gt;
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Tue, 16 May 2023 20:16:57 +0000</lastBuildDate><item><title>My favorite software subreddits</title><link>http://notes.eatonphil.com/high-quality-subreddits-you-should-be-following.html</link><description>&lt;p class="note"&gt;
   Originally published on December 5, 2021.
 &lt;/p&gt;&lt;p&gt;If you are an experienced software developer whose only exposure to
 reddit is dank memes, &lt;a href="https://reddit.com/r/programming"&gt;proggit&lt;/a&gt; or even
@@ -25,7 +25,7 @@ explicitly supporting high-quality subreddits.&lt;/p&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;&lt;a href="https://www.reddit.com/r/DatabaseDevelopment/"&gt;/r/DatabaseDevelopment&lt;/a&gt;&lt;ul&gt;
-&lt;li&gt;Full disclosure: I started this subreddit last week, it's at 2.7k+ members at time of publishing.&lt;/li&gt;
+&lt;li&gt;Disclosure: I run this sub. It's at 2.7k+ members at time of publishing.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;&lt;a href="https://www.reddit.com/r/ReverseEngineering/"&gt;/r/ReverseEngineering&lt;/a&gt;&lt;ul&gt;
