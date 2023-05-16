@@ -1,0 +1,147 @@
+# Implementing a distributed key-value store on top of implementing Raft in Go
+## May 8, 2023
+###### go,raft
+
+[The Raft paper](https://raft.github.io/raft.pdf) itself is quite
+readable. Give it a read and you'll get the basic idea.
+
+Nodes in a cluster conduct elections to pick a leader. Users of the
+Raft cluster send messages to the leader. The leader passes the
+message to followers and waits for a majority to store the
+message. Once it's stored it's applied to a state machine the user
+specifies, stored and applied duplicated on each node.
+
+There's more to it including reconfiguration and snapshotting. But you
+can get the gist of Raft by thinking about leader election and
+replicated state machines. We'll implement those two key components of
+Raft in this post in around 1k lines of Go.
+
+### State machines
+
+I've written before about how you can [build a key-value store on top
+of
+Raft](https://notes.eatonphil.com/minimal-key-value-store-with-hashicorp-raft.html). How
+you can [build a SQL database on top of a key-value
+store](https://notes.eatonphil.com/zigrocks-sql.html). And how you can
+build a [distributed SQL database on top of
+Raft](https://notes.eatonphil.com/distributed-postgres.html).
+
+This post will start quite similarly to that first post except for
+that we won't stop at the Raft layer.
+
+But we'll start in `cmd/kvapi/main.go` with our key-value API.
+
+### A distributed key-value store
+
+To build on top of the Raft library we'll build, we need to create a
+state machine and commands that are sent to the state machine.
+
+Our state machine will have two operations: get a value from a key,
+and set a key to a value.
+
+```go
+package main
+
+import (
+	"bytes"
+	crypto "crypto/rand"
+	"encoding/binary"
+	"fmt"
+	"log"
+	"math/rand"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+
+	"github.com/eatonphil/goraft"
+)
+
+type statemachine struct {
+	db     *sync.Map
+	server int
+}
+
+type commandKind uint8
+
+const (
+	setCommand commandKind = iota
+	getCommand
+)
+
+type command struct {
+	kind  commandKind
+	key   string
+	value string
+}
+
+func (s *statemachine) Apply(cmd []byte) ([]byte, error) {
+	c := decodeCommand(cmd)
+
+	switch c.kind {
+	case setCommand:
+		s.db.Store(c.key, c.value)
+	case getCommand:
+		value, ok := s.db.Load(c.key)
+		if !ok {
+			return nil, fmt.Errorf("Key not found")
+		}
+		return []byte(value.(string)), nil
+	default:
+		return nil, fmt.Errorf("Unknown command: %x", cmd)
+	}
+
+	return nil, nil
+}
+```
+
+But the Raft library we'll build needs to deal with various state
+machines. So commands passed from the user into the Raft cluster must
+be serialized to bytes.
+
+```go
+func encodeCommand(c command) []byte {
+	msg := bytes.NewBuffer(nil)
+	err := msg.WriteByte(uint8(c.kind))
+	if err != nil {
+		panic(err)
+	}
+
+	err = binary.Write(msg, binary.LittleEndian, uint64(len(c.key)))
+	if err != nil {
+		panic(err)
+	}
+
+	msg.WriteString(c.key)
+
+	err = binary.Write(msg, binary.LittleEndian, uint64(len(c.value)))
+	if err != nil {
+		panic(err)
+	}
+
+	msg.WriteString(c.value)
+
+	return msg.Bytes()
+}
+```
+
+And the `Apply()` function from above needs to be able to decode the
+bytes:
+
+```go
+func decodeCommand(msg []byte) command {
+	var c command
+	c.kind = commandKind(msg[0])
+
+	keyLen := binary.LittleEndian.Uint64(msg[1:9])
+	c.key = string(msg[9 : 9+keyLen])
+
+	if c.kind == setCommand {
+		valLen := binary.LittleEndian.Uint64(msg[9+keyLen : 9+keyLen+8])
+		c.value = string(msg[9+keyLen+8 : 9+keyLen+8+valLen])
+	}
+
+	return c
+}
+```
