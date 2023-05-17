@@ -5,16 +5,29 @@
 [The Raft paper](https://raft.github.io/raft.pdf) itself is quite
 readable. Give it a read and you'll get the basic idea.
 
-Nodes in a cluster conduct elections to pick a leader. Users of the
-Raft cluster send messages to the leader. The leader passes the
-message to followers and waits for a majority to store the
-message. Once it's stored it's applied to a state machine the user
-specifies, stored and applied duplicated on each node.
+As part of bringing myself up-to-speed after joining TigerBeetle, I
+wanted to understand how replicated state machines protocols
+worked. TigerBeetle uses Viewstamped Replication, not Raft. But I
+wanted to understand both and I thought Raft might be easier to start
+with.
 
-There's more to it including reconfiguration and snapshotting. But you
-can get the gist of Raft by thinking about leader election and
-replicated state machines. We'll implement those two key components of
-Raft in this post in around 1k lines of Go.
+We'll implement two key components of Raft (leader election and log
+replication) in this post in around 1k lines of Go.
+
+**Disclaimer**: I'm not an expert. My implementation isn't yet hooked up
+to Jepsen. Send me your corrections where I'm wrong!
+
+### The algorithm
+
+The gist of Raft is that nodes in a cluster conduct elections to pick a
+leader. Users of the Raft cluster send messages to the leader. The
+leader passes the message to followers and waits for a majority to
+store the message. Once it's stored it's applied to a state machine
+the user specifies, stored and applied duplicated on each node.
+
+There's more to it including reconfiguration and snapshotting, which I
+won't get into in this post. But you can get the gist of Raft by
+thinking about leader election and replicated state machines.
 
 ### State machines
 
@@ -145,3 +158,762 @@ func decodeCommand(msg []byte) command {
 	return c
 }
 ```
+
+#### HTTP API
+
+Now that we've modelled the key-value store as a state machine. Let's
+build the HTTP endpoints that allow the user to operate the state
+machine through the Raft cluster.
+
+First, let's implement the `set` operation. We need to grab the key
+and value the user passes in and call `Apply()` on the Raft
+cluster. Calling `Apply()` on the Raft cluster will eventually call
+the `Apply()` function we just wrote, but not until the message sent
+to the Raft cluster is actually replicated.
+
+```go
+type httpServer struct {
+	raft *goraft.Server
+	db   *sync.Map
+}
+
+// Example:
+//
+//	curl http://localhost:2020/set?key=x&value=1
+func (hs httpServer) setHandler(w http.ResponseWriter, r *http.Request) {
+	var c command
+	c.kind = setCommand
+	c.key = r.URL.Query().Get("key")
+	c.value = r.URL.Query().Get("value")
+
+	_, err := hs.raft.Apply([][]byte{encodeCommand(c)})
+	if err != nil {
+		log.Printf("Could not write key-value: %s", err)
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+}
+```
+
+To reiterate, we tell the Raft cluster we want this message
+replicated. The message contains the operation type (`set`) and the
+operation details (`key` and `value`). These are custom to the state
+machine we wrote. And they will be interpreted by the state machine we
+wrote.
+
+Next we handle `get`-ing values from the cluster. There are two ways
+to do this. We already embed a local copy of the distributed key-value
+map. We could just read from that map in the current process. But it
+might not be up-to-date or correct. It would be fast to read though. And convenient for debugging.
+
+But the only *correct* way to read from a Raft cluster is to pass the
+read through the log replication too.
+
+So we'll support both.
+
+```go
+// Example:
+//
+//	curl http://localhost:2020/get?key=x
+//	1
+//	curl http://localhost:2020/get?key=x&relaxed=true # Skips consensus for the read.
+//	1
+func (hs httpServer) getHandler(w http.ResponseWriter, r *http.Request) {
+	var c command
+	c.kind = getCommand
+	c.key = r.URL.Query().Get("key")
+
+	var value []byte
+	var err error
+	if r.URL.Query().Get("relaxed") == "true" {
+		v, ok := hs.db.Load(c.key)
+		if !ok {
+			err = fmt.Errorf("Key not found")
+		} else {
+			value = []byte(v.(string))
+		}
+	} else {
+		var results []goraft.ApplyResult
+		results, err = hs.raft.Apply([][]byte{encodeCommand(c)})
+		if err == nil {
+			if len(results) != 1 {
+				err = fmt.Errorf("Expected single response from Raft, got: %d.", len(results))
+			} else if results[0].Error != nil {
+				err = results[0].Error
+			} else {
+				value = results[0].Result
+			}
+
+		}
+	}
+
+	if err != nil {
+		log.Printf("Could not encode key-value in http response: %s", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	written := 0
+	for written < len(value) {
+		n, err := w.Write(value[written:])
+		if err != nil {
+			log.Printf("Could not encode key-value in http response: %s", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		written += n
+	}
+}
+```
+
+#### Main
+
+Now that we've set up our custom state machine and our HTTP API for
+interacting with the Raft cluster, we'll tied it together with reading
+configuration from the command-line and actually starting the Raft
+node and the HTTP API.
+
+```go
+type config struct {
+	cluster []goraft.ClusterMember
+	index   int
+	id      string
+	address string
+	http    string
+}
+
+func getConfig() config {
+	cfg := config{}
+	var node string
+	for i, arg := range os.Args[1:] {
+		if arg == "--node" {
+			var err error
+			node = os.Args[i+2]
+			cfg.index, err = strconv.Atoi(node)
+			if err != nil {
+				log.Fatal("Expected $value to be a valid integer in `--node $value`, got: %s", node)
+			}
+			i++
+			continue
+		}
+
+		if arg == "--http" {
+			cfg.http = os.Args[i+2]
+			i++
+			continue
+		}
+
+		if arg == "--cluster" {
+			cluster := os.Args[i+2]
+			var clusterEntry goraft.ClusterMember
+			for _, part := range strings.Split(cluster, ";") {
+				idAddress := strings.Split(part, ",")
+				var err error
+				clusterEntry.Id, err = strconv.ParseUint(idAddress[0], 10, 64)
+				if err != nil {
+					log.Fatal("Expected $id to be a valid integer in `--cluster $id,$ip`, got: %s", idAddress[0])
+				}
+
+				clusterEntry.Address = idAddress[1]
+				cfg.cluster = append(cfg.cluster, clusterEntry)
+			}
+
+			i++
+			continue
+		}
+	}
+
+	if node == "" {
+		log.Fatal("Missing required parameter: --node $index")
+	}
+
+	if cfg.http == "" {
+		log.Fatal("Missing required parameter: --http $address")
+	}
+
+	if len(cfg.cluster) == 0 {
+		log.Fatal("Missing required parameter: --cluster $node1Id,$node1Address;...;$nodeNId,$nodeNAddress")
+	}
+
+	return cfg
+}
+
+func main() {
+	var b [8]byte
+	_, err := crypto.Read(b[:])
+	if err != nil {
+		panic("cannot seed math/rand package with cryptographically secure random number generator")
+	}
+	rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
+
+	cfg := getConfig()
+
+	var db sync.Map
+
+	var sm statemachine
+	sm.db = &db
+	sm.server = cfg.index
+
+	s := goraft.NewServer(cfg.cluster, &sm, ".", cfg.index)
+	go s.Start()
+
+	hs := httpServer{s, &db}
+
+	http.HandleFunc("/set", hs.setHandler)
+	http.HandleFunc("/get", hs.getHandler)
+	err = http.ListenAndServe(cfg.http, nil)
+	if err != nil {
+		panic(err)
+	}
+}
+```
+
+And that's it for the easy part: a distributed key-value store on top
+of a Raft cluster.
+
+Next we need to implement Raft.
+
+### A Raft server
+
+If we take a look at Figure 2 in the Raft paper, we get an idea for
+all the state we need to model.
+
+![/assets/raft-figure-2.png](Raft Figure 2)
+
+We'll dig into the details as we go. But for now let's turn that model
+into a few Go types.
+
+```go
+type StateMachine interface {
+	Apply(cmd []byte) ([]byte, error)
+}
+
+type ApplyResult struct {
+	Result []byte
+	Error  error
+}
+
+type Entry struct {
+	Command []byte
+	Term    uint64
+
+	// Set by the primary so it can learn about the result of
+	// applying this command to the state machine
+	result  chan ApplyResult
+}
+
+type ClusterMember struct {
+	Id      uint64
+	Address string
+
+	// Index of the next log entry to send
+	nextIndex uint64
+	// Highest log entry known to be replicated
+	matchIndex uint64
+
+	// Who was voted for in the most recent term
+	votedFor uint64
+	// Whether or not voting has been *attempted* this term
+	voted    bool
+
+	// TCP connection
+	rpcClient *rpc.Client
+}
+
+type ServerState string
+
+const (
+	leaderState    ServerState = "leader"
+	followerState              = "follower"
+	candidateState             = "candidate"
+)
+
+type Server struct {
+	Debug bool
+
+	mu sync.Mutex
+	// ----------- PERSISTENT STATE -----------
+
+	// The current term
+	currentTerm uint64
+
+	log []Entry
+
+	// votedFor is stored in `cluster []ClusterMember` below,
+	// mapped by `clusterIndex` below
+
+	// ----------- READONLY STATE -----------
+
+	// Unique identifier for this Server
+	id uint64
+
+	// The TCP address for RPC
+	address string
+
+	// When to start elections after no append entry messages
+	electionTimeout time.Time
+
+	// How often to send empty messages
+	heartbeatMs int
+
+	// When to next send empty message
+	heartbeatTimeout time.Time
+
+	// User-provided state machine
+	statemachine StateMachine
+
+	// Metadata directory
+	metadataDir string
+
+	// Metadata store
+	fd *os.File
+
+	// ----------- VOLATILE STATE -----------
+
+	// Index of highest log entry known to be committed
+	commitIndex uint64
+
+	// Index of highest log entry applied to state machine
+	lastApplied uint64
+
+	// Candidate, follower, or leader
+	state ServerState
+
+	// Servers in the cluster, including this one
+	cluster []ClusterMember
+
+	// Index of this server
+	clusterIndex int
+}
+```
+
+And let's build a constructor to initialize the state for all servers
+in the cluster, as well as local server state.
+
+```go
+func NewServer(
+	clusterConfig []ClusterMember,
+	statemachine StateMachine,
+	metadataDir string,
+	clusterIndex int,
+) *Server {
+	sync.Opts.DeadlockTimeout = 2000 * time.Millisecond
+	// Explicitly make a copy of the cluster because we'll be
+	// modifying it in this server.
+	var cluster []ClusterMember
+	for _, c := range clusterConfig {
+		if c.Id == 0 {
+			panic("Id must not be 0.")
+		}
+		cluster = append(cluster, c)
+	}
+
+	s := &Server{
+		id:           cluster[clusterIndex].Id,
+		address:      cluster[clusterIndex].Address,
+		cluster:      cluster,
+		statemachine: statemachine,
+		metadataDir:  metadataDir,
+		clusterIndex: clusterIndex,
+		heartbeatMs:  300,
+		mu:           sync.Mutex{},
+	}
+
+	// Literally just a cheat for benchmarks.
+	s.log = make([]Entry, 0, 1_000_000)
+	s.state = followerState
+	return s
+}
+```
+
+And let's set up a few debugging and assertion helpers.
+
+```go
+
+func (s *Server) debugmsg(msg string) string {
+	return fmt.Sprintf("%s [Id: %d, Term: %d] %s", time.Now().Format(time.RFC3339Nano), s.id, s.currentTerm, msg)
+}
+
+func (s *Server) debug(msg string) {
+	if !s.Debug {
+		return
+	}
+	fmt.Println(s.debugmsg(msg))
+}
+
+func (s *Server) debugf(msg string, args ...any) {
+	if !s.Debug {
+		return
+	}
+
+	s.debug(fmt.Sprintf(msg, args...))
+}
+
+func (s *Server) warn(msg string) {
+	fmt.Println("[WARN] " + s.debugmsg(msg))
+}
+
+func (s *Server) warnf(msg string, args ...any) {
+	fmt.Println(fmt.Sprintf(msg, args...))
+}
+
+func Assert[T comparable](msg string, a, b T) {
+	if a != b {
+		panic(fmt.Sprintf("%s. Got a = %#v, b = %#v", msg, a, b))
+	}
+}
+
+func Server_assert[T comparable](s *Server, msg string, a, b T) {
+	Assert(s.debugmsg(msg), a, b)
+}
+```
+
+### Persistent state
+
+As Figure 2 says, `currentTerm`, `log`, and `votedFor` must be
+persisted to disk as they're edited.
+
+I like doing the stupidest thing possible, initially. So in the first version of
+this project I used `encoding/gob` to write these three fields to disk
+every time `s.persist()` was called.
+
+Here is what this first version looked like:
+
+```go
+func (s *Server) persist() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.fd.Truncate(0)
+	s.fd.Seek(0, 0)
+	enc := gob.NewEncoder(s.fd)
+	err := enc.Encode(PersistentState{
+		CurrentTerm: s.currentTerm,
+		Log:         s.log,
+		VotedFor:    s.votedFor,
+	})
+	if err != nil {
+		panic(err)
+	}
+	if err = s.fd.Sync(); err != nil {
+		panic(err)
+	}
+	s.debug(fmt.Sprintf("Persisted. Term: %d. Log Len: %d. Voted For: %s.", s.currentTerm, len(s.log), s.votedFor))
+}
+```
+
+But doing so means this implementation is a function of the size of
+the log. And that was horrible for throughput.
+
+So I decided to swap out `encoding/gob` for simply binary encoding the
+fields and also, importantly, keeping track of exactly how many
+entries in the log must be written and only writing that many.
+
+#### `s.persist()`
+
+```go
+const PAGE_SIZE = 4096
+const ENTRY_HEADER = 16
+const ENTRY_SIZE = 128
+
+// Must be called within s.mu.Lock()
+func (s *Server) persist(writeLog bool, nNewEntries int) {
+	t := time.Now()
+
+	if nNewEntries == 0 && writeLog {
+		nNewEntries = len(s.log)
+	}
+
+	s.fd.Seek(0, 0)
+
+	var page [PAGE_SIZE]byte
+	// Bytes 0  - 8:   Current term
+	// Bytes 8  - 16:  Voted for
+	// Bytes 16 - 24:  Log length
+	// Bytes 4096 - N: Log
+
+	binary.LittleEndian.PutUint64(page[:8], s.currentTerm)
+	binary.LittleEndian.PutUint64(page[8:16], s.getVotedFor())
+	binary.LittleEndian.PutUint64(page[16:24], uint64(len(s.log)))
+	n, err := s.fd.Write(page[:])
+	if err != nil {
+		panic(err)
+	}
+	Server_assert(s, "Wrote full page", n, PAGE_SIZE)
+
+	if writeLog && nNewEntries > 0 {
+		newLogOffset := max(len(s.log)-nNewEntries, 0)
+
+		s.fd.Seek(int64(PAGE_SIZE+ENTRY_SIZE*newLogOffset), 0)
+		bw := bufio.NewWriter(s.fd)
+
+		var entryBytes [ENTRY_SIZE]byte
+		for i := newLogOffset; i < len(s.log); i++ {
+			// Bytes 0 - 8:    Entry term
+			// Bytes 8 - 16:   Entry command length
+			// Bytes 16 - ENTRY_SIZE: Entry command
+
+			if len(s.log[i].Command) > ENTRY_SIZE-ENTRY_HEADER {
+				panic(fmt.Sprintf("Command is too large (%d). Must be at most %d bytes.", len(s.log[i].Command), ENTRY_SIZE-ENTRY_HEADER))
+			}
+
+			binary.LittleEndian.PutUint64(entryBytes[:8], s.log[i].Term)
+			binary.LittleEndian.PutUint64(entryBytes[8:16], uint64(len(s.log[i].Command)))
+			copy(entryBytes[16:], []byte(s.log[i].Command))
+
+			n, err := bw.Write(entryBytes[:])
+			if err != nil {
+				panic(err)
+			}
+			Server_assert(s, "Wrote full page", n, ENTRY_SIZE)
+		}
+
+		err = bw.Flush()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	if err = s.fd.Sync(); err != nil {
+		panic(err)
+	}
+	s.debugf("Persisted in %s. Term: %d. Log Len: %d (%d new). Voted For: %d.", time.Now().Sub(t), s.currentTerm, len(s.log), nNewEntries, s.getVotedFor())
+}
+```
+
+Again the important thing is that only the entries that *need* to be
+written are written. We do that by `seek`-ing to the offset of the
+first entry that needs to be written.
+
+And we collect writes of entries in a `bufio.Writer` so we don't waste
+write syscalls. Don't forget to flush the buffered writer!
+
+And don't forget to flush all writes to disk with `fd.Sync()`.
+
+Lastly, a few helpers used in there:
+
+```
+func min[T ~int | ~uint64](a, b T) T {
+	if a < b {
+		return a
+	}
+
+	return b
+}
+
+func max[T ~int | ~uint64](a, b T) T {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
+// Must be called within s.mu.Lock()
+func (s *Server) getVotedFor() uint64 {
+	for i := range s.cluster {
+		if i == s.clusterIndex {
+			return s.cluster[i].votedFor
+		}
+	}
+
+	Server_assert(s, "Invalid cluster", true, false)
+}
+```
+
+#### `s.restore()`
+
+Now let's do the reverse operation, restoring from disk. This will
+only be called once on startup.
+
+```go
+func (s *Server) restore() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.fd == nil {
+		var err error
+		s.fd, err = os.OpenFile(
+			path.Join(s.metadataDir, fmt.Sprintf("md_%d.dat", s.id)),
+			os.O_SYNC|os.O_CREATE|os.O_RDWR,
+			0755)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	s.fd.Seek(0, 0)
+
+	// Bytes 0  - 8:   Current term
+	// Bytes 8  - 16:  Voted for
+	// Bytes 16 - 24:  Log length
+	// Bytes 4096 - N: Log
+	var page [PAGE_SIZE]byte
+	n, err := s.fd.Read(page[:])
+	if err == io.EOF {
+		s.initialize()
+		return
+	} else if err != nil {
+		panic(err)
+	}
+	Server_assert(s, "Read full page", n, PAGE_SIZE)
+
+	s.currentTerm = binary.LittleEndian.Uint64(page[:8])
+	s.setVotedFor(binary.LittleEndian.Uint64(page[8:16]))
+	lenLog := binary.LittleEndian.Uint64(page[16:24])
+
+	if lenLog > 0 {
+		s.fd.Seek(int64(PAGE_SIZE), 0)
+
+		var e Entry
+		for i := 0; i < len(s.log); i++ {
+			var entryBytes [ENTRY_SIZE]byte
+			n, err := s.fd.Read(entryBytes[:])
+			if err != nil {
+				panic(err)
+			}
+			Server_assert(s, "Read full entry", n, ENTRY_SIZE)
+
+			// Bytes 0 - 8:    Entry term
+			// Bytes 8 - 16:   Entry command length
+			// Bytes 16 - ENTRY_SIZE: Entry command
+			e.Term = binary.LittleEndian.Uint64(entryBytes[:8])
+			lenValue := binary.LittleEndian.Uint64(entryBytes[8:16])
+			e.Command = entryBytes[16 : 16+lenValue]
+			s.log[i] = e
+		}
+	}
+
+	s.initialize()
+}
+```
+
+And a few helpers it calls:
+
+```go
+func (s *Server) initialize() {
+	if len(s.log) == 0 {
+		// Always has at least one log entry.
+		s.log = append(s.log, Entry{})
+	}
+}
+
+// Must be called within s.mu.Lock()
+func (s *Server) setVotedFor(id uint64) {
+	for i := range s.cluster {
+		if i == s.clusterIndex {
+			s.cluster[i].votedFor = id
+			return
+		}
+	}
+
+	Server_assert(s, "Invalid cluster", true, false)
+}
+```
+
+### The main loop
+
+Now let's think about the main loop. Before starting the loop we need
+to 1) restore persistent state from disk and 2) kick off the RPC
+server so servers in the cluster can send and receive messages to and
+from eachother.
+
+In the main loop we are either in the leader state, follower state or
+candidate state.
+
+All states will potentially receive RPC messages from other servers in
+the cluster but that won't be modelled in this main loop.
+
+The only thing going on in the main loop is that:
+
+* We send heartbeat RPCs (leader state)
+* We try to advance the commit index (leader state only) and apply commands to the state machine (leader and follower states)
+* We trigger a new election if we haven't received a message in some time (candidate and follower states)
+* Or we become the leader (candidate state)
+
+```go
+// Make sure rand is seeded
+func (s *Server) Start() {
+	s.restore()
+
+	rpcServer := rpc.NewServer()
+	rpcServer.Register(s)
+	l, err := net.Listen("tcp", s.address)
+	if err != nil {
+		panic(err)
+	}
+	mux := http.NewServeMux()
+	mux.Handle(rpc.DefaultRPCPath, rpcServer)
+
+	go http.Serve(l, mux)
+
+	go func() {
+		s.mu.Lock()
+		s.resetElectionTimeout()
+		s.mu.Unlock()
+
+		for {
+			s.mu.Lock()
+			state := s.state
+			s.mu.Unlock()
+
+			switch state {
+			case leaderState:
+				s.heartbeat()
+				s.advanceCommitIndex()
+			case followerState:
+				s.timeout()
+				s.advanceCommitIndex()
+			case candidateState:
+				s.timeout()
+				s.becomeLeader()
+			}
+		}
+	}()
+}
+```
+
+Let's deal with leader election first.
+
+### Leader election
+
+Leader election happens every time nodes haven't received a message
+from a valid leader in some time.
+
+You increment `currentTerm`, vote for yourself and send RPC vote
+requests to other nodes in the server.
+
+```go
+func (s *Server) resetElectionTimeout() {
+	interval := time.Duration(rand.Intn(s.heartbeatMs*2) + s.heartbeatMs*2)
+	s.debugf("New interval: %s.", interval*time.Millisecond)
+	s.electionTimeout = time.Now().Add(interval * time.Millisecond)
+}
+
+func (s *Server) timeout() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	hasTimedOut := time.Now().After(s.electionTimeout)
+	if hasTimedOut {
+		s.debug("Timed out, starting new election.")
+		s.state = candidateState
+		s.currentTerm++
+		for i := range s.cluster {
+			if i == s.clusterIndex {
+				s.cluster[i].votedFor = s.id
+				s.cluster[i].voted = true
+			} else {
+				s.cluster[i].votedFor = 0
+				s.cluster[i].voted = false
+			}
+		}
+
+		s.resetElectionTimeout()
+		s.persist(false, 0)
+		s.requestVote()
+	}
+}
+```
+
