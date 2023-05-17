@@ -7,29 +7,32 @@ readable. Give it a read and you'll get the basic idea.
 
 As part of bringing myself up-to-speed after joining TigerBeetle, I
 wanted to understand how replicated state machines protocols
-worked. TigerBeetle uses Viewstamped Replication, not Raft. But I
-wanted to understand both and I thought Raft might be easier to start
-with.
+work. TigerBeetle uses Viewstamped Replication, not Raft. But I wanted
+to understand both and I thought Raft might be easier to start with.
 
 We'll implement two key components of Raft (leader election and log
 replication) in this post in around 1k lines of Go.
 
-**Disclaimer**: I'm not an expert. My implementation isn't yet hooked up
-to Jepsen. Send me your corrections where I'm wrong!
+**Disclaimer**: I'm not an expert. My implementation isn't yet hooked
+up to Jepsen. I've run it through a mix of manual and automated tests
+and it seems generally correct.
 
 ### The algorithm
 
-The gist of Raft is that nodes in a cluster conduct elections to pick a
-leader. Users of the Raft cluster send messages to the leader. The
+The gist of Raft is that nodes in a cluster conduct elections to pick
+a leader. Users of the Raft cluster send messages to the leader. The
 leader passes the message to followers and waits for a majority to
-store the message. Once it's stored it's applied to a state machine
-the user specifies, stored and applied duplicated on each node.
+store the message. Once the message is committed (majority consensus
+has been reached), the message is applied to a state machine the user
+supplies. Followers learn about the latest committed message from the
+leader and apply each new committed message to their local
+user-supplied state machine.
 
 There's more to it including reconfiguration and snapshotting, which I
 won't get into in this post. But you can get the gist of Raft by
 thinking about leader election and replicated state machines.
 
-### State machines
+### Modeling with state machines and key-value stores
 
 I've written before about how you can [build a key-value store on top
 of
@@ -42,8 +45,6 @@ Raft](https://notes.eatonphil.com/distributed-postgres.html).
 This post will start quite similarly to that first post except for
 that we won't stop at the Raft layer.
 
-But we'll start in `cmd/kvapi/main.go` with our key-value API.
-
 ### A distributed key-value store
 
 To build on top of the Raft library we'll build, we need to create a
@@ -51,6 +52,8 @@ state machine and commands that are sent to the state machine.
 
 Our state machine will have two operations: get a value from a key,
 and set a key to a value.
+
+This will go in `cmd/kvapi/main.go`.
 
 ```go
 package main
@@ -197,16 +200,18 @@ func (hs httpServer) setHandler(w http.ResponseWriter, r *http.Request) {
 
 To reiterate, we tell the Raft cluster we want this message
 replicated. The message contains the operation type (`set`) and the
-operation details (`key` and `value`). These are custom to the state
-machine we wrote. And they will be interpreted by the state machine we
-wrote.
+operation details (`key` and `value`). These messages are custom to
+the state machine we wrote. And they will be interpreted by the state
+machine we wrote, on each node in the cluster.
 
 Next we handle `get`-ing values from the cluster. There are two ways
 to do this. We already embed a local copy of the distributed key-value
 map. We could just read from that map in the current process. But it
-might not be up-to-date or correct. It would be fast to read though. And convenient for debugging.
+might not be up-to-date or correct. It would be fast to read
+though. And convenient for debugging.
 
-But the only *correct* way to read from a Raft cluster is to pass the
+But the only [*correct* way to read from a Raft
+cluster](https://github.com/etcd-io/etcd/issues/741) is to pass the
 read through the log replication too.
 
 So we'll support both.
@@ -270,7 +275,7 @@ func (hs httpServer) getHandler(w http.ResponseWriter, r *http.Request) {
 #### Main
 
 Now that we've set up our custom state machine and our HTTP API for
-interacting with the Raft cluster, we'll tied it together with reading
+interacting with the Raft cluster, we'll tie it together with reading
 configuration from the command-line and actually starting the Raft
 node and the HTTP API.
 
@@ -414,8 +419,6 @@ type ClusterMember struct {
 
 	// Who was voted for in the most recent term
 	votedFor uint64
-	// Whether or not voting has been *attempted* this term
-	voted    bool
 
 	// TCP connection
 	rpcClient *rpc.Client
@@ -527,7 +530,7 @@ func NewServer(
 }
 ```
 
-And let's set up a few debugging and assertion helpers.
+And add a few debugging and assertion helpers.
 
 ```go
 
@@ -574,9 +577,9 @@ func Server_assert[T comparable](s *Server, msg string, a, b T) {
 As Figure 2 says, `currentTerm`, `log`, and `votedFor` must be
 persisted to disk as they're edited.
 
-I like doing the stupidest thing possible, initially. So in the first version of
-this project I used `encoding/gob` to write these three fields to disk
-every time `s.persist()` was called.
+I like to initially doing the stupidest thing possible. So in the
+first version of this project I used `encoding/gob` to write these
+three fields to disk every time `s.persist()` was called.
 
 Here is what this first version looked like:
 
@@ -605,6 +608,27 @@ func (s *Server) persist() {
 
 But doing so means this implementation is a function of the size of
 the log. And that was horrible for throughput.
+
+I also noticed that `encoding/gob` is pretty inefficient.
+
+For a simple struct like:
+
+```go
+type X struct {
+	A uint64
+	B []uint64
+	C bool
+}
+```
+
+`encoding/gob` uses [68 bytes to store that data for when B has two
+entries](https://play.golang.com/p/TUe9TDgaZOw). If we wrote the
+encoder/decoder ourselves we could store that struct in 33 bytes (`8
+(sizeof(A)) + 8 (sizeof(len(B))) + 16 (len(B) * sizeof(B)) + 1
+(sizeof(C))`).
+
+It's not that `encoding/gob` is bad. It just likely has different
+constraints than we are party to.
 
 So I decided to swap out `encoding/gob` for simply binary encoding the
 fields and also, importantly, keeping track of exactly how many
@@ -815,22 +839,9 @@ func (s *Server) setVotedFor(id uint64) {
 ### The main loop
 
 Now let's think about the main loop. Before starting the loop we need
-to 1) restore persistent state from disk and 2) kick off the RPC
+to 1) restore persistent state from disk and 2) kick off an RPC
 server so servers in the cluster can send and receive messages to and
 from eachother.
-
-In the main loop we are either in the leader state, follower state or
-candidate state.
-
-All states will potentially receive RPC messages from other servers in
-the cluster but that won't be modelled in this main loop.
-
-The only thing going on in the main loop is that:
-
-* We send heartbeat RPCs (leader state)
-* We try to advance the commit index (leader state only) and apply commands to the state machine (leader and follower states)
-* We trigger a new election if we haven't received a message in some time (candidate and follower states)
-* Or we become the leader (candidate state)
 
 ```go
 // Make sure rand is seeded
@@ -847,7 +858,8 @@ func (s *Server) Start() {
 	mux.Handle(rpc.DefaultRPCPath, rpcServer)
 
 	go http.Serve(l, mux)
-
+	
+	
 	go func() {
 		s.mu.Lock()
 		s.resetElectionTimeout()
@@ -857,7 +869,22 @@ func (s *Server) Start() {
 			s.mu.Lock()
 			state := s.state
 			s.mu.Unlock()
+```
 
+In the main loop we are either in the leader state, follower state or
+candidate state.
+
+All states will potentially receive RPC messages from other servers in
+the cluster but that won't be modeled in this main loop.
+
+The only thing going on in the main loop is that:
+
+* We send heartbeat RPCs (leader state)
+* We try to advance the commit index (leader state only) and apply commands to the state machine (leader and follower states)
+* We trigger a new election if we haven't received a message in some time (candidate and follower states)
+* Or we become the leader (candidate state)
+
+```go
 			switch state {
 			case leaderState:
 				s.heartbeat()
@@ -903,10 +930,8 @@ func (s *Server) timeout() {
 		for i := range s.cluster {
 			if i == s.clusterIndex {
 				s.cluster[i].votedFor = s.id
-				s.cluster[i].voted = true
 			} else {
 				s.cluster[i].votedFor = 0
-				s.cluster[i].voted = false
 			}
 		}
 
@@ -916,4 +941,143 @@ func (s *Server) timeout() {
 	}
 }
 ```
+
+Everything in there is implemented already except for
+`s.requestVote()`. Let's dig into that.
+
+#### `s.requestVote()`
+
+By referring back to Figure 2 from the Raft paper we can see how to
+model the request vote request and response. Let's turn that into some Go types.
+
+```go
+type RPCMessage struct {
+	Term uint64
+}
+
+type RequestVoteRequest struct {
+	RPCMessage
+
+	// Candidate requesting vote
+	CandidateId uint64
+
+	// Index of candidate's last log entry
+	LastLogIndex uint64
+
+	// Term of candidate's last log entry
+	LastLogTerm uint64
+}
+
+type RequestVoteResponse struct {
+	RPCMessage
+
+	// True means candidate received vote
+	VoteGranted bool
+}
+```
+
+Now we just need to fill the `RequestVoteRequest` struct out and send
+it to each other node in the cluster in parallel. As we iterate
+through nodes in the cluster, we skip ourselves (we always immediately
+vote for ourselves).
+
+```go
+
+func (s *Server) requestVote() {
+	for i := range s.cluster {
+		if i == s.clusterIndex {
+			continue
+		}
+
+		go func(i int) {
+			s.mu.Lock()
+
+			// Skip if vote already requested
+			if s.cluster[i].voted {
+				s.mu.Unlock()
+				return
+			}
+			s.debugf("Requesting vote from %d.", s.cluster[i].Id)
+			s.cluster[i].voted = true
+
+			lastLogIndex := uint64(len(s.log) - 1)
+			lastLogTerm := s.log[len(s.log)-1].Term
+
+			req := RequestVoteRequest{
+				RPCMessage: RPCMessage{
+					Term: s.currentTerm,
+				},
+				CandidateId:  s.id,
+				LastLogIndex: lastLogIndex,
+				LastLogTerm:  lastLogTerm,
+			}
+			s.mu.Unlock()
+
+			var rsp RequestVoteResponse
+			ok := s.rpcCall(i, "Server.HandleRequestVoteRequest", req, &rsp)
+			if !ok {
+				// Will retry later
+				return
+			}
+```
+
+Now remember from Figure 2 in the Raft paper that we must always check
+that the RPC request and response is still valid. If the term of the
+response is greater than our own term, we must immediately stop
+processing and revert to follower state.
+
+Otherwise only if the response is still relevant to us at the moment
+(the response term is the same as the request term) *and* the request
+has succeeded do we count the vote.
+
+```go
+			s.mu.Lock()
+			defer s.mu.Unlock()
+
+			if s.updateTerm(rsp.RPCMessage) {
+				return
+			}
+
+			dropStaleResponse := rsp.Term != req.Term
+			if dropStaleResponse {
+				return
+			}
+
+			if rsp.VoteGranted {
+				s.debugf("Vote granted by %d.", s.cluster[i].Id)
+				s.cluster[i].votedFor = s.id
+			}
+		}(i)
+	}
+}
+```
+
+And that's it for the candidate side of requesting a vote.
+
+The implementation is `s.updateTerm()` is simple. It just takes care
+of transitioning to follower state if the term of an RPC message is
+greater than the node's current term.
+
+```
+// Must be called within a s.mu.Lock()
+func (s *Server) updateTerm(msg RPCMessage) bool {
+	transitioned := false
+	if msg.Term > s.currentTerm {
+		s.currentTerm = msg.Term
+		s.state = followerState
+		s.votedFor = 0
+		transitioned = true
+		s.debug("Transitioned to follower")
+		s.resetElectionTimeout()
+		s.persist(false, 0)
+	}
+	return transitioned
+}
+```
+
+Let's dig into the other side of request vote, what happens when a
+node receives a vote request?
+
+#### `s.HandleVoteRequest()`
+
 
