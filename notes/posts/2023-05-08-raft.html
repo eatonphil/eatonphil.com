@@ -734,6 +734,14 @@ write syscalls. Don't forget to flush the buffered writer!
 
 And don't forget to flush all writes to disk with `fd.Sync()`.
 
+<p class="note">
+  `ENTRY_SIZE` is something that I could see being configurable based
+  on the workload. Some workloads truly need only 128 bytes. But a
+  key-value store probably wants much more than that. This
+  implementation doesn't try to handle the case of completely
+  arbitrary sized keys and values.
+</p>
+
 Lastly, a few helpers used in there:
 
 ```
@@ -1802,4 +1810,27 @@ $ curl -v http://localhost:2021/get\?key\=y
 
 And that's that! Try killing a server and restarting it.
 
-# Considerations
+# A test rig
+
+I won't cover the [implementation of my test
+rig](https://github.com/eatonphil/goraft/blob/main/cmd/sim/main.go) in
+this post but I will describe it.
+
+It's nowhere near Jepsen but it does have a specific focus:
+
+1. Can the cluster elect a leader?
+2. Can the cluster store logs correctly?
+3. Can the cluster of three nodes tolerate one node down?
+4. How fast can it store N messages?
+
+
+
+# Conclusion
+
+This was quite a challenging project. Normally when I hack on stuff
+like this I have TV (The Simpsons) on in the background. It's sort of
+dumb but this was the first project where I absolutely could not focus
+with that background noise.
+
+There are a tedious number of conditions and I am not sure I got them
+all (right). Numerous ways for subtle bugs.
