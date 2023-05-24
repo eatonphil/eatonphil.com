@@ -387,9 +387,28 @@ all the state we need to model.
 ![/assets/raft-figure-2.png](Raft Figure 2)
 
 We'll dig into the details as we go. But for now let's turn that model
-into a few Go types.
+into a few Go types. This goes in `raft.go` in the base directory,
+not `cmd/kvapi`.
 
 ```go
+package goraft
+
+import (
+    "bufio"
+    "encoding/binary"
+    "errors"
+    "fmt"
+    "io"
+    "math/rand"
+    "net"
+    "net/http"
+    "net/rpc"
+    "os"
+    "path"
+    sync "github.com/sasha-s/go-deadlock"
+    "time"
+)
+
 type StateMachine interface {
     Apply(cmd []byte) ([]byte, error)
 }
@@ -523,8 +542,7 @@ func NewServer(
         mu:           sync.Mutex{},
     }
 
-    // Literally just a cheat for benchmarks.
-    s.log = make([]Entry, 0, 1_000_000)
+    s.log = make([]Entry, 0)
     s.state = followerState
     return s
 }
@@ -533,7 +551,6 @@ func NewServer(
 And add a few debugging and assertion helpers.
 
 ```go
-
 func (s *Server) debugmsg(msg string) string {
     return fmt.Sprintf("%s [Id: %d, Term: %d] %s", time.Now().Format(time.RFC3339Nano), s.id, s.currentTerm, msg)
 }
@@ -635,6 +652,8 @@ fields and also, importantly, keeping track of exactly how many
 entries in the log must be written and only writing that many.
 
 #### `s.persist()`
+
+Here's what that looks like.
 
 ```go
 const PAGE_SIZE = 4096
@@ -743,6 +762,7 @@ func (s *Server) getVotedFor() uint64 {
     }
 
     Server_assert(s, "Invalid cluster", true, false)
+    return 0
 }
 ```
 
@@ -991,7 +1011,6 @@ through nodes in the cluster, we skip ourselves (we always immediately
 vote for ourselves).
 
 ```go
-
 func (s *Server) requestVote() {
     for i := range s.cluster {
         if i == s.clusterIndex {
@@ -1001,13 +1020,7 @@ func (s *Server) requestVote() {
         go func(i int) {
             s.mu.Lock()
 
-            // Skip if vote already requested
-            if s.cluster[i].voted {
-                s.mu.Unlock()
-                return
-            }
             s.debugf("Requesting vote from %d.", s.cluster[i].Id)
-            s.cluster[i].voted = true
 
             lastLogIndex := uint64(len(s.log) - 1)
             lastLogTerm := s.log[len(s.log)-1].Term
@@ -1074,7 +1087,7 @@ func (s *Server) updateTerm(msg RPCMessage) bool {
     if msg.Term > s.currentTerm {
         s.currentTerm = msg.Term
         s.state = followerState
-        s.votedFor = 0
+        s.setVotedFor(0)
         transitioned = true
         s.debug("Transitioned to follower")
         s.resetElectionTimeout()
@@ -1195,15 +1208,15 @@ become the leader!
 
 ```go
 func (s *Server) becomeLeader() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+    s.mu.Lock()
+    defer s.mu.Unlock()
 
-	quorum := len(s.cluster)/2 + 1
-	for i := range s.cluster {
-		if s.cluster[i].votedFor == s.id && quorum > 0 {
-			quorum--
-		}
-	}
+    quorum := len(s.cluster)/2 + 1
+    for i := range s.cluster {
+        if s.cluster[i].votedFor == s.id && quorum > 0 {
+            quorum--
+        }
+    }
 ```
 
 There is a bit of bookkeeping we need to do like resetting `nextIndex`
@@ -1212,35 +1225,35 @@ to append a blank entry for the new term. (I don't understand why this
 blank entry is necessary.)
 
 ```go
-	if quorum == 0 {
-		// Reset all cluster state
-		for i := range s.cluster {
-			s.cluster[i].nextIndex = uint64(len(s.log) + 1)
-			// Yes, even matchIndex is reset. Figure 2
-			// from Raft shows both nextIndex and
-			// matchIndex are reset after every election.
-			s.cluster[i].matchIndex = 0
-		}
+    if quorum == 0 {
+        // Reset all cluster state
+        for i := range s.cluster {
+            s.cluster[i].nextIndex = uint64(len(s.log) + 1)
+            // Yes, even matchIndex is reset. Figure 2
+            // from Raft shows both nextIndex and
+            // matchIndex are reset after every election.
+            s.cluster[i].matchIndex = 0
+        }
 
-		s.debug("New leader.")
-		s.state = leaderState
+        s.debug("New leader.")
+        s.state = leaderState
 
-		// From Section 8 Client Interaction:
-		// > First, a leader must have the latest information on
-		// > which entries are committed. The Leader
-		// > Completeness Property guarantees that a leader has
-		// > all committed entries, but at the start of its
-		// > term, it may not know which those are. To find out,
-		// > it needs to commit an entry from its term. Raft
-		// > handles this by having each leader commit a blank
-		// > no-op entry into the log at the start of its term.
-		s.log = append(s.log, Entry{Term: s.currentTerm, Command: nil})
-		s.persist(true, 1)
+        // From Section 8 Client Interaction:
+        // > First, a leader must have the latest information on
+        // > which entries are committed. The Leader
+        // > Completeness Property guarantees that a leader has
+        // > all committed entries, but at the start of its
+        // > term, it may not know which those are. To find out,
+        // > it needs to commit an entry from its term. Raft
+        // > handles this by having each leader commit a blank
+        // > no-op entry into the log at the start of its term.
+        s.log = append(s.log, Entry{Term: s.currentTerm, Command: nil})
+        s.persist(true, 1)
 
-		// Triggers s.appendEntries() in the next tick of the
-		// main state loop.
-		s.heartbeatTimeout = time.Now()
-	}
+        // Triggers s.appendEntries() in the next tick of the
+        // main state loop.
+        s.heartbeatTimeout = time.Now()
+    }
 }
 ```
 
@@ -1305,7 +1318,6 @@ func (s *Server) Apply(commands [][]byte) ([]ApplyResult, error) {
         return nil, ErrApplyToLeader
     }
     s.debugf("Processing %d new entry!", len(commands))
-
 ```
 
 Next we'll store the message in the leader's log along with an
@@ -1332,7 +1344,7 @@ Then we kick off the replication process (this will not block).
 ```go
     s.debug("Waiting to be applied!")
     s.mu.Unlock()
-	
+
     s.appendEntries()
 ```
 
@@ -1369,10 +1381,43 @@ down.
 This is the meat of log replication on the leader side. We send
 unreplicated messages to each other server in the cluster.
 
-We start optimistically sending no entries and decrement `nextIndex`
-for each server as it fails to replicate the messages. This means that
-we might eventually end up sending the entire log to one or all
-servers.
+By again referring back to Figure 2 from the Raft paper we can see how
+to model the request vote request and response. Let's turn that into
+some Go types too.
+
+```go
+type AppendEntriesRequest struct {
+    RPCMessage
+
+    // So follower can redirect clients
+    LeaderId uint64
+
+    // Index of log entry immediately preceding new ones
+    PrevLogIndex uint64
+
+    // Term of prevLogIndex entry
+    PrevLogTerm uint64
+
+    // Log entries to store. Empty for heartbeat.
+    Entries []Entry
+
+    // Leader's commitIndex
+    LeaderCommit uint64
+}
+
+type AppendEntriesResponse struct {
+    RPCMessage
+
+    // true if follower contained entry matching prevLogIndex and
+    // prevLogTerm
+    Success bool
+}
+```
+
+For the method itself, we start optimistically sending no entries and
+decrement `nextIndex` for each server as the server fails to replicate
+messages. This means that we might eventually end up sending the
+entire log to one or all servers.
 
 We'll set a max number of entries to send per request so we avoid
 unbounded latency as followers store entries to disk. But we still
@@ -1492,7 +1537,7 @@ So we also need to handle that here. And if we're still not a
 follower, we'll return immediately.
 
 ```go
-// From Candidates (§5.2) in Figure 2
+    // From Candidates (§5.2) in Figure 2
     // If AppendEntries RPC received from new leader: convert to follower
     if req.Term == s.currentTerm && s.state == candidateState {
         s.state = followerState
@@ -1541,7 +1586,7 @@ from this request. Specifically, we make sure that our log at
     }
 ```
 
-Finally, we've got valid entries that we need to add to our log. This
+Next, we've got valid entries that we need to add to our log. This
 implementation is a little more complex because we'll make use of Go
 slice capacity so that `append()` never allocates.
 
@@ -1622,7 +1667,6 @@ matching first N messages, the leader can advance the cluster's
 `commitIndex`.
 
 ```go
-
 func (s *Server) advanceCommitIndex() {
     s.mu.Lock()
     defer s.mu.Unlock()
@@ -1681,6 +1725,7 @@ can learn about the result.
 
         s.lastApplied++
     }
+}
 ```
 
 ### Heartbeats
@@ -1694,16 +1739,67 @@ And it's a simple method. If it's time to heartbeat, we call
 
 ```go
 func (s *Server) heartbeat() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+    s.mu.Lock()
+    defer s.mu.Unlock()
 
-	timeForHeartbeat := time.Now().After(s.heartbeatTimeout)
-	if timeForHeartbeat {
-		s.heartbeatTimeout = time.Now().Add(time.Duration(s.heartbeatMs) * time.Millisecond)
-		s.debug("Sending heartbeat")
-		s.appendEntries()
-	}
+    timeForHeartbeat := time.Now().After(s.heartbeatTimeout)
+    if timeForHeartbeat {
+        s.heartbeatTimeout = time.Now().Add(time.Duration(s.heartbeatMs) * time.Millisecond)
+        s.debug("Sending heartbeat")
+        s.appendEntries()
+    }
 }
 ```
 
+The reason this staves off leader election is because any number of
+entries (0 or N) will come from a valid leader and will thus cause the
+followers to reset their election timeout.
+
 And that's the entirety of (the basics of) Raft.
+
+There are probably bugs.
+
+# Running kvapi
+
+Now let's run the key-value API.
+
+```console
+$ cd cmd/kvapi && go build
+$ rm *.dat
+```
+
+## Terminal 1
+
+```console
+$ ./kvapi --node 1 --http :2021 --cluster "0,:3030;1,:3031;2,:3032"
+```
+
+## Terminal 2
+
+```console
+$ ./kvapi --node 1 --http :2021 --cluster "0,:3030;1,:3031;2,:3032"
+```
+
+## Terminal 3
+
+```console
+$ ./kvapi --node 2 --http :2021 --cluster "0,:3030;1,:3031;2,:3032"
+```
+
+## Terminal 4
+
+To set a key:
+
+```console
+$ curl -v http://localhost:2020/set -d '{"key": "y", "value": "hello"}' -X POST
+```
+
+To get a key:
+
+```console
+$ curl -v http://localhost:2021/get\?key\=y
+```
+
+And that's that! Try killing a server and restarting it.
+
+# Considerations
