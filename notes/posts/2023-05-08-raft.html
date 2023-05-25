@@ -14,8 +14,10 @@ We'll implement two key components of Raft (leader election and log
 replication) in this post in around 1k lines of Go.
 
 **Disclaimer**: I'm not an expert. My implementation isn't yet hooked
-up to Jepsen. I've run it through a mix of manual and automated tests
-and it seems generally correct.
+up to [Jepsen](https://github.com/jepsen-io/jepsen). I've run it
+through a mix of manual and automated tests and it seems generally
+correct. This is not intended to be used in production. It's just for
+my education.
 
 ### The algorithm
 
@@ -406,7 +408,7 @@ import (
     "net/rpc"
     "os"
     "path"
-    sync "github.com/sasha-s/go-deadlock"
+    "sync"
     "time"
 )
 
@@ -525,7 +527,6 @@ func NewServer(
     metadataDir string,
     clusterIndex int,
 ) *Server {
-    sync.Opts.DeadlockTimeout = 2000 * time.Millisecond
     // Explicitly make a copy of the cluster because we'll be
     // modifying it in this server.
     var cluster []ClusterMember
@@ -1789,7 +1790,7 @@ $ rm *.dat
 ## Terminal 1
 
 ```console
-$ ./kvapi --node 1 --http :2021 --cluster "0,:3030;1,:3031;2,:3032"
+$ ./kvapi --node 0 --http :2020 --cluster "0,:3030;1,:3031;2,:3032"
 ```
 
 ## Terminal 2
@@ -1801,24 +1802,30 @@ $ ./kvapi --node 1 --http :2021 --cluster "0,:3030;1,:3031;2,:3032"
 ## Terminal 3
 
 ```console
-$ ./kvapi --node 2 --http :2021 --cluster "0,:3030;1,:3031;2,:3032"
+$ ./kvapi --node 2 --http :2022 --cluster "0,:3030;1,:3031;2,:3032"
 ```
 
 ## Terminal 4
 
+Remember that requests will go through the leader (except for if we
+turn that off in the `/get` request). So you'll have to try sending a
+message to each server until you find the leader.
+
 To set a key:
 
 ```console
-$ curl -v http://localhost:2020/set -d '{"key": "y", "value": "hello"}' -X POST
+$ curl http://localhost:2020/set?key=y&value=hello
 ```
 
 To get a key:
 
 ```console
-$ curl -v http://localhost:2021/get\?key\=y
+$ curl http://localhost:2020/get\?key\=y
 ```
 
-And that's that! Try killing a server and restarting it.
+And that's that! Try killing a server and restarting it. A new leader
+will be elected so you'll need to find the right one to send requests
+to again. But all existing entries should still be there.
 
 # A test rig
 
@@ -1832,8 +1839,10 @@ It's nowhere near Jepsen but it does have a specific focus:
 2. Can the cluster store logs correctly?
 3. Can the cluster of three nodes tolerate one node down?
 4. How fast can it store N messages?
+5. Are messages recovered correctly when the nodes shut down and start back up?
+6. If a node's logs are deleted, is the log for that node recovered after it is restarted?
 
-And my implementation does pass these tests               
+This implementation passes these tests and handles around 20k-40k entries/second.
 
 # Considerations
 
@@ -1844,3 +1853,125 @@ with that background noise.
 
 There are a tedious number of conditions and I am not sure I got them
 all (right). Numerous ways for subtle bugs.
+
+## Race conditions and deadlocks
+
+It's very easy to program in race conditions. Thankfully Go has the
+`-race` flag that detects this. This makes sure that you are locking
+read and write access to shared variables when necessary.
+
+The other side of race conditions Go does not help you out with:
+deadlocks. Once you've got locks in place for shared variables, you
+need to make sure you're releasing the locks appropriately too.
+
+Thankfully someone wrote a swap-in replacement for the Go `sync`
+package called
+[go-deadlock](https://github.com/sasha-s/go-deadlock). When you import
+this file instead of the default `sync` package, it will panic and
+give you a stacktrace when it thinks you hit a deadlock.
+
+Sometimes it thinks you hit a deadlock because a method that needs a
+lock takes too long. Sometimes that time it takes is legitimate (or
+something you haven't optimized yet). But actually it's default of
+`30s` is not really aggressive at all.
+
+So I normally set the deadlock timeout to `2s` and eventually would
+like to make that more like `100ms`:
+
+```
+sync.Opts.DeadlockTimeout = 2000 * time.Millisecond
+```
+
+It's mostly the `persist()` function that causes `go-deadlock` to
+think there's a deadlock because it tries to synchronously write a
+bunch of data to disk.
+
+### `go-deadlock` is slow
+
+The `go-deadlock` package is incredibly useful. But don't forget to
+turn it off for benchmarks. With it on I get around 4-8k
+entries/second. With it off I get around 20k-40k entries/second.
+
+## Unbounded memory
+
+Another issue in this implementation is that the log keeps growing
+indefinitely *and* the entire log is duplicated in memory.
+
+There are two ways to deal with that:
+
+1. Implement Raft snapshotting so the log can be truncated safely.
+2. Keep only some number of entries in memory (say, 1 million) and
+   read from disk as needed when logs need to be verified. In ideal
+   operation this would never happen since ideally all servers are
+   always on, never miss entries, and just keep appending. But "ideal"
+   won't always happen.
+   
+Similarly, there is unbounded and unreused channel creation for
+notifying `s.Apply()` when the user-submitted message(s) finish.
+
+## net/rpc and encoding/gob
+
+In the `persist()` section above I already mentioned how I prototyped
+this using Go's builtin gob encoding. And I mentioned how inefficient
+it was. It's also pretty slow and I learned that because `net/rpc`
+uses it and after everything I did `net/rpc` started to be the
+bottleneck in my benchmarks. This isn't incredibly surprising.
+
+So a future version of this code might implement its own protocol and
+own encoding (like we did for disk) on top of TCP rather than use
+`net/rpc`.
+
+## Jepsen
+
+Everyone wants to know how a distributed algorithm does against
+[Jepsen](https://github.com/jepsen-io/jepsen), which tests
+linearizability of distributed systems in the face of network and
+process faults.
+
+But the setup is not trivial so I haven't hooked it up to this project
+yet. This would be a good area for future work.
+
+## Election timeout and the environment
+
+One thing I noticed as I was trying out alternatives to `net/rpc` that
+injected latency is that election timeouts should probably be tuned
+with latency of the cluster in mind.
+
+If the election timeout is every `300ms` but the latency of the
+cluster is near `1s`, you're going to have non-stop leader election.
+
+When I adjusted the election timeout to be every `2s` when the latency
+of the cluster is near `1s`, everything was fine. Maybe this means
+there's a bug in my code but I don't think so.
+
+# References
+
+Finally, I could not have done this without a bunch of internet
+help. This project took me about 7 months in total. The first 5 months
+I was trying to figure it out mostly on my own, just looking at the
+Raft paper.
+
+The biggest breakthrough came from discovering the author of Raft's
+TLA+ spec for Raft. Formal methods sound scary but it was truly not
+too bad! This was the first "implementation" of Raft that was in a
+single file of code. And under 500 lines.
+
+Jack Vanlightly's guide to reading TLA+ helped a bunch.
+
+Finally, I had to peer at other implementations, especially to figure
+out locking and avoiding deadlocks.
+
+Here's everything that helped me out.
+
+* [In Search of an Understandable Consensus Algorithm](https://raft.github.io/raft.pdf): The Raft paper.
+* [raft.tla](https://github.com/ongardie/raft.tla/blob/master/raft.tla): Diego Ongaro's TLA+ spec for Raft.
+* Jon Gjengset's [Students' Guide to Raft](https://thesquareplanet.com/blog/students-guide-to-raft/)
+* Jack Vanlightly's [Detecting Bugs in Data Infrastructure using Formal Methods (TLA+ Series Part 1)](https://medium.com/splunk-maas/detecting-bugs-in-data-infrastructure-using-formal-methods-704fde527c58): An intro to TLA+.
+
+And useful implementations I looked at for inspiration and clarity.
+
+* Hashicorp's [Raft implementation](https://github.com/hashicorp/raft) in Go: Although it's often quite complicated to learn from since it actually is intended for production.
+* Eli Bendersky's [Raft implementation](https://github.com/eliben/raft) in Go: Although it gets confusing because it uses negative numbers for terms whereas the paper does not.
+* Jing Yang's [Raft implementation](https://github.com/ditsing/ruaft) in Rust.
+
+Cheers!
