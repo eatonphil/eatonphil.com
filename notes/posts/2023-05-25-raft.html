@@ -1,5 +1,5 @@
 # Implementing a distributed key-value store on top of implementing Raft in Go
-## May 8, 2023
+## May 25, 2023
 ###### go,raft
 
 [The Raft paper](https://raft.github.io/raft.pdf) itself is quite
@@ -1778,7 +1778,7 @@ And that's the entirety of (the basics of) Raft.
 
 There are probably bugs.
 
-# Running kvapi
+### Running kvapi
 
 Now let's run the key-value API.
 
@@ -1787,25 +1787,25 @@ $ cd cmd/kvapi && go build
 $ rm *.dat
 ```
 
-## Terminal 1
+#### Terminal 1
 
 ```console
 $ ./kvapi --node 0 --http :2020 --cluster "0,:3030;1,:3031;2,:3032"
 ```
 
-## Terminal 2
+#### Terminal 2
 
 ```console
 $ ./kvapi --node 1 --http :2021 --cluster "0,:3030;1,:3031;2,:3032"
 ```
 
-## Terminal 3
+#### Terminal 3
 
 ```console
 $ ./kvapi --node 2 --http :2022 --cluster "0,:3030;1,:3031;2,:3032"
 ```
 
-## Terminal 4
+#### Terminal 4
 
 Remember that requests will go through the leader (except for if we
 turn that off in the `/get` request). So you'll have to try sending a
@@ -1827,7 +1827,7 @@ And that's that! Try killing a server and restarting it. A new leader
 will be elected so you'll need to find the right one to send requests
 to again. But all existing entries should still be there.
 
-# A test rig
+### A test rig
 
 I won't cover the [implementation of my test
 rig](https://github.com/eatonphil/goraft/blob/main/cmd/sim/main.go) in
@@ -1844,7 +1844,7 @@ It's nowhere near Jepsen but it does have a specific focus:
 
 This implementation passes these tests and handles around 20k-40k entries/second.
 
-# Considerations
+### Considerations
 
 This was quite a challenging project. Normally when I hack on stuff
 like this I have TV (The Simpsons) on in the background. It's sort of
@@ -1854,7 +1854,7 @@ with that background noise.
 There are a tedious number of conditions and I am not sure I got them
 all (right). Numerous ways for subtle bugs.
 
-## Race conditions and deadlocks
+#### Race conditions and deadlocks
 
 It's very easy to program in race conditions. Thankfully Go has the
 `-race` flag that detects this. This makes sure that you are locking
@@ -1886,13 +1886,13 @@ It's mostly the `persist()` function that causes `go-deadlock` to
 think there's a deadlock because it tries to synchronously write a
 bunch of data to disk.
 
-### `go-deadlock` is slow
+##### `go-deadlock` is slow
 
 The `go-deadlock` package is incredibly useful. But don't forget to
 turn it off for benchmarks. With it on I get around 4-8k
 entries/second. With it off I get around 20k-40k entries/second.
 
-## Unbounded memory
+#### Unbounded memory
 
 Another issue in this implementation is that the log keeps growing
 indefinitely *and* the entire log is duplicated in memory.
@@ -1909,7 +1909,7 @@ There are two ways to deal with that:
 Similarly, there is unbounded and unreused channel creation for
 notifying `s.Apply()` when the user-submitted message(s) finish.
 
-## net/rpc and encoding/gob
+#### net/rpc and encoding/gob
 
 In the `persist()` section above I already mentioned how I prototyped
 this using Go's builtin gob encoding. And I mentioned how inefficient
@@ -1921,7 +1921,7 @@ So a future version of this code might implement its own protocol and
 own encoding (like we did for disk) on top of TCP rather than use
 `net/rpc`.
 
-## Jepsen
+#### Jepsen
 
 Everyone wants to know how a distributed algorithm does against
 [Jepsen](https://github.com/jepsen-io/jepsen), which tests
@@ -1931,7 +1931,7 @@ process faults.
 But the setup is not trivial so I haven't hooked it up to this project
 yet. This would be a good area for future work.
 
-## Election timeout and the environment
+#### Election timeout and the environment
 
 One thing I noticed as I was trying out alternatives to `net/rpc` that
 injected latency is that election timeouts should probably be tuned
@@ -1944,7 +1944,7 @@ When I adjusted the election timeout to be every `2s` when the latency
 of the cluster is near `1s`, everything was fine. Maybe this means
 there's a bug in my code but I don't think so.
 
-# References
+### References
 
 Finally, I could not have done this without a bunch of internet
 help. This project took me about 7 months in total. The first 5 months
