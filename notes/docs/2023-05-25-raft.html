@@ -48,20 +48,29 @@
     </header>
     <div class="container">
       <div class="col-6">
-        <p><a href="https://raft.github.io/raft.pdf">The Raft paper</a> itself is quite
-readable. Give it a read and you'll get the basic idea.</p>
-<p>As part of bringing myself up-to-speed after joining TigerBeetle, I
-wanted to understand how replicated state machines protocols
-work. TigerBeetle uses Viewstamped Replication, not Raft. But I wanted
-to understand both and I thought Raft might be easier to start with.</p>
-<p>We'll implement two key components of Raft (leader election and log
-replication) in this post in around 1k lines of Go.</p>
+        <p>As part of bringing myself up-to-speed after joining TigerBeetle, I
+wanted some background on how distributed consensus and replicated state
+machines protocols work. TigerBeetle uses <a href="https://pmg.csail.mit.edu/papers/vr-revisited.pdf">Viewstamped
+Replication</a>. But I
+wanted to understand all popular protocols and I decided to start with
+<a href="https://raft.github.io/">Raft</a>.</p>
+<p>We'll implement two key components of Raft in this post (leader
+election and log replication). Around 1k lines of Go. It took me
+around 7 months of sporadic studying to come to (what I hope is) an
+understanding of the basics.</p>
 <p><strong>Disclaimer</strong>: I'm not an expert. My implementation isn't yet hooked
 up to <a href="https://github.com/jepsen-io/jepsen">Jepsen</a>. I've run it
-through a mix of manual and automated tests and it seems generally
-correct. This is not intended to be used in production. It's just for
-my education.</p>
-<h3 id="the-algorithm">The algorithm</h3><p>The gist of Raft is that nodes in a cluster conduct elections to pick
+through a mix of
+<a href="https://github.com/eatonphil/goraft/tree/main#distributed-key-value-store-api">manual</a> and
+<a href="https://github.com/eatonphil/goraft/tree/main/cmd/stress">automated
+tests</a> and
+it seems generally correct. This is not intended to be used in
+production. It's just for my education.</p>
+<p>All code for this project is <a href="https://github.com/eatonphil/goraft">available on GitHub</a>.</p>
+<p>Let's dig in!</p>
+<h3 id="the-algorithm">The algorithm</h3><p><a href="https://raft.github.io/raft.pdf">The Raft paper</a> itself is quite
+readable. Give it a read and you'll get the basic idea.</p>
+<p>The gist is that nodes in a cluster conduct elections to pick
 a leader. Users of the Raft cluster send messages to the leader. The
 leader passes the message to followers and waits for a majority to
 store the message. Once the message is committed (majority consensus
@@ -71,7 +80,8 @@ leader and apply each new committed message to their local
 user-supplied state machine.</p>
 <p>There's more to it including reconfiguration and snapshotting, which I
 won't get into in this post. But you can get the gist of Raft by
-thinking about leader election and replicated state machines.</p>
+thinking about 1) leader election and 2) replicated logs powering
+replicated state machines.</p>
 <h3 id="modeling-with-state-machines-and-key-value-stores">Modeling with state machines and key-value stores</h3><p>I've written before about how you can <a href="https://notes.eatonphil.com/minimal-key-value-store-with-hashicorp-raft.html">build a key-value store on top
 of
 Raft</a>. How
@@ -185,7 +195,7 @@ bytes:</p>
     return c
 }
 </code></pre>
-<h4 id="http-api">HTTP API</h4><p>Now that we've modelled the key-value store as a state machine. Let's
+<h4 id="http-api">HTTP API</h4><p>Now that we've modeled the key-value store as a state machine. Let's
 build the HTTP endpoints that allow the user to operate the state
 machine through the Raft cluster.</p>
 <p>First, let's implement the <code>set</code> operation. We need to grab the key
@@ -385,7 +395,7 @@ of a Raft cluster.</p>
 <p>Next we need to implement Raft.</p>
 <h3 id="a-raft-server">A Raft server</h3><p>If we take a look at Figure 2 in the Raft paper, we get an idea for
 all the state we need to model.</p>
-<p><img src="Raft Figure 2" alt="/assets/raft-figure-2.png"></p>
+<p><img src="/assets/raft-figure-2.png" alt="Raft Figure 2"></p>
 <p>We'll dig into the details as we go. But for now let's turn that model
 into a few Go types. This goes in <code>raft.go</code> in the base directory,
 not <code>cmd/kvapi</code>.</p>
@@ -703,7 +713,7 @@ first entry that needs to be written.</p>
 write syscalls. Don't forget to flush the buffered writer!</p>
 <p>And don't forget to flush all writes to disk with <code>fd.Sync()</code>.</p>
 <p class="note">
-  `ENTRY_SIZE` is something that I could see being configurable based
+  <code>ENTRY_SIZE</code> is something that I could see being configurable based
   on the workload. Some workloads truly need only 128 bytes. But a
   key-value store probably wants much more than that. This
   implementation doesn't try to handle the case of completely
@@ -1019,7 +1029,7 @@ has succeeded do we count the vote.</p>
 }
 </code></pre>
 <p>And that's it for the candidate side of requesting a vote.</p>
-<p>The implementation is <code>s.updateTerm()</code> is simple. It just takes care
+<p>The implementation of <code>s.updateTerm()</code> is simple. It just takes care
 of transitioning to follower state if the term of an RPC message is
 greater than the node's current term.</p>
 <pre><code class="hljs go">// Must be called within a s.mu.Lock()
@@ -1137,9 +1147,11 @@ become the leader!</p>
 </code></pre>
 <p>There is a bit of bookkeeping we need to do like resetting <code>nextIndex</code>
 and <code>matchIndex</code> for each server (noted in Figure 2). And we also need
-to append a blank entry for the new term. (I don't understand why this
-blank entry is necessary.)</p>
-<pre><code class="hljs go">    if quorum == 0 {
+to append a blank entry for the new term.</p>
+<p class="note">
+  Despite the section quoted below in code, I still don't understand
+  why this blank entry is necessary.
+</p><pre><code class="hljs go">    if quorum == 0 {
         // Reset all cluster state
         for i := range s.cluster {
             s.cluster[i].nextIndex = uint64(len(s.log) + 1)
@@ -1219,8 +1231,8 @@ func (s *Server) Apply(commands [][]byte) ([]ApplyResult, error) {
     }
     s.debugf(&quot;Processing %d new entry!&quot;, len(commands))
 </code></pre>
-<p>Next we'll store the message in the leader's log along with an
-in-memory Go channel that we must block on for the result of applying
+<p>Next we'll store the message in the leader's log along with a
+Go channel that we must block on for the result of applying
 the message in the state machine after the message has been committed
 to the cluster.</p>
 <pre><code class="hljs go">    resultChans := make([]chan ApplyResult, len(commands))
@@ -1537,10 +1549,10 @@ matching first N messages, the leader can advance the cluster's
         }
     }
 </code></pre>
-<p>And for every state of server, if there are messages committed but not
-applied, we'll apply one here. And importantly, we'll pass the result
-back to the message's result channel if it exists, so that <code>s.Apply()</code>
-can learn about the result.</p>
+<p>And for every state a server might be in, if there are messages
+committed but not applied, we'll apply one here. And importantly,
+we'll pass the result back to the message's result channel if it
+exists, so that <code>s.Apply()</code> can learn about the result.</p>
 <pre><code class="hljs go">    if s.lastApplied &lt;= s.commitIndex {
         log := s.log[s.lastApplied]
 
@@ -1630,7 +1642,7 @@ all (right). Numerous ways for subtle bugs.</p>
 <h4 id="race-conditions-and-deadlocks">Race conditions and deadlocks</h4><p>It's very easy to program in race conditions. Thankfully Go has the
 <code>-race</code> flag that detects this. This makes sure that you are locking
 read and write access to shared variables when necessary.</p>
-<p>The other side of race conditions Go does not help you out with:
+<p>On the other side of race conditions, Go does not help you out with:
 deadlocks. Once you've got locks in place for shared variables, you
 need to make sure you're releasing the locks appropriately too.</p>
 <p>Thankfully someone wrote a swap-in replacement for the Go <code>sync</code>
@@ -1679,14 +1691,25 @@ linearizability of distributed systems in the face of network and
 process faults.</p>
 <p>But the setup is not trivial so I haven't hooked it up to this project
 yet. This would be a good area for future work.</p>
-<h4 id="election-timeout-and-the-environment">Election timeout and the environment</h4><p>One thing I noticed as I was trying out alternatives to <code>net/rpc</code> that
-injected latency is that election timeouts should probably be tuned
-with latency of the cluster in mind.</p>
+<h4 id="election-timeout-and-the-environment">Election timeout and the environment</h4><p>One thing I noticed as I was trying out alternatives to <code>net/rpc</code>
+(alternatives that injected latency to simulate a bad environment) is
+that election timeouts should probably be tuned with latency of the
+cluster in mind.</p>
 <p>If the election timeout is every <code>300ms</code> but the latency of the
 cluster is near <code>1s</code>, you're going to have non-stop leader election.</p>
 <p>When I adjusted the election timeout to be every <code>2s</code> when the latency
 of the cluster is near <code>1s</code>, everything was fine. Maybe this means
 there's a bug in my code but I don't think so.</p>
+<h4 id="client-request-serial-identifier">Client request serial identifier</h4><p>One major part of the Raft protocol I did not cover is that the client
+is supposed to send a serial identifier for each message sent to the
+cluster. This is to ensure that messages are not accidentally
+duplicated at any level of the entire software stack.</p>
+<p><a href="https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf">Diego Ongaro's
+thesis</a>
+goes into more detail about this than the Raft paper. Search in that
+PDF for "session".</p>
+<p>Again I just completely ignored the possibility of duplicate messages
+in this implementation so far.</p>
 <h3 id="references">References</h3><p>Finally, I could not have done this without a bunch of internet
 help. This project took me about 7 months in total. The first 5 months
 I was trying to figure it out mostly on my own, just looking at the
@@ -1710,6 +1733,11 @@ out locking and avoiding deadlocks.</p>
 <li>Hashicorp's <a href="https://github.com/hashicorp/raft">Raft implementation</a> in Go: Although it's often quite complicated to learn from since it actually is intended for production.</li>
 <li>Eli Bendersky's <a href="https://github.com/eliben/raft">Raft implementation</a> in Go: Although it gets confusing because it uses negative numbers for terms whereas the paper does not.</li>
 <li>Jing Yang's <a href="https://github.com/ditsing/ruaft">Raft implementation</a> in Rust.</li>
+</ul>
+<p>And I haven't tried these but they look cool:</p>
+<ul>
+<li><a href="https://jepsen.io/services#training">Raft course taught by Jepsen</a></li>
+<li><a href="https://www.dabeaz.com/raft.html">Raft course taught by David Beazley</a></li>
 </ul>
 <p>Cheers!</p>
 <style>.feedback{display:initial;}</style>

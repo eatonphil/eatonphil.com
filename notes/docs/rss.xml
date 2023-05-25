@@ -1,18 +1,27 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Thu, 25 May 2023 12:31:23 +0000</lastBuildDate><item><title>Implementing a distributed key-value store on top of implementing Raft in Go</title><link>http://notes.eatonphil.com/2023-05-25-raft.html</link><description>&lt;p&gt;&lt;a href="https://raft.github.io/raft.pdf"&gt;The Raft paper&lt;/a&gt; itself is quite
-readable. Give it a read and you'll get the basic idea.&lt;/p&gt;
-&lt;p&gt;As part of bringing myself up-to-speed after joining TigerBeetle, I
-wanted to understand how replicated state machines protocols
-work. TigerBeetle uses Viewstamped Replication, not Raft. But I wanted
-to understand both and I thought Raft might be easier to start with.&lt;/p&gt;
-&lt;p&gt;We'll implement two key components of Raft (leader election and log
-replication) in this post in around 1k lines of Go.&lt;/p&gt;
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Thu, 25 May 2023 12:59:54 +0000</lastBuildDate><item><title>Implementing a distributed key-value store on top of implementing Raft in Go</title><link>http://notes.eatonphil.com/2023-05-25-raft.html</link><description>&lt;p&gt;As part of bringing myself up-to-speed after joining TigerBeetle, I
+wanted some background on how distributed consensus and replicated state
+machines protocols work. TigerBeetle uses &lt;a href="https://pmg.csail.mit.edu/papers/vr-revisited.pdf"&gt;Viewstamped
+Replication&lt;/a&gt;. But I
+wanted to understand all popular protocols and I decided to start with
+&lt;a href="https://raft.github.io/"&gt;Raft&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;We'll implement two key components of Raft in this post (leader
+election and log replication). Around 1k lines of Go. It took me
+around 7 months of sporadic studying to come to (what I hope is) an
+understanding of the basics.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;Disclaimer&lt;/strong&gt;: I'm not an expert. My implementation isn't yet hooked
 up to &lt;a href="https://github.com/jepsen-io/jepsen"&gt;Jepsen&lt;/a&gt;. I've run it
-through a mix of manual and automated tests and it seems generally
-correct. This is not intended to be used in production. It's just for
-my education.&lt;/p&gt;
-&lt;h3 id="the-algorithm"&gt;The algorithm&lt;/h3&gt;&lt;p&gt;The gist of Raft is that nodes in a cluster conduct elections to pick
+through a mix of
+&lt;a href="https://github.com/eatonphil/goraft/tree/main#distributed-key-value-store-api"&gt;manual&lt;/a&gt; and
+&lt;a href="https://github.com/eatonphil/goraft/tree/main/cmd/stress"&gt;automated
+tests&lt;/a&gt; and
+it seems generally correct. This is not intended to be used in
+production. It's just for my education.&lt;/p&gt;
+&lt;p&gt;All code for this project is &lt;a href="https://github.com/eatonphil/goraft"&gt;available on GitHub&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Let's dig in!&lt;/p&gt;
+&lt;h3 id="the-algorithm"&gt;The algorithm&lt;/h3&gt;&lt;p&gt;&lt;a href="https://raft.github.io/raft.pdf"&gt;The Raft paper&lt;/a&gt; itself is quite
+readable. Give it a read and you'll get the basic idea.&lt;/p&gt;
+&lt;p&gt;The gist is that nodes in a cluster conduct elections to pick
 a leader. Users of the Raft cluster send messages to the leader. The
 leader passes the message to followers and waits for a majority to
 store the message. Once the message is committed (majority consensus
@@ -22,7 +31,8 @@ leader and apply each new committed message to their local
 user-supplied state machine.&lt;/p&gt;
 &lt;p&gt;There's more to it including reconfiguration and snapshotting, which I
 won't get into in this post. But you can get the gist of Raft by
-thinking about leader election and replicated state machines.&lt;/p&gt;
+thinking about 1) leader election and 2) replicated logs powering
+replicated state machines.&lt;/p&gt;
 &lt;h3 id="modeling-with-state-machines-and-key-value-stores"&gt;Modeling with state machines and key-value stores&lt;/h3&gt;&lt;p&gt;I've written before about how you can &lt;a href="https://notes.eatonphil.com/minimal-key-value-store-with-hashicorp-raft.html"&gt;build a key-value store on top
 of
 Raft&lt;/a&gt;. How
@@ -136,7 +146,7 @@ bytes:&lt;/p&gt;
     return c
 }
 &lt;/code&gt;&lt;/pre&gt;
-&lt;h4 id="http-api"&gt;HTTP API&lt;/h4&gt;&lt;p&gt;Now that we've modelled the key-value store as a state machine. Let's
+&lt;h4 id="http-api"&gt;HTTP API&lt;/h4&gt;&lt;p&gt;Now that we've modeled the key-value store as a state machine. Let's
 build the HTTP endpoints that allow the user to operate the state
 machine through the Raft cluster.&lt;/p&gt;
 &lt;p&gt;First, let's implement the &lt;code&gt;set&lt;/code&gt; operation. We need to grab the key
@@ -336,7 +346,7 @@ of a Raft cluster.&lt;/p&gt;
 &lt;p&gt;Next we need to implement Raft.&lt;/p&gt;
 &lt;h3 id="a-raft-server"&gt;A Raft server&lt;/h3&gt;&lt;p&gt;If we take a look at Figure 2 in the Raft paper, we get an idea for
 all the state we need to model.&lt;/p&gt;
-&lt;p&gt;&lt;img src="Raft Figure 2" alt="/assets/raft-figure-2.png"&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src="/assets/raft-figure-2.png" alt="Raft Figure 2"&gt;&lt;/p&gt;
 &lt;p&gt;We'll dig into the details as we go. But for now let's turn that model
 into a few Go types. This goes in &lt;code&gt;raft.go&lt;/code&gt; in the base directory,
 not &lt;code&gt;cmd/kvapi&lt;/code&gt;.&lt;/p&gt;
@@ -654,7 +664,7 @@ first entry that needs to be written.&lt;/p&gt;
 write syscalls. Don't forget to flush the buffered writer!&lt;/p&gt;
 &lt;p&gt;And don't forget to flush all writes to disk with &lt;code&gt;fd.Sync()&lt;/code&gt;.&lt;/p&gt;
 &lt;p class="note"&gt;
-  `ENTRY_SIZE` is something that I could see being configurable based
+  &lt;code&gt;ENTRY_SIZE&lt;/code&gt; is something that I could see being configurable based
   on the workload. Some workloads truly need only 128 bytes. But a
   key-value store probably wants much more than that. This
   implementation doesn't try to handle the case of completely
@@ -970,7 +980,7 @@ has succeeded do we count the vote.&lt;/p&gt;
 }
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;And that's it for the candidate side of requesting a vote.&lt;/p&gt;
-&lt;p&gt;The implementation is &lt;code&gt;s.updateTerm()&lt;/code&gt; is simple. It just takes care
+&lt;p&gt;The implementation of &lt;code&gt;s.updateTerm()&lt;/code&gt; is simple. It just takes care
 of transitioning to follower state if the term of an RPC message is
 greater than the node's current term.&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs go"&gt;// Must be called within a s.mu.Lock()
@@ -1088,9 +1098,11 @@ become the leader!&lt;/p&gt;
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;There is a bit of bookkeeping we need to do like resetting &lt;code&gt;nextIndex&lt;/code&gt;
 and &lt;code&gt;matchIndex&lt;/code&gt; for each server (noted in Figure 2). And we also need
-to append a blank entry for the new term. (I don't understand why this
-blank entry is necessary.)&lt;/p&gt;
-&lt;pre&gt;&lt;code class="hljs go"&gt;    if quorum == 0 {
+to append a blank entry for the new term.&lt;/p&gt;
+&lt;p class="note"&gt;
+  Despite the section quoted below in code, I still don't understand
+  why this blank entry is necessary.
+&lt;/p&gt;&lt;pre&gt;&lt;code class="hljs go"&gt;    if quorum == 0 {
         // Reset all cluster state
         for i := range s.cluster {
             s.cluster[i].nextIndex = uint64(len(s.log) + 1)
@@ -1170,8 +1182,8 @@ func (s *Server) Apply(commands [][]byte) ([]ApplyResult, error) {
     }
     s.debugf(&amp;quot;Processing %d new entry!&amp;quot;, len(commands))
 &lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;Next we'll store the message in the leader's log along with an
-in-memory Go channel that we must block on for the result of applying
+&lt;p&gt;Next we'll store the message in the leader's log along with a
+Go channel that we must block on for the result of applying
 the message in the state machine after the message has been committed
 to the cluster.&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs go"&gt;    resultChans := make([]chan ApplyResult, len(commands))
@@ -1488,10 +1500,10 @@ matching first N messages, the leader can advance the cluster's
         }
     }
 &lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;And for every state of server, if there are messages committed but not
-applied, we'll apply one here. And importantly, we'll pass the result
-back to the message's result channel if it exists, so that &lt;code&gt;s.Apply()&lt;/code&gt;
-can learn about the result.&lt;/p&gt;
+&lt;p&gt;And for every state a server might be in, if there are messages
+committed but not applied, we'll apply one here. And importantly,
+we'll pass the result back to the message's result channel if it
+exists, so that &lt;code&gt;s.Apply()&lt;/code&gt; can learn about the result.&lt;/p&gt;
 &lt;pre&gt;&lt;code class="hljs go"&gt;    if s.lastApplied &amp;lt;= s.commitIndex {
         log := s.log[s.lastApplied]
 
@@ -1581,7 +1593,7 @@ all (right). Numerous ways for subtle bugs.&lt;/p&gt;
 &lt;h4 id="race-conditions-and-deadlocks"&gt;Race conditions and deadlocks&lt;/h4&gt;&lt;p&gt;It's very easy to program in race conditions. Thankfully Go has the
 &lt;code&gt;-race&lt;/code&gt; flag that detects this. This makes sure that you are locking
 read and write access to shared variables when necessary.&lt;/p&gt;
-&lt;p&gt;The other side of race conditions Go does not help you out with:
+&lt;p&gt;On the other side of race conditions, Go does not help you out with:
 deadlocks. Once you've got locks in place for shared variables, you
 need to make sure you're releasing the locks appropriately too.&lt;/p&gt;
 &lt;p&gt;Thankfully someone wrote a swap-in replacement for the Go &lt;code&gt;sync&lt;/code&gt;
@@ -1630,14 +1642,25 @@ linearizability of distributed systems in the face of network and
 process faults.&lt;/p&gt;
 &lt;p&gt;But the setup is not trivial so I haven't hooked it up to this project
 yet. This would be a good area for future work.&lt;/p&gt;
-&lt;h4 id="election-timeout-and-the-environment"&gt;Election timeout and the environment&lt;/h4&gt;&lt;p&gt;One thing I noticed as I was trying out alternatives to &lt;code&gt;net/rpc&lt;/code&gt; that
-injected latency is that election timeouts should probably be tuned
-with latency of the cluster in mind.&lt;/p&gt;
+&lt;h4 id="election-timeout-and-the-environment"&gt;Election timeout and the environment&lt;/h4&gt;&lt;p&gt;One thing I noticed as I was trying out alternatives to &lt;code&gt;net/rpc&lt;/code&gt;
+(alternatives that injected latency to simulate a bad environment) is
+that election timeouts should probably be tuned with latency of the
+cluster in mind.&lt;/p&gt;
 &lt;p&gt;If the election timeout is every &lt;code&gt;300ms&lt;/code&gt; but the latency of the
 cluster is near &lt;code&gt;1s&lt;/code&gt;, you're going to have non-stop leader election.&lt;/p&gt;
 &lt;p&gt;When I adjusted the election timeout to be every &lt;code&gt;2s&lt;/code&gt; when the latency
 of the cluster is near &lt;code&gt;1s&lt;/code&gt;, everything was fine. Maybe this means
 there's a bug in my code but I don't think so.&lt;/p&gt;
+&lt;h4 id="client-request-serial-identifier"&gt;Client request serial identifier&lt;/h4&gt;&lt;p&gt;One major part of the Raft protocol I did not cover is that the client
+is supposed to send a serial identifier for each message sent to the
+cluster. This is to ensure that messages are not accidentally
+duplicated at any level of the entire software stack.&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf"&gt;Diego Ongaro's
+thesis&lt;/a&gt;
+goes into more detail about this than the Raft paper. Search in that
+PDF for "session".&lt;/p&gt;
+&lt;p&gt;Again I just completely ignored the possibility of duplicate messages
+in this implementation so far.&lt;/p&gt;
 &lt;h3 id="references"&gt;References&lt;/h3&gt;&lt;p&gt;Finally, I could not have done this without a bunch of internet
 help. This project took me about 7 months in total. The first 5 months
 I was trying to figure it out mostly on my own, just looking at the
@@ -1661,6 +1684,11 @@ out locking and avoiding deadlocks.&lt;/p&gt;
 &lt;li&gt;Hashicorp's &lt;a href="https://github.com/hashicorp/raft"&gt;Raft implementation&lt;/a&gt; in Go: Although it's often quite complicated to learn from since it actually is intended for production.&lt;/li&gt;
 &lt;li&gt;Eli Bendersky's &lt;a href="https://github.com/eliben/raft"&gt;Raft implementation&lt;/a&gt; in Go: Although it gets confusing because it uses negative numbers for terms whereas the paper does not.&lt;/li&gt;
 &lt;li&gt;Jing Yang's &lt;a href="https://github.com/ditsing/ruaft"&gt;Raft implementation&lt;/a&gt; in Rust.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;And I haven't tried these but they look cool:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://jepsen.io/services#training"&gt;Raft course taught by Jepsen&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.dabeaz.com/raft.html"&gt;Raft course taught by David Beazley&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;Cheers!&lt;/p&gt;
 </description><guid isPermaLink="false">http://notes.eatonphil.com/2023-05-25-raft.html</guid><pubDate>Thu, 25 May 2023 00:00:00 +0000</pubDate></item><item><title>Errors and Zig</title><link>http://notes.eatonphil.com/errors-and-zig.html</link><description>&lt;p&gt;At TigerBeetle these last few weeks I've been doing a mix of
