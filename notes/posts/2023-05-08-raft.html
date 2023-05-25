@@ -395,6 +395,7 @@ package goraft
 
 import (
     "bufio"
+        "context"
     "encoding/binary"
     "errors"
     "fmt"
@@ -452,6 +453,10 @@ const (
 )
 
 type Server struct {
+    // These variables for shutting down.
+    done bool
+        server *http.Server
+
     Debug bool
 
     mu sync.Mutex
@@ -531,7 +536,7 @@ func NewServer(
         cluster = append(cluster, c)
     }
 
-    s := &Server{
+    return &Server{
         id:           cluster[clusterIndex].Id,
         address:      cluster[clusterIndex].Address,
         cluster:      cluster,
@@ -541,10 +546,6 @@ func NewServer(
         heartbeatMs:  300,
         mu:           sync.Mutex{},
     }
-
-    s.log = make([]Entry, 0)
-    s.state = followerState
-    return s
 }
 ```
 
@@ -744,7 +745,7 @@ And don't forget to flush all writes to disk with `fd.Sync()`.
 
 Lastly, a few helpers used in there:
 
-```
+```go
 func min[T ~int | ~uint64](a, b T) T {
     if a < b {
         return a
@@ -804,7 +805,7 @@ func (s *Server) restore() {
     var page [PAGE_SIZE]byte
     n, err := s.fd.Read(page[:])
     if err == io.EOF {
-        s.initialize()
+        s.ensureLog()
         return
     } else if err != nil {
         panic(err)
@@ -814,12 +815,13 @@ func (s *Server) restore() {
     s.currentTerm = binary.LittleEndian.Uint64(page[:8])
     s.setVotedFor(binary.LittleEndian.Uint64(page[8:16]))
     lenLog := binary.LittleEndian.Uint64(page[16:24])
+    s.log = nil
 
     if lenLog > 0 {
         s.fd.Seek(int64(PAGE_SIZE), 0)
 
         var e Entry
-        for i := 0; i < len(s.log); i++ {
+        for i := 0; uint64(i) < lenLog; i++ {
             var entryBytes [ENTRY_SIZE]byte
             n, err := s.fd.Read(entryBytes[:])
             if err != nil {
@@ -833,18 +835,18 @@ func (s *Server) restore() {
             e.Term = binary.LittleEndian.Uint64(entryBytes[:8])
             lenValue := binary.LittleEndian.Uint64(entryBytes[8:16])
             e.Command = entryBytes[16 : 16+lenValue]
-            s.log[i] = e
+            s.log = append(s.log, e)
         }
     }
 
-    s.initialize()
+    s.ensureLog()
 }
 ```
 
 And a few helpers it calls:
 
 ```go
-func (s *Server) initialize() {
+func (s *Server) ensureLog() {
     if len(s.log) == 0 {
         // Always has at least one log entry.
         s.log = append(s.log, Entry{})
@@ -874,6 +876,11 @@ from eachother.
 ```go
 // Make sure rand is seeded
 func (s *Server) Start() {
+    s.mu.Lock()
+    s.state = followerState
+    s.done = false
+    s.mu.Unlock()
+
     s.restore()
 
     rpcServer := rpc.NewServer()
@@ -885,8 +892,8 @@ func (s *Server) Start() {
     mux := http.NewServeMux()
     mux.Handle(rpc.DefaultRPCPath, rpcServer)
 
-    go http.Serve(l, mux)
-
+    s.server = &http.Server{Handler: mux}
+    go s.server.Serve(l)
 
     go func() {
         s.mu.Lock()
@@ -895,6 +902,10 @@ func (s *Server) Start() {
 
         for {
             s.mu.Lock()
+            if s.done {
+                s.mu.Unlock()
+                return
+            }
             state := s.state
             s.mu.Unlock()
 ```
@@ -1088,7 +1099,7 @@ The implementation is `s.updateTerm()` is simple. It just takes care
 of transitioning to follower state if the term of an RPC message is
 greater than the node's current term.
 
-```
+```go
 // Must be called within a s.mu.Lock()
 func (s *Server) updateTerm(msg RPCMessage) bool {
     transitioned := false
@@ -1152,7 +1163,6 @@ func (s *Server) HandleRequestVoteRequest(req RequestVoteRequest, rsp *RequestVo
     s.updateTerm(req.RPCMessage)
 
     s.debugf("Received vote request from %d.", req.CandidateId)
-
 ```
 
 Then we can return immediately if the request term is lower than our
@@ -1715,8 +1725,8 @@ can learn about the result.
     if s.lastApplied <= s.commitIndex {
         log := s.log[s.lastApplied]
 
-        // Command == nil is a noop committed by the leader.
-        if log.Command != nil {
+        // len(log.Command) == 0 is a noop committed by the leader.
+        if len(log.Command) != 0 {
             s.debugf("Entry applied: %d.", s.lastApplied)
             // TODO: what if Apply() takes too long?
             res, err := s.statemachine.Apply(log.Command)
@@ -1823,9 +1833,9 @@ It's nowhere near Jepsen but it does have a specific focus:
 3. Can the cluster of three nodes tolerate one node down?
 4. How fast can it store N messages?
 
+And my implementation does pass these tests               
 
-
-# Conclusion
+# Considerations
 
 This was quite a challenging project. Normally when I hack on stuff
 like this I have TV (The Simpsons) on in the background. It's sort of
