@@ -1648,11 +1648,11 @@ need to make sure you're releasing the locks appropriately too.</p>
 <p>Thankfully someone wrote a swap-in replacement for the Go <code>sync</code>
 package called
 <a href="https://github.com/sasha-s/go-deadlock">go-deadlock</a>. When you import
-this file instead of the default <code>sync</code> package, it will panic and
+this package instead of the default <code>sync</code> package, it will panic and
 give you a stacktrace when it thinks you hit a deadlock.</p>
 <p>Sometimes it thinks you hit a deadlock because a method that needs a
 lock takes too long. Sometimes that time it takes is legitimate (or
-something you haven't optimized yet). But actually it's default of
+something you haven't optimized yet). But actually its default of
 <code>30s</code> is not really aggressive at all.</p>
 <p>So I normally set the deadlock timeout to <code>2s</code> and eventually would
 like to make that more like <code>100ms</code>:</p>
