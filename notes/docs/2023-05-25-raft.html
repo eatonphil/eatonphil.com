@@ -1731,8 +1731,8 @@ out locking and avoiding deadlocks.</p>
 <p>And useful implementations I looked at for inspiration and clarity.</p>
 <ul>
 <li>Hashicorp's <a href="https://github.com/hashicorp/raft">Raft implementation</a> in Go: Although it's often quite complicated to learn from since it actually is intended for production.</li>
-<li>Eli Bendersky's <a href="https://github.com/eliben/raft">Raft implementation</a> in Go: Although it gets confusing because it uses negative numbers for terms whereas the paper does not.</li>
-<li>Jing Yang's <a href="https://github.com/ditsing/ruaft">Raft implementation</a> in Rust.</li>
+<li>Eli Bendersky's <a href="https://github.com/eliben/raft">Raft implementation</a> in Go: Although I got confused following it since it used signed integers and <code>-1</code> to represent base cases. Signed integers is a fair choice as far as I can tell, I just wanted to only use unsigned integers.</li>
+<li>Jing Yang's <a href="https://github.com/ditsing/ruaft">Raft implementation</a> in Rust: Although I find Rust hard to read.</li>
 </ul>
 <p>And I haven't tried these but they look cool:</p>
 <ul>

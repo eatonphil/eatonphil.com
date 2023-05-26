@@ -2003,8 +2003,8 @@ Here's everything that helped me out.
 And useful implementations I looked at for inspiration and clarity.
 
 * Hashicorp's [Raft implementation](https://github.com/hashicorp/raft) in Go: Although it's often quite complicated to learn from since it actually is intended for production.
-* Eli Bendersky's [Raft implementation](https://github.com/eliben/raft) in Go: Although it gets confusing because it uses negative numbers for terms whereas the paper does not.
-* Jing Yang's [Raft implementation](https://github.com/ditsing/ruaft) in Rust.
+* Eli Bendersky's [Raft implementation](https://github.com/eliben/raft) in Go: Although I got confused following it since it used signed integers and `-1` to represent base cases. Signed integers is a fair choice as far as I can tell, I just wanted to only use unsigned integers.
+* Jing Yang's [Raft implementation](https://github.com/ditsing/ruaft) in Rust: Although I find Rust hard to read.
 
 And I haven't tried these but they look cool:
 
