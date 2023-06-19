@@ -50,7 +50,7 @@
       <div class="col-6">
         <p>I knew Zig supported some sort of reflection on types. But I had been
 confused about how to use it. What's the difference between
-'<code>@typeInfo</code> and <code>@TypeOf</code>? I ignored this aspect of Zig until a
+<code>@typeInfo</code> and <code>@TypeOf</code>? I ignored this aspect of Zig until a
 problem came up at <a href="https://tigerbeetle.com">work</a> where reflection
 made sense.</p>
 <p>The situation was parsing and storing parsed fields in a struct. Each
@@ -65,7 +65,7 @@ YouTube</a>. And the source is <a href="https://github.com/eatonphil/">available
 on GitHub</a>.</p>
 <p>If you want to skip the parsing steps and just see the
 metaprogramming, jump to the implementation of
-<a href="#match_property">match_property</a>.</p>
+<a href="#&lt;code&gt;match_property&lt;/code&gt;">match_property</a>.</p>
 <h3 id="parsing-css">Parsing CSS</h3><p>Let's imagine a CSS that only has alphabetical selectors, property
 names and values.</p>
 <p>The following would be valid:</p>
@@ -128,7 +128,7 @@ a list of CSS rules. The entrypoint is that simple:</p>
     };
 }
 </code></pre>
-<p>First let's implement the <code>eat_whitespace</code> helper we've referenced. It
+<p>Let's implement the <code>eat_whitespace</code> helper we've referenced. It
 increments a cursor into the css file while it sees whitespace.</p>
 <pre><code class="hljs zig">fn eat_whitespace(
     css: []const u8,
@@ -216,7 +216,7 @@ pass in.</p>
     return error.NoSuchSyntax;
 }
 </code></pre>
-<p>Now this calls attention to debugging messages on failure. When we
+<p>This calls attention to debugging messages on failure. When we
 fail to parse a syntax, we want to give a useful error message and
 point at the exact line and column of code where the error happens.</p>
 <p>So let's implement <code>debug_at</code>.</p>
@@ -353,10 +353,9 @@ fn parse_property(
 <p>Finally we get to the first bit of metaprogramming. Once we have a
 property name and value, we need to turn that into a Zig union.</p>
 <p>That's what <code>match_property()</code> is going to be responsible for doing.</p>
-<h3 id="<code>match_property</code>"><code>match_property</code></h3><p>This function needs to take a pointer to a <code>CSSProperty</code> as well as a
-property name and value, and set the correct field on the
-<code>CSSProperty</code> object based on the property name. And assign the
-property value to that field on the <code>CSSProperty</code> object.</p>
+<h3 id="<code>match_property</code>"><code>match_property</code></h3><p>This function needs to take a property name and value and return a
+<code>CSSProperty</code> with the correct field (matching up to the property name
+passed in) and assigned to the value passed in.</p>
 <p>If we didn't have metaprogramming or reflection, the implementation
 might look like this:</p>
 <pre><code>fn match_property(
@@ -373,7 +372,8 @@ might look like this:</p>
 }
 </code></pre>
 <p>And that is not necessarily bad. In fact it may be how a lot of
-production code looks over time as product needs evolve.</p>
+production code looks over time as product needs evolve. You can keep
+the internal field name unrelated to the external field name.</p>
 <p>However for the sake of learning, we'll try to implement the same
 thing with Zig metaprogramming.</p>
 <p>And specifically, we can take a look at
@@ -425,7 +425,7 @@ switching on <code>@typeInfo(T)</code> (<a href="https://github.com/ziglang/zig/
 149</a>)
 and that <code>T</code> is a type (<a href="https://github.com/ziglang/zig/blob/32cb9462ffa0a9df7a080d67eaf3a5762173f742/lib/std/json/static.zig#L144">line
 144</a>).</p>
-<p>We don't have a generic type though we know we are working with a
+<p>We don't have a generic type though. We know we are working with a
 <code>CSSProperty</code>. And we know <code>CSSProperty</code> is a union so we don't need
 the <code>switch</code> either.</p>
 <p>So let's apply that to our <code>match_property</code> implementation.</p>
@@ -489,7 +489,7 @@ generated code would look a lot like our hard-coded initial version.</p>
     return error.UnknownProperty;
 }
 </code></pre>
-<p>Again that's just how I image the compiler to generate code from the
+<p>Again that's just how I imagine the compiler to generate code from the
 Union field reflection and <code>inline for</code> over the fields.</p>
 <p>Try compiling that code. I get this:</p>
 <pre><code class="hljs console">main.zig:17:58: error: expected type &#39;void&#39;, found &#39;[]const u8&#39;
@@ -547,12 +547,12 @@ compiler generates is this:</p>
 }
 </code></pre>
 <p>The <code>unknown</code> field has been skipped.</p>
-<p>Now in retrospect, I realize that the <code>unknown</code> field probably isn't
+<p>In retrospect, I realize that the <code>unknown</code> field probably isn't
 even needed. We could eliminate it from the <code>CSSProperty</code> union and
 get rid of that comptime conditional. However, sometimes there are in
 fact private fields you want to skip. And I wanted to show how to
 deal with that case.</p>
-<p>Now for the last bit of metaprogramming, let's talk about displaying
+<p>For the last bit of metaprogramming, let's talk about displaying
 the resulting <code>CSSSheet</code> we'd get after parsing.</p>
 <h3 id="<code>sheet.display()</code>"><code>sheet.display()</code></h3><p>If we didn't have metaprogramming and wanted to display the sheet,
 we'd have to switch on every possible union field.</p>

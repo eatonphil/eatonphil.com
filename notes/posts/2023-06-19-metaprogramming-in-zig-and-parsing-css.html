@@ -4,7 +4,7 @@
 
 I knew Zig supported some sort of reflection on types. But I had been
 confused about how to use it. What's the difference between
-'`@typeInfo` and `@TypeOf`? I ignored this aspect of Zig until a
+`@typeInfo` and `@TypeOf`? I ignored this aspect of Zig until a
 problem came up at [work](https://tigerbeetle.com) where reflection
 made sense.
 
@@ -23,7 +23,7 @@ on GitHub](https://github.com/eatonphil/).
 
 If you want to skip the parsing steps and just see the
 metaprogramming, jump to the implementation of
-[match_property](#match_property).
+[match_property](#<code>match_property</code>).
 
 ### Parsing CSS
 
@@ -99,7 +99,7 @@ fn parse(
 }
 ```
 
-First let's implement the `eat_whitespace` helper we've referenced. It
+Let's implement the `eat_whitespace` helper we've referenced. It
 increments a cursor into the css file while it sees whitespace.
 
 ```zig
@@ -201,7 +201,7 @@ fn parse_syntax(
 }
 ```
 
-Now this calls attention to debugging messages on failure. When we
+This calls attention to debugging messages on failure. When we
 fail to parse a syntax, we want to give a useful error message and
 point at the exact line and column of code where the error happens.
 
@@ -366,10 +366,9 @@ That's what `match_property()` is going to be responsible for doing.
 
 ### `match_property`
 
-This function needs to take a pointer to a `CSSProperty` as well as a
-property name and value, and set the correct field on the
-`CSSProperty` object based on the property name. And assign the
-property value to that field on the `CSSProperty` object.
+This function needs to take a property name and value and return a
+`CSSProperty` with the correct field (matching up to the property name
+passed in) and assigned to the value passed in.
 
 If we didn't have metaprogramming or reflection, the implementation
 might look like this:
@@ -390,7 +389,8 @@ fn match_property(
 ```
 
 And that is not necessarily bad. In fact it may be how a lot of
-production code looks over time as product needs evolve.
+production code looks over time as product needs evolve. You can keep
+the internal field name unrelated to the external field name.
 
 However for the sake of learning, we'll try to implement the same
 thing with Zig metaprogramming.
@@ -452,7 +452,7 @@ switching on `@typeInfo(T)` ([line
 and that `T` is a type ([line
 144](https://github.com/ziglang/zig/blob/32cb9462ffa0a9df7a080d67eaf3a5762173f742/lib/std/json/static.zig#L144)).
 
-We don't have a generic type though we know we are working with a
+We don't have a generic type though. We know we are working with a
 `CSSProperty`. And we know `CSSProperty` is a union so we don't need
 the `switch` either.
 
@@ -530,7 +530,7 @@ fn match_property(
 }
 ```
 
-Again that's just how I image the compiler to generate code from the
+Again that's just how I imagine the compiler to generate code from the
 Union field reflection and `inline for` over the fields.
 
 Try compiling that code. I get this:
@@ -603,13 +603,13 @@ fn match_property(
 
 The `unknown` field has been skipped.
 
-Now in retrospect, I realize that the `unknown` field probably isn't
+In retrospect, I realize that the `unknown` field probably isn't
 even needed. We could eliminate it from the `CSSProperty` union and
 get rid of that comptime conditional. However, sometimes there are in
 fact private fields you want to skip. And I wanted to show how to
 deal with that case.
 
-Now for the last bit of metaprogramming, let's talk about displaying
+For the last bit of metaprogramming, let's talk about displaying
 the resulting `CSSSheet` we'd get after parsing.
 
 ### `sheet.display()`
