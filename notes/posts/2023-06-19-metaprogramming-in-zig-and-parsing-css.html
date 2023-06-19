@@ -542,7 +542,7 @@ main.zig:17:58: error: expected type 'void', found '[]const u8'
 
 Thinking about the generated code makes it especially clear what's
 happening. We have an `unknown` field in there that has a `void`
-type. You can't assign to that type.
+type. You can't assign a string to void.
 
 We know at runtime that the condition where that happens should be
 impossible because the user shouldn't enter `unknown` as a property

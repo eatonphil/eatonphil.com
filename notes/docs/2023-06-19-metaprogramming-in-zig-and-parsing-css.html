@@ -497,7 +497,7 @@ Union field reflection and <code>inline for</code> over the fields.</p>
 </code></pre>
 <p>Thinking about the generated code makes it especially clear what's
 happening. We have an <code>unknown</code> field in there that has a <code>void</code>
-type. You can't assign to that type.</p>
+type. You can't assign a string to void.</p>
 <p>We know at runtime that the condition where that happens should be
 impossible because the user shouldn't enter <code>unknown</code> as a property
 name. (Though now that I write this, I see they actually could. But

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Mon, 19 Jun 2023 23:05:48 +0000</lastBuildDate><item><title>Metaprogramming in Zig and parsing CSS</title><link>http://notes.eatonphil.com/2023-06-19-metaprogramming-in-zig-and-parsing-css.html</link><description>&lt;p&gt;I knew Zig supported some sort of reflection on types. But I had been
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Mon, 19 Jun 2023 23:41:19 +0000</lastBuildDate><item><title>Metaprogramming in Zig and parsing CSS</title><link>http://notes.eatonphil.com/2023-06-19-metaprogramming-in-zig-and-parsing-css.html</link><description>&lt;p&gt;I knew Zig supported some sort of reflection on types. But I had been
 confused about how to use it. What's the difference between
 &lt;code&gt;@typeInfo&lt;/code&gt; and &lt;code&gt;@TypeOf&lt;/code&gt;? I ignored this aspect of Zig until a
 problem came up at &lt;a href="https://tigerbeetle.com"&gt;work&lt;/a&gt; where reflection
@@ -448,7 +448,7 @@ Union field reflection and &lt;code&gt;inline for&lt;/code&gt; over the fields.&
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;Thinking about the generated code makes it especially clear what's
 happening. We have an &lt;code&gt;unknown&lt;/code&gt; field in there that has a &lt;code&gt;void&lt;/code&gt;
-type. You can't assign to that type.&lt;/p&gt;
+type. You can't assign a string to void.&lt;/p&gt;
 &lt;p&gt;We know at runtime that the condition where that happens should be
 impossible because the user shouldn't enter &lt;code&gt;unknown&lt;/code&gt; as a property
 name. (Though now that I write this, I see they actually could. But
