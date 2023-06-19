@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Mon, 19 Jun 2023 18:53:42 +0000</lastBuildDate><item><title>Metaprogramming in Zig and parsing CSS</title><link>http://notes.eatonphil.com/2023-06-19-metaprogramming-in-zig-and-parsing-css.html</link><description>&lt;p&gt;I knew Zig supported some sort of reflection on types. But I had been
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Mon, 19 Jun 2023 19:00:49 +0000</lastBuildDate><item><title>Metaprogramming in Zig and parsing CSS</title><link>http://notes.eatonphil.com/2023-06-19-metaprogramming-in-zig-and-parsing-css.html</link><description>&lt;p&gt;I knew Zig supported some sort of reflection on types. But I had been
 confused about how to use it. What's the difference between
 &lt;code&gt;@typeInfo&lt;/code&gt; and &lt;code&gt;@TypeOf&lt;/code&gt;? I ignored this aspect of Zig until a
 problem came up at &lt;a href="https://tigerbeetle.com"&gt;work&lt;/a&gt; where reflection
@@ -12,7 +12,7 @@ parsing CSS into typed objects, and pretty-printing these typed CSS
 objects.&lt;/p&gt;
 &lt;p&gt;I live-streamed the implementation of this project yesterday on
 &lt;a href="https://www.twitch.tv/eatonphil"&gt;Twitch&lt;/a&gt;. The video is &lt;a href="https://youtube.com/@eatonphil"&gt;available on
-YouTube&lt;/a&gt;. And the source is &lt;a href="https://github.com/eatonphil/"&gt;available
+YouTube&lt;/a&gt;. And the source is &lt;a href="https://github.com/eatonphil/zig-metaprogramming-css-parser"&gt;available
 on GitHub&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;If you want to skip the parsing steps and just see the
 metaprogramming, jump to the implementation of
@@ -625,6 +625,7 @@ really struct me when I was browsing the Zig JSON code like at &lt;a href="https
 307&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;I didn't use that in this little project but I've used it elsewhere,
 so it I wanted to call this LHS behavior out.&lt;/p&gt;
+&lt;p&gt;&lt;blockquote class="twitter-tweet"&gt;&lt;p lang="en" dir="ltr"&gt;Wrote a short post on parsing CSS as a way to motivate some basic exploration of metaprogramming in Zig.&lt;br&gt;&lt;br&gt;I heavily referenced Zig&amp;#39;s builtin JSON parser when learning this. And it is referenced multiple times in the post as well.&lt;a href="https://t.co/CX6jXSLGiR"&gt;https://t.co/CX6jXSLGiR&lt;/a&gt; &lt;a href="https://t.co/jAJJZ0pONQ"&gt;pic.twitter.com/jAJJZ0pONQ&lt;/a&gt;&lt;/p&gt;&amp;mdash; Phil Eaton (@eatonphil) &lt;a href="https://twitter.com/eatonphil/status/1670868544953647129?ref_src=twsrc%5Etfw"&gt;June 19, 2023&lt;/a&gt;&lt;/blockquote&gt; &lt;script async src="https://platform.twitter.com/widgets.js" charset="utf-8"&gt;&lt;/script&gt;&lt;/p&gt;
 </description><guid isPermaLink="false">http://notes.eatonphil.com/2023-06-19-metaprogramming-in-zig-and-parsing-css.html</guid><pubDate>Mon, 19 Jun 2023 00:00:00 +0000</pubDate></item><item><title>Implementing a distributed key-value store on top of implementing Raft in Go</title><link>http://notes.eatonphil.com/2023-05-25-raft.html</link><description>&lt;p&gt;As part of bringing myself up-to-speed after joining &lt;a href="https://tigerbeetle.com/"&gt;TigerBeetle&lt;/a&gt;, I
 wanted some background on how distributed consensus and replicated state
 machines protocols work. TigerBeetle uses &lt;a href="https://pmg.csail.mit.edu/papers/vr-revisited.pdf"&gt;Viewstamped
