@@ -624,10 +624,10 @@ Like so (I've modified the `CSSSheet` struct definition so it includes this meth
         for (sheet.rules) |rule| {
             std.debug.print("selector: {s}\n", .{rule.selector});
             for (rule.properties) |property| {
-                var string = switch (property) {
+                switch (property) {
                     .unknown => unreachable,
-                    .color => |color_value| color_value,
-                    .background => |background_value| background_value,
+                    .color => |color_value| std.debug.print("  color: {s}\n", .{color_value}),
+                    .background => |background_value| std.debug.print("  background: {s}\n", .{background_value}),
                 };
             }
             std.debug.print("\n", .{});
@@ -635,7 +635,8 @@ Like so (I've modified the `CSSSheet` struct definition so it includes this meth
     }
 ```
 
-This could get unwieldy as we add fields to the `CSSProperty` union.
+This is already a little annoying and could get unwieldy as we add
+fields to the `CSSProperty` union.
 
 Instead we can use the `inline for
 (@typeInfo(CSSProperty).Union.fields) |u_field|` method to iterate
