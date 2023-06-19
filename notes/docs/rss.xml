@@ -1,5 +1,631 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Fri, 26 May 2023 13:53:44 +0000</lastBuildDate><item><title>Implementing a distributed key-value store on top of implementing Raft in Go</title><link>http://notes.eatonphil.com/2023-05-25-raft.html</link><description>&lt;p&gt;As part of bringing myself up-to-speed after joining &lt;a href="https://tigerbeetle.com/"&gt;TigerBeetle&lt;/a&gt;, I
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Mon, 19 Jun 2023 18:47:41 +0000</lastBuildDate><item><title>Metaprogramming in Zig and parsing CSS</title><link>http://notes.eatonphil.com/2023-06-19-metaprogramming-in-zig-and-parsing-css.html</link><description>&lt;p&gt;I knew Zig supported some sort of reflection on types. But I had been
+confused about how to use it. What's the difference between
+'&lt;code&gt;@typeInfo&lt;/code&gt; and &lt;code&gt;@TypeOf&lt;/code&gt;? I ignored this aspect of Zig until a
+problem came up at &lt;a href="https://tigerbeetle.com"&gt;work&lt;/a&gt; where reflection
+made sense.&lt;/p&gt;
+&lt;p&gt;The situation was parsing and storing parsed fields in a struct. Each
+field name that is parsed should match up to a struct field.&lt;/p&gt;
+&lt;p&gt;This is a fairly common problem. So this post walks through how to use
+Zig's metaprogramming features in a simpler but related domain:
+parsing CSS into typed objects, and pretty-printing these typed CSS
+objects.&lt;/p&gt;
+&lt;p&gt;I live-streamed the implementation of this project yesterday on
+&lt;a href="https://www.twitch.tv/eatonphil"&gt;Twitch&lt;/a&gt;. The video is &lt;a href="https://youtube.com/@eatonphil"&gt;available on
+YouTube&lt;/a&gt;. And the source is &lt;a href="https://github.com/eatonphil/"&gt;available
+on GitHub&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;If you want to skip the parsing steps and just see the
+metaprogramming, jump to the implementation of
+&lt;a href="#match_property"&gt;match_property&lt;/a&gt;.&lt;/p&gt;
+&lt;h3 id="parsing-css"&gt;Parsing CSS&lt;/h3&gt;&lt;p&gt;Let's imagine a CSS that only has alphabetical selectors, property
+names and values.&lt;/p&gt;
+&lt;p&gt;The following would be valid:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs css"&gt;div {
+  background: black;
+  color: white;
+}
+
+a {
+  color: blue;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Thinking about the structure of this stripped down CSS we've got:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;CSS properties that consist of property names and values (in our case the property names are limited to &lt;code&gt;background&lt;/code&gt; and &lt;code&gt;color&lt;/code&gt;)&lt;/li&gt;
+&lt;li&gt;CSS rules that have a selector and a list of rules&lt;/li&gt;
+&lt;li&gt;CSS sheets that have a list of rules&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Turning that into Zig in &lt;code&gt;main.zig&lt;/code&gt;:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;const std = @import(&amp;quot;std&amp;quot;);
+
+const CSSProperty = union(enum) {
+    unknown: void,
+    color: []const u8,
+    background: []const u8,
+};
+
+const CSSRule = struct {
+    selector: []const u8,
+    properties: []CSSProperty,
+};
+
+const CSSSheet = struct {
+    rules: []CSSRule,
+};
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The parser is going to look for CSS rules which contain a selector and
+a list of CSS rules. The entrypoint is that simple:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;fn parse(
+    arena: *std.heap.ArenaAllocator,
+    css: []const u8,
+) !CSSSheet {
+    var index: usize = 0;
+    var rules = std.ArrayList(CSSRule).init(arena.allocator());
+
+    // Parse rules until EOF.
+    while (index &amp;lt; css.len) {
+        var res = try parse_rule(arena, css, index);
+        index = res.index;
+        try rules.append(res.rule);
+
+        // In case there is trailing whitespace before the EOF,
+        // eating whitespace here makes sure we exit the loop
+        // immediately before trying to parse more rules.
+        index = eat_whitespace(css, index);
+    }
+
+    return CSSSheet{
+        .rules = rules.items,
+    };
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;First let's implement the &lt;code&gt;eat_whitespace&lt;/code&gt; helper we've referenced. It
+increments a cursor into the css file while it sees whitespace.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;fn eat_whitespace(
+    css: []const u8,
+    initial_index: usize,
+) usize {
+    var index = initial_index;
+    while (index &amp;lt; css.len and std.ascii.isWhitespace(css[index])) {
+        index += 1;
+    }
+
+    return index;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;In our stripped-down version of CSS all we have to think about is
+ASCII. So the builtin &lt;code&gt;std.ascii.isWhitespace()&lt;/code&gt; function is perfect.&lt;/p&gt;
+&lt;p&gt;Next, parsing CSS rules.&lt;/p&gt;
+&lt;h4 id="&lt;code&gt;parse_rule()&lt;/code&gt;"&gt;&lt;code&gt;parse_rule()&lt;/code&gt;&lt;/h4&gt;&lt;p&gt;A rule consists of a selector, opening curly braces, any number of
+properties, and closing curly braces. We need to remember to eat
+whitespace between each piece of syntax.&lt;/p&gt;
+&lt;p&gt;And we'll reference a few more parsing helpers we'll talk about next
+for the selector, braces, and properties.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;const ParseRuleResult = struct {
+    rule: CSSRule,
+    index: usize,
+};
+fn parse_rule(
+    arena: *std.heap.ArenaAllocator,
+    css: []const u8,
+    initial_index: usize,
+) !ParseRuleResult {
+    var index = eat_whitespace(css, initial_index);
+
+    // First parse selector(s).
+    var selector_res = try parse_identifier(css, index);
+    index = selector_res.index;
+
+    index = eat_whitespace(css, index);
+
+    // Then parse opening curly brace: {.
+    index = try parse_syntax(css, index, &amp;#39;{&amp;#39;);
+
+    index = eat_whitespace(css, index);
+
+    var properties = std.ArrayList(CSSProperty).init(arena.allocator());
+    // Then parse any number of properties.
+    while (index &amp;lt; css.len) {
+        index = eat_whitespace(css, index);
+        if (index &amp;lt; css.len and css[index] == &amp;#39;}&amp;#39;) {
+            break;
+        }
+
+        var attr_res = try parse_property(css, index);
+        index = attr_res.index;
+
+        try properties.append(attr_res.property);
+    }
+
+    index = eat_whitespace(css, index);
+
+    // Then parse closing curly brace: }.
+    index = try parse_syntax(css, index, &amp;#39;}&amp;#39;);
+
+    return ParseRuleResult{
+        .rule = CSSRule{
+            .selector = selector_res.identifier,
+            .properties = properties.items,
+        },
+        .index = index,
+    };
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The &lt;code&gt;parse_syntax&lt;/code&gt; helper is pretty simple, it does a bounds check and
+increments the cursor if the current character matches the one you
+pass in.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;fn parse_syntax(
+    css: []const u8,
+    initial_index: usize,
+    syntax: u8,
+) !usize {
+    if (initial_index &amp;lt; css.len and css[initial_index] == syntax) {
+        return initial_index + 1;
+    }
+
+    debug_at(css, initial_index, &amp;quot;Expected syntax: &amp;#39;{c}&amp;#39;.&amp;quot;, .{syntax});
+    return error.NoSuchSyntax;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now this calls attention to debugging messages on failure. When we
+fail to parse a syntax, we want to give a useful error message and
+point at the exact line and column of code where the error happens.&lt;/p&gt;
+&lt;p&gt;So let's implement &lt;code&gt;debug_at&lt;/code&gt;.&lt;/p&gt;
+&lt;h4 id="&lt;code&gt;debug_at&lt;/code&gt;"&gt;&lt;code&gt;debug_at&lt;/code&gt;&lt;/h4&gt;&lt;p&gt;First, we iterate over the entire CSS source code until we find the
+entire line that contains the index where the parser failed. We also
+want to identify the exact line and column corresponding to that
+index.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;fn debug_at(
+    css: []const u8,
+    index: usize,
+    comptime msg: []const u8,
+    args: anytype,
+) void {
+    var line_no: usize = 1;
+    var col_no: usize = 0;
+
+    var i: usize = 0;
+    var line_beginning: usize = 0;
+    var found_line = false;
+    while (i &amp;lt; css.len) : (i += 1) {
+        if (css[i] == &amp;#39;\n&amp;#39;) {
+            if (!found_line) {
+                col_no = 0;
+                line_beginning = i;
+                line_no += 1;
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        if (i == index) {
+            found_line = true;
+        }
+
+        if (!found_line) {
+            col_no += 1;
+        }
+    }
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Then we print it all out in a nice format for users (which will likely
+just be ourselves).&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;    std.debug.print(&amp;quot;Error at line {}, column {}. &amp;quot;, .{ line_no, col_no });
+    std.debug.print(msg ++ &amp;quot;\n\n&amp;quot;, args);
+    std.debug.print(&amp;quot;{s}\n&amp;quot;, .{css[line_beginning..i]});
+    while (col_no &amp;gt; 0) : (col_no -= 1) {
+        std.debug.print(&amp;quot; &amp;quot;, .{});
+    }
+    std.debug.print(&amp;quot;^ Near here.\n&amp;quot;, .{});
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Ok, popping our mental stack, if we look back at &lt;code&gt;parse_rule&lt;/code&gt; we still
+need to implement &lt;code&gt;parse_identifier&lt;/code&gt; and &lt;code&gt;parse_property&lt;/code&gt;.&lt;/p&gt;
+&lt;h4 id="&lt;code&gt;parse_identifier&lt;/code&gt;"&gt;&lt;code&gt;parse_identifier&lt;/code&gt;&lt;/h4&gt;&lt;p&gt;An "identifier" for us here is just going to be an ASCII alphabetical
+string (i.e. &lt;code&gt;[a-zA-Z]+&lt;/code&gt;).  We're going to &lt;em&gt;really&lt;/em&gt; simplify CSS
+because we're going to use this method for parsing not just selectors
+but property names and even property values.&lt;/p&gt;
+&lt;p&gt;Zig again has a nice builtin &lt;code&gt;std.ascii.isAlphabetical&lt;/code&gt; we can use.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;const ParseIdentifierResult = struct {
+    identifier: []const u8,
+    index: usize,
+};
+fn parse_identifier(
+    css: []const u8,
+    initial_index: usize,
+) !ParseIdentifierResult {
+    var index = initial_index;
+    while (index &amp;lt; css.len and std.ascii.isAlphabetic(css[index])) {
+        index += 1;
+    }
+
+    if (index == initial_index) {
+        debug_at(css, initial_index, &amp;quot;Expected valid identifier.&amp;quot;, .{});
+        return error.InvalidIdentifier;
+    }
+
+    return ParseIdentifierResult{
+        .identifier = css[initial_index..index],
+        .index = index,
+    };
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;In reality, CSS properties are &lt;a href="https://www.w3schools.com/cssref/css_selectors.php"&gt;highly
+complex&lt;/a&gt;. Parsing
+CSS correctly isn't the main aim of this post though. :)&lt;/p&gt;
+&lt;h4 id="&lt;code&gt;parse_property&lt;/code&gt;"&gt;&lt;code&gt;parse_property&lt;/code&gt;&lt;/h4&gt;&lt;p&gt;The final piece of CSS we need to parse is properties. These consist
+of a property name, then a colon, then a property value, and finally a
+semicolon. And within each piece we eat whitespace.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;const ParsePropertyResult = struct {
+    property: CSSProperty,
+    index: usize,
+};
+fn parse_property(
+    css: []const u8,
+    initial_index: usize,
+) !ParsePropertyResult {
+    var index = eat_whitespace(css, initial_index);
+
+    // First parse property name.
+    var name_res = parse_identifier(css, index) catch |e| {
+        std.debug.print(&amp;quot;Could not parse property name.\n&amp;quot;, .{});
+        return e;
+    };
+    index = name_res.index;
+
+    index = eat_whitespace(css, index);
+
+    // Then parse colon: :.
+    index = try parse_syntax(css, index, &amp;#39;:&amp;#39;);
+
+    index = eat_whitespace(css, index);
+
+    // Then parse property value.
+    var value_res = parse_identifier(css, index) catch |e| {
+        std.debug.print(&amp;quot;Could not parse property value.\n&amp;quot;, .{});
+        return e;
+    };
+    index = value_res.index;
+
+    // Finally parse semi-colon: ;.
+    index = try parse_syntax(css, index, &amp;#39;;&amp;#39;);
+
+    var property = match_property(name_res.identifier, value_res.identifier) catch |e| {
+        debug_at(css, initial_index, &amp;quot;Unknown property: &amp;#39;{s}&amp;#39;.&amp;quot;, .{name_res.identifier});
+        return e;
+    };
+
+    return ParsePropertyResult{
+        .property = property,
+        .index = index,
+    };
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Finally we get to the first bit of metaprogramming. Once we have a
+property name and value, we need to turn that into a Zig union.&lt;/p&gt;
+&lt;p&gt;That's what &lt;code&gt;match_property()&lt;/code&gt; is going to be responsible for doing.&lt;/p&gt;
+&lt;h3 id="&lt;code&gt;match_property&lt;/code&gt;"&gt;&lt;code&gt;match_property&lt;/code&gt;&lt;/h3&gt;&lt;p&gt;This function needs to take a pointer to a &lt;code&gt;CSSProperty&lt;/code&gt; as well as a
+property name and value, and set the correct field on the
+&lt;code&gt;CSSProperty&lt;/code&gt; object based on the property name. And assign the
+property value to that field on the &lt;code&gt;CSSProperty&lt;/code&gt; object.&lt;/p&gt;
+&lt;p&gt;If we didn't have metaprogramming or reflection, the implementation
+might look like this:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    if (std.mem.eql(u8, name, "color")) {
+        return CSSProperty{.color = value};
+    } else if (std.mem.eql(u8, name, "background")) {
+        return CSSProperty{.background = value};
+    }
+
+    return error.UnknownProperty;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;And that is not necessarily bad. In fact it may be how a lot of
+production code looks over time as product needs evolve.&lt;/p&gt;
+&lt;p&gt;However for the sake of learning, we'll try to implement the same
+thing with Zig metaprogramming.&lt;/p&gt;
+&lt;p&gt;And specifically, we can take a look at
+&lt;a href="https://github.com/ziglang/zig/blob/32cb9462ffa0a9df7a080d67eaf3a5762173f742/lib/std/json/static.zig"&gt;lib/std/json/static.zig&lt;/a&gt;
+to understand the reflection APIs.&lt;/p&gt;
+&lt;p&gt;Specifically, if we look at line 210-226 of that file, we can see them
+iterating over fields of a &lt;code&gt;Union&lt;/code&gt;:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;        .Union =&amp;gt; |unionInfo| {
+            if (comptime std.meta.trait.hasFn(&amp;quot;jsonParse&amp;quot;)(T)) {
+                return T.jsonParse(allocator, source, options);
+            }
+
+            if (unionInfo.tag_type == null) @compileError(&amp;quot;Unable to parse into untagged union &amp;#39;&amp;quot; ++ @typeName(T) ++ &amp;quot;&amp;#39;&amp;quot;);
+
+            if (.object_begin != try source.next()) return error.UnexpectedToken;
+
+            var result: ?T = null;
+            var name_token: ?Token = try source.nextAllocMax(allocator, .alloc_if_needed, options.max_value_len.?);
+            const field_name = switch (name_token.?) {
+                inline .string, .allocated_string =&amp;gt; |slice| slice,
+                else =&amp;gt; return error.UnexpectedToken,
+            };
+
+            inline for (unionInfo.fields) |u_field| {
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Then right after that (lines 226-243) we see them conditionally
+modifying the result object:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;            inline for (unionInfo.fields) |u_field| {
+                if (std.mem.eql(u8, u_field.name, field_name)) {
+                    // Free the name token now in case we&amp;#39;re using an allocator that optimizes freeing the last allocated object.
+                    // (Recursing into parseInternal() might trigger more allocations.)
+                    freeAllocated(allocator, name_token.?);
+                    name_token = null;
+
+                    if (u_field.type == void) {
+                        // void isn&amp;#39;t really a json type, but we can support void payload union tags with {} as a value.
+                        if (.object_begin != try source.next()) return error.UnexpectedToken;
+                        if (.object_end != try source.next()) return error.UnexpectedToken;
+                        result = @unionInit(T, u_field.name, {});
+                    } else {
+                        // Recurse.
+                        result = @unionInit(T, u_field.name, try parseInternal(u_field.type, allocator, source, options));
+                    }
+                    break;
+                }
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We can see that the &lt;code&gt;.Union =&amp;gt; |unionInfo|&lt;/code&gt; condition is entered by
+switching on &lt;code&gt;@typeInfo(T)&lt;/code&gt; (&lt;a href="https://github.com/ziglang/zig/blob/32cb9462ffa0a9df7a080d67eaf3a5762173f742/lib/std/json/static.zig#L149"&gt;line
+149&lt;/a&gt;)
+and that &lt;code&gt;T&lt;/code&gt; is a type (&lt;a href="https://github.com/ziglang/zig/blob/32cb9462ffa0a9df7a080d67eaf3a5762173f742/lib/std/json/static.zig#L144"&gt;line
+144&lt;/a&gt;).&lt;/p&gt;
+&lt;p&gt;We don't have a generic type though we know we are working with a
+&lt;code&gt;CSSProperty&lt;/code&gt;. And we know &lt;code&gt;CSSProperty&lt;/code&gt; is a union so we don't need
+the &lt;code&gt;switch&lt;/code&gt; either.&lt;/p&gt;
+&lt;p&gt;So let's apply that to our &lt;code&gt;match_property&lt;/code&gt; implementation.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    const cssPropertyInfo = @typeInfo(CSSProperty);
+
+    for (cssPropertyInfo.Union.fields) |u_field| {
+        if (std.mem.eql(u8, u_field.name, name)) {
+            return @unionInit(CSSProperty, u_field.name, value);
+        }
+    }
+
+    return error.UnknownProperty;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;And if we try to build that we'll get an error like this:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;main.zig:15:31: error: values of type &amp;#39;[]const builtin.Type.UnionField&amp;#39; must be comptime-known, but index value is runtime-known
+    for (cssPropertyInfo.Union.fields) |u_field| {
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Zig's "reflection" abilities here are comptime only. So we can't use a
+runtime &lt;code&gt;for&lt;/code&gt; loop, we must use a comptime &lt;code&gt;inline for&lt;/code&gt; loop.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    const cssPropertyInfo = @typeInfo(CSSProperty);
+
+    inline for (cssPropertyInfo.Union.fields) |u_field| {
+        if (std.mem.eql(u8, u_field.name, name)) {
+            return @unionInit(CSSProperty, u_field.name, value);
+        }
+    }
+
+    return error.UnknownProperty;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;As far as I understand it, this loop is basically unrolled and the
+generated code would look a lot like our hard-coded initial version.&lt;/p&gt;
+&lt;p&gt;i.e. it would probably look like this:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    const cssPropertyInfo = @typeInfo(CSSProperty);
+
+    if (std.mem.eql(u8, &amp;quot;background&amp;quot;, name)) {
+        return @unionInit(CSSProperty, &amp;quot;background&amp;quot;, value);
+    }
+
+    if (std.mem.eql(u8, &amp;quot;color&amp;quot;, name)) {
+        return @unionInit(CSSProperty, &amp;quot;color&amp;quot;, value);
+    }
+
+    if (std.mem.eql(u8, &amp;quot;unknown&amp;quot;, name)) {
+        return @unionInit(CSSProperty, &amp;quot;unknown&amp;quot;, value);
+    }
+
+    return error.UnknownProperty;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Again that's just how I image the compiler to generate code from the
+Union field reflection and &lt;code&gt;inline for&lt;/code&gt; over the fields.&lt;/p&gt;
+&lt;p&gt;Try compiling that code. I get this:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs console"&gt;main.zig:17:58: error: expected type &amp;#39;void&amp;#39;, found &amp;#39;[]const u8&amp;#39;
+            return @unionInit(CSSProperty, u_field.name, value);
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Thinking about the generated code makes it especially clear what's
+happening. We have an &lt;code&gt;unknown&lt;/code&gt; field in there that has a &lt;code&gt;void&lt;/code&gt;
+type. You can't assign to that type.&lt;/p&gt;
+&lt;p&gt;We know at runtime that the condition where that happens should be
+impossible because the user shouldn't enter &lt;code&gt;unknown&lt;/code&gt; as a property
+name. (Though now that I write this, I see they actually could. But
+let's pretend they wouldn't.)&lt;/p&gt;
+&lt;p&gt;So the problem isn't a runtime failure but a comptime type-checking
+failure.&lt;/p&gt;
+&lt;p&gt;Thankfully we can work around this with comptime conditionals.&lt;/p&gt;
+&lt;p&gt;If we wrap our current condition in an additional conditional that is
+evaluated at comptime and filters out the &lt;code&gt;unknown&lt;/code&gt; pass of the
+&lt;code&gt;inline for&lt;/code&gt; loop, the compiler shouldn't generate any code trying to
+assign to the &lt;code&gt;unknown&lt;/code&gt; field.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    const cssPropertyInfo = @typeInfo(CSSProperty);
+
+    inline for (cssPropertyInfo.Union.fields) |u_field| {
+        if (comptime !std.mem.eql(u8, u_field.name, &amp;quot;unknown&amp;quot;)) {
+            if (std.mem.eql(u8, u_field.name, name)) {
+                return @unionInit(CSSProperty, u_field.name, value);
+            }
+        }
+    }
+
+    return error.UnknownProperty;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;And indeed, if you try to compile it, this works. Since the
+conditional is evaluated at compile time, we can imagine the code the
+compiler generates is this:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    const cssPropertyInfo = @typeInfo(CSSProperty);
+
+    if (std.mem.eql(u8, &amp;quot;background&amp;quot;, name)) {
+        return @unionInit(CSSProperty, &amp;quot;background&amp;quot;, value);
+    }
+
+    if (std.mem.eql(u8, &amp;quot;color&amp;quot;, name)) {
+        return @unionInit(CSSProperty, &amp;quot;color&amp;quot;, value);
+    }
+
+    return error.UnknownProperty;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The &lt;code&gt;unknown&lt;/code&gt; field has been skipped.&lt;/p&gt;
+&lt;p&gt;Now in retrospect, I realize that the &lt;code&gt;unknown&lt;/code&gt; field probably isn't
+even needed. We could eliminate it from the &lt;code&gt;CSSProperty&lt;/code&gt; union and
+get rid of that comptime conditional. However, sometimes there are in
+fact private fields you want to skip. And I wanted to show how to
+deal with that case.&lt;/p&gt;
+&lt;p&gt;Now for the last bit of metaprogramming, let's talk about displaying
+the resulting &lt;code&gt;CSSSheet&lt;/code&gt; we'd get after parsing.&lt;/p&gt;
+&lt;h3 id="&lt;code&gt;sheet.display()&lt;/code&gt;"&gt;&lt;code&gt;sheet.display()&lt;/code&gt;&lt;/h3&gt;&lt;p&gt;If we didn't have metaprogramming and wanted to display the sheet,
+we'd have to switch on every possible union field.&lt;/p&gt;
+&lt;p&gt;Like so (I've modified the &lt;code&gt;CSSSheet&lt;/code&gt; struct definition so it includes this method):&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;    fn display(sheet: *CSSSheet) void {
+        for (sheet.rules) |rule| {
+            std.debug.print(&amp;quot;selector: {s}\n&amp;quot;, .{rule.selector});
+            for (rule.properties) |property| {
+                var string = switch (property) {
+                    .unknown =&amp;gt; unreachable,
+                    .color =&amp;gt; |color_value| color_value,
+                    .background =&amp;gt; |background_value| background_value,
+                };
+            }
+            std.debug.print(&amp;quot;\n&amp;quot;, .{});
+        }
+    }
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This could get unwieldy as we add fields to the &lt;code&gt;CSSProperty&lt;/code&gt; union.&lt;/p&gt;
+&lt;p&gt;Instead we can use the &lt;code&gt;inline for
+(@typeInfo(CSSProperty).Union.fields) |u_field|&lt;/code&gt; method to iterate
+over all fields, skip the &lt;code&gt;unknown&lt;/code&gt; field at comptime, and print out
+the field name and value by matching on the current value of the
+&lt;code&gt;property&lt;/code&gt; enum by using the &lt;code&gt;@tagName&lt;/code&gt; builtin.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;    fn display(sheet: *CSSSheet) void {
+        for (sheet.rules) |rule| {
+            std.debug.print(&amp;quot;selector: {s}\n&amp;quot;, .{rule.selector});
+            for (rule.properties) |property| {
+                inline for (@typeInfo(CSSProperty).Union.fields) |u_field| {
+                    if (comptime !std.mem.eql(u8, u_field.name, &amp;quot;unknown&amp;quot;)) {
+                        if (std.mem.eql(u8, u_field.name, @tagName(property))) {
+                            std.debug.print(&amp;quot;  {s}: {s}\n&amp;quot;, .{
+                                @tagName(property),
+                                @field(property, u_field.name),
+                            });
+                        }
+                    }
+                }
+            }
+            std.debug.print(&amp;quot;\n&amp;quot;, .{});
+        }
+    }
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id="&lt;code&gt;main&lt;/code&gt;"&gt;&lt;code&gt;main&lt;/code&gt;&lt;/h3&gt;&lt;p&gt;Finally, we pull it all together with a little &lt;code&gt;main&lt;/code&gt; function.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs zig"&gt;pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
+    const allocator = arena.allocator();
+
+    // Let&amp;#39;s read in a CSS file.
+    var args = std.process.args();
+
+    // Skips the program name.
+    _ = args.next();
+
+    var file_name: []const u8 = &amp;quot;&amp;quot;;
+    if (args.next()) |f| {
+        file_name = f;
+    }
+
+    const file = try std.fs.cwd().openFile(file_name, .{});
+    defer file.close();
+
+    const file_size = try file.getEndPos();
+    var css_file = try allocator.alloc(u8, file_size);
+    _ = try file.read(css_file);
+
+    var sheet = parse(&amp;amp;arena, css_file) catch return;
+    sheet.display();
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;And try it against some tests.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs console"&gt;$ zig build-exe main.zig
+$ cat tests/basic.css
+div {
+    background: white;
+}
+$ ./main tests/basic.css
+selector: div
+  background: white
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Nice! Let's try it against a more complex test.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs console"&gt;$ cat tests/multiple-blocks.css
+div {
+    background: black;
+    color: white;
+}
+
+a {
+    color: blue;
+}
+$ ./main tests/multiple-blocks.css
+selector: div
+  background: black
+  color: white
+
+selector: a
+  color: blue
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Awesome. And against a bad CSS sheet:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="hljs console"&gt;$ cat tests/bad-property.css
+a {
+    big: pink;
+}
+$ ./main cat tests/bad-property.css
+Error at line 2, column 4. Unknown property: &amp;#39;big&amp;#39;.
+
+
+    big: pink;
+    ^ Near here.
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We've got it!&lt;/p&gt;
+&lt;h3 id="addendum:-&lt;code&gt;@field&lt;/code&gt;"&gt;Addendum: &lt;code&gt;@field&lt;/code&gt;&lt;/h3&gt;&lt;p&gt;The docs were quite clear about using &lt;code&gt;@field(object, fieldName)&lt;/code&gt; to
+access the value of an &lt;code&gt;object&lt;/code&gt; of type &lt;code&gt;@TypeOf(object)&lt;/code&gt; at field
+&lt;code&gt;fieldName&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;And the docs do mention &lt;code&gt;@field()&lt;/code&gt; can be used as LHS but that only
+really struct me when I was browsing the Zig JSON code like at &lt;a href="https://github.com/ziglang/zig/blob/master/lib/std/json/static.zig#L307"&gt;line
+307&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;I didn't use that in this little project but I've used it elsewhere,
+so it I wanted to call this LHS behavior out.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2023-06-19-metaprogramming-in-zig-and-parsing-css.html</guid><pubDate>Mon, 19 Jun 2023 00:00:00 +0000</pubDate></item><item><title>Implementing a distributed key-value store on top of implementing Raft in Go</title><link>http://notes.eatonphil.com/2023-05-25-raft.html</link><description>&lt;p&gt;As part of bringing myself up-to-speed after joining &lt;a href="https://tigerbeetle.com/"&gt;TigerBeetle&lt;/a&gt;, I
 wanted some background on how distributed consensus and replicated state
 machines protocols work. TigerBeetle uses &lt;a href="https://pmg.csail.mit.edu/papers/vr-revisited.pdf"&gt;Viewstamped
 Replication&lt;/a&gt;. But I

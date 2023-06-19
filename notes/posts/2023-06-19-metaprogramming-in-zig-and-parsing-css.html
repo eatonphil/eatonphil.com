@@ -1,0 +1,765 @@
+# Metaprogramming in Zig and parsing CSS
+## June 19, 2023
+###### zig,parsing,css
+
+I knew Zig supported some sort of reflection on types. But I had been
+confused about how to use it. What's the difference between
+'`@typeInfo` and `@TypeOf`? I ignored this aspect of Zig until a
+problem came up at [work](https://tigerbeetle.com) where reflection
+made sense.
+
+The situation was parsing and storing parsed fields in a struct. Each
+field name that is parsed should match up to a struct field.
+
+This is a fairly common problem. So this post walks through how to use
+Zig's metaprogramming features in a simpler but related domain:
+parsing CSS into typed objects, and pretty-printing these typed CSS
+objects.
+
+I live-streamed the implementation of this project yesterday on
+[Twitch](https://www.twitch.tv/eatonphil). The video is [available on
+YouTube](https://youtube.com/@eatonphil). And the source is [available
+on GitHub](https://github.com/eatonphil/).
+
+If you want to skip the parsing steps and just see the
+metaprogramming, jump to the implementation of
+[match_property](#match_property).
+
+### Parsing CSS
+
+Let's imagine a CSS that only has alphabetical selectors, property
+names and values.
+
+The following would be valid:
+
+```css
+div {
+  background: black;
+  color: white;
+}
+
+a {
+  color: blue;
+}
+```
+
+Thinking about the structure of this stripped down CSS we've got:
+
+1. CSS properties that consist of property names and values (in our case the property names are limited to `background` and `color`)
+2. CSS rules that have a selector and a list of rules
+3. CSS sheets that have a list of rules
+
+Turning that into Zig in `main.zig`:
+
+```zig
+const std = @import("std");
+
+const CSSProperty = union(enum) {
+    unknown: void,
+    color: []const u8,
+    background: []const u8,
+};
+
+const CSSRule = struct {
+    selector: []const u8,
+    properties: []CSSProperty,
+};
+
+const CSSSheet = struct {
+    rules: []CSSRule,
+};
+```
+
+The parser is going to look for CSS rules which contain a selector and
+a list of CSS rules. The entrypoint is that simple:
+
+```zig
+fn parse(
+    arena: *std.heap.ArenaAllocator,
+    css: []const u8,
+) !CSSSheet {
+    var index: usize = 0;
+    var rules = std.ArrayList(CSSRule).init(arena.allocator());
+
+    // Parse rules until EOF.
+    while (index < css.len) {
+        var res = try parse_rule(arena, css, index);
+        index = res.index;
+        try rules.append(res.rule);
+
+        // In case there is trailing whitespace before the EOF,
+        // eating whitespace here makes sure we exit the loop
+        // immediately before trying to parse more rules.
+        index = eat_whitespace(css, index);
+    }
+
+    return CSSSheet{
+        .rules = rules.items,
+    };
+}
+```
+
+First let's implement the `eat_whitespace` helper we've referenced. It
+increments a cursor into the css file while it sees whitespace.
+
+```zig
+fn eat_whitespace(
+    css: []const u8,
+    initial_index: usize,
+) usize {
+    var index = initial_index;
+    while (index < css.len and std.ascii.isWhitespace(css[index])) {
+        index += 1;
+    }
+
+    return index;
+}
+```
+
+In our stripped-down version of CSS all we have to think about is
+ASCII. So the builtin `std.ascii.isWhitespace()` function is perfect.
+
+Next, parsing CSS rules.
+
+#### `parse_rule()`
+
+A rule consists of a selector, opening curly braces, any number of
+properties, and closing curly braces. We need to remember to eat
+whitespace between each piece of syntax.
+
+And we'll reference a few more parsing helpers we'll talk about next
+for the selector, braces, and properties.
+
+```zig
+const ParseRuleResult = struct {
+    rule: CSSRule,
+    index: usize,
+};
+fn parse_rule(
+    arena: *std.heap.ArenaAllocator,
+    css: []const u8,
+    initial_index: usize,
+) !ParseRuleResult {
+    var index = eat_whitespace(css, initial_index);
+
+    // First parse selector(s).
+    var selector_res = try parse_identifier(css, index);
+    index = selector_res.index;
+
+    index = eat_whitespace(css, index);
+
+    // Then parse opening curly brace: {.
+    index = try parse_syntax(css, index, '{');
+
+    index = eat_whitespace(css, index);
+
+    var properties = std.ArrayList(CSSProperty).init(arena.allocator());
+    // Then parse any number of properties.
+    while (index < css.len) {
+        index = eat_whitespace(css, index);
+        if (index < css.len and css[index] == '}') {
+            break;
+        }
+
+        var attr_res = try parse_property(css, index);
+        index = attr_res.index;
+
+        try properties.append(attr_res.property);
+    }
+
+    index = eat_whitespace(css, index);
+
+    // Then parse closing curly brace: }.
+    index = try parse_syntax(css, index, '}');
+
+    return ParseRuleResult{
+        .rule = CSSRule{
+            .selector = selector_res.identifier,
+            .properties = properties.items,
+        },
+        .index = index,
+    };
+}
+```
+
+The `parse_syntax` helper is pretty simple, it does a bounds check and
+increments the cursor if the current character matches the one you
+pass in.
+
+```zig
+fn parse_syntax(
+    css: []const u8,
+    initial_index: usize,
+    syntax: u8,
+) !usize {
+    if (initial_index < css.len and css[initial_index] == syntax) {
+        return initial_index + 1;
+    }
+
+    debug_at(css, initial_index, "Expected syntax: '{c}'.", .{syntax});
+    return error.NoSuchSyntax;
+}
+```
+
+Now this calls attention to debugging messages on failure. When we
+fail to parse a syntax, we want to give a useful error message and
+point at the exact line and column of code where the error happens.
+
+So let's implement `debug_at`.
+
+#### `debug_at`
+
+First, we iterate over the entire CSS source code until we find the
+entire line that contains the index where the parser failed. We also
+want to identify the exact line and column corresponding to that
+index.
+
+```zig
+fn debug_at(
+    css: []const u8,
+    index: usize,
+    comptime msg: []const u8,
+    args: anytype,
+) void {
+    var line_no: usize = 1;
+    var col_no: usize = 0;
+
+    var i: usize = 0;
+    var line_beginning: usize = 0;
+    var found_line = false;
+    while (i < css.len) : (i += 1) {
+        if (css[i] == '\n') {
+            if (!found_line) {
+                col_no = 0;
+                line_beginning = i;
+                line_no += 1;
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        if (i == index) {
+            found_line = true;
+        }
+
+        if (!found_line) {
+            col_no += 1;
+        }
+    }
+```
+
+Then we print it all out in a nice format for users (which will likely
+just be ourselves).
+
+```zig
+    std.debug.print("Error at line {}, column {}. ", .{ line_no, col_no });
+    std.debug.print(msg ++ "\n\n", args);
+    std.debug.print("{s}\n", .{css[line_beginning..i]});
+    while (col_no > 0) : (col_no -= 1) {
+        std.debug.print(" ", .{});
+    }
+    std.debug.print("^ Near here.\n", .{});
+}
+```
+
+Ok, popping our mental stack, if we look back at `parse_rule` we still
+need to implement `parse_identifier` and `parse_property`.
+
+#### `parse_identifier`
+
+
+An "identifier" for us here is just going to be an ASCII alphabetical
+string (i.e. `[a-zA-Z]+`).  We're going to *really* simplify CSS
+because we're going to use this method for parsing not just selectors
+but property names and even property values.
+
+Zig again has a nice builtin `std.ascii.isAlphabetical` we can use.
+
+```zig
+const ParseIdentifierResult = struct {
+    identifier: []const u8,
+    index: usize,
+};
+fn parse_identifier(
+    css: []const u8,
+    initial_index: usize,
+) !ParseIdentifierResult {
+    var index = initial_index;
+    while (index < css.len and std.ascii.isAlphabetic(css[index])) {
+        index += 1;
+    }
+
+    if (index == initial_index) {
+        debug_at(css, initial_index, "Expected valid identifier.", .{});
+        return error.InvalidIdentifier;
+    }
+
+    return ParseIdentifierResult{
+        .identifier = css[initial_index..index],
+        .index = index,
+    };
+}
+```
+
+In reality, CSS properties are [highly
+complex](https://www.w3schools.com/cssref/css_selectors.php). Parsing
+CSS correctly isn't the main aim of this post though. :)
+
+#### `parse_property`
+
+The final piece of CSS we need to parse is properties. These consist
+of a property name, then a colon, then a property value, and finally a
+semicolon. And within each piece we eat whitespace.
+
+```zig
+const ParsePropertyResult = struct {
+    property: CSSProperty,
+    index: usize,
+};
+fn parse_property(
+    css: []const u8,
+    initial_index: usize,
+) !ParsePropertyResult {
+    var index = eat_whitespace(css, initial_index);
+
+    // First parse property name.
+    var name_res = parse_identifier(css, index) catch |e| {
+        std.debug.print("Could not parse property name.\n", .{});
+        return e;
+    };
+    index = name_res.index;
+
+    index = eat_whitespace(css, index);
+
+    // Then parse colon: :.
+    index = try parse_syntax(css, index, ':');
+
+    index = eat_whitespace(css, index);
+
+    // Then parse property value.
+    var value_res = parse_identifier(css, index) catch |e| {
+        std.debug.print("Could not parse property value.\n", .{});
+        return e;
+    };
+    index = value_res.index;
+
+    // Finally parse semi-colon: ;.
+    index = try parse_syntax(css, index, ';');
+
+    var property = match_property(name_res.identifier, value_res.identifier) catch |e| {
+        debug_at(css, initial_index, "Unknown property: '{s}'.", .{name_res.identifier});
+        return e;
+    };
+
+    return ParsePropertyResult{
+        .property = property,
+        .index = index,
+    };
+}
+```
+
+Finally we get to the first bit of metaprogramming. Once we have a
+property name and value, we need to turn that into a Zig union.
+
+That's what `match_property()` is going to be responsible for doing.
+
+### `match_property`
+
+This function needs to take a pointer to a `CSSProperty` as well as a
+property name and value, and set the correct field on the
+`CSSProperty` object based on the property name. And assign the
+property value to that field on the `CSSProperty` object.
+
+If we didn't have metaprogramming or reflection, the implementation
+might look like this:
+
+```
+fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    if (std.mem.eql(u8, name, "color")) {
+        return CSSProperty{.color = value};
+    } else if (std.mem.eql(u8, name, "background")) {
+        return CSSProperty{.background = value};
+    }
+
+    return error.UnknownProperty;
+}
+```
+
+And that is not necessarily bad. In fact it may be how a lot of
+production code looks over time as product needs evolve.
+
+However for the sake of learning, we'll try to implement the same
+thing with Zig metaprogramming.
+
+And specifically, we can take a look at
+[lib/std/json/static.zig](https://github.com/ziglang/zig/blob/32cb9462ffa0a9df7a080d67eaf3a5762173f742/lib/std/json/static.zig)
+to understand the reflection APIs.
+
+Specifically, if we look at line 210-226 of that file, we can see them
+iterating over fields of a `Union`:
+
+```zig
+        .Union => |unionInfo| {
+            if (comptime std.meta.trait.hasFn("jsonParse")(T)) {
+                return T.jsonParse(allocator, source, options);
+            }
+
+            if (unionInfo.tag_type == null) @compileError("Unable to parse into untagged union '" ++ @typeName(T) ++ "'");
+
+            if (.object_begin != try source.next()) return error.UnexpectedToken;
+
+            var result: ?T = null;
+            var name_token: ?Token = try source.nextAllocMax(allocator, .alloc_if_needed, options.max_value_len.?);
+            const field_name = switch (name_token.?) {
+                inline .string, .allocated_string => |slice| slice,
+                else => return error.UnexpectedToken,
+            };
+
+            inline for (unionInfo.fields) |u_field| {
+```
+
+Then right after that (lines 226-243) we see them conditionally
+modifying the result object:
+
+```zig
+            inline for (unionInfo.fields) |u_field| {
+                if (std.mem.eql(u8, u_field.name, field_name)) {
+                    // Free the name token now in case we're using an allocator that optimizes freeing the last allocated object.
+                    // (Recursing into parseInternal() might trigger more allocations.)
+                    freeAllocated(allocator, name_token.?);
+                    name_token = null;
+
+                    if (u_field.type == void) {
+                        // void isn't really a json type, but we can support void payload union tags with {} as a value.
+                        if (.object_begin != try source.next()) return error.UnexpectedToken;
+                        if (.object_end != try source.next()) return error.UnexpectedToken;
+                        result = @unionInit(T, u_field.name, {});
+                    } else {
+                        // Recurse.
+                        result = @unionInit(T, u_field.name, try parseInternal(u_field.type, allocator, source, options));
+                    }
+                    break;
+                }
+```
+
+We can see that the `.Union => |unionInfo|` condition is entered by
+switching on `@typeInfo(T)` ([line
+149](https://github.com/ziglang/zig/blob/32cb9462ffa0a9df7a080d67eaf3a5762173f742/lib/std/json/static.zig#L149))
+and that `T` is a type ([line
+144](https://github.com/ziglang/zig/blob/32cb9462ffa0a9df7a080d67eaf3a5762173f742/lib/std/json/static.zig#L144)).
+
+We don't have a generic type though we know we are working with a
+`CSSProperty`. And we know `CSSProperty` is a union so we don't need
+the `switch` either.
+
+So let's apply that to our `match_property` implementation.
+
+```zig
+fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    const cssPropertyInfo = @typeInfo(CSSProperty);
+
+    for (cssPropertyInfo.Union.fields) |u_field| {
+        if (std.mem.eql(u8, u_field.name, name)) {
+            return @unionInit(CSSProperty, u_field.name, value);
+        }
+    }
+
+    return error.UnknownProperty;
+}
+```
+
+And if we try to build that we'll get an error like this:
+
+```zig
+main.zig:15:31: error: values of type '[]const builtin.Type.UnionField' must be comptime-known, but index value is runtime-known
+    for (cssPropertyInfo.Union.fields) |u_field| {
+```
+
+Zig's "reflection" abilities here are comptime only. So we can't use a
+runtime `for` loop, we must use a comptime `inline for` loop.
+
+```zig
+fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    const cssPropertyInfo = @typeInfo(CSSProperty);
+
+    inline for (cssPropertyInfo.Union.fields) |u_field| {
+        if (std.mem.eql(u8, u_field.name, name)) {
+            return @unionInit(CSSProperty, u_field.name, value);
+        }
+    }
+
+    return error.UnknownProperty;
+}
+```
+
+As far as I understand it, this loop is basically unrolled and the
+generated code would look a lot like our hard-coded initial version.
+
+i.e. it would probably look like this:
+
+```zig
+fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    const cssPropertyInfo = @typeInfo(CSSProperty);
+
+    if (std.mem.eql(u8, "background", name)) {
+        return @unionInit(CSSProperty, "background", value);
+    }
+
+    if (std.mem.eql(u8, "color", name)) {
+        return @unionInit(CSSProperty, "color", value);
+    }
+
+    if (std.mem.eql(u8, "unknown", name)) {
+        return @unionInit(CSSProperty, "unknown", value);
+    }
+
+    return error.UnknownProperty;
+}
+```
+
+Again that's just how I image the compiler to generate code from the
+Union field reflection and `inline for` over the fields.
+
+Try compiling that code. I get this:
+
+```console
+main.zig:17:58: error: expected type 'void', found '[]const u8'
+            return @unionInit(CSSProperty, u_field.name, value);
+```
+
+Thinking about the generated code makes it especially clear what's
+happening. We have an `unknown` field in there that has a `void`
+type. You can't assign to that type.
+
+We know at runtime that the condition where that happens should be
+impossible because the user shouldn't enter `unknown` as a property
+name. (Though now that I write this, I see they actually could. But
+let's pretend they wouldn't.)
+
+So the problem isn't a runtime failure but a comptime type-checking
+failure.
+
+Thankfully we can work around this with comptime conditionals.
+
+If we wrap our current condition in an additional conditional that is
+evaluated at comptime and filters out the `unknown` pass of the
+`inline for` loop, the compiler shouldn't generate any code trying to
+assign to the `unknown` field.
+
+```zig
+fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    const cssPropertyInfo = @typeInfo(CSSProperty);
+
+    inline for (cssPropertyInfo.Union.fields) |u_field| {
+        if (comptime !std.mem.eql(u8, u_field.name, "unknown")) {
+            if (std.mem.eql(u8, u_field.name, name)) {
+                return @unionInit(CSSProperty, u_field.name, value);
+            }
+        }
+    }
+
+    return error.UnknownProperty;
+}
+```
+
+And indeed, if you try to compile it, this works. Since the
+conditional is evaluated at compile time, we can imagine the code the
+compiler generates is this:
+
+```zig
+fn match_property(
+    name: []const u8,
+    value: []const u8,
+) !CSSProperty {
+    const cssPropertyInfo = @typeInfo(CSSProperty);
+
+    if (std.mem.eql(u8, "background", name)) {
+        return @unionInit(CSSProperty, "background", value);
+    }
+
+    if (std.mem.eql(u8, "color", name)) {
+        return @unionInit(CSSProperty, "color", value);
+    }
+
+    return error.UnknownProperty;
+}
+```
+
+The `unknown` field has been skipped.
+
+Now in retrospect, I realize that the `unknown` field probably isn't
+even needed. We could eliminate it from the `CSSProperty` union and
+get rid of that comptime conditional. However, sometimes there are in
+fact private fields you want to skip. And I wanted to show how to
+deal with that case.
+
+Now for the last bit of metaprogramming, let's talk about displaying
+the resulting `CSSSheet` we'd get after parsing.
+
+### `sheet.display()`
+
+If we didn't have metaprogramming and wanted to display the sheet,
+we'd have to switch on every possible union field.
+
+Like so (I've modified the `CSSSheet` struct definition so it includes this method):
+
+```zig
+    fn display(sheet: *CSSSheet) void {
+        for (sheet.rules) |rule| {
+            std.debug.print("selector: {s}\n", .{rule.selector});
+            for (rule.properties) |property| {
+                var string = switch (property) {
+                    .unknown => unreachable,
+                    .color => |color_value| color_value,
+                    .background => |background_value| background_value,
+                };
+            }
+            std.debug.print("\n", .{});
+        }
+    }
+```
+
+This could get unwieldy as we add fields to the `CSSProperty` union.
+
+Instead we can use the `inline for
+(@typeInfo(CSSProperty).Union.fields) |u_field|` method to iterate
+over all fields, skip the `unknown` field at comptime, and print out
+the field name and value by matching on the current value of the
+`property` enum by using the `@tagName` builtin.
+
+
+```zig
+    fn display(sheet: *CSSSheet) void {
+        for (sheet.rules) |rule| {
+            std.debug.print("selector: {s}\n", .{rule.selector});
+            for (rule.properties) |property| {
+                inline for (@typeInfo(CSSProperty).Union.fields) |u_field| {
+                    if (comptime !std.mem.eql(u8, u_field.name, "unknown")) {
+                        if (std.mem.eql(u8, u_field.name, @tagName(property))) {
+                            std.debug.print("  {s}: {s}\n", .{
+                                @tagName(property),
+                                @field(property, u_field.name),
+                            });
+                        }
+                    }
+                }
+            }
+            std.debug.print("\n", .{});
+        }
+    }
+```
+
+### `main`
+
+Finally, we pull it all together with a little `main` function.
+
+```zig
+pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
+    const allocator = arena.allocator();
+
+    // Let's read in a CSS file.
+    var args = std.process.args();
+
+    // Skips the program name.
+    _ = args.next();
+
+    var file_name: []const u8 = "";
+    if (args.next()) |f| {
+        file_name = f;
+    }
+
+    const file = try std.fs.cwd().openFile(file_name, .{});
+    defer file.close();
+
+    const file_size = try file.getEndPos();
+    var css_file = try allocator.alloc(u8, file_size);
+    _ = try file.read(css_file);
+
+    var sheet = parse(&arena, css_file) catch return;
+    sheet.display();
+}
+```
+
+And try it against some tests.
+
+```console
+$ zig build-exe main.zig
+$ cat tests/basic.css
+div {
+    background: white;
+}
+$ ./main tests/basic.css
+selector: div
+  background: white
+```
+
+Nice! Let's try it against a more complex test.
+
+```console
+$ cat tests/multiple-blocks.css
+div {
+    background: black;
+    color: white;
+}
+
+a {
+    color: blue;
+}
+$ ./main tests/multiple-blocks.css
+selector: div
+  background: black
+  color: white
+
+selector: a
+  color: blue
+
+```
+
+Awesome. And against a bad CSS sheet:
+
+```console
+$ cat tests/bad-property.css
+a {
+    big: pink;
+}
+$ ./main cat tests/bad-property.css
+Error at line 2, column 4. Unknown property: 'big'.
+
+
+    big: pink;
+    ^ Near here.
+```
+
+We've got it!
+
+### Addendum: `@field`
+
+The docs were quite clear about using `@field(object, fieldName)` to
+access the value of an `object` of type `@TypeOf(object)` at field
+`fieldName`.
+
+And the docs do mention `@field()` can be used as LHS but that only
+really struct me when I was browsing the Zig JSON code like at [line
+307](https://github.com/ziglang/zig/blob/master/lib/std/json/static.zig#L307).
+
+I didn't use that in this little project but I've used it elsewhere,
+so it I wanted to call this LHS behavior out.
