@@ -6,7 +6,6 @@
     <title>Writing a lisp compiler from scratch in JavaScript: 3. LLVM | notes.eatonphil.com</title>
     <meta name="description" content="Writing a lisp compiler from scratch in JavaScript: 3. LLVM" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -93,9 +92,9 @@ directly. So we'll work around that by adding 0 to the
 literal. Furthermore, we'll take advantage of
 the <code>add</code>, <code>sub</code>, and <code>mul</code>
 operations built into LLVM IR.</p>
-<pre><code class="hljs llvm">; x = 4
-%x = add i32 4, 0
-</code></pre>
+<div class="highlight"><pre><span></span><span class="c">; x = 4</span>
+<span class="nv">%x</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">add</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="m">4</span><span class="p">,</span><span class="w"> </span><span class="m">0</span>
+</pre></div>
 <p>The type that the operation is operating on must be specified after
 the operation name. In this case we are specifying
 that <code>add</code> is operating on and returning 32-bit integers.</p>
@@ -103,12 +102,12 @@ that <code>add</code> is operating on and returning 32-bit integers.</p>
 LLVM easily optimizes this away.</p>
 <h4 id="function-definition">Function definition</h4><p>Functions are defined at the top-level and are much simpler than x86
 assembly since the details of calling conventions are handled by LLVM.</p>
-<pre><code class="hljs llvm">; (def plus (a b) (+ a b))
-define i32 @plus (i32 a, i32 b) {
-  %res = add i32 a, b
-  ret i32 %res
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="c">; (def plus (a b) (+ a b))</span>
+<span class="k">define</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="vg">@plus</span><span class="w"> </span><span class="p">(</span><span class="kt">i32</span><span class="w"> </span><span class="err">a</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="err">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nv">%res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">add</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="err">a</span><span class="p">,</span><span class="w"> </span><span class="err">b</span>
+<span class="w">  </span><span class="k">ret</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%res</span>
+<span class="p">}</span>
+</pre></div>
 <p>In ulisp, all functions will return a result (and the only supported
 type for now are 32-bit integers). So we annotate the definition with
 this return type (<code>i32</code> in <code>define
@@ -123,70 +122,70 @@ x86 assembly or generating LLVM IR. So we'll need to reorganize ulisp
 a little bit.</p>
 <p>We'll edit <code>src/ulisp.js</code> to accept a second argument to
 specify the backend (and from now on we'll default to LLVM).</p>
-<pre><code class="hljs javascript">const cp = require(&#39;child_process&#39;);
-const fs = require(&#39;fs&#39;);
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">cp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;child_process&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">fs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;fs&#39;</span><span class="p">);</span>
 
-const { parse } = require(&#39;./parser&#39;);
-const backends = require(&#39;./backend&#39;);
+<span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">parse</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./parser&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">backends</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./backend&#39;</span><span class="p">);</span>
 
-function main(args) {
-  const input = fs.readFileSync(args[2]).toString();
+<span class="kd">function</span><span class="w"> </span><span class="nx">main</span><span class="p">(</span><span class="nx">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">input</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">fs</span><span class="p">.</span><span class="nx">readFileSync</span><span class="p">(</span><span class="nx">args</span><span class="p">[</span><span class="mf">2</span><span class="p">]).</span><span class="nx">toString</span><span class="p">();</span>
 
-  let backend;
-  switch (args[3]) {
-    case &#39;llvm&#39;:
-    case undefined:
-      backend = backends.llvm;
-      break;
-    case &#39;x86&#39;:
-      backend = backends.x86;
-      break;
-    default:
-      console.log(&#39;Unsupported backend &#39; + args[3]);
-  }
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">backend</span><span class="p">;</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">args</span><span class="p">[</span><span class="mf">3</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;llvm&#39;</span><span class="o">:</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="kc">undefined</span><span class="o">:</span>
+<span class="w">      </span><span class="nx">backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">backends</span><span class="p">.</span><span class="nx">llvm</span><span class="p">;</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;x86&#39;</span><span class="o">:</span>
+<span class="w">      </span><span class="nx">backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">backends</span><span class="p">.</span><span class="nx">x86</span><span class="p">;</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="k">default</span><span class="o">:</span>
+<span class="w">      </span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s1">&#39;Unsupported backend &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">args</span><span class="p">[</span><span class="mf">3</span><span class="p">]);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  const [ast] = parse(input);
-  const program = backend.compile(ast);
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">ast</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">input</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">program</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">backend</span><span class="p">.</span><span class="nx">compile</span><span class="p">(</span><span class="nx">ast</span><span class="p">);</span>
 
-  try {
-    fs.mkdirSync(&#39;build&#39;);
-  } catch (e) {}
-  backend.build(&#39;build&#39;, program);
-}
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">fs</span><span class="p">.</span><span class="nx">mkdirSync</span><span class="p">(</span><span class="s1">&#39;build&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">e</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">  </span><span class="nx">backend</span><span class="p">.</span><span class="nx">build</span><span class="p">(</span><span class="s1">&#39;build&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">program</span><span class="p">);</span>
+<span class="p">}</span>
 
-main(process.argv);
-</code></pre>
+<span class="nx">main</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">argv</span><span class="p">);</span>
+</pre></div>
 <h3 id="the-llvm-backend">The LLVM backend</h3><p>We'll add <code>src/backend/llvm.js</code> and And expose
 <code>compile</code> and <code>build</code> functions.</p>
 <h4 id="compile(ast)">compile(ast)</h4><p>This will work the same as it did for the x86 backend, creating a new
 <code>Compiler</code> helper object, creating a scope manager (which
 we'll get into in more detail shortly), and generating code from the
 AST wrapped in a <code>begin</code>.</p>
-<pre><code class="hljs javascript">module.exports.compile = function(ast) {
-  const c = new Compiler();
-  const scope = new Scope();
-  c.compileBegin(ast, scope.symbol(), scope);
-  return c.getOutput();
-};
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">compile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="p">(</span><span class="nx">ast</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Compiler</span><span class="p">();</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">scope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Scope</span><span class="p">();</span>
+<span class="w">  </span><span class="nx">c</span><span class="p">.</span><span class="nx">compileBegin</span><span class="p">(</span><span class="nx">ast</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">(),</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">getOutput</span><span class="p">();</span>
+<span class="p">};</span>
+</pre></div>
 <h4 id="build(builddir,-output)">build(buildDir, output)</h4><p>The job of <code>build</code> will be to clean up the build directory,
 write any output as needed to the directory, and compile the written
 output. Since we're dealing with LLVM IR, we first call
 <a href="https://llvm.org/docs/CommandGuide/llc.html">llc</a> on the IR file to
 get an assembly file. Then we can call <code>gcc</code> on the
 assembly to get a binary output.</p>
-<pre><code class="hljs javascript">const cp = require(&#39;child_process&#39;);
-const fs = require(&#39;fs&#39;);
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">cp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;child_process&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">fs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;fs&#39;</span><span class="p">);</span>
 
-...
+<span class="p">...</span>
 
-module.exports.build = function(buildDir, program) {
-  const prog = &#39;prog&#39;;
-  fs.writeFileSync(buildDir + `/${prog}.ll`, program);
-  cp.execSync(`llc -o ${buildDir}/${prog}.s ${buildDir}/${prog}.ll`);
-  cp.execSync(`gcc -o ${buildDir}/${prog} ${buildDir}/${prog}.s`);
-};
-</code></pre>
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">build</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="p">(</span><span class="nx">buildDir</span><span class="p">,</span><span class="w"> </span><span class="nx">program</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">prog</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;prog&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">fs</span><span class="p">.</span><span class="nx">writeFileSync</span><span class="p">(</span><span class="nx">buildDir</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="sb">`/</span><span class="si">${</span><span class="nx">prog</span><span class="si">}</span><span class="sb">.ll`</span><span class="p">,</span><span class="w"> </span><span class="nx">program</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">cp</span><span class="p">.</span><span class="nx">execSync</span><span class="p">(</span><span class="sb">`llc -o </span><span class="si">${</span><span class="nx">buildDir</span><span class="si">}</span><span class="sb">/</span><span class="si">${</span><span class="nx">prog</span><span class="si">}</span><span class="sb">.s </span><span class="si">${</span><span class="nx">buildDir</span><span class="si">}</span><span class="sb">/</span><span class="si">${</span><span class="nx">prog</span><span class="si">}</span><span class="sb">.ll`</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">cp</span><span class="p">.</span><span class="nx">execSync</span><span class="p">(</span><span class="sb">`gcc -o </span><span class="si">${</span><span class="nx">buildDir</span><span class="si">}</span><span class="sb">/</span><span class="si">${</span><span class="nx">prog</span><span class="si">}</span><span class="sb"> </span><span class="si">${</span><span class="nx">buildDir</span><span class="si">}</span><span class="sb">/</span><span class="si">${</span><span class="nx">prog</span><span class="si">}</span><span class="sb">.s`</span><span class="p">);</span>
+<span class="p">};</span>
+</pre></div>
 <h3 id="taking-advantage-of-locals">Taking advantage of locals</h3><p>Before we get too far into the specifics of LLVM IR code generation,
 let's build out the infrastructure to take advantage of "infinite"
 locals. In particular, we want a local-manager (<code>Scope</code>)
@@ -206,36 +205,36 @@ dashes in the name (since dashes are fine in variables in Lisp) with
 underscores. Then we'll add a number to the end of the local name
 until we have a safe name that doesn't exist already. Finally we
 return that safe name after storing the mapping.</p>
-<pre><code class="hljs javascript">class Scope {
-  constructor() {
-    this.locals = {};
-  }
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Scope</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">locals</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{};</span>
+<span class="w">  </span><span class="p">}</span>
 
-  register(local) {
-    let copy = local.replace(&#39;-&#39;, &#39;_&#39;);
-    let n = 1;
-    while (this.locals[copy]) {
-      copy = local + n++;
-    }
+<span class="w">  </span><span class="nx">register</span><span class="p">(</span><span class="nx">local</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">copy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">local</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1</span><span class="p">;</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">locals</span><span class="p">[</span><span class="nx">copy</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">copy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">local</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">n</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    this.locals[local] = copy;
-    return copy;
-  }
-}
-</code></pre>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">locals</span><span class="p">[</span><span class="nx">local</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">copy</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">copy</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="symbol()">symbol()</h4><p>This is a simple function that will return one new unused safe name
 that we can store things in.</p>
-<pre><code class="hljs javascript">class Scope {
-  ...
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Scope</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="p">...</span>
 
-  symbol() {
-    const nth = Object.keys(this.locals).length + 1;
-    return this.register(&#39;sym&#39; + nth);
-  }
+<span class="w">  </span><span class="nx">symbol</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">nth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">locals</span><span class="p">).</span><span class="nx">length</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">1</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">register</span><span class="p">(</span><span class="s1">&#39;sym&#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">nth</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
-}
-</code></pre>
+<span class="w">  </span><span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
 <p>We start off by making up a name based on the prefix <code>sym</code>
 and a suffix of the current key length and pass that into the
 <code>register</code> function to make sure we get a safe name.</p>
@@ -243,31 +242,31 @@ and a suffix of the current key length and pass that into the
 user variable. It is up to the caller of this function to handle if
 the user variable does not exist in scope (and perhaps throw a
 compiler error back to the programmer).</p>
-<pre><code class="hljs javascript">class Scope {
-  ...
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Scope</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="p">...</span>
 
-  get(local) {
-    return this.locals[local];
-  }
+<span class="w">  </span><span class="nx">get</span><span class="p">(</span><span class="nx">local</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">locals</span><span class="p">[</span><span class="nx">local</span><span class="p">];</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
-}
-</code></pre>
+<span class="w">  </span><span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="copy()">copy()</h4><p>Finally, we want to expose a copy function so we can duplicate the
 local storage before entering a new scope. (A variable inside a
 function should not exist in scope outside the function.)</p>
-<pre><code class="hljs javascript">class Scope {
-  ...
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Scope</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="p">...</span>
 
-  copy() {
-    const c = new Scope();
-    c.locals = { ...this.locals };
-    return c;
-  }
+<span class="w">  </span><span class="nx">copy</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Scope</span><span class="p">();</span>
+<span class="w">    </span><span class="nx">c</span><span class="p">.</span><span class="nx">locals</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="k">this</span><span class="p">.</span><span class="nx">locals</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">c</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
-}
-</code></pre>
+<span class="w">  </span><span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="back-to-codegen!">Back to codegen!</h3><p>As mentioned in <code>module.exports.compile</code>, we're going to
 use a <code>Compiler</code> that exposes a number of compiler helpers:</p>
 <ul>
@@ -282,83 +281,83 @@ use a <code>Compiler</code> that exposes a number of compiler helpers:</p>
 <h4 id="emit(depth,-code)">emit(depth, code)</h4><p>Like we had in the x86 backend, this will indent the code two spaces
 <code>depth</code> times and write it to the buffer we track generated
 code.</p>
-<pre><code class="hljs javascript">class Compiler {
-  constructor() {
-    this.outBuffer = [];
-  }
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">  </span><span class="p">}</span>
 
-  emit(depth, code) {
-    const indent = new Array(depth + 1).join(&#39;  &#39;);
-    this.outBuffer.push(indent + code);
-  }
-}
-</code></pre>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="nx">code</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">indent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Array</span><span class="p">(</span><span class="nx">depth</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">1</span><span class="p">).</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;  &#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">indent</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">code</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="compilebegin(ast,-destination,-scope)">compileBegin(ast, destination, scope)</h4><p>Our first compiler function actually does no code generation
 itself. We'll call <code>compileExpression</code> on each item within
 the begin block. And we'll pass the <code>destination</code> to the
 last expression in the list so that the value of a begin block is set
 to the value of its last expression. All other expressions will
 receive a temporary variable to store results.</p>
-<pre><code class="hljs javascript">class Compiler {
-  ...
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="p">...</span>
 
-  compileBegin(body, destination, scope) {
-    body.forEach((expression, i) =&gt;
-      this.compileExpression(
-        expression,
-        i === body.length - 1 ? destination : scope.symbol(),
-        scope,
-      ),
-    );
-  }
+<span class="w">  </span><span class="nx">compileBegin</span><span class="p">(</span><span class="nx">body</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">body</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">expression</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span>
+<span class="w">        </span><span class="nx">expression</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">i</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="nx">body</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="nx">destination</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">(),</span>
+<span class="w">        </span><span class="nx">scope</span><span class="p">,</span>
+<span class="w">      </span><span class="p">),</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
-}
-</code></pre>
+<span class="w">  </span><span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
 <p>Example:</p>
-<pre><code class="hljs lisp">(begin 1 2) ; returns 2
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nv">begin</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="c1">; returns 2</span>
+</pre></div>
 <h4 id="compileexpression(ast,-destination,-scope)">compileExpression(ast, destination, scope)</h4><p>This is the most generic compile function. If the ast is a list
 (representing a function call), it will pass compilation off to
 <code>compileCall</code>. Otherwise the only non-function call parts
 of the language are variable references and numeric literals.</p>
-<pre><code class="hljs javascript">class Compiler {
-  ...
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="p">...</span>
 
-  compileExpression(exp, destination, scope) {
-    // Is a nested function call, compile it
-    if (Array.isArray(exp)) {
-      this.compileCall(exp[0], exp.slice(1), destination, scope);
-      return;
-    }
+<span class="w">  </span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">exp</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Is a nested function call, compile it</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Array</span><span class="p">.</span><span class="nx">isArray</span><span class="p">(</span><span class="nx">exp</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileCall</span><span class="p">(</span><span class="nx">exp</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">exp</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // If numeric literal, store to destination register by adding 0.
-    if (Number.isInteger(exp)) {
-      this.emit(1, `%${destination} = add i32 ${exp}, 0`);
-      return;
-    }
+<span class="w">    </span><span class="c1">// If numeric literal, store to destination register by adding 0.</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Number</span><span class="p">.</span><span class="nx">isInteger</span><span class="p">(</span><span class="nx">exp</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`%</span><span class="si">${</span><span class="nx">destination</span><span class="si">}</span><span class="sb"> = add i32 </span><span class="si">${</span><span class="nx">exp</span><span class="si">}</span><span class="sb">, 0`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // If is local, store to destination register similarly.
-    const res = scope.get(exp);
-    if (res) {
-      this.emit(1, `%${destination} = add i32 %${res}, 0`);
-    } else {
-      throw new Error(
-        &#39;Attempt to reference undefined variable or unsupported literal: &#39; +
-          exp,
-      );
-  }
+<span class="w">    </span><span class="c1">// If is local, store to destination register similarly.</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="nx">exp</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">res</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`%</span><span class="si">${</span><span class="nx">destination</span><span class="si">}</span><span class="sb"> = add i32 %</span><span class="si">${</span><span class="nx">res</span><span class="si">}</span><span class="sb">, 0`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span>
+<span class="w">        </span><span class="s1">&#39;Attempt to reference undefined variable or unsupported literal: &#39;</span><span class="w"> </span><span class="o">+</span>
+<span class="w">          </span><span class="nx">exp</span><span class="p">,</span>
+<span class="w">      </span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
-}
-</code></pre>
+<span class="w">  </span><span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
 <p>Example:</p>
-<pre><code class="hljs lisp">1
-...
-a
-...
-(+ 1 a)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="mi">1</span>
+<span class="o">...</span>
+<span class="nv">a</span>
+<span class="o">...</span>
+<span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="nv">a</span><span class="p">)</span>
+</pre></div>
 <h4 id="compilecall(functionname,-arguments,-destination,-scope)">compileCall(functionName, arguments, destination, scope)</h4><p>Most function calls will automatically compile arguments before
 calling the function. However, certain control-flow primitives don't
 do this (e.g. <code>def</code>, <code>if</code>, etc.). Macros in Lisp
@@ -370,47 +369,47 @@ to them if the function name matches a primitive. Otherwise, we'll
 look up the function name in scope (to find its safe name), compile
 the arguments, and call the function with the results of the
 arguments.</p>
-<pre><code class="hljs javascript">class Compiler {
-  constructor() {
-    this.outBuffer = [];
-    this.primitiveFunctions = {
-      def: this.compileDefine.bind(this),
-      begin: this.compileBegin.bind(this),
-    };
-  }
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">def</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileDefine</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="nx">begin</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileBegin</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
+<span class="w">  </span><span class="p">...</span>
 
-  compileCall(fun, args, destination, scope) {
-    if (this.primitiveFunctions[fun]) {
-      this.primitiveFunctions[fun](args, destination, scope);
-      return;
-    }
+<span class="w">  </span><span class="nx">compileCall</span><span class="p">(</span><span class="nx">fun</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="p">[</span><span class="nx">fun</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="p">[</span><span class="nx">fun</span><span class="p">](</span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    const validFunction = scope.get(fun);
-    if (validFunction) {
-      const safeArgs = args
-        .map((a) =&gt; {
-          const res = scope.symbol();
-          this.compileExpression(a, res, scope);
-          return &#39;i32 %&#39; + res;
-        })
-        .join(&#39;, &#39;);
-      this.emit(1, `%${destination} = call i32 @${validFunction}(${safeArgs})`);
-    } else {
-      throw new Error(&#39;Attempt to call undefined function: &#39; + fun);
-    }
-  }
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">validFunction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="nx">fun</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">validFunction</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">safeArgs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">args</span>
+<span class="w">        </span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">a</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="kd">const</span><span class="w"> </span><span class="nx">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">();</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">a</span><span class="p">,</span><span class="w"> </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">          </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;i32 %&#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">res</span><span class="p">;</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">        </span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;, &#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`%</span><span class="si">${</span><span class="nx">destination</span><span class="si">}</span><span class="sb"> = call i32 @</span><span class="si">${</span><span class="nx">validFunction</span><span class="si">}</span><span class="sb">(</span><span class="si">${</span><span class="nx">safeArgs</span><span class="si">}</span><span class="sb">)`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Attempt to call undefined function: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">fun</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
-}
-</code></pre>
+<span class="w">  </span><span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
 <p>Yay LLVM for simplifying calls!</p>
 <p>Example:</p>
-<pre><code class="hljs lisp">(foo 1)
-...
-(+ 1 2)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nv">foo</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+<span class="o">...</span>
+<span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
 <h4 id="compiledefine([functionname,-parameters,-...body],-destination,-scope)">compileDefine([functionName, parameters, ...body], destination, scope)</h4><p>This is the last undefined compile function we've used. The call
 signature may look funny but we write less code if we keep the
 primitive signatures the same. In any case, JavaScript's destructuring
@@ -419,130 +418,130 @@ makes it pretty enough.</p>
 scope so we can look it up later in use. Additionally we need to
 create a copy of the current scope for the body of the function. And
 we'll add the parameter names themselves to the child scope.</p>
-<pre><code class="hljs javascript">class Compiler {
-  ...
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="p">...</span>
 
-  compileDefine([name, params, ...body], destination, scope) {
-    // Add this function to outer scope
-    const safeName = scope.register(name);
+<span class="w">  </span><span class="nx">compileDefine</span><span class="p">([</span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">params</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nx">body</span><span class="p">],</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Add this function to outer scope</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">safeName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">register</span><span class="p">(</span><span class="nx">name</span><span class="p">);</span>
 
-    // Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.
-    const childScope = scope.copy();
+<span class="w">    </span><span class="c1">// Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">childScope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">copy</span><span class="p">();</span>
 
-    const safeParams = params.map((param) =&gt;
-      // Store parameter mapped to associated local
-      childScope.register(param),
-    );
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">safeParams</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">params</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">param</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span>
+<span class="w">      </span><span class="c1">// Store parameter mapped to associated local</span>
+<span class="w">      </span><span class="nx">childScope</span><span class="p">.</span><span class="nx">register</span><span class="p">(</span><span class="nx">param</span><span class="p">),</span>
+<span class="w">    </span><span class="p">);</span>
 
-    this.emit(
-      0,
-      `define i32 @${safeName}(${safeParams
-        .map((p) =&gt; `i32 %${p}`)
-        .join(&#39;, &#39;)}) {`,
-    );
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span>
+<span class="w">      </span><span class="mf">0</span><span class="p">,</span>
+<span class="w">      </span><span class="sb">`define i32 @</span><span class="si">${</span><span class="nx">safeName</span><span class="si">}</span><span class="sb">(</span><span class="si">${</span><span class="nx">safeParams</span>
+<span class="w">        </span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">p</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="sb">`i32 %</span><span class="si">${</span><span class="nx">p</span><span class="si">}</span><span class="sb">`</span><span class="p">)</span>
+<span class="w">        </span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;, &#39;</span><span class="p">)</span><span class="si">}</span><span class="sb">) {`</span><span class="p">,</span>
+<span class="w">    </span><span class="p">);</span>
 
-    // Pass childScope in for reference when body is compiled.
-    const ret = childScope.symbol();
-    this.compileExpression(body[0], ret, childScope);
+<span class="w">    </span><span class="c1">// Pass childScope in for reference when body is compiled.</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">childScope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">();</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">body</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">ret</span><span class="p">,</span><span class="w"> </span><span class="nx">childScope</span><span class="p">);</span>
 
-    this.emit(1, `ret i32 %${ret}`);
-    this.emit(0, &#39;}\n&#39;);
-  }
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`ret i32 %</span><span class="si">${</span><span class="nx">ret</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;}\n&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
-}
-</code></pre>
+<span class="w">  </span><span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
 <p>Example:</p>
-<pre><code class="hljs lisp">(def plus (a b) (+ a b))
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">plus</span><span class="w"> </span><span class="p">(</span><span class="nv">a</span><span class="w"> </span><span class="nv">b</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="nv">b</span><span class="p">))</span>
+</pre></div>
 <h4 id="compileop(op)">compileOp(op)</h4><p>The last function mentioned above will help us expose some useful
 primitives.  This function will take a string builtin operation and
 return a function that can be used to generate code when the operation
 is called.</p>
-<pre><code class="hljs javascript">class Compiler {
-  ...
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="p">...</span>
 
-  compileOp(op) {
-    return ([a, b], destination, scope) =&gt; {
-      const arg1 = scope.symbol();
-      const arg2 = scope.symbol();
-      this.compileExpression(a, arg1, scope);
-      this.compileExpression(b, arg2, scope);
-      this.emit(1, `%${destination} = ${op} i32 %${arg1}, %${arg2}`);
-    };
-  }
+<span class="w">  </span><span class="nx">compileOp</span><span class="p">(</span><span class="nx">op</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">([</span><span class="nx">a</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="p">],</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">arg1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">();</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">arg2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">();</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">a</span><span class="p">,</span><span class="w"> </span><span class="nx">arg1</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">b</span><span class="p">,</span><span class="w"> </span><span class="nx">arg2</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`%</span><span class="si">${</span><span class="nx">destination</span><span class="si">}</span><span class="sb"> = </span><span class="si">${</span><span class="nx">op</span><span class="si">}</span><span class="sb"> i32 %</span><span class="si">${</span><span class="nx">arg1</span><span class="si">}</span><span class="sb">, %</span><span class="si">${</span><span class="nx">arg2</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
-}
-</code></pre>
+<span class="w">  </span><span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
 <p>This allows us to add some builtin ops as primitives (even though they
 aren't control-flow modifying).</p>
-<pre><code class="hljs javascript">class Compiler {
-  constructor() {
-    this.outBuffer = [];
-    this.primitiveFunctions = {
-      def: this.compileDefine.bind(this),
-      begin: this.compileBegin.bind(this),
-      &#39;+&#39;: this.compileOp(&#39;add&#39;),
-      &#39;-&#39;: this.compileOp(&#39;sub&#39;),
-      &#39;*&#39;: this.compileOp(&#39;mul&#39;),
-    };
-  }
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">def</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileDefine</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="nx">begin</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileBegin</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;+&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;add&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;-&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;sub&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;*&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;mul&#39;</span><span class="p">),</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
-}
-</code></pre>
+<span class="w">  </span><span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
 <p>Example:</p>
-<pre><code class="hljs lisp">(+ 1 2)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
 <h3 id="hello-world!">Hello world!</h3><p>Putting it all together, we'll compile this Lisp program:</p>
-<pre><code class="hljs lisp">(def plus-two (a b)
-     (+ a (+ b 2)))
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">plus-two</span><span class="w"> </span><span class="p">(</span><span class="nv">a</span><span class="w"> </span><span class="nv">b</span><span class="p">)</span>
+<span class="w">     </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="nv">b</span><span class="w"> </span><span class="mi">2</span><span class="p">)))</span>
 
-(def main ()
-     (plus-two 3 (plus-two 1 1)))
-</code></pre>
+<span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">main</span><span class="w"> </span><span class="p">()</span>
+<span class="w">     </span><span class="p">(</span><span class="nv">plus-two</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="p">(</span><span class="nv">plus-two</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mi">1</span><span class="p">)))</span>
+</pre></div>
 <p>To get 9.</p>
-<pre><code class="hljs bash">$ node src/ulisp.js tests/function_definition.lisp
-$ ./build/prog
-$ echo $?
-9
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>node<span class="w"> </span>src/ulisp.js<span class="w"> </span>tests/function_definition.lisp
+$<span class="w"> </span>./build/prog
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">9</span>
+</pre></div>
 <h4 id="generated-code">Generated code</h4><p>The generated LLVM can be found in <code>./build/prog.ll</code>:</p>
-<pre><code class="hljs llvm">define i32 @plus_two(i32 %a, i32 %b) {
-  %sym7 = add i32 %a, 0
-  %sym9 = add i32 %b, 0
-  %sym10 = add i32 2, 0
-  %sym8 = add i32 %sym9, %sym10
-  %sym6 = add i32 %sym7, %sym8
-  ret i32 %sym6
-}
+<div class="highlight"><pre><span></span><span class="k">define</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="vg">@plus_two</span><span class="p">(</span><span class="kt">i32</span><span class="w"> </span><span class="nv">%a</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nv">%sym7</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">add</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%a</span><span class="p">,</span><span class="w"> </span><span class="m">0</span>
+<span class="w">  </span><span class="nv">%sym9</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">add</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%b</span><span class="p">,</span><span class="w"> </span><span class="m">0</span>
+<span class="w">  </span><span class="nv">%sym10</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">add</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="m">2</span><span class="p">,</span><span class="w"> </span><span class="m">0</span>
+<span class="w">  </span><span class="nv">%sym8</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">add</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%sym9</span><span class="p">,</span><span class="w"> </span><span class="nv">%sym10</span>
+<span class="w">  </span><span class="nv">%sym6</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">add</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%sym7</span><span class="p">,</span><span class="w"> </span><span class="nv">%sym8</span>
+<span class="w">  </span><span class="k">ret</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%sym6</span>
+<span class="p">}</span>
 
-define i32 @main() {
-  %sym6 = add i32 3, 0
-  %sym8 = add i32 1, 0
-  %sym9 = add i32 1, 0
-  %sym7 = call i32 @plus_two(i32 %sym8, i32 %sym9)
-  %sym5 = call i32 @plus_two(i32 %sym6, i32 %sym7)
-  ret i32 %sym5
-}
-</code></pre>
+<span class="k">define</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="vg">@main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nv">%sym6</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">add</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="m">3</span><span class="p">,</span><span class="w"> </span><span class="m">0</span>
+<span class="w">  </span><span class="nv">%sym8</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">add</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">0</span>
+<span class="w">  </span><span class="nv">%sym9</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">add</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">0</span>
+<span class="w">  </span><span class="nv">%sym7</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">call</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="vg">@plus_two</span><span class="p">(</span><span class="kt">i32</span><span class="w"> </span><span class="nv">%sym8</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%sym9</span><span class="p">)</span>
+<span class="w">  </span><span class="nv">%sym5</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">call</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="vg">@plus_two</span><span class="p">(</span><span class="kt">i32</span><span class="w"> </span><span class="nv">%sym6</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%sym7</span><span class="p">)</span>
+<span class="w">  </span><span class="k">ret</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%sym5</span>
+<span class="p">}</span>
+</pre></div>
 <p>You can see all these unnecessary <code>add, ... 0</code>
 instructions. But let's look at the x86 assembly that LLVM generates
 in <code>build/prog.s</code>:</p>
-<pre><code class="hljs assembly">...
+<div class="highlight"><pre><span></span><span class="nf">...</span>
 
-_plus_two:                              ## @plus_two
-        .cfi_startproc
-## %bb.0:
-                                        ## kill: def $esi killed $esi def $rsi
-                                        ## kill: def $edi killed $edi def $rdi
-        leal    2(%rdi,%rsi), %eax
-        retq
-        .cfi_endproc
-                                        ## -- End function
-...
-</code></pre>
+<span class="nl">_plus_two:</span><span class="w">                              </span><span class="c1">## @plus_two</span>
+<span class="w">        </span><span class="nf">.cfi_startproc</span>
+<span class="c1">## %bb.0:</span>
+<span class="w">                                        </span><span class="c1">## kill: def $esi killed $esi def $rsi</span>
+<span class="w">                                        </span><span class="c1">## kill: def $edi killed $edi def $rdi</span>
+<span class="w">        </span><span class="nf">leal</span><span class="w">    </span><span class="mi">2</span><span class="p">(</span><span class="o">%</span><span class="nb">rdi</span><span class="p">,</span><span class="o">%</span><span class="nb">rsi</span><span class="p">),</span><span class="w"> </span><span class="o">%</span><span class="nb">eax</span>
+<span class="w">        </span><span class="nf">retq</span>
+<span class="w">        </span><span class="nf">.cfi_endproc</span>
+<span class="w">                                        </span><span class="c1">## -- End function</span>
+<span class="nf">...</span>
+</pre></div>
 <p>And we see that LLVM easily optimized the inefficiencies away. :)</p>
 <h3 id="next-up">Next up</h3><ul>
 <li>Compiling conditionals</li>
@@ -1187,7 +1186,6 @@ _plus_two:                              ## @plus_two
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

@@ -6,7 +6,6 @@
     <title>Static analysis with semgrep: practical examples using Docker | notes.eatonphil.com</title>
     <meta name="description" content="Static analysis with semgrep: practical examples using Docker" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -73,46 +72,46 @@ awesome, I had a hard time going from that to a working sample on my
 own laptop with Docker. We'll do just that.</p>
 <h3 id="catching-print-statements-in-python">Catching print statements in Python</h3><p>Let's say we want a script to fail on any use of print statements in
 Python:</p>
-<pre><code class="hljs python">$ cat test/python/simple-print.py
-def main():
-  print(&quot;DEBUG: here&quot;)
-  print(&quot;DEBUG: &quot;, &quot;now here&quot;)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="err">$</span> <span class="n">cat</span> <span class="n">test</span><span class="o">/</span><span class="n">python</span><span class="o">/</span><span class="n">simple</span><span class="o">-</span><span class="nb">print</span><span class="o">.</span><span class="n">py</span>
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+  <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;DEBUG: here&quot;</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;DEBUG: &quot;</span><span class="p">,</span> <span class="s2">&quot;now here&quot;</span><span class="p">)</span>
+</pre></div>
 <p>The current <a href="https://semgrep.dev/editor">default example</a> shown in the
 online editor happens to be for just this. Click the Advanced tab and
 you'll see the following:</p>
-<pre><code class="hljs yaml">rules:
-- id: fail-on-print
-  pattern: |
-    print(&quot;...&quot;)
-  message: |
-    Semgrep found a match
-  severity: WARNING
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nt">rules</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fail-on-print</span>
+<span class="w">  </span><span class="nt">pattern</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">    </span><span class="no">print(&quot;...&quot;)</span>
+<span class="w">  </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">    </span><span class="no">Semgrep found a match</span>
+<span class="w">  </span><span class="nt">severity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WARNING</span>
+</pre></div>
 <p>Copy this into <code>config.yml</code>. Let's modify the pattern to
 warn on all print calls, not just print calls with a single string
 argument:</p>
-<pre><code class="hljs yaml">rules:
-- id: fail-on-print
-  pattern: |
-    print(...)
-  message: |
-    Semgrep found a match
-  severity: WARNING
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nt">rules</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fail-on-print</span>
+<span class="w">  </span><span class="nt">pattern</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">    </span><span class="no">print(...)</span>
+<span class="w">  </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">    </span><span class="no">Semgrep found a match</span>
+<span class="w">  </span><span class="nt">severity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WARNING</span>
+</pre></div>
 <p>The editor doesn't mention it (nor do any docs I can find) but we also
 need to include two keys in the individual rule
 object: <code>mode</code> and <code>languages</code>.</p>
-<pre><code class="hljs yaml">rules:
-- id: fail-on-print
-  pattern: |
-    print(...)
-  message: |
-    Semgrep found a match
-  severity: WARNING
-  mode: search
-  languages: [&quot;generic&quot;]
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nt">rules</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fail-on-print</span>
+<span class="w">  </span><span class="nt">pattern</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">    </span><span class="no">print(...)</span>
+<span class="w">  </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">    </span><span class="no">Semgrep found a match</span>
+<span class="w">  </span><span class="nt">severity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WARNING</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">search</span>
+<span class="w">  </span><span class="nt">languages</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;generic&quot;</span><span class="p p-Indicator">]</span>
+</pre></div>
 <p>Semgrep fails really weirdly if you set <code>mode</code> to
 anything other than <code>search</code>, but it won't warn you that
 what you set is garbage. The <code>languages</code> setting is
@@ -123,15 +122,15 @@ incorrectly.</p>
   understand the difference between languages and as far as I'm
   concerned the syntax I'm using here is already pretty generic.
 </p><p>We run the semgrep Docker image:</p>
-<pre><code class="hljs bash">$ docker run -v &quot;${PWD}:/src&quot; returntocorp/semgrep --config=config.yml test/python
-A new version of Semgrep is available. Please see https://github.com/returntocorp/semgrep#upgrading for more information.
-running 1 rules...
+<div class="highlight"><pre><span></span>$<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </span>-v<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span><span class="s2">:/src&quot;</span><span class="w"> </span>returntocorp/semgrep<span class="w"> </span>--config<span class="o">=</span>config.yml<span class="w"> </span>test/python
+A<span class="w"> </span>new<span class="w"> </span>version<span class="w"> </span>of<span class="w"> </span>Semgrep<span class="w"> </span>is<span class="w"> </span>available.<span class="w"> </span>Please<span class="w"> </span>see<span class="w"> </span>https://github.com/returntocorp/semgrep#upgrading<span class="w"> </span><span class="k">for</span><span class="w"> </span>more<span class="w"> </span>information.
+running<span class="w"> </span><span class="m">1</span><span class="w"> </span>rules...
 test/python/simple-print.py
-severity:warning rule:fail-on-print: Semgrep found a match
+severity:warning<span class="w"> </span>rule:fail-on-print:<span class="w"> </span>Semgrep<span class="w"> </span>found<span class="w"> </span>a<span class="w"> </span>match
 
-2:print(&quot;DEBUG: here&quot;)
-ran 1 rules on 1 files: 1 findings&quot;&quot;)
-</code></pre>
+<span class="m">2</span>:print<span class="o">(</span><span class="s2">&quot;DEBUG: here&quot;</span><span class="o">)</span>
+ran<span class="w"> </span><span class="m">1</span><span class="w"> </span>rules<span class="w"> </span>on<span class="w"> </span><span class="m">1</span><span class="w"> </span>files:<span class="w"> </span><span class="m">1</span><span class="w"> </span>findings<span class="s2">&quot;&quot;</span><span class="o">)</span>
+</pre></div>
 <p>And there we've got our warning!</p>
 <p class="note">
   Not completely clear to me why we're getting warned about a new
@@ -140,164 +139,164 @@ ran 1 rules on 1 files: 1 findings&quot;&quot;)
   Docker image yet.
 </p><h3 id="catching-fmt.print*-statements-in-go">Catching fmt.Print* statements in Go</h3><p>Let's say we also want to fail on print statements in Go (because we
 should use a logger instead):</p>
-<pre><code class="hljs go">$ cat test/golang/simple-print.go
-package main
+<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="nx">cat</span><span class="w"> </span><span class="nx">test</span><span class="o">/</span><span class="nx">golang</span><span class="o">/</span><span class="nx">simple</span><span class="o">-</span><span class="nx">print</span><span class="p">.</span><span class="k">go</span>
+<span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 
-import &quot;fmt&quot;
+<span class="kn">import</span><span class="w"> </span><span class="s">&quot;fmt&quot;</span>
 
-func main() {
-  a := fmt.Sprintf(&quot;here&quot;)
-  fmt.Println(a)
-  fmt.Printf(&quot;%s\n&quot;, a)
-  e := fmt.Errorf(&quot;My crazy error&quot;)
-}
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">a</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;here&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">a</span><span class="p">)</span>
+<span class="w">  </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;%s\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">a</span><span class="p">)</span>
+<span class="w">  </span><span class="nx">e</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;My crazy error&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <p>We could try to look for any <code>import "fmt"</code> code in a file
 but that would fail on uses of <code>fmt.Sprintf</code>
 or <code>fmt.Errorf</code> which are fine. Instead we'll just focus on
 uses of <code>fmt.Printf</code> or <code>fmt.Println</code>:</p>
-<pre><code class="hljs yaml">$ cat go-config.yml
-rules:
-- id: fail-on-print
-  pattern-either:
-    - pattern: fmt.Printf(...)
-    - pattern: fmt.Println(...)
-  message: |
-    Semgrep found a match
-  severity: WARNING
-  mode: search
-  languages: [&quot;generic&quot;]
-</code></pre>
+<div class="highlight"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">$ cat go-config.yml</span>
+<span class="l l-Scalar l-Scalar-Plain">rules</span><span class="p p-Indicator">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fail-on-print</span>
+<span class="w">  </span><span class="nt">pattern-either</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">pattern</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fmt.Printf(...)</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">pattern</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fmt.Println(...)</span>
+<span class="w">  </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">    </span><span class="no">Semgrep found a match</span>
+<span class="w">  </span><span class="nt">severity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WARNING</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">search</span>
+<span class="w">  </span><span class="nt">languages</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;generic&quot;</span><span class="p p-Indicator">]</span>
+</pre></div>
 <p>Run the Go config against the Go files:</p>
-<pre><code class="hljs bash">$ docker run -v &quot;${PWD}:/src&quot; returntocorp/semgrep --config=go-config.yml test/golang
-A new version of Semgrep is available. Please see https://github.com/returntocorp/semgrep#upgrading for more information.
-running 1 rules...
+<div class="highlight"><pre><span></span>$<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </span>-v<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span><span class="s2">:/src&quot;</span><span class="w"> </span>returntocorp/semgrep<span class="w"> </span>--config<span class="o">=</span>go-config.yml<span class="w"> </span>test/golang
+A<span class="w"> </span>new<span class="w"> </span>version<span class="w"> </span>of<span class="w"> </span>Semgrep<span class="w"> </span>is<span class="w"> </span>available.<span class="w"> </span>Please<span class="w"> </span>see<span class="w"> </span>https://github.com/returntocorp/semgrep#upgrading<span class="w"> </span><span class="k">for</span><span class="w"> </span>more<span class="w"> </span>information.
+running<span class="w"> </span><span class="m">1</span><span class="w"> </span>rules...
 test/golang/simple-print.go
-severity:warning rule:fail-on-print: Semgrep found a match
+severity:warning<span class="w"> </span>rule:fail-on-print:<span class="w"> </span>Semgrep<span class="w"> </span>found<span class="w"> </span>a<span class="w"> </span>match
 
-8:fmt.Printf(&quot;%s\n&quot;, a)
+<span class="m">8</span>:fmt.Printf<span class="o">(</span><span class="s2">&quot;%s\n&quot;</span>,<span class="w"> </span>a<span class="o">)</span>
 --------------------------------------------------------------------------------
-7:fmt.Println(a)
-ran 1 rules on 1 files: 2 findings
-</code></pre>
+<span class="m">7</span>:fmt.Println<span class="o">(</span>a<span class="o">)</span>
+ran<span class="w"> </span><span class="m">1</span><span class="w"> </span>rules<span class="w"> </span>on<span class="w"> </span><span class="m">1</span><span class="w"> </span>files:<span class="w"> </span><span class="m">2</span><span class="w"> </span>findings
+</pre></div>
 <p>Cool! Making some sense. Now let's try a harder pattern.</p>
 <h3 id="catching-triple-nested-for-loops">Catching triple-nested for loops</h3><p>Let's try to warn on the triple-nested loop in this code:</p>
-<pre><code class="hljs go">$ cat test/golang/loopy.go
-package main
+<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="nx">cat</span><span class="w"> </span><span class="nx">test</span><span class="o">/</span><span class="nx">golang</span><span class="o">/</span><span class="nx">loopy</span><span class="p">.</span><span class="k">go</span>
+<span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 
-import &quot;log&quot;
+<span class="kn">import</span><span class="w"> </span><span class="s">&quot;log&quot;</span>
 
-func main() {
-  doneFirst := false
-  for i := 0; i &lt; 10; i++ {
-    log.Print(i)
+<span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">doneFirst</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Print</span><span class="p">(</span><span class="nx">i</span><span class="p">)</span>
 
-    for j := 0; j &lt; 100; j++ {
-      c := i * j
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">j</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="nx">j</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="mi">100</span><span class="p">;</span><span class="w"> </span><span class="nx">j</span><span class="o">++</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">c</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nx">j</span>
 
-      going := true
-      k := 0
-      for going {
-        if k == c {
-          break
-        }
+<span class="w">      </span><span class="nx">going</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">      </span><span class="nx">k</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="nx">going</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">k</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">break</span>
+<span class="w">        </span><span class="p">}</span>
 
-        k++
-        log.Print(k)
-      }
-    }
+<span class="w">        </span><span class="nx">k</span><span class="o">++</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Print</span><span class="p">(</span><span class="nx">k</span><span class="p">)</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    doneFirst = true
-  }
-}
-</code></pre>
+<span class="w">    </span><span class="nx">doneFirst</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>If we want to catch the use of nested for loops here then we'll need
 to search for the loops surrounded by arbitrary
 syntax. Semgrep's <code>...</code> syntax makes this easy.</p>
-<pre><code class="hljs yaml">$ cat go-config2.yml
-rules:
-- id: fail-on-3-loop
-  pattern: |
-    for ... {
-      ...
-      for ... {
-        ...
+<div class="highlight"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">$ cat go-config2.yml</span>
+<span class="l l-Scalar l-Scalar-Plain">rules</span><span class="p p-Indicator">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fail-on-3-loop</span>
+<span class="w">  </span><span class="nt">pattern</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">    </span><span class="no">for ... {</span>
+<span class="w">      </span><span class="no">...</span>
+<span class="w">      </span><span class="no">for ... {</span>
+<span class="w">        </span><span class="no">...</span>
 
-        for ... {
-          ...
-        }
-        ...
-      }
-      ...
-    }
-  message: |
-    Semgrep found a match
-  severity: WARNING
-  mode: search
-  languages: [&quot;generic&quot;]
-</code></pre>
+<span class="w">        </span><span class="no">for ... {</span>
+<span class="w">          </span><span class="no">...</span>
+<span class="w">        </span><span class="no">}</span>
+<span class="w">        </span><span class="no">...</span>
+<span class="w">      </span><span class="no">}</span>
+<span class="w">      </span><span class="no">...</span>
+<span class="w">    </span><span class="no">}</span>
+<span class="w">  </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">    </span><span class="no">Semgrep found a match</span>
+<span class="w">  </span><span class="nt">severity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WARNING</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">search</span>
+<span class="w">  </span><span class="nt">languages</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;generic&quot;</span><span class="p p-Indicator">]</span>
+</pre></div>
 <p>And run semgrep:</p>
-<pre><code class="hljs bash">$ docker run -v &quot;${PWD}:/src&quot; returntocorp/semgrep --config=go-config2.yml test/golang
-A new version of Semgrep is available. Please see https://github.com/returntocorp/semgrep#upgrading for more information.
-running 1 rules...
+<div class="highlight"><pre><span></span>$<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </span>-v<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span><span class="s2">:/src&quot;</span><span class="w"> </span>returntocorp/semgrep<span class="w"> </span>--config<span class="o">=</span>go-config2.yml<span class="w"> </span>test/golang
+A<span class="w"> </span>new<span class="w"> </span>version<span class="w"> </span>of<span class="w"> </span>Semgrep<span class="w"> </span>is<span class="w"> </span>available.<span class="w"> </span>Please<span class="w"> </span>see<span class="w"> </span>https://github.com/returntocorp/semgrep#upgrading<span class="w"> </span><span class="k">for</span><span class="w"> </span>more<span class="w"> </span>information.
+running<span class="w"> </span><span class="m">1</span><span class="w"> </span>rules...
 test/golang/loopy.go
-severity:warning rule:fail-on-3-loop: Semgrep found a match
+severity:warning<span class="w"> </span>rule:fail-on-3-loop:<span class="w"> </span>Semgrep<span class="w"> </span>found<span class="w"> </span>a<span class="w"> </span>match
 
-7:for i := 0; i &lt; 10; i++ {
-8:              log.Print(i)
-9:
-10:             for j := 0; j &lt; 100; j++ {
-11:                     c := i * j
-12:
-13:                     going := true
-14:                     k := 0
-15:                     for going {
-16:                             if k == c {
--------- [hid 10 additional lines, adjust with --max-lines-per-finding] --------
-ran 1 rules on 2 files: 1 findings
-</code></pre>
+<span class="m">7</span>:for<span class="w"> </span>i<span class="w"> </span>:<span class="o">=</span><span class="w"> </span><span class="m">0</span><span class="p">;</span><span class="w"> </span>i<span class="w"> </span>&lt;<span class="w"> </span><span class="m">10</span><span class="p">;</span><span class="w"> </span>i++<span class="w"> </span><span class="o">{</span>
+<span class="m">8</span>:<span class="w">              </span>log.Print<span class="o">(</span>i<span class="o">)</span>
+<span class="m">9</span>:
+<span class="m">10</span>:<span class="w">             </span><span class="k">for</span><span class="w"> </span>j<span class="w"> </span>:<span class="o">=</span><span class="w"> </span><span class="m">0</span><span class="p">;</span><span class="w"> </span>j<span class="w"> </span>&lt;<span class="w"> </span><span class="m">100</span><span class="p">;</span><span class="w"> </span>j++<span class="w"> </span><span class="o">{</span>
+<span class="m">11</span>:<span class="w">                     </span>c<span class="w"> </span>:<span class="o">=</span><span class="w"> </span>i<span class="w"> </span>*<span class="w"> </span>j
+<span class="m">12</span>:
+<span class="m">13</span>:<span class="w">                     </span>going<span class="w"> </span>:<span class="o">=</span><span class="w"> </span><span class="nb">true</span>
+<span class="m">14</span>:<span class="w">                     </span>k<span class="w"> </span>:<span class="o">=</span><span class="w"> </span><span class="m">0</span>
+<span class="m">15</span>:<span class="w">                     </span><span class="k">for</span><span class="w"> </span>going<span class="w"> </span><span class="o">{</span>
+<span class="m">16</span>:<span class="w">                             </span><span class="k">if</span><span class="w"> </span><span class="nv">k</span><span class="w"> </span><span class="o">==</span><span class="w"> </span>c<span class="w"> </span><span class="o">{</span>
+--------<span class="w"> </span><span class="o">[</span>hid<span class="w"> </span><span class="m">10</span><span class="w"> </span>additional<span class="w"> </span>lines,<span class="w"> </span>adjust<span class="w"> </span>with<span class="w"> </span>--max-lines-per-finding<span class="o">]</span><span class="w"> </span>--------
+ran<span class="w"> </span><span class="m">1</span><span class="w"> </span>rules<span class="w"> </span>on<span class="w"> </span><span class="m">2</span><span class="w"> </span>files:<span class="w"> </span><span class="m">1</span><span class="w"> </span>findings
+</pre></div>
 <p>That's just swell.</p>
 <h3 id="limits-of-static-analysis">Limits of static analysis</h3><p>Now let's say we refactor one of the inner loops into its own
 function.</p>
-<pre><code class="hljs go">$ cat test/golang/loopy.go
-package main
+<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="nx">cat</span><span class="w"> </span><span class="nx">test</span><span class="o">/</span><span class="nx">golang</span><span class="o">/</span><span class="nx">loopy</span><span class="p">.</span><span class="k">go</span>
+<span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 
-import &quot;log&quot;
+<span class="kn">import</span><span class="w"> </span><span class="s">&quot;log&quot;</span>
 
-func inner(i, j int) {
-  c := i * j
+<span class="kd">func</span><span class="w"> </span><span class="nx">inner</span><span class="p">(</span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">j</span><span class="w"> </span><span class="kt">int</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">c</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nx">j</span>
 
-  going := true
-  k := 0
-  for going {
-    if k == c {
-      break
-    }
+<span class="w">  </span><span class="nx">going</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">  </span><span class="nx">k</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="nx">going</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">k</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">break</span>
+<span class="w">    </span><span class="p">}</span>
 
-    k++
-    log.Print(k)
-  }
-}
+<span class="w">    </span><span class="nx">k</span><span class="o">++</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Print</span><span class="p">(</span><span class="nx">k</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
 
-func main() {
-  doneFirst := false
-  for i := 0; i &lt; 10; i++ {
-    log.Print(i)
+<span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">doneFirst</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Print</span><span class="p">(</span><span class="nx">i</span><span class="p">)</span>
 
-    for j := 0; j &lt; 100; j++ {
-      inner(i, j)
-    }
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">j</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="nx">j</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="mi">100</span><span class="p">;</span><span class="w"> </span><span class="nx">j</span><span class="o">++</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">inner</span><span class="p">(</span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">j</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    doneFirst = true
-  }
-}
-</code></pre>
+<span class="w">    </span><span class="nx">doneFirst</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>And run semgrep again:</p>
-<pre><code class="hljs bash">$ docker run -v &quot;${PWD}:/src&quot; returntocorp/semgrep --config=go-config2.yml test/golang
- A new version of Semgrep is available. Please see https://github.com/returntocorp/semgrep#upgrading for more information.
- running 1 rules...
- ran 1 rules on 2 files: 0 findings
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </span>-v<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span><span class="s2">:/src&quot;</span><span class="w"> </span>returntocorp/semgrep<span class="w"> </span>--config<span class="o">=</span>go-config2.yml<span class="w"> </span>test/golang
+<span class="w"> </span>A<span class="w"> </span>new<span class="w"> </span>version<span class="w"> </span>of<span class="w"> </span>Semgrep<span class="w"> </span>is<span class="w"> </span>available.<span class="w"> </span>Please<span class="w"> </span>see<span class="w"> </span>https://github.com/returntocorp/semgrep#upgrading<span class="w"> </span><span class="k">for</span><span class="w"> </span>more<span class="w"> </span>information.
+<span class="w"> </span>running<span class="w"> </span><span class="m">1</span><span class="w"> </span>rules...
+<span class="w"> </span>ran<span class="w"> </span><span class="m">1</span><span class="w"> </span>rules<span class="w"> </span>on<span class="w"> </span><span class="m">2</span><span class="w"> </span>files:<span class="w"> </span><span class="m">0</span><span class="w"> </span>findings
+</pre></div>
 <p>Well great. The 3-nested loop still exists but we can't find it
 anymore because it's not syntactically obvious anymore.</p>
 <p>At this point we'd need to start getting into linting based on runtime
@@ -945,7 +944,6 @@ overall it's a great tool for the kit.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

@@ -6,7 +6,6 @@
     <title>Writing a document database from scratch in Go: Lucene-like filters and indexes | notes.eatonphil.com</title>
     <meta name="description" content="Writing a document database from scratch in Go: Lucene-like filters and indexes" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -50,43 +49,43 @@
         <p>In this post we'll write a rudimentary document database from scratch
 in Go. In less than 500 lines of code we'll be able to support the
 following interactions, inspired by Elasticsearch:</p>
-<pre><code class="hljs bash">$ curl -X POST -H &#39;Content-Type: application/json&#39; -d &#39;{&quot;name&quot;: &quot;Kevin&quot;, &quot;age&quot;: &quot;45&quot;}&#39; http://localhost:8080/docs
-{&quot;body&quot;:{&quot;id&quot;:&quot;5ac64e74-58f9-4ba4-909e-1d5bf4ddcaa1&quot;},&quot;status&quot;:&quot;ok&quot;}
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;: &quot;Kevin&quot;, &quot;age&quot;: &quot;45&quot;}&#39;</span><span class="w"> </span>http://localhost:8080/docs
+<span class="o">{</span><span class="s2">&quot;body&quot;</span>:<span class="o">{</span><span class="s2">&quot;id&quot;</span>:<span class="s2">&quot;5ac64e74-58f9-4ba4-909e-1d5bf4ddcaa1&quot;</span><span class="o">}</span>,<span class="s2">&quot;status&quot;</span>:<span class="s2">&quot;ok&quot;</span><span class="o">}</span>
 
-$ curl --get http://localhost:8080/docs --data-urlencode &#39;q=name:&quot;Kevin&quot;&#39; | jq
-{
-  &quot;body&quot;: {
-    &quot;count&quot;: 1,
-    &quot;documents&quot;: [
-      {
-        &quot;body&quot;: {
-          &quot;age&quot;: &quot;45&quot;,
-          &quot;name&quot;: &quot;Kevin&quot;
-        },
-        &quot;id&quot;: &quot;5ac64e74-58f9-4ba4-909e-1d5bf4ddcaa1&quot;
-      }
-    ]
-  },
-  &quot;status&quot;: &quot;ok&quot;
-}
+$<span class="w"> </span>curl<span class="w"> </span>--get<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span>--data-urlencode<span class="w"> </span><span class="s1">&#39;q=name:&quot;Kevin&quot;&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<span class="o">{</span>
+<span class="w">  </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">    </span><span class="s2">&quot;count&quot;</span>:<span class="w"> </span><span class="m">1</span>,
+<span class="w">    </span><span class="s2">&quot;documents&quot;</span>:<span class="w"> </span><span class="o">[</span>
+<span class="w">      </span><span class="o">{</span>
+<span class="w">        </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">          </span><span class="s2">&quot;age&quot;</span>:<span class="w"> </span><span class="s2">&quot;45&quot;</span>,
+<span class="w">          </span><span class="s2">&quot;name&quot;</span>:<span class="w"> </span><span class="s2">&quot;Kevin&quot;</span>
+<span class="w">        </span><span class="o">}</span>,
+<span class="w">        </span><span class="s2">&quot;id&quot;</span>:<span class="w"> </span><span class="s2">&quot;5ac64e74-58f9-4ba4-909e-1d5bf4ddcaa1&quot;</span>
+<span class="w">      </span><span class="o">}</span>
+<span class="w">    </span><span class="o">]</span>
+<span class="w">  </span><span class="o">}</span>,
+<span class="w">  </span><span class="s2">&quot;status&quot;</span>:<span class="w"> </span><span class="s2">&quot;ok&quot;</span>
+<span class="o">}</span>
 
-$ curl --get http://localhost:8080/docs --data-urlencode &#39;q=age:&lt;50&#39; | jq
-{
-  &quot;body&quot;: {
-    &quot;count&quot;: 1,
-    &quot;documents&quot;: [
-      {
-        &quot;body&quot;: {
-          &quot;age&quot;: &quot;45&quot;,
-          &quot;name&quot;: &quot;Kevin&quot;
-        },
-        &quot;id&quot;: &quot;5ac64e74-58f9-4ba4-909e-1d5bf4ddcaa1&quot;
-      }
-    ]
-  },
-  &quot;status&quot;: &quot;ok&quot;
-}
-</code></pre>
+$<span class="w"> </span>curl<span class="w"> </span>--get<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span>--data-urlencode<span class="w"> </span><span class="s1">&#39;q=age:&lt;50&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<span class="o">{</span>
+<span class="w">  </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">    </span><span class="s2">&quot;count&quot;</span>:<span class="w"> </span><span class="m">1</span>,
+<span class="w">    </span><span class="s2">&quot;documents&quot;</span>:<span class="w"> </span><span class="o">[</span>
+<span class="w">      </span><span class="o">{</span>
+<span class="w">        </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">          </span><span class="s2">&quot;age&quot;</span>:<span class="w"> </span><span class="s2">&quot;45&quot;</span>,
+<span class="w">          </span><span class="s2">&quot;name&quot;</span>:<span class="w"> </span><span class="s2">&quot;Kevin&quot;</span>
+<span class="w">        </span><span class="o">}</span>,
+<span class="w">        </span><span class="s2">&quot;id&quot;</span>:<span class="w"> </span><span class="s2">&quot;5ac64e74-58f9-4ba4-909e-1d5bf4ddcaa1&quot;</span>
+<span class="w">      </span><span class="o">}</span>
+<span class="w">    </span><span class="o">]</span>
+<span class="w">  </span><span class="o">}</span>,
+<span class="w">  </span><span class="s2">&quot;status&quot;</span>:<span class="w"> </span><span class="s2">&quot;ok&quot;</span>
+<span class="o">}</span>
+</pre></div>
 <p>The latter query, being a range query, will do a full table scan. But
 the first query, an exact match, will use an index and be much
 faster.</p>
@@ -102,44 +101,44 @@ Github</a>. Let's get started.</p>
 httprouter</a>. We'll create
 three routes: one for inserting a document, one for retrieving a
 document by its id, and one for searching for documents.</p>
-<pre><code class="hljs go">package main
+<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 
-import (
-    &quot;encoding/json&quot;
-    &quot;log&quot;
-    &quot;net/http&quot;
+<span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="s">&quot;encoding/json&quot;</span>
+<span class="w">    </span><span class="s">&quot;log&quot;</span>
+<span class="w">    </span><span class="s">&quot;net/http&quot;</span>
 
-    &quot;github.com/julienschmidt/httprouter&quot;
-)
+<span class="w">    </span><span class="s">&quot;github.com/julienschmidt/httprouter&quot;</span>
+<span class="p">)</span>
 
-type server struct {
-    port string
-}
+<span class="kd">type</span><span class="w"> </span><span class="nx">server</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">port</span><span class="w"> </span><span class="kt">string</span>
+<span class="p">}</span>
 
-func main() {
-    s server{&quot;8080&quot;}
-    router := httprouter.New()
-    router.POST(&quot;/docs&quot;, s.addDocument)
-    router.GET(&quot;/docs&quot;, s.searchDocuments)
-    router.GET(&quot;/docs/:id&quot;, s.getDocument)
+<span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">{</span><span class="s">&quot;8080&quot;</span><span class="p">}</span>
+<span class="w">    </span><span class="nx">router</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">httprouter</span><span class="p">.</span><span class="nx">New</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">router</span><span class="p">.</span><span class="nx">POST</span><span class="p">(</span><span class="s">&quot;/docs&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">addDocument</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">router</span><span class="p">.</span><span class="nx">GET</span><span class="p">(</span><span class="s">&quot;/docs&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">searchDocuments</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">router</span><span class="p">.</span><span class="nx">GET</span><span class="p">(</span><span class="s">&quot;/docs/:id&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">getDocument</span><span class="p">)</span>
 
-    log.Println(&quot;Listening on &quot; + s.port)
-    log.Fatal(http.ListenAndServe(&quot;:&quot;+s.port, router))
-}
-</code></pre>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Listening on &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">port</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">ListenAndServe</span><span class="p">(</span><span class="s">&quot;:&quot;</span><span class="o">+</span><span class="nx">s</span><span class="p">.</span><span class="nx">port</span><span class="p">,</span><span class="w"> </span><span class="nx">router</span><span class="p">))</span>
+<span class="p">}</span>
+</pre></div>
 <p>Now add the routes:</p>
-<pre><code class="hljs go">func (s server) addDocument(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-    panic(&quot;Unimplemented&quot;)
-}
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">addDocument</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="nx">httprouter</span><span class="p">.</span><span class="nx">Params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nb">panic</span><span class="p">(</span><span class="s">&quot;Unimplemented&quot;</span><span class="p">)</span>
+<span class="p">}</span>
 
-func (s server) searchDocuments(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-    panic(&quot;Unimplemented&quot;)
-}
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">searchDocuments</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="nx">httprouter</span><span class="p">.</span><span class="nx">Params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nb">panic</span><span class="p">(</span><span class="s">&quot;Unimplemented&quot;</span><span class="p">)</span>
+<span class="p">}</span>
 
-func (s server) getDocument(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-    panic(&quot;Unimplemented&quot;)
-}
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">getDocument</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="nx">httprouter</span><span class="p">.</span><span class="nx">Params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nb">panic</span><span class="p">(</span><span class="s">&quot;Unimplemented&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <p>That's good enough for now! Let's think about storage.</p>
 <h3 id="storage">Storage</h3><p>If you wanted to do this project fully from scratch you could handle
 storage by just writing JSON blobs to disk. Nothing in this project
@@ -162,35 +161,35 @@ used Badger before so I'm going to try out <a href="https://github.com/cockroach
 Pebble</a> this time instead.</p>
 <p>Add <code>"github.com/cockroachdb/pebble"</code> to the list of imports. Then
 upgrade the <code>server</code> struct to store an instance of a Pebble database.</p>
-<pre><code class="hljs go">type server struct {
-    db      *pebble.DB
-    port    string
-}
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">server</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">db</span><span class="w">      </span><span class="o">*</span><span class="nx">pebble</span><span class="p">.</span><span class="nx">DB</span>
+<span class="w">    </span><span class="nx">port</span><span class="w">    </span><span class="kt">string</span>
+<span class="p">}</span>
 
-func newServer(database string, port string) (*server, error) {
-    s := server{db: nil, port: port}
-    var err error
-    s.db, err = pebble.Open(database, &amp;pebble.Options{})
-    return &amp;s, err
-}
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="nx">newServer</span><span class="p">(</span><span class="nx">database</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">port</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">server</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">s</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">server</span><span class="p">{</span><span class="nx">db</span><span class="p">:</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">port</span><span class="p">:</span><span class="w"> </span><span class="nx">port</span><span class="p">}</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="kt">error</span>
+<span class="w">    </span><span class="nx">s</span><span class="p">.</span><span class="nx">db</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">pebble</span><span class="p">.</span><span class="nx">Open</span><span class="p">(</span><span class="nx">database</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">pebble</span><span class="p">.</span><span class="nx">Options</span><span class="p">{})</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">s</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="p">}</span>
+</pre></div>
 <p>And upgrade main:</p>
-<pre><code class="hljs go">func main() {
-    s, err := newServer(&quot;docdb.data&quot;, &quot;8080&quot;)
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer s.db.Close()
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">s</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newServer</span><span class="p">(</span><span class="s">&quot;docdb.data&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;8080&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
 
-    router := httprouter.New()
-    router.POST(&quot;/docs&quot;, s.addDocument)
-    router.GET(&quot;/docs&quot;, s.searchDocuments)
-    router.GET(&quot;/docs/:id&quot;, s.getDocument)
+<span class="w">    </span><span class="nx">router</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">httprouter</span><span class="p">.</span><span class="nx">New</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">router</span><span class="p">.</span><span class="nx">POST</span><span class="p">(</span><span class="s">&quot;/docs&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">addDocument</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">router</span><span class="p">.</span><span class="nx">GET</span><span class="p">(</span><span class="s">&quot;/docs&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">searchDocuments</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">router</span><span class="p">.</span><span class="nx">GET</span><span class="p">(</span><span class="s">&quot;/docs/:id&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">getDocument</span><span class="p">)</span>
 
-    log.Println(&quot;Listening on &quot; + s.port)
-    log.Fatal(http.ListenAndServe(&quot;:&quot;+s.port, router))
-}
-</code></pre>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Listening on &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">port</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">ListenAndServe</span><span class="p">(</span><span class="s">&quot;:&quot;</span><span class="o">+</span><span class="nx">s</span><span class="p">.</span><span class="nx">port</span><span class="p">,</span><span class="w"> </span><span class="nx">router</span><span class="p">))</span>
+<span class="p">}</span>
+</pre></div>
 <p>In the future these server settings could be user-configurable. For
 now they're hard-coded.</p>
 <h4 id="storing-data">Storing data</h4><p>When the user sends a JSON document we need to give it a unique ID and
@@ -200,107 +199,107 @@ document as the value.</p>
 <p>To generate the ID we'll use <a href="https://github.com/google/uuid">Google's UUID
 package</a>. So make sure to import
 <code>"github.com/google/uuid"</code>.</p>
-<pre><code class="hljs go">func (s server) addDocument(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-    dec := json.NewDecoder(r.Body)
-    var document map[string]any
-    err := dec.Decode(&amp;document)
-    if err != nil {
-        jsonResponse(w, nil, err)
-        return
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">addDocument</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">,</span><span class="w"> </span><span class="nx">ps</span><span class="w"> </span><span class="nx">httprouter</span><span class="p">.</span><span class="nx">Params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">dec</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">NewDecoder</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">Body</span><span class="p">)</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">document</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dec</span><span class="p">.</span><span class="nx">Decode</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">document</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // New unique id for the document
-    id := uuid.New().String()
+<span class="w">    </span><span class="c1">// New unique id for the document</span>
+<span class="w">    </span><span class="nx">id</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">uuid</span><span class="p">.</span><span class="nx">New</span><span class="p">().</span><span class="nx">String</span><span class="p">()</span>
 
-    bs, err := json.Marshal(document)
-    if err != nil {
-        jsonResponse(w, nil, err)
-        return
-    }
-    err = s.db.Set([]byte(id), bs, pebble.Sync)
-    if err != nil {
-        jsonResponse(w, nil, err)
-        return
-    }
+<span class="w">    </span><span class="nx">bs</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">Marshal</span><span class="p">(</span><span class="nx">document</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">Set</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">id</span><span class="p">),</span><span class="w"> </span><span class="nx">bs</span><span class="p">,</span><span class="w"> </span><span class="nx">pebble</span><span class="p">.</span><span class="nx">Sync</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span>
+<span class="w">    </span><span class="p">}</span>
 
-    jsonResponse(w, map[string]any{
-        &quot;id&quot;: id,
-    }, nil)
-}
-</code></pre>
+<span class="w">    </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span>
+<span class="w">        </span><span class="s">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="nx">id</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <p>Nothing special: just accept a JSON POST body and store it in the
 database, return the generated document id.</p>
 <p class="note">
   I'm not sure that using UUIDs here is a good idea but it is easier
   than keeping track of the number of rows in the database.
 </p><p>The <code>jsonResponse</code> helper can be defined as:</p>
-<pre><code class="hljs go">func jsonResponse(w http.ResponseWriter, body map[string]any, err error) {
-    data := map[string]any{
-        &quot;body&quot;:   body,
-        &quot;status&quot;: &quot;ok&quot;,
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">body</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">data</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span>
+<span class="w">        </span><span class="s">&quot;body&quot;</span><span class="p">:</span><span class="w">   </span><span class="nx">body</span><span class="p">,</span>
+<span class="w">        </span><span class="s">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ok&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if err == nil {
-        w.WriteHeader(http.StatusOK)
-    } else {
-        data[&quot;status&quot;] = &quot;error&quot;
-        data[&quot;error&quot;] = err.Error()
-        w.WriteHeader(http.StatusBadRequest)
-    }
-    w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">w</span><span class="p">.</span><span class="nx">WriteHeader</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusOK</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">data</span><span class="p">[</span><span class="s">&quot;status&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;error&quot;</span>
+<span class="w">        </span><span class="nx">data</span><span class="p">[</span><span class="s">&quot;error&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">w</span><span class="p">.</span><span class="nx">WriteHeader</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusBadRequest</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nx">w</span><span class="p">.</span><span class="nx">Header</span><span class="p">().</span><span class="nx">Set</span><span class="p">(</span><span class="s">&quot;Content-Type&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;application/json&quot;</span><span class="p">)</span>
 
-    enc := json.NewEncoder(w)
-    err = enc.Encode(data)
-    if err != nil {
-        // TODO: set up panic handler?
-        panic(err)
-    }
-}
-</code></pre>
+<span class="w">    </span><span class="nx">enc</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">NewEncoder</span><span class="p">(</span><span class="nx">w</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">enc</span><span class="p">.</span><span class="nx">Encode</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// TODO: set up panic handler?</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>It's a basic wrapper so that all responses are structured JSON.</p>
 <h4 id="retrieving-by-id">Retrieving by ID</h4><p>Before we try to test out inserts, let's get retrieval hooked
 up. Inserts return an ID in the HTTP reponse. GETs will grab a
 document by ID.</p>
-<pre><code class="hljs go">func (s server) getDocumentById(id []byte) (map[string]any, error) {
-    valBytes, closer, err := s.db.Get(id)
-    if err != nil {
-        return nil, err
-    }
-    defer closer.Close()
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">getDocumentById</span><span class="p">(</span><span class="nx">id</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">valBytes</span><span class="p">,</span><span class="w"> </span><span class="nx">closer</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">Get</span><span class="p">(</span><span class="nx">id</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">closer</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
 
-    var document map[string]any
-    err = json.Unmarshal(valBytes, &amp;document)
-    return document, err
-}
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">document</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">Unmarshal</span><span class="p">(</span><span class="nx">valBytes</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">document</span><span class="p">)</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">document</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="p">}</span>
 
-func (s server) getDocument(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-    id := ps.ByName(&quot;id&quot;)
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">getDocument</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">,</span><span class="w"> </span><span class="nx">ps</span><span class="w"> </span><span class="nx">httprouter</span><span class="p">.</span><span class="nx">Params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">id</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ps</span><span class="p">.</span><span class="nx">ByName</span><span class="p">(</span><span class="s">&quot;id&quot;</span><span class="p">)</span>
 
-    document, err := s.getDocumentById([]byte(id))
-    if err != nil {
-        jsonResponse(w, nil, err)
-        return
-    }
+<span class="w">    </span><span class="nx">document</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">getDocumentById</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">id</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span>
+<span class="w">    </span><span class="p">}</span>
 
-    jsonResponse(w, map[string]any{
-        &quot;document&quot;: document,
-    }, nil)
-}
-</code></pre>
+<span class="w">    </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span>
+<span class="w">        </span><span class="s">&quot;document&quot;</span><span class="p">:</span><span class="w"> </span><span class="nx">document</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <p>We've now got enough in place to test out these basics!</p>
-<pre><code class="hljs bash">$ go mod init docdb
-$ go mod tidy
-$ go build
-$ ./docdb
-2022/03/28 19:28:19 Listening on 8080
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>go<span class="w"> </span>mod<span class="w"> </span>init<span class="w"> </span>docdb
+$<span class="w"> </span>go<span class="w"> </span>mod<span class="w"> </span>tidy
+$<span class="w"> </span>go<span class="w"> </span>build
+$<span class="w"> </span>./docdb
+<span class="m">2022</span>/03/28<span class="w"> </span><span class="m">19</span>:28:19<span class="w"> </span>Listening<span class="w"> </span>on<span class="w"> </span><span class="m">8080</span>
+</pre></div>
 <p>Now, in another terminal, insert a document:</p>
-<pre><code class="hljs bash">$ curl -X POST -H &#39;Content-Type: application/json&#39; -d &#39;{&quot;name&quot;: &quot;Kevin&quot;, &quot;age&quot;: &quot;45&quot;}&#39; http://localhost:8080/docs
-{&quot;body&quot;:{&quot;id&quot;:&quot;c458a3ce-9faf-4431-a058-d9ae2a1651e1&quot;},&quot;status&quot;:&quot;ok&quot;}
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;: &quot;Kevin&quot;, &quot;age&quot;: &quot;45&quot;}&#39;</span><span class="w"> </span>http://localhost:8080/docs
+<span class="o">{</span><span class="s2">&quot;body&quot;</span>:<span class="o">{</span><span class="s2">&quot;id&quot;</span>:<span class="s2">&quot;c458a3ce-9faf-4431-a058-d9ae2a1651e1&quot;</span><span class="o">}</span>,<span class="s2">&quot;status&quot;</span>:<span class="s2">&quot;ok&quot;</span><span class="o">}</span>
 
-$ curl http://localhost:8080/docs/c458a3ce-9faf-4431-a058-d9ae2a1651e1
-{&quot;body&quot;:{&quot;document&quot;:{&quot;age&quot;:&quot;45&quot;,&quot;name&quot;:&quot;Kevin&quot;}},&quot;status&quot;:&quot;ok&quot;}
-</code></pre>
+$<span class="w"> </span>curl<span class="w"> </span>http://localhost:8080/docs/c458a3ce-9faf-4431-a058-d9ae2a1651e1
+<span class="o">{</span><span class="s2">&quot;body&quot;</span>:<span class="o">{</span><span class="s2">&quot;document&quot;</span>:<span class="o">{</span><span class="s2">&quot;age&quot;</span>:<span class="s2">&quot;45&quot;</span>,<span class="s2">&quot;name&quot;</span>:<span class="s2">&quot;Kevin&quot;</span><span class="o">}}</span>,<span class="s2">&quot;status&quot;</span>:<span class="s2">&quot;ok&quot;</span><span class="o">}</span>
+</pre></div>
 <p>Perfect! Now let's implement search.</p>
 <h3 id="a-filter-language">A filter language</h3><p>First off we need to pick a filter language. Using a JSON data
 structure would be fine. We could require the user POSTs against a
@@ -327,54 +326,54 @@ retrieve <code>4</code> in <code>{"a": {"b": 4, "d": 100}, "c": 8}</code>).</p>
 we keep on accumulating all characters until the ending
 quote. Otherwise we accumulate until we stop seeing a digit, letter,
 or period.</p>
-<pre><code class="hljs go">// Handles either quoted strings or unquoted strings of only contiguous digits and letters
-func lexString(input []rune, index int) (string, int, error) {
-    if index &gt;= len(input) {
-        return &quot;&quot;, index, nil
-    }
-    if input[index] == &#39;&quot;&#39; {
-        index++
-        foundEnd := false
+<div class="highlight"><pre><span></span><span class="c1">// Handles either quoted strings or unquoted strings of only contiguous digits and letters</span>
+<span class="kd">func</span><span class="w"> </span><span class="nx">lexString</span><span class="p">(</span><span class="nx">input</span><span class="w"> </span><span class="p">[]</span><span class="kt">rune</span><span class="p">,</span><span class="w"> </span><span class="nx">index</span><span class="w"> </span><span class="kt">int</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">index</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">input</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">index</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">input</span><span class="p">[</span><span class="nx">index</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;&quot;&#39;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">index</span><span class="o">++</span>
+<span class="w">        </span><span class="nx">foundEnd</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">false</span>
 
-        var s []rune
-        // TODO: handle nested quotes
-        for index &lt; len(input) {
-            if input[index] == &#39;&quot;&#39; {
-                foundEnd = true
-                break
-            }
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">s</span><span class="w"> </span><span class="p">[]</span><span class="kt">rune</span>
+<span class="w">        </span><span class="c1">// TODO: handle nested quotes</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">index</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">input</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">input</span><span class="p">[</span><span class="nx">index</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;&quot;&#39;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">foundEnd</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">                </span><span class="k">break</span>
+<span class="w">            </span><span class="p">}</span>
 
-            s = append(s, input[index])
-            index++
-        }
+<span class="w">            </span><span class="nx">s</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">s</span><span class="p">,</span><span class="w"> </span><span class="nx">input</span><span class="p">[</span><span class="nx">index</span><span class="p">])</span>
+<span class="w">            </span><span class="nx">index</span><span class="o">++</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if !foundEnd {
-            return &quot;&quot;, index, fmt.Errorf(&quot;Expected end of quoted string&quot;)
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">foundEnd</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">index</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Expected end of quoted string&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
-        return string(s), index + 1, nil
-    }
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">s</span><span class="p">),</span><span class="w"> </span><span class="nx">index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // If unquoted, read as much contiguous digits/letters as there are
-    var s []rune
-    var c rune
-    // TODO: someone needs to validate there&#39;s not ...
-    for index &lt; len(input) {
-        c = input[index]
-        if !(unicode.IsLetter(c) || unicode.IsDigit(c) || c == &#39;.&#39;) {
-            break
-        }
-        s = append(s, c)
-        index++
-    }
+<span class="w">    </span><span class="c1">// If unquoted, read as much contiguous digits/letters as there are</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">s</span><span class="w"> </span><span class="p">[]</span><span class="kt">rune</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="kt">rune</span>
+<span class="w">    </span><span class="c1">// TODO: someone needs to validate there&#39;s not ...</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">index</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">input</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">c</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">input</span><span class="p">[</span><span class="nx">index</span><span class="p">]</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!(</span><span class="nx">unicode</span><span class="p">.</span><span class="nx">IsLetter</span><span class="p">(</span><span class="nx">c</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">unicode</span><span class="p">.</span><span class="nx">IsDigit</span><span class="p">(</span><span class="nx">c</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;.&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nx">s</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">s</span><span class="p">,</span><span class="w"> </span><span class="nx">c</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">index</span><span class="o">++</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if len(s) == 0 {
-        return &quot;&quot;, index, fmt.Errorf(&quot;No string found&quot;)
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">s</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">index</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;No string found&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return string(s), index, nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">s</span><span class="p">),</span><span class="w"> </span><span class="nx">index</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p class="note">
   This is not something you get right without unit tests. I wrote unit
   tests for it while building this project. Always unit test tricky code
@@ -384,61 +383,61 @@ key. Then it looks for the operator which can be one of <code>:</code> (meaning
 equality), <code>:&gt;</code> (meaning greater than), or <code>:&lt;</code> (meaning less
 than). It accumulates each key-value pair into an overall list of
 AND-ed arguments that make up the query.</p>
-<pre><code>type queryComparison struct {
-    key   []string
-    value string
-    op    string
-}
+<div class="highlight"><pre><span></span><span class="n">type</span><span class="w"> </span><span class="n">queryComparison</span><span class="w"> </span><span class="n">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">key</span><span class="w">   </span><span class="p">[]</span><span class="n">string</span>
+<span class="w">    </span><span class="n">value</span><span class="w"> </span><span class="n">string</span>
+<span class="w">    </span><span class="n">op</span><span class="w">    </span><span class="n">string</span>
+<span class="p">}</span>
 
-type query struct {
-    ands []queryComparison
-}
+<span class="n">type</span><span class="w"> </span><span class="n">query</span><span class="w"> </span><span class="n">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">ands</span><span class="w"> </span><span class="p">[]</span><span class="n">queryComparison</span>
+<span class="p">}</span>
 
-// E.g. q=a.b:12
-func parseQuery(q string) (*query, error) {
-    if q == "" {
-        return &amp;query{}, nil
-    }
+<span class="o">//</span><span class="w"> </span><span class="n">E</span><span class="o">.</span><span class="n">g</span><span class="o">.</span><span class="w"> </span><span class="n">q</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">b</span><span class="p">:</span><span class="mi">12</span>
+<span class="k">func</span><span class="w"> </span><span class="n">parseQuery</span><span class="p">(</span><span class="n">q</span><span class="w"> </span><span class="n">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">query</span><span class="p">,</span><span class="w"> </span><span class="n">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">q</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="n">query</span><span class="p">{},</span><span class="w"> </span><span class="n">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    i := 0
-    var parsed query
-    var qRune = []rune(q)
-    for i &lt; len(qRune) {
-        // Eat whitespace
-        for unicode.IsSpace(qRune[i]) {
-            i++
-        }
+<span class="w">    </span><span class="n">i</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="k">var</span><span class="w"> </span><span class="n">parsed</span><span class="w"> </span><span class="n">query</span>
+<span class="w">    </span><span class="k">var</span><span class="w"> </span><span class="n">qRune</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[]</span><span class="n">rune</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">len</span><span class="p">(</span><span class="n">qRune</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="o">//</span><span class="w"> </span><span class="n">Eat</span><span class="w"> </span><span class="n">whitespace</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">unicode</span><span class="o">.</span><span class="n">IsSpace</span><span class="p">(</span><span class="n">qRune</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">i</span><span class="o">++</span>
+<span class="w">        </span><span class="p">}</span>
 
-        key, nextIndex, err := lexString(qRune, i)
-        if err != nil {
-            return nil, fmt.Errorf("Expected valid key, got [%s]: `%s`", err, q[nextIndex:])
-        }
+<span class="w">        </span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">nextIndex</span><span class="p">,</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="n">lexString</span><span class="p">(</span><span class="n">qRune</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">nil</span><span class="p">,</span><span class="w"> </span><span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s2">&quot;Expected valid key, got [</span><span class="si">%s</span><span class="s2">]: `</span><span class="si">%s</span><span class="s2">`&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">err</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">[</span><span class="n">nextIndex</span><span class="p">:])</span>
+<span class="w">        </span><span class="p">}</span>
 
-        // Expect some operator
-        if q[nextIndex] != ':' {
-            return nil, fmt.Errorf("Expected colon at %d, got: `%s`", nextIndex, q[nextIndex:])
-        }
-        i = nextIndex + 1
+<span class="w">        </span><span class="o">//</span><span class="w"> </span><span class="n">Expect</span><span class="w"> </span><span class="n">some</span><span class="w"> </span><span class="n">operator</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">q</span><span class="p">[</span><span class="n">nextIndex</span><span class="p">]</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="s1">&#39;:&#39;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">nil</span><span class="p">,</span><span class="w"> </span><span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s2">&quot;Expected colon at </span><span class="si">%d</span><span class="s2">, got: `</span><span class="si">%s</span><span class="s2">`&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">nextIndex</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">[</span><span class="n">nextIndex</span><span class="p">:])</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">nextIndex</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
 
-        op := "="
-        if q[i] == '&gt;' || q[i] == '&lt;' {
-            op = string(q[i])
-        i++
-        }
+<span class="w">        </span><span class="n">op</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;=&quot;</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">q</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">&#39;&gt;&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">q</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">&#39;&lt;&#39;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">op</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">string</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+<span class="w">        </span><span class="n">i</span><span class="o">++</span>
+<span class="w">        </span><span class="p">}</span>
 
-        value, nextIndex, err := lexString(qRune, i)
-        if err != nil {
-            return nil, fmt.Errorf("Expected valid value, got [%s]: `%s`", err, q[nextIndex:])
-        }
-        i = nextIndex
+<span class="w">        </span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="n">nextIndex</span><span class="p">,</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="n">lexString</span><span class="p">(</span><span class="n">qRune</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">nil</span><span class="p">,</span><span class="w"> </span><span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s2">&quot;Expected valid value, got [</span><span class="si">%s</span><span class="s2">]: `</span><span class="si">%s</span><span class="s2">`&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">err</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">[</span><span class="n">nextIndex</span><span class="p">:])</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">nextIndex</span>
 
-        argument := queryComparison{key: strings.Split(key, "."), value: value, op: op}
-        parsed.ands = append(parsed.ands, argument)
-    }
+<span class="w">        </span><span class="n">argument</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="n">queryComparison</span><span class="p">{</span><span class="n">key</span><span class="p">:</span><span class="w"> </span><span class="n">strings</span><span class="o">.</span><span class="n">Split</span><span class="p">(</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;.&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="n">op</span><span class="p">:</span><span class="w"> </span><span class="n">op</span><span class="p">}</span>
+<span class="w">        </span><span class="n">parsed</span><span class="o">.</span><span class="n">ands</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">append</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">ands</span><span class="p">,</span><span class="w"> </span><span class="n">argument</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return &amp;parsed, nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="n">parsed</span><span class="p">,</span><span class="w"> </span><span class="n">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>Since we're already writing a real lexer we could do better than
 <code>strings.Split(key, ".")</code> when it comes to find key path parts. But it
 isn't a huge deal at this stage. So we keep it simple.</p>
@@ -449,80 +448,80 @@ document, it meets the filter or not.</p>
 equality, greater than or less than. If at any point the comparison
 fails, return false immediately. Otherwise if we got through all
 arguments and didn't return, there was a match!</p>
-<pre><code class="hljs go">func (q query) match(doc map[string]any) bool {
-    for _, argument := range q.ands {
-        value, ok := getPath(doc, argument.key)
-        if !ok {
-            return false
-        }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">q</span><span class="w"> </span><span class="nx">query</span><span class="p">)</span><span class="w"> </span><span class="nx">match</span><span class="p">(</span><span class="nx">doc</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">argument</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">q</span><span class="p">.</span><span class="nx">ands</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">getPath</span><span class="p">(</span><span class="nx">doc</span><span class="p">,</span><span class="w"> </span><span class="nx">argument</span><span class="p">.</span><span class="nx">key</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
 
-        // Handle equality
-        if argument.op == &quot;=&quot; {
-            match := fmt.Sprintf(&quot;%v&quot;, value) == argument.value
-            if !match {
-                return false
-            }
+<span class="w">        </span><span class="c1">// Handle equality</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">argument</span><span class="p">.</span><span class="nx">op</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;=&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">match</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">argument</span><span class="p">.</span><span class="nx">value</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">match</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">            </span><span class="p">}</span>
 
-            continue
-        }
+<span class="w">            </span><span class="k">continue</span>
+<span class="w">        </span><span class="p">}</span>
 
-        // Handle &lt;, &gt;
-        right, err := strconv.ParseFloat(argument.value, 64)
-        if err != nil {
-            return false
-        }
+<span class="w">        </span><span class="c1">// Handle &lt;, &gt;</span>
+<span class="w">        </span><span class="nx">right</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">strconv</span><span class="p">.</span><span class="nx">ParseFloat</span><span class="p">(</span><span class="nx">argument</span><span class="p">.</span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
 
-        var left float64
-        switch t := value.(type) {
-        case float64:
-            left = t
-        case float32:
-            left = float64(t)
-        case uint:
-            left = float64(t)
-        case uint8:
-            left = float64(t)
-        case uint16:
-            left = float64(t)
-        case uint32:
-            left = float64(t)
-        case uint64:
-            left = float64(t)
-        case int:
-            left = float64(t)
-        case int8:
-            left = float64(t)
-        case int16:
-            left = float64(t)
-        case int32:
-            left = float64(t)
-        case int64:
-            left = float64(t)
-        case string:
-            left, err = strconv.ParseFloat(t, 64)
-            if err != nil {
-                return false
-            }
-        default:
-            return false
-        }
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">left</span><span class="w"> </span><span class="kt">float64</span>
+<span class="w">        </span><span class="k">switch</span><span class="w"> </span><span class="nx">t</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">value</span><span class="p">.(</span><span class="kd">type</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">float64</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">t</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">float32</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">float64</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">uint</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">float64</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">uint8</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">float64</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">uint16</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">float64</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">uint32</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">float64</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">uint64</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">float64</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">int</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">float64</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">int8</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">float64</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">int16</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">float64</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">int32</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">float64</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">int64</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">float64</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="kt">string</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">left</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">strconv</span><span class="p">.</span><span class="nx">ParseFloat</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="k">default</span><span class="p">:</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if argument.op == &quot;&gt;&quot; {
-            if left &lt;= right {
-                return false
-            }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">argument</span><span class="p">.</span><span class="nx">op</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;&gt;&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">left</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="nx">right</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">            </span><span class="p">}</span>
 
-            continue
-        }
+<span class="w">            </span><span class="k">continue</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if left &gt;= right {
-            return false
-        }
-    }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">left</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="nx">right</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return true
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
 <p class="note">
   This bit of Go that requires separate case statements for every
   possible numeric so I can convert it to float is really annoying.
@@ -530,134 +529,134 @@ arguments and didn't return, there was a match!</p>
 be able to grab any path within an object since the user could have
 made a filter like <code>a.b:12</code>. So let's keep things simple (but less
 safe) and implement <code>getPath</code> recursively.</p>
-<pre><code class="hljs go">func getPath(doc map[string]any, parts []string) (any, bool) {
-        var docSegment any = doc
-        for _, part := range parts {
-                m, ok := docSegment.(map[string]any)
-                if !ok {
-                        return nil, false
-                }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">getPath</span><span class="p">(</span><span class="nx">doc</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">,</span><span class="w"> </span><span class="nx">parts</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">any</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">docSegment</span><span class="w"> </span><span class="kt">any</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">doc</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">part</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">parts</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">m</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">docSegment</span><span class="p">.(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">)</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">                </span><span class="p">}</span>
 
-                if docSegment, ok = m[part]; !ok {
-                        return nil, false
-                }
-        }
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">docSegment</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">m</span><span class="p">[</span><span class="nx">part</span><span class="p">];</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        return docSegment, true
-}
-</code></pre>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">docSegment</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
 <p>A critical thing to point out is that filtering on arrays is not
 supported. Any filter that tries to enter an array will fail or return
 no results.</p>
 <h3 id="search">Search</h3><p>Now that we've got all the tools in place we can implement the search
 endpoint. We'll just iterate over all documents in the database and
 return all documents that match the filter.</p>
-<pre><code class="hljs go">func (s server) searchDocuments(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-    q, err := parseQuery(r.URL.Query().Get(&quot;q&quot;))
-    if err != nil {
-        jsonResponse(w, nil, err)
-        return
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">searchDocuments</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">,</span><span class="w"> </span><span class="nx">ps</span><span class="w"> </span><span class="nx">httprouter</span><span class="p">.</span><span class="nx">Params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">q</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parseQuery</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">URL</span><span class="p">.</span><span class="nx">Query</span><span class="p">().</span><span class="nx">Get</span><span class="p">(</span><span class="s">&quot;q&quot;</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span>
+<span class="w">    </span><span class="p">}</span>
 
-    var documents []map[string]any
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">documents</span><span class="w"> </span><span class="p">[]</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span>
 
-    iter := s.db.NewIter(nil)
-    defer iter.Close()
-    for iter.First(); iter.Valid(); iter.Next() {
-        var document map[string]any
-        err = json.Unmarshal(iter.Value(), &amp;document)
-        if err != nil {
-            jsonResponse(w, nil, err)
-            return
-        }
+<span class="w">    </span><span class="nx">iter</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">NewIter</span><span class="p">(</span><span class="kc">nil</span><span class="p">)</span>
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">First</span><span class="p">();</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">Valid</span><span class="p">();</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">Next</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">document</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">Unmarshal</span><span class="p">(</span><span class="nx">iter</span><span class="p">.</span><span class="nx">Value</span><span class="p">(),</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">document</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if q.match(document) {
-            documents = append(documents, map[string]any{
-                &quot;id&quot;:   string(iter.Key()),
-                &quot;body&quot;: document,
-            })
-        }
-    }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">q</span><span class="p">.</span><span class="nx">match</span><span class="p">(</span><span class="nx">document</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">documents</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">documents</span><span class="p">,</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span>
+<span class="w">                </span><span class="s">&quot;id&quot;</span><span class="p">:</span><span class="w">   </span><span class="nb">string</span><span class="p">(</span><span class="nx">iter</span><span class="p">.</span><span class="nx">Key</span><span class="p">()),</span>
+<span class="w">                </span><span class="s">&quot;body&quot;</span><span class="p">:</span><span class="w"> </span><span class="nx">document</span><span class="p">,</span>
+<span class="w">            </span><span class="p">})</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    jsonResponse(w, map[string]any{&quot;documents&quot;: documents, &quot;count&quot;: len(documents)}, nil)
-}
-</code></pre>
+<span class="w">    </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span><span class="s">&quot;documents&quot;</span><span class="p">:</span><span class="w"> </span><span class="nx">documents</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">documents</span><span class="p">)},</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <p>Not bad! Let's try it out:</p>
-<pre><code class="hljs bash">$ go build
-$ ./docdb
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>go<span class="w"> </span>build
+$<span class="w"> </span>./docdb
+</pre></div>
 <p>And in another terminal, try out the search endpoint with no filter:</p>
-<pre><code class="hljs bash">$ curl http://localhost:8080/docs | jq
-{
-  &quot;body&quot;: {
-    &quot;count&quot;: 1,
-    &quot;documents&quot;: [
-      {
-        &quot;body&quot;: {
-          &quot;age&quot;: &quot;45&quot;,
-          &quot;name&quot;: &quot;Kevin&quot;
-        },
-        &quot;id&quot;: &quot;c458a3ce-9faf-4431-a058-d9ae2a1651e1&quot;
-      }
-    ]
-  },
-  &quot;status&quot;: &quot;ok&quot;
-}
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<span class="o">{</span>
+<span class="w">  </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">    </span><span class="s2">&quot;count&quot;</span>:<span class="w"> </span><span class="m">1</span>,
+<span class="w">    </span><span class="s2">&quot;documents&quot;</span>:<span class="w"> </span><span class="o">[</span>
+<span class="w">      </span><span class="o">{</span>
+<span class="w">        </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">          </span><span class="s2">&quot;age&quot;</span>:<span class="w"> </span><span class="s2">&quot;45&quot;</span>,
+<span class="w">          </span><span class="s2">&quot;name&quot;</span>:<span class="w"> </span><span class="s2">&quot;Kevin&quot;</span>
+<span class="w">        </span><span class="o">}</span>,
+<span class="w">        </span><span class="s2">&quot;id&quot;</span>:<span class="w"> </span><span class="s2">&quot;c458a3ce-9faf-4431-a058-d9ae2a1651e1&quot;</span>
+<span class="w">      </span><span class="o">}</span>
+<span class="w">    </span><span class="o">]</span>
+<span class="w">  </span><span class="o">}</span>,
+<span class="w">  </span><span class="s2">&quot;status&quot;</span>:<span class="w"> </span><span class="s2">&quot;ok&quot;</span>
+<span class="o">}</span>
+</pre></div>
 <p>With an equality filter:</p>
-<pre><code class="hljs bash">$ curl --get http://localhost:8080/docs --data-urlencode &#39;q=name:Mel&#39; | jq
-{
-  &quot;body&quot;: {
-    &quot;count&quot;: 0,
-    &quot;documents&quot;: null
-  },
-  &quot;status&quot;: &quot;ok&quot;
-}
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>--get<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span>--data-urlencode<span class="w"> </span><span class="s1">&#39;q=name:Mel&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<span class="o">{</span>
+<span class="w">  </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">    </span><span class="s2">&quot;count&quot;</span>:<span class="w"> </span><span class="m">0</span>,
+<span class="w">    </span><span class="s2">&quot;documents&quot;</span>:<span class="w"> </span>null
+<span class="w">  </span><span class="o">}</span>,
+<span class="w">  </span><span class="s2">&quot;status&quot;</span>:<span class="w"> </span><span class="s2">&quot;ok&quot;</span>
+<span class="o">}</span>
 
-$ curl --get http://localhost:8080/docs --data-urlencode &#39;q=name:Kevin&#39; | jq
-{
-  &quot;body&quot;: {
-    &quot;count&quot;: 1,
-    &quot;documents&quot;: [
-      {
-        &quot;body&quot;: {
-          &quot;age&quot;: &quot;45&quot;,
-          &quot;name&quot;: &quot;Kevin&quot;
-        },
-        &quot;id&quot;: &quot;c458a3ce-9faf-4431-a058-d9ae2a1651e1&quot;
-      }
-    ]
-  },
-  &quot;status&quot;: &quot;ok&quot;
-}
-</code></pre>
+$<span class="w"> </span>curl<span class="w"> </span>--get<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span>--data-urlencode<span class="w"> </span><span class="s1">&#39;q=name:Kevin&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<span class="o">{</span>
+<span class="w">  </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">    </span><span class="s2">&quot;count&quot;</span>:<span class="w"> </span><span class="m">1</span>,
+<span class="w">    </span><span class="s2">&quot;documents&quot;</span>:<span class="w"> </span><span class="o">[</span>
+<span class="w">      </span><span class="o">{</span>
+<span class="w">        </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">          </span><span class="s2">&quot;age&quot;</span>:<span class="w"> </span><span class="s2">&quot;45&quot;</span>,
+<span class="w">          </span><span class="s2">&quot;name&quot;</span>:<span class="w"> </span><span class="s2">&quot;Kevin&quot;</span>
+<span class="w">        </span><span class="o">}</span>,
+<span class="w">        </span><span class="s2">&quot;id&quot;</span>:<span class="w"> </span><span class="s2">&quot;c458a3ce-9faf-4431-a058-d9ae2a1651e1&quot;</span>
+<span class="w">      </span><span class="o">}</span>
+<span class="w">    </span><span class="o">]</span>
+<span class="w">  </span><span class="o">}</span>,
+<span class="w">  </span><span class="s2">&quot;status&quot;</span>:<span class="w"> </span><span class="s2">&quot;ok&quot;</span>
+<span class="o">}</span>
+</pre></div>
 <p>And with greater than/less than filters:</p>
-<pre><code>$ curl --get http://localhost:8080/docs --data-urlencode 'q=age:&lt;12' | jq
-{
-  "body": {
-    "count": 0,
-    "documents": null
-  },
-  "status": "ok"
-}
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>--get<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span>--data-urlencode<span class="w"> </span><span class="s1">&#39;q=age:&lt;12&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<span class="o">{</span>
+<span class="w">  </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">    </span><span class="s2">&quot;count&quot;</span>:<span class="w"> </span><span class="m">0</span>,
+<span class="w">    </span><span class="s2">&quot;documents&quot;</span>:<span class="w"> </span>null
+<span class="w">  </span><span class="o">}</span>,
+<span class="w">  </span><span class="s2">&quot;status&quot;</span>:<span class="w"> </span><span class="s2">&quot;ok&quot;</span>
+<span class="o">}</span>
 
-$ curl --get http://localhost:8080/docs --data-urlencode 'q=age:&lt;200' | jq
-{
-  "body": {
-    "count": 1,
-    "documents": [
-      {
-        "body": {
-          "age": "45",
-          "name": "Kevin"
-        },
-        "id": "c458a3ce-9faf-4431-a058-d9ae2a1651e1"
-      }
-    ]
-  },
-  "status": "ok"
-}
-</code></pre>
+$<span class="w"> </span>curl<span class="w"> </span>--get<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span>--data-urlencode<span class="w"> </span><span class="s1">&#39;q=age:&lt;200&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<span class="o">{</span>
+<span class="w">  </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">    </span><span class="s2">&quot;count&quot;</span>:<span class="w"> </span><span class="m">1</span>,
+<span class="w">    </span><span class="s2">&quot;documents&quot;</span>:<span class="w"> </span><span class="o">[</span>
+<span class="w">      </span><span class="o">{</span>
+<span class="w">        </span><span class="s2">&quot;body&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<span class="w">          </span><span class="s2">&quot;age&quot;</span>:<span class="w"> </span><span class="s2">&quot;45&quot;</span>,
+<span class="w">          </span><span class="s2">&quot;name&quot;</span>:<span class="w"> </span><span class="s2">&quot;Kevin&quot;</span>
+<span class="w">        </span><span class="o">}</span>,
+<span class="w">        </span><span class="s2">&quot;id&quot;</span>:<span class="w"> </span><span class="s2">&quot;c458a3ce-9faf-4431-a058-d9ae2a1651e1&quot;</span>
+<span class="w">      </span><span class="o">}</span>
+<span class="w">    </span><span class="o">]</span>
+<span class="w">  </span><span class="o">}</span>,
+<span class="w">  </span><span class="s2">&quot;status&quot;</span>:<span class="w"> </span><span class="s2">&quot;ok&quot;</span>
+<span class="o">}</span>
+</pre></div>
 <p>Sweet.</p>
 <h3 id="benchmarking">Benchmarking</h3><p>Now let's try inserting a few hundred thousand rows of real-world
 data. Grab <code>movies.json</code> from the <a href="https://github.com/prust/wikipedia-movie-data">Wikipedia Movie Data
@@ -668,31 +667,31 @@ subset of the data but enough that we can get a sense about
 performance.</p>
 <p>Here's a basic script to ingest that data a bunch of times once you've
 downloaded the file.</p>
-<pre><code class="hljs bash">#!/usr/bin/env bash
+<div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env bash</span>
 
-set -e
+<span class="nb">set</span><span class="w"> </span>-e
 
-count=50
-for run in {1..50}; do
-    jq -c &#39;.[]&#39; &quot;$1&quot; | while read data; do
-        curl -X POST -H &#39;Content-Type: application/json&#39; -d &quot;$data&quot; http://localhost:8080/docs
-    done
-done
-</code></pre>
+<span class="nv">count</span><span class="o">=</span><span class="m">50</span>
+<span class="k">for</span><span class="w"> </span>run<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="o">{</span><span class="m">1</span>..50<span class="o">}</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">    </span>jq<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$1</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="nb">read</span><span class="w"> </span>data<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">        </span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$data</span><span class="s2">&quot;</span><span class="w"> </span>http://localhost:8080/docs
+<span class="w">    </span><span class="k">done</span>
+<span class="k">done</span>
+</pre></div>
 <p>Start it up and wait as long as you can. :)</p>
-<pre><code class="hljs bash">$ chmod +x scripts/load_array.sh
-$ ./scripts/load_array.sh movies.json
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>chmod<span class="w"> </span>+x<span class="w"> </span>scripts/load_array.sh
+$<span class="w"> </span>./scripts/load_array.sh<span class="w"> </span>movies.json
+</pre></div>
 <p>You can check how many items are in the database like so:</p>
-<pre><code>$ curl http://localhost:8080/docs | jq '.body.count'
-12649
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.body.count&#39;</span>
+<span class="m">12649</span>
+</pre></div>
 <p>Once you have a few hundred thousand documents you'll start to notice
 exact equality queries start to take longer:</p>
-<pre><code>$ time curl -s --get http://localhost:8080/docs --data-urlencode 'q="year":1918' | jq '.body.count'
-1152
-curl -s --get http://localhost:8080/docs --data-urlencode 'q="year":1918'  0.00s user 0.00s system 0% cpu 0.992 total
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">time</span><span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span>--get<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span>--data-urlencode<span class="w"> </span><span class="s1">&#39;q=&quot;year&quot;:1918&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.body.count&#39;</span>
+<span class="m">1152</span>
+curl<span class="w"> </span>-s<span class="w"> </span>--get<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span>--data-urlencode<span class="w"> </span><span class="s1">&#39;q=&quot;year&quot;:1918&#39;</span><span class="w">  </span><span class="m">0</span>.00s<span class="w"> </span>user<span class="w"> </span><span class="m">0</span>.00s<span class="w"> </span>system<span class="w"> </span><span class="m">0</span>%<span class="w"> </span>cpu<span class="w"> </span><span class="m">0</span>.992<span class="w"> </span>total
+</pre></div>
 <p>And you think: although there are hundreds of thousands of documents,
 if I'm just asking for documents with a certain value such that there
 are only 1000 documents that match that value, shouldn't it be
@@ -704,157 +703,157 @@ every path in a document (that isn't a path within an array) we're
 going to store the path and the value of the document at that path.</p>
 <p>First we'll open a second database that we'll use to store all of
 these path-value pairs.</p>
-<pre><code class="hljs go">type server struct {
-        db      *pebble.DB // Primary data
-        indexDb *pebble.DB // Index data
-        port    string
-}
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">server</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">db</span><span class="w">      </span><span class="o">*</span><span class="nx">pebble</span><span class="p">.</span><span class="nx">DB</span><span class="w"> </span><span class="c1">// Primary data</span>
+<span class="w">        </span><span class="nx">indexDb</span><span class="w"> </span><span class="o">*</span><span class="nx">pebble</span><span class="p">.</span><span class="nx">DB</span><span class="w"> </span><span class="c1">// Index data</span>
+<span class="w">        </span><span class="nx">port</span><span class="w">    </span><span class="kt">string</span>
+<span class="p">}</span>
 
-func newServer(database string, port string) (*server, error) {
-        s := server{db: nil, port: port}
-        var err error
-        s.db, err = pebble.Open(database, &amp;pebble.Options{})
-        if err != nil {
-                return nil, err
-        }
+<span class="kd">func</span><span class="w"> </span><span class="nx">newServer</span><span class="p">(</span><span class="nx">database</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">port</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">server</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">s</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">server</span><span class="p">{</span><span class="nx">db</span><span class="p">:</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">port</span><span class="p">:</span><span class="w"> </span><span class="nx">port</span><span class="p">}</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="kt">error</span>
+<span class="w">        </span><span class="nx">s</span><span class="p">.</span><span class="nx">db</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">pebble</span><span class="p">.</span><span class="nx">Open</span><span class="p">(</span><span class="nx">database</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">pebble</span><span class="p">.</span><span class="nx">Options</span><span class="p">{})</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
 
-        s.indexDb, err = pebble.Open(database+&quot;.index&quot;, &amp;pebble.Options{})
-        return &amp;s, err
-}
-</code></pre>
+<span class="w">        </span><span class="nx">s</span><span class="p">.</span><span class="nx">indexDb</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">pebble</span><span class="p">.</span><span class="nx">Open</span><span class="p">(</span><span class="nx">database</span><span class="o">+</span><span class="s">&quot;.index&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">pebble</span><span class="p">.</span><span class="nx">Options</span><span class="p">{})</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">s</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="p">}</span>
+</pre></div>
 <p>Then when we insert, we'll call an <code>index</code> function to generate all
 path-value pairs and store them in this second database.</p>
 <p>The index database will store the path-value pair as keys. And values
 will be the comma separated list of document IDs that have that
 path-value pair.</p>
-<pre><code class="hljs go">func (s server) index(id string, document map[string]any) {
-        pv := getPathValues(document, &quot;&quot;)
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">index</span><span class="p">(</span><span class="nx">id</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">document</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">pv</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">getPathValues</span><span class="p">(</span><span class="nx">document</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">)</span>
 
-        for _, pathValue := range pv {
-                idsString, closer, err := s.indexDb.Get([]byte(pathValue))
-                if err != nil &amp;&amp; err != pebble.ErrNotFound {
-                        log.Printf(&quot;Could not look up pathvalue [%#v]: %s&quot;, document, err)
-                }
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">pathValue</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">pv</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">idsString</span><span class="p">,</span><span class="w"> </span><span class="nx">closer</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">indexDb</span><span class="p">.</span><span class="nx">Get</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">pathValue</span><span class="p">))</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">pebble</span><span class="p">.</span><span class="nx">ErrNotFound</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Could not look up pathvalue [%#v]: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">document</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                </span><span class="p">}</span>
 
-                if len(idsString) == 0 {
-                        idsString = []byte(id)
-                } else {
-                        ids := strings.Split(string(idsString), &quot;,&quot;)
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">idsString</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">idsString</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">id</span><span class="p">)</span>
+<span class="w">                </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">ids</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">strings</span><span class="p">.</span><span class="nx">Split</span><span class="p">(</span><span class="nb">string</span><span class="p">(</span><span class="nx">idsString</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;,&quot;</span><span class="p">)</span>
 
-                        found := false
-                        for _, existingId := range ids {
-                                if id == existingId {
-                                        found = true
-                                }
-                        }
+<span class="w">                        </span><span class="nx">found</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">                        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">existingId</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">ids</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="k">if</span><span class="w"> </span><span class="nx">id</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">existingId</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                        </span><span class="nx">found</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">                                </span><span class="p">}</span>
+<span class="w">                        </span><span class="p">}</span>
 
-                        if !found {
-                                idsString = append(idsString, []byte(&quot;,&quot;+id)...)
-                        }
-                }
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">found</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="nx">idsString</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">idsString</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&quot;,&quot;</span><span class="o">+</span><span class="nx">id</span><span class="p">)</span><span class="o">...</span><span class="p">)</span>
+<span class="w">                        </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
 
-                if closer != nil {
-                        err = closer.Close()
-                        if err != nil {
-                                log.Printf(&quot;Could not close: %s&quot;, err)
-                        }
-                }
-                err = s.indexDb.Set([]byte(pathValue), idsString, pebble.Sync)
-                if err != nil {
-                        log.Printf(&quot;Could not update index: %s&quot;, err)
-                }
-        }
-}
-</code></pre>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">closer</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">closer</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Could not close: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                        </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">                </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">indexDb</span><span class="p">.</span><span class="nx">Set</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">pathValue</span><span class="p">),</span><span class="w"> </span><span class="nx">idsString</span><span class="p">,</span><span class="w"> </span><span class="nx">pebble</span><span class="p">.</span><span class="nx">Sync</span><span class="p">)</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Could not update index: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>Keeping things simple we'll also implement this <code>getPathValues</code> helper
 recursively:</p>
-<pre><code class="hljs go">func getPathValues(obj map[string]any, prefix string) []string {
-        var pvs []string
-        for key, val := range obj {
-                switch t := val.(type) {
-                case map[string]any:
-                        pvs = append(pvs, getPathValues(t, key)...)
-                        continue
-                case []interface{}:
-                        // Can&#39;t handle arrays
-                        continue
-                }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">getPathValues</span><span class="p">(</span><span class="nx">obj</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">,</span><span class="w"> </span><span class="nx">prefix</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">pvs</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">key</span><span class="p">,</span><span class="w"> </span><span class="nx">val</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">obj</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">switch</span><span class="w"> </span><span class="nx">t</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">val</span><span class="p">.(</span><span class="kd">type</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">case</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">:</span>
+<span class="w">                        </span><span class="nx">pvs</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">pvs</span><span class="p">,</span><span class="w"> </span><span class="nx">getPathValues</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">key</span><span class="p">)</span><span class="o">...</span><span class="p">)</span>
+<span class="w">                        </span><span class="k">continue</span>
+<span class="w">                </span><span class="k">case</span><span class="w"> </span><span class="p">[]</span><span class="kd">interface</span><span class="p">{}:</span>
+<span class="w">                        </span><span class="c1">// Can&#39;t handle arrays</span>
+<span class="w">                        </span><span class="k">continue</span>
+<span class="w">                </span><span class="p">}</span>
 
-                if prefix != &quot;&quot; {
-                        key = prefix + &quot;.&quot; + key
-                }
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">prefix</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">key</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">prefix</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;.&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">key</span>
+<span class="w">                </span><span class="p">}</span>
 
-                pvs = append(pvs, fmt.Sprintf(&quot;%s=%v&quot;, key, val))
-        }
+<span class="w">                </span><span class="nx">pvs</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">pvs</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%s=%v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">key</span><span class="p">,</span><span class="w"> </span><span class="nx">val</span><span class="p">))</span>
+<span class="w">        </span><span class="p">}</span>
 
-        return pvs
-}
-</code></pre>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">pvs</span>
+<span class="p">}</span>
+</pre></div>
 <p>We'll update one line in <code>s.addDocument</code> to call this <code>index</code> function.</p>
-<pre><code class="hljs go">func (s server) addDocument(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-        dec := json.NewDecoder(r.Body)
-        var document map[string]any
-        err := dec.Decode(&amp;document)
-        if err != nil {
-                jsonResponse(w, nil, err)
-                return
-        }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">addDocument</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">,</span><span class="w"> </span><span class="nx">ps</span><span class="w"> </span><span class="nx">httprouter</span><span class="p">.</span><span class="nx">Params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">dec</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">NewDecoder</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">Body</span><span class="p">)</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">document</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dec</span><span class="p">.</span><span class="nx">Decode</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">document</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                </span><span class="k">return</span>
+<span class="w">        </span><span class="p">}</span>
 
-        // New unique id for the document
-        id := uuid.New().String()
+<span class="w">        </span><span class="c1">// New unique id for the document</span>
+<span class="w">        </span><span class="nx">id</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">uuid</span><span class="p">.</span><span class="nx">New</span><span class="p">().</span><span class="nx">String</span><span class="p">()</span>
 
-        s.index(id, document)
+<span class="w">        </span><span class="nx">s</span><span class="p">.</span><span class="nx">index</span><span class="p">(</span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="nx">document</span><span class="p">)</span>
 
-        bs, err := json.Marshal(document)
-        if err != nil {
-                jsonResponse(w, nil, err)
-                return
-        }
-        err = s.db.Set([]byte(id), bs, pebble.Sync)
-        if err != nil {
-                jsonResponse(w, nil, err)
-                return
-        }
+<span class="w">        </span><span class="nx">bs</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">Marshal</span><span class="p">(</span><span class="nx">document</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                </span><span class="k">return</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">Set</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">id</span><span class="p">),</span><span class="w"> </span><span class="nx">bs</span><span class="p">,</span><span class="w"> </span><span class="nx">pebble</span><span class="p">.</span><span class="nx">Sync</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                </span><span class="k">return</span>
+<span class="w">        </span><span class="p">}</span>
 
-        jsonResponse(w, map[string]any{
-                &quot;id&quot;: id,
-        }, nil)
-}
-</code></pre>
+<span class="w">        </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span>
+<span class="w">                </span><span class="s">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="nx">id</span><span class="p">,</span>
+<span class="w">        </span><span class="p">},</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <p>And we'll add a <code>reindex</code> function to be called in <code>main</code> to handle
 any documents that were ingested and not indexed (i.e. all the ones we
 already inserted).</p>
-<pre><code class="hljs go">func (s server) reindex() {
-        iter := s.db.NewIter(nil)
-        defer iter.Close()
-        for iter.First(); iter.Valid(); iter.Next() {
-                var document map[string]any
-                err := json.Unmarshal(iter.Value(), &amp;document)
-                if err != nil {
-                        log.Printf(&quot;Unable to parse bad document, %s: %s&quot;, string(iter.Key()), err)
-                }
-                s.index(string(iter.Key()), document)
-        }
-}
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">reindex</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">iter</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">NewIter</span><span class="p">(</span><span class="kc">nil</span><span class="p">)</span>
+<span class="w">        </span><span class="k">defer</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">First</span><span class="p">();</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">Valid</span><span class="p">();</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">Next</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kd">var</span><span class="w"> </span><span class="nx">document</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span>
+<span class="w">                </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">Unmarshal</span><span class="p">(</span><span class="nx">iter</span><span class="p">.</span><span class="nx">Value</span><span class="p">(),</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">document</span><span class="p">)</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Unable to parse bad document, %s: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">iter</span><span class="p">.</span><span class="nx">Key</span><span class="p">()),</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">                </span><span class="nx">s</span><span class="p">.</span><span class="nx">index</span><span class="p">(</span><span class="nb">string</span><span class="p">(</span><span class="nx">iter</span><span class="p">.</span><span class="nx">Key</span><span class="p">()),</span><span class="w"> </span><span class="nx">document</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
 
-func main() {
-        s, err := newServer(&quot;docdb.data&quot;, &quot;8080&quot;)
-        if err != nil {
-                log.Fatal(err)
-        }
-        defer s.db.Close()
+<span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">s</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newServer</span><span class="p">(</span><span class="s">&quot;docdb.data&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;8080&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">defer</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
 
-        s.reindex()
+<span class="w">        </span><span class="nx">s</span><span class="p">.</span><span class="nx">reindex</span><span class="p">()</span>
 
-        router := httprouter.New()
-        router.POST(&quot;/docs&quot;, s.addDocument)
-        router.GET(&quot;/docs&quot;, s.searchDocuments)
-        router.GET(&quot;/docs/:id&quot;, s.getDocument)
+<span class="w">        </span><span class="nx">router</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">httprouter</span><span class="p">.</span><span class="nx">New</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">router</span><span class="p">.</span><span class="nx">POST</span><span class="p">(</span><span class="s">&quot;/docs&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">addDocument</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">router</span><span class="p">.</span><span class="nx">GET</span><span class="p">(</span><span class="s">&quot;/docs&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">searchDocuments</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">router</span><span class="p">.</span><span class="nx">GET</span><span class="p">(</span><span class="s">&quot;/docs/:id&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">getDocument</span><span class="p">)</span>
 
-        log.Println(&quot;Listening on &quot; + s.port)
-        log.Fatal(http.ListenAndServe(&quot;:&quot;+s.port, router))
-}
-</code></pre>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Listening on &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">port</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">ListenAndServe</span><span class="p">(</span><span class="s">&quot;:&quot;</span><span class="o">+</span><span class="nx">s</span><span class="p">.</span><span class="nx">port</span><span class="p">,</span><span class="w"> </span><span class="nx">router</span><span class="p">))</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="using-the-index">Using the index</h3><p>When there is an equality filter we can look the equality filter
 up in the index database. Our filter language only supports AND-ed
 arguments. So the results matching the overall filter must be the set
@@ -863,116 +862,116 @@ filter. Greater than and less than filters will be filtered out after
 fetching all possible ids that match equality filters.</p>
 <p>If no ids are found in the index database meeting all equality filters
 then we'll fall back to the full table scan we already have.</p>
-<pre><code class="hljs go">func (s server) searchDocuments(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-        q, err := parseQuery(r.URL.Query().Get(&quot;q&quot;))
-        if err != nil {
-                jsonResponse(w, nil, err)
-                return
-        }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">searchDocuments</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">,</span><span class="w"> </span><span class="nx">ps</span><span class="w"> </span><span class="nx">httprouter</span><span class="p">.</span><span class="nx">Params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">q</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parseQuery</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">URL</span><span class="p">.</span><span class="nx">Query</span><span class="p">().</span><span class="nx">Get</span><span class="p">(</span><span class="s">&quot;q&quot;</span><span class="p">))</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                </span><span class="k">return</span>
+<span class="w">        </span><span class="p">}</span>
 
-        isRange := false
-        idsArgumentCount := map[string]int{}
-        nonRangeArguments := 0
-        for _, argument := range q.ands {
-                if argument.op == &quot;=&quot; {
-                        nonRangeArguments++
+<span class="w">        </span><span class="nx">isRange</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="nx">idsArgumentCount</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">int</span><span class="p">{}</span>
+<span class="w">        </span><span class="nx">nonRangeArguments</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">argument</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">q</span><span class="p">.</span><span class="nx">ands</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">argument</span><span class="p">.</span><span class="nx">op</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;=&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">nonRangeArguments</span><span class="o">++</span>
 
-                        ids, err := s.lookup(fmt.Sprintf(&quot;%s=%v&quot;, strings.Join(argument.key, &quot;.&quot;), argument.value))
-                        if err != nil {
-                                jsonResponse(w, nil, err)
-                                return
-                        }
+<span class="w">                        </span><span class="nx">ids</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">lookup</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%s=%v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">strings</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">argument</span><span class="p">.</span><span class="nx">key</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;.&quot;</span><span class="p">),</span><span class="w"> </span><span class="nx">argument</span><span class="p">.</span><span class="nx">value</span><span class="p">))</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                                </span><span class="k">return</span>
+<span class="w">                        </span><span class="p">}</span>
 
-                        for _, id := range ids {
-                                _, ok := idsArgumentCount[id]
-                                if !ok {
-                                        idsArgumentCount[id] = 0
-                                }
+<span class="w">                        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">id</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">ids</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">idsArgumentCount</span><span class="p">[</span><span class="nx">id</span><span class="p">]</span>
+<span class="w">                                </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                        </span><span class="nx">idsArgumentCount</span><span class="p">[</span><span class="nx">id</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">                                </span><span class="p">}</span>
 
-                                idsArgumentCount[id]++
-                        }
-                } else {
-                        isRange = true
-                }
-        }
+<span class="w">                                </span><span class="nx">idsArgumentCount</span><span class="p">[</span><span class="nx">id</span><span class="p">]</span><span class="o">++</span>
+<span class="w">                        </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">isRange</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        var idsInAll []string
-        for id, count := range idsArgumentCount {
-                if count == nonRangeArguments {
-                        idsInAll = append(idsInAll, id)
-                }
-        }
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">idsInAll</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="nx">count</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">idsArgumentCount</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">count</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">nonRangeArguments</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">idsInAll</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">idsInAll</span><span class="p">,</span><span class="w"> </span><span class="nx">id</span><span class="p">)</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        var documents []any
-        if r.URL.Query().Get(&quot;skipIndex&quot;) == &quot;true&quot; {
-                idsInAll = nil
-        }
-        if len(idsInAll) &gt; 0 {
-                for _, id := range idsInAll {
-                        document, err := s.getDocumentById([]byte(id))
-                        if err != nil {
-                                jsonResponse(w, nil, err)
-                                return
-                        }
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">documents</span><span class="w"> </span><span class="p">[]</span><span class="kt">any</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">URL</span><span class="p">.</span><span class="nx">Query</span><span class="p">().</span><span class="nx">Get</span><span class="p">(</span><span class="s">&quot;skipIndex&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;true&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">idsInAll</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">idsInAll</span><span class="p">)</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">id</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">idsInAll</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">document</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">getDocumentById</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">id</span><span class="p">))</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                                </span><span class="k">return</span>
+<span class="w">                        </span><span class="p">}</span>
 
-                        if !isRange || q.match(document) {
-                                documents = append(documents, map[string]any{
-                                        &quot;id&quot;:   id,
-                                        &quot;body&quot;: document,
-                                })
-                        }
-                }
-        } else {
-                iter := s.db.NewIter(nil)
-                defer iter.Close()
-                for iter.First(); iter.Valid(); iter.Next() {
-                        var document map[string]any
-                        err = json.Unmarshal(iter.Value(), &amp;document)
-                        if err != nil {
-                                jsonResponse(w, nil, err)
-                                return
-                        }
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">isRange</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">q</span><span class="p">.</span><span class="nx">match</span><span class="p">(</span><span class="nx">document</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="nx">documents</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">documents</span><span class="p">,</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span>
+<span class="w">                                        </span><span class="s">&quot;id&quot;</span><span class="p">:</span><span class="w">   </span><span class="nx">id</span><span class="p">,</span>
+<span class="w">                                        </span><span class="s">&quot;body&quot;</span><span class="p">:</span><span class="w"> </span><span class="nx">document</span><span class="p">,</span>
+<span class="w">                                </span><span class="p">})</span>
+<span class="w">                        </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">iter</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">NewIter</span><span class="p">(</span><span class="kc">nil</span><span class="p">)</span>
+<span class="w">                </span><span class="k">defer</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">First</span><span class="p">();</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">Valid</span><span class="p">();</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">Next</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="kd">var</span><span class="w"> </span><span class="nx">document</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span>
+<span class="w">                        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">Unmarshal</span><span class="p">(</span><span class="nx">iter</span><span class="p">.</span><span class="nx">Value</span><span class="p">(),</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">document</span><span class="p">)</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                                </span><span class="k">return</span>
+<span class="w">                        </span><span class="p">}</span>
 
-                        if q.match(document) {
-                                documents = append(documents, map[string]any{
-                                        &quot;id&quot;:   string(iter.Key()),
-                                        &quot;body&quot;: document,
-                                })
-                        }
-                }
-        }
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="nx">q</span><span class="p">.</span><span class="nx">match</span><span class="p">(</span><span class="nx">document</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="nx">documents</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">documents</span><span class="p">,</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span>
+<span class="w">                                        </span><span class="s">&quot;id&quot;</span><span class="p">:</span><span class="w">   </span><span class="nb">string</span><span class="p">(</span><span class="nx">iter</span><span class="p">.</span><span class="nx">Key</span><span class="p">()),</span>
+<span class="w">                                        </span><span class="s">&quot;body&quot;</span><span class="p">:</span><span class="w"> </span><span class="nx">document</span><span class="p">,</span>
+<span class="w">                                </span><span class="p">})</span>
+<span class="w">                        </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        jsonResponse(w, map[string]any{&quot;documents&quot;: documents, &quot;count&quot;: len(documents)}, nil)
-}
-</code></pre>
+<span class="w">        </span><span class="nx">jsonResponse</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span><span class="s">&quot;documents&quot;</span><span class="p">:</span><span class="w"> </span><span class="nx">documents</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">documents</span><span class="p">)},</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <p>The last unimplemented part is the <code>lookup</code> helper. Given a path-value
 pair it checks the database for IDs that match that pair.</p>
-<pre><code class="hljs go">func (s server) lookup(pathValue string) ([]string, error) {
-        idsString, closer, err := s.indexDb.Get([]byte(pathValue))
-        if err != nil &amp;&amp; err != pebble.ErrNotFound {
-                return nil, fmt.Errorf(&quot;Could not look up pathvalue [%#v]: %s&quot;, pathValue, err)
-        }
-        if closer != nil {
-                defer closer.Close()
-        }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">server</span><span class="p">)</span><span class="w"> </span><span class="nx">lookup</span><span class="p">(</span><span class="nx">pathValue</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">idsString</span><span class="p">,</span><span class="w"> </span><span class="nx">closer</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">indexDb</span><span class="p">.</span><span class="nx">Get</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">pathValue</span><span class="p">))</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">pebble</span><span class="p">.</span><span class="nx">ErrNotFound</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Could not look up pathvalue [%#v]: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">pathValue</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">closer</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">defer</span><span class="w"> </span><span class="nx">closer</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if len(idsString) == 0 {
-                return nil, nil
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">idsString</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="p">}</span>
 
-        return strings.Split(string(idsString), &quot;,&quot;), nil
-}
-</code></pre>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">strings</span><span class="p">.</span><span class="nx">Split</span><span class="p">(</span><span class="nb">string</span><span class="p">(</span><span class="nx">idsString</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;,&quot;</span><span class="p">),</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>We're done. Finally! Let's build it:</p>
-<pre><code class="hljs bash">$ go build
-$ ./docdb
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>go<span class="w"> </span>build
+$<span class="w"> </span>./docdb
+</pre></div>
 <p>(This is going to take a while; to reindex.)</p>
 <p>Once the server is ready we can run:</p>
-<pre><code>$ time curl -s --get http://localhost:8080/docs --data-urlencode 'q="year":1918' | jq '.body.count'
-1280
-curl -s --get http://localhost:8080/docs --data-urlencode 'q="year":1918'  0.01s user 0.00s system 29% cpu 0.029 total
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">time</span><span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span>--get<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span>--data-urlencode<span class="w"> </span><span class="s1">&#39;q=&quot;year&quot;:1918&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.body.count&#39;</span>
+<span class="m">1280</span>
+curl<span class="w"> </span>-s<span class="w"> </span>--get<span class="w"> </span>http://localhost:8080/docs<span class="w"> </span>--data-urlencode<span class="w"> </span><span class="s1">&#39;q=&quot;year&quot;:1918&#39;</span><span class="w">  </span><span class="m">0</span>.01s<span class="w"> </span>user<span class="w"> </span><span class="m">0</span>.00s<span class="w"> </span>system<span class="w"> </span><span class="m">29</span>%<span class="w"> </span>cpu<span class="w"> </span><span class="m">0</span>.029<span class="w"> </span>total
+</pre></div>
 <p>Hey that's not bad.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Hey here&#39;s a new blog post on writing a document database from scratch with support for Lucene-like queries and basic indexes in less than 500 lines of Go<a href="https://t.co/M3js6Pj9h0">https://t.co/M3js6Pj9h0</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1508546397943046150?ref_src=twsrc%5Etfw">March 28, 2022</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
@@ -1609,7 +1608,6 @@ curl -s --get http://localhost:8080/docs --data-urlencode 'q="year":1918'  0.01s
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

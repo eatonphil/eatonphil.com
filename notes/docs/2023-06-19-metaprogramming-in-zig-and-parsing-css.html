@@ -6,7 +6,6 @@
     <title>Metaprogramming in Zig and parsing CSS | notes.eatonphil.com</title>
     <meta name="description" content="Metaprogramming in Zig and parsing CSS" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -68,15 +67,15 @@ metaprogramming, jump to the implementation of
 <h3 id="parsing-css">Parsing CSS</h3><p>Let's imagine a CSS that only has alphabetical selectors, property
 names and values.</p>
 <p>The following would be valid:</p>
-<pre><code class="hljs css">div {
-  background: black;
-  color: white;
-}
+<div class="highlight"><pre><span></span><span class="nt">div</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">background</span><span class="p">:</span><span class="w"> </span><span class="kc">black</span><span class="p">;</span>
+<span class="w">  </span><span class="k">color</span><span class="p">:</span><span class="w"> </span><span class="kc">white</span><span class="p">;</span>
+<span class="p">}</span>
 
-a {
-  color: blue;
-}
-</code></pre>
+<span class="nt">a</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">color</span><span class="p">:</span><span class="w"> </span><span class="kc">blue</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>Thinking about the structure of this stripped down CSS we've got:</p>
 <ol>
 <li>CSS properties that consist of property names and values (in our case the property names are limited to <code>background</code> and <code>color</code>)</li>
@@ -84,63 +83,63 @@ a {
 <li>CSS sheets that have a list of rules</li>
 </ol>
 <p>Turning that into Zig in <code>main.zig</code>:</p>
-<pre><code class="hljs zig">const std = @import(&quot;std&quot;);
+<div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">std</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@import</span><span class="p">(</span><span class="s">&quot;std&quot;</span><span class="p">);</span>
 
-const CSSProperty = union(enum) {
-    unknown: void,
-    color: []const u8,
-    background: []const u8,
-};
+<span class="kr">const</span><span class="w"> </span><span class="n">CSSProperty</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">union</span><span class="p">(</span><span class="k">enum</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">unknown</span><span class="o">:</span><span class="w"> </span><span class="kt">void</span><span class="p">,</span>
+<span class="w">    </span><span class="n">color</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">background</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">};</span>
 
-const CSSRule = struct {
-    selector: []const u8,
-    properties: []CSSProperty,
-};
+<span class="kr">const</span><span class="w"> </span><span class="n">CSSRule</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">selector</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">properties</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="n">CSSProperty</span><span class="p">,</span>
+<span class="p">};</span>
 
-const CSSSheet = struct {
-    rules: []CSSRule,
-};
-</code></pre>
+<span class="kr">const</span><span class="w"> </span><span class="n">CSSSheet</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">rules</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="n">CSSRule</span><span class="p">,</span>
+<span class="p">};</span>
+</pre></div>
 <p>The parser is going to look for CSS rules which contain a selector and
 a list of CSS rules. The entrypoint is that simple:</p>
-<pre><code class="hljs zig">fn parse(
-    arena: *std.heap.ArenaAllocator,
-    css: []const u8,
-) !CSSSheet {
-    var index: usize = 0;
-    var rules = std.ArrayList(CSSRule).init(arena.allocator());
+<div class="highlight"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="n">parse</span><span class="p">(</span>
+<span class="w">    </span><span class="n">arena</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">std</span><span class="p">.</span><span class="n">heap</span><span class="p">.</span><span class="n">ArenaAllocator</span><span class="p">,</span>
+<span class="w">    </span><span class="n">css</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="n">CSSSheet</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">index</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">rules</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">ArrayList</span><span class="p">(</span><span class="n">CSSRule</span><span class="p">).</span><span class="n">init</span><span class="p">(</span><span class="n">arena</span><span class="p">.</span><span class="n">allocator</span><span class="p">());</span>
 
-    // Parse rules until EOF.
-    while (index &lt; css.len) {
-        var res = try parse_rule(arena, css, index);
-        index = res.index;
-        try rules.append(res.rule);
+<span class="w">    </span><span class="c1">// Parse rules until EOF.</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">css</span><span class="p">.</span><span class="n">len</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">parse_rule</span><span class="p">(</span><span class="n">arena</span><span class="p">,</span><span class="w"> </span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">);</span>
+<span class="w">        </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">res</span><span class="p">.</span><span class="n">index</span><span class="p">;</span>
+<span class="w">        </span><span class="k">try</span><span class="w"> </span><span class="n">rules</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">.</span><span class="n">rule</span><span class="p">);</span>
 
-        // In case there is trailing whitespace before the EOF,
-        // eating whitespace here makes sure we exit the loop
-        // immediately before trying to parse more rules.
-        index = eat_whitespace(css, index);
-    }
+<span class="w">        </span><span class="c1">// In case there is trailing whitespace before the EOF,</span>
+<span class="w">        </span><span class="c1">// eating whitespace here makes sure we exit the loop</span>
+<span class="w">        </span><span class="c1">// immediately before trying to parse more rules.</span>
+<span class="w">        </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eat_whitespace</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return CSSSheet{
-        .rules = rules.items,
-    };
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">CSSSheet</span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">rules</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rules</span><span class="p">.</span><span class="n">items</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">}</span>
+</pre></div>
 <p>Let's implement the <code>eat_whitespace</code> helper we've referenced. It
 increments a cursor into the css file while it sees whitespace.</p>
-<pre><code class="hljs zig">fn eat_whitespace(
-    css: []const u8,
-    initial_index: usize,
-) usize {
-    var index = initial_index;
-    while (index &lt; css.len and std.ascii.isWhitespace(css[index])) {
-        index += 1;
-    }
+<div class="highlight"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="n">eat_whitespace</span><span class="p">(</span>
+<span class="w">    </span><span class="n">css</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">initial_index</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">initial_index</span><span class="p">;</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">css</span><span class="p">.</span><span class="n">len</span><span class="w"> </span><span class="k">and</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">ascii</span><span class="p">.</span><span class="n">isWhitespace</span><span class="p">(</span><span class="n">css</span><span class="p">[</span><span class="n">index</span><span class="p">]))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">index</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return index;
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">index</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>In our stripped-down version of CSS all we have to think about is
 ASCII. So the builtin <code>std.ascii.isWhitespace()</code> function is perfect.</p>
 <p>Next, parsing CSS rules.</p>
@@ -149,72 +148,72 @@ properties, and closing curly braces. We need to remember to eat
 whitespace between each piece of syntax.</p>
 <p>And we'll reference a few more parsing helpers we'll talk about next
 for the selector, braces, and properties.</p>
-<pre><code class="hljs zig">const ParseRuleResult = struct {
-    rule: CSSRule,
-    index: usize,
-};
-fn parse_rule(
-    arena: *std.heap.ArenaAllocator,
-    css: []const u8,
-    initial_index: usize,
-) !ParseRuleResult {
-    var index = eat_whitespace(css, initial_index);
+<div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">ParseRuleResult</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">rule</span><span class="o">:</span><span class="w"> </span><span class="n">CSSRule</span><span class="p">,</span>
+<span class="w">    </span><span class="n">index</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span>
+<span class="p">};</span>
+<span class="k">fn</span><span class="w"> </span><span class="n">parse_rule</span><span class="p">(</span>
+<span class="w">    </span><span class="n">arena</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">std</span><span class="p">.</span><span class="n">heap</span><span class="p">.</span><span class="n">ArenaAllocator</span><span class="p">,</span>
+<span class="w">    </span><span class="n">css</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">initial_index</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="n">ParseRuleResult</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eat_whitespace</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">initial_index</span><span class="p">);</span>
 
-    // First parse selector(s).
-    var selector_res = try parse_identifier(css, index);
-    index = selector_res.index;
+<span class="w">    </span><span class="c1">// First parse selector(s).</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">selector_res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">parse_identifier</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">);</span>
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">selector_res</span><span class="p">.</span><span class="n">index</span><span class="p">;</span>
 
-    index = eat_whitespace(css, index);
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eat_whitespace</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">);</span>
 
-    // Then parse opening curly brace: {.
-    index = try parse_syntax(css, index, &#39;{&#39;);
+<span class="w">    </span><span class="c1">// Then parse opening curly brace: {.</span>
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">parse_syntax</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="s">&#39;{&#39;</span><span class="p">);</span>
 
-    index = eat_whitespace(css, index);
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eat_whitespace</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">);</span>
 
-    var properties = std.ArrayList(CSSProperty).init(arena.allocator());
-    // Then parse any number of properties.
-    while (index &lt; css.len) {
-        index = eat_whitespace(css, index);
-        if (index &lt; css.len and css[index] == &#39;}&#39;) {
-            break;
-        }
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">properties</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">ArrayList</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">).</span><span class="n">init</span><span class="p">(</span><span class="n">arena</span><span class="p">.</span><span class="n">allocator</span><span class="p">());</span>
+<span class="w">    </span><span class="c1">// Then parse any number of properties.</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">css</span><span class="p">.</span><span class="n">len</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eat_whitespace</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">css</span><span class="p">.</span><span class="n">len</span><span class="w"> </span><span class="k">and</span><span class="w"> </span><span class="n">css</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&#39;}&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
 
-        var attr_res = try parse_property(css, index);
-        index = attr_res.index;
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">attr_res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">parse_property</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">);</span>
+<span class="w">        </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">attr_res</span><span class="p">.</span><span class="n">index</span><span class="p">;</span>
 
-        try properties.append(attr_res.property);
-    }
+<span class="w">        </span><span class="k">try</span><span class="w"> </span><span class="n">properties</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr_res</span><span class="p">.</span><span class="n">property</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
-    index = eat_whitespace(css, index);
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eat_whitespace</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">);</span>
 
-    // Then parse closing curly brace: }.
-    index = try parse_syntax(css, index, &#39;}&#39;);
+<span class="w">    </span><span class="c1">// Then parse closing curly brace: }.</span>
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">parse_syntax</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="s">&#39;}&#39;</span><span class="p">);</span>
 
-    return ParseRuleResult{
-        .rule = CSSRule{
-            .selector = selector_res.identifier,
-            .properties = properties.items,
-        },
-        .index = index,
-    };
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ParseRuleResult</span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">rule</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CSSRule</span><span class="p">{</span>
+<span class="w">            </span><span class="p">.</span><span class="n">selector</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">selector_res</span><span class="p">.</span><span class="n">identifier</span><span class="p">,</span>
+<span class="w">            </span><span class="p">.</span><span class="n">properties</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">properties</span><span class="p">.</span><span class="n">items</span><span class="p">,</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">.</span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">index</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">}</span>
+</pre></div>
 <p>The <code>parse_syntax</code> helper is pretty simple, it does a bounds check and
 increments the cursor if the current character matches the one you
 pass in.</p>
-<pre><code class="hljs zig">fn parse_syntax(
-    css: []const u8,
-    initial_index: usize,
-    syntax: u8,
-) !usize {
-    if (initial_index &lt; css.len and css[initial_index] == syntax) {
-        return initial_index + 1;
-    }
+<div class="highlight"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="n">parse_syntax</span><span class="p">(</span>
+<span class="w">    </span><span class="n">css</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">initial_index</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span>
+<span class="w">    </span><span class="n">syntax</span><span class="o">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="kt">usize</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">initial_index</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">css</span><span class="p">.</span><span class="n">len</span><span class="w"> </span><span class="k">and</span><span class="w"> </span><span class="n">css</span><span class="p">[</span><span class="n">initial_index</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">syntax</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">initial_index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    debug_at(css, initial_index, &quot;Expected syntax: &#39;{c}&#39;.&quot;, .{syntax});
-    return error.NoSuchSyntax;
-}
-</code></pre>
+<span class="w">    </span><span class="n">debug_at</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">initial_index</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected syntax: &#39;{c}&#39;.&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">syntax</span><span class="p">});</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">error</span><span class="p">.</span><span class="n">NoSuchSyntax</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>This calls attention to debugging messages on failure. When we
 fail to parse a syntax, we want to give a useful error message and
 point at the exact line and column of code where the error happens.</p>
@@ -223,50 +222,50 @@ point at the exact line and column of code where the error happens.</p>
 entire line that contains the index where the parser failed. We also
 want to identify the exact line and column corresponding to that
 index.</p>
-<pre><code class="hljs zig">fn debug_at(
-    css: []const u8,
-    index: usize,
-    comptime msg: []const u8,
-    args: anytype,
-) void {
-    var line_no: usize = 1;
-    var col_no: usize = 0;
+<div class="highlight"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="n">debug_at</span><span class="p">(</span>
+<span class="w">    </span><span class="n">css</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">index</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span>
+<span class="w">    </span><span class="kr">comptime</span><span class="w"> </span><span class="n">msg</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">args</span><span class="o">:</span><span class="w"> </span><span class="n">anytype</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">line_no</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">col_no</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
 
-    var i: usize = 0;
-    var line_beginning: usize = 0;
-    var found_line = false;
-    while (i &lt; css.len) : (i += 1) {
-        if (css[i] == &#39;\n&#39;) {
-            if (!found_line) {
-                col_no = 0;
-                line_beginning = i;
-                line_no += 1;
-                continue;
-            } else {
-                break;
-            }
-        }
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">i</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">line_beginning</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">found_line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">css</span><span class="p">.</span><span class="n">len</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">css</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="se">&#39;\n&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">found_line</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">col_no</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">                </span><span class="n">line_beginning</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+<span class="w">                </span><span class="n">line_no</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">                </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">            </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">break</span><span class="p">;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if (i == index) {
-            found_line = true;
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">index</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">found_line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if (!found_line) {
-            col_no += 1;
-        }
-    }
-</code></pre>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">found_line</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">col_no</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
 <p>Then we print it all out in a nice format for users (which will likely
 just be ourselves).</p>
-<pre><code class="hljs zig">    std.debug.print(&quot;Error at line {}, column {}. &quot;, .{ line_no, col_no });
-    std.debug.print(msg ++ &quot;\n\n&quot;, args);
-    std.debug.print(&quot;{s}\n&quot;, .{css[line_beginning..i]});
-    while (col_no &gt; 0) : (col_no -= 1) {
-        std.debug.print(&quot; &quot;, .{});
-    }
-    std.debug.print(&quot;^ Near here.\n&quot;, .{});
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Error at line {}, column {}. &quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="w"> </span><span class="n">line_no</span><span class="p">,</span><span class="w"> </span><span class="n">col_no</span><span class="w"> </span><span class="p">});</span>
+<span class="w">    </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="n">msg</span><span class="w"> </span><span class="o">++</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">);</span>
+<span class="w">    </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;{s}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">css</span><span class="p">[</span><span class="n">line_beginning</span><span class="p">..</span><span class="n">i</span><span class="p">]});</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">col_no</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="n">col_no</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot; &quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{});</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;^ Near here.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{});</span>
+<span class="p">}</span>
+</pre></div>
 <p>Ok, popping our mental stack, if we look back at <code>parse_rule</code> we still
 need to implement <code>parse_identifier</code> and <code>parse_property</code>.</p>
 <h4 id="<code>parse_identifier</code>"><code>parse_identifier</code></h4><p>An "identifier" for us here is just going to be an ASCII alphabetical
@@ -274,81 +273,81 @@ string (i.e. <code>[a-zA-Z]+</code>).  We're going to <em>really</em> simplify C
 because we're going to use this method for parsing not just selectors
 but property names and even property values.</p>
 <p>Zig again has a nice builtin <code>std.ascii.isAlphabetical</code> we can use.</p>
-<pre><code class="hljs zig">const ParseIdentifierResult = struct {
-    identifier: []const u8,
-    index: usize,
-};
-fn parse_identifier(
-    css: []const u8,
-    initial_index: usize,
-) !ParseIdentifierResult {
-    var index = initial_index;
-    while (index &lt; css.len and std.ascii.isAlphabetic(css[index])) {
-        index += 1;
-    }
+<div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">ParseIdentifierResult</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">identifier</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">index</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span>
+<span class="p">};</span>
+<span class="k">fn</span><span class="w"> </span><span class="n">parse_identifier</span><span class="p">(</span>
+<span class="w">    </span><span class="n">css</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">initial_index</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="n">ParseIdentifierResult</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">initial_index</span><span class="p">;</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">css</span><span class="p">.</span><span class="n">len</span><span class="w"> </span><span class="k">and</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">ascii</span><span class="p">.</span><span class="n">isAlphabetic</span><span class="p">(</span><span class="n">css</span><span class="p">[</span><span class="n">index</span><span class="p">]))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">index</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (index == initial_index) {
-        debug_at(css, initial_index, &quot;Expected valid identifier.&quot;, .{});
-        return error.InvalidIdentifier;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">initial_index</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">debug_at</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">initial_index</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected valid identifier.&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{});</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="k">error</span><span class="p">.</span><span class="n">InvalidIdentifier</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return ParseIdentifierResult{
-        .identifier = css[initial_index..index],
-        .index = index,
-    };
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ParseIdentifierResult</span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">identifier</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">css</span><span class="p">[</span><span class="n">initial_index</span><span class="p">..</span><span class="n">index</span><span class="p">],</span>
+<span class="w">        </span><span class="p">.</span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">index</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">}</span>
+</pre></div>
 <p>In reality, CSS properties are <a href="https://www.w3schools.com/cssref/css_selectors.php">highly
 complex</a>. Parsing
 CSS correctly isn't the main aim of this post though. :)</p>
 <h4 id="<code>parse_property</code>"><code>parse_property</code></h4><p>The final piece of CSS we need to parse is properties. These consist
 of a property name, then a colon, then a property value, and finally a
 semicolon. And within each piece we eat whitespace.</p>
-<pre><code class="hljs zig">const ParsePropertyResult = struct {
-    property: CSSProperty,
-    index: usize,
-};
-fn parse_property(
-    css: []const u8,
-    initial_index: usize,
-) !ParsePropertyResult {
-    var index = eat_whitespace(css, initial_index);
+<div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">ParsePropertyResult</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">property</span><span class="o">:</span><span class="w"> </span><span class="n">CSSProperty</span><span class="p">,</span>
+<span class="w">    </span><span class="n">index</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span>
+<span class="p">};</span>
+<span class="k">fn</span><span class="w"> </span><span class="n">parse_property</span><span class="p">(</span>
+<span class="w">    </span><span class="n">css</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">initial_index</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="n">ParsePropertyResult</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eat_whitespace</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">initial_index</span><span class="p">);</span>
 
-    // First parse property name.
-    var name_res = parse_identifier(css, index) catch |e| {
-        std.debug.print(&quot;Could not parse property name.\n&quot;, .{});
-        return e;
-    };
-    index = name_res.index;
+<span class="w">    </span><span class="c1">// First parse property name.</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">name_res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse_identifier</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">)</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="o">|</span><span class="n">e</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Could not parse property name.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{});</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">e</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">name_res</span><span class="p">.</span><span class="n">index</span><span class="p">;</span>
 
-    index = eat_whitespace(css, index);
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eat_whitespace</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">);</span>
 
-    // Then parse colon: :.
-    index = try parse_syntax(css, index, &#39;:&#39;);
+<span class="w">    </span><span class="c1">// Then parse colon: :.</span>
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">parse_syntax</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="s">&#39;:&#39;</span><span class="p">);</span>
 
-    index = eat_whitespace(css, index);
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eat_whitespace</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">);</span>
 
-    // Then parse property value.
-    var value_res = parse_identifier(css, index) catch |e| {
-        std.debug.print(&quot;Could not parse property value.\n&quot;, .{});
-        return e;
-    };
-    index = value_res.index;
+<span class="w">    </span><span class="c1">// Then parse property value.</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">value_res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse_identifier</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">)</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="o">|</span><span class="n">e</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Could not parse property value.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{});</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">e</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value_res</span><span class="p">.</span><span class="n">index</span><span class="p">;</span>
 
-    // Finally parse semi-colon: ;.
-    index = try parse_syntax(css, index, &#39;;&#39;);
+<span class="w">    </span><span class="c1">// Finally parse semi-colon: ;.</span>
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">parse_syntax</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="s">&#39;;&#39;</span><span class="p">);</span>
 
-    var property = match_property(name_res.identifier, value_res.identifier) catch |e| {
-        debug_at(css, initial_index, &quot;Unknown property: &#39;{s}&#39;.&quot;, .{name_res.identifier});
-        return e;
-    };
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">property</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">match_property</span><span class="p">(</span><span class="n">name_res</span><span class="p">.</span><span class="n">identifier</span><span class="p">,</span><span class="w"> </span><span class="n">value_res</span><span class="p">.</span><span class="n">identifier</span><span class="p">)</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="o">|</span><span class="n">e</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">debug_at</span><span class="p">(</span><span class="n">css</span><span class="p">,</span><span class="w"> </span><span class="n">initial_index</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Unknown property: &#39;{s}&#39;.&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">name_res</span><span class="p">.</span><span class="n">identifier</span><span class="p">});</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">e</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
 
-    return ParsePropertyResult{
-        .property = property,
-        .index = index,
-    };
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ParsePropertyResult</span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">property</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">property</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">index</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">}</span>
+</pre></div>
 <p>Finally we get to the first bit of metaprogramming. Once we have a
 property name and value, we need to turn that into a Zig union.</p>
 <p>That's what <code>match_property()</code> is going to be responsible for doing.</p>
@@ -357,19 +356,19 @@ property name and value, we need to turn that into a Zig union.</p>
 passed in) and assigned to the value passed in.</p>
 <p>If we didn't have metaprogramming or reflection, the implementation
 might look like this:</p>
-<pre><code>fn match_property(
-    name: []const u8,
-    value: []const u8,
-) !CSSProperty {
-    if (std.mem.eql(u8, name, "color")) {
-        return CSSProperty{.color = value};
-    } else if (std.mem.eql(u8, name, "background")) {
-        return CSSProperty{.background = value};
-    }
+<div class="highlight"><pre><span></span><span class="n">fn</span><span class="w"> </span><span class="n">match_property</span><span class="p">(</span>
+<span class="w">    </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="k">const</span><span class="w"> </span><span class="n">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="k">const</span><span class="w"> </span><span class="n">u8</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="n">CSSProperty</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">.</span><span class="n">mem</span><span class="o">.</span><span class="n">eql</span><span class="p">(</span><span class="n">u8</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;color&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">CSSProperty</span><span class="p">{</span><span class="o">.</span><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value</span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">.</span><span class="n">mem</span><span class="o">.</span><span class="n">eql</span><span class="p">(</span><span class="n">u8</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;background&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">CSSProperty</span><span class="p">{</span><span class="o">.</span><span class="n">background</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value</span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return error.UnknownProperty;
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">error</span><span class="o">.</span><span class="n">UnknownProperty</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>And that is not necessarily bad. In fact it may be how a lot of
 production code looks over time as product needs evolve. You can keep
 the internal field name unrelated to the external field name.</p>
@@ -380,45 +379,45 @@ thing with Zig metaprogramming.</p>
 to understand the reflection APIs.</p>
 <p>Specifically, if we look at line 210-226 of that file, we can see them
 iterating over fields of a <code>Union</code>:</p>
-<pre><code class="hljs zig">        .Union =&gt; |unionInfo| {
-            if (comptime std.meta.trait.hasFn(&quot;jsonParse&quot;)(T)) {
-                return T.jsonParse(allocator, source, options);
-            }
+<div class="highlight"><pre><span></span><span class="w">        </span><span class="p">.</span><span class="n">Union</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">|</span><span class="n">unionInfo</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="kr">comptime</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">meta</span><span class="p">.</span><span class="n">trait</span><span class="p">.</span><span class="n">hasFn</span><span class="p">(</span><span class="s">&quot;jsonParse&quot;</span><span class="p">)(</span><span class="n">T</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="n">T</span><span class="p">.</span><span class="n">jsonParse</span><span class="p">(</span><span class="n">allocator</span><span class="p">,</span><span class="w"> </span><span class="n">source</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">);</span>
+<span class="w">            </span><span class="p">}</span>
 
-            if (unionInfo.tag_type == null) @compileError(&quot;Unable to parse into untagged union &#39;&quot; ++ @typeName(T) ++ &quot;&#39;&quot;);
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unionInfo</span><span class="p">.</span><span class="n">tag_type</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="nb">@compileError</span><span class="p">(</span><span class="s">&quot;Unable to parse into untagged union &#39;&quot;</span><span class="w"> </span><span class="o">++</span><span class="w"> </span><span class="nb">@typeName</span><span class="p">(</span><span class="n">T</span><span class="p">)</span><span class="w"> </span><span class="o">++</span><span class="w"> </span><span class="s">&quot;&#39;&quot;</span><span class="p">);</span>
 
-            if (.object_begin != try source.next()) return error.UnexpectedToken;
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(.</span><span class="n">object_begin</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">source</span><span class="p">.</span><span class="n">next</span><span class="p">())</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="k">error</span><span class="p">.</span><span class="n">UnexpectedToken</span><span class="p">;</span>
 
-            var result: ?T = null;
-            var name_token: ?Token = try source.nextAllocMax(allocator, .alloc_if_needed, options.max_value_len.?);
-            const field_name = switch (name_token.?) {
-                inline .string, .allocated_string =&gt; |slice| slice,
-                else =&gt; return error.UnexpectedToken,
-            };
+<span class="w">            </span><span class="kr">var</span><span class="w"> </span><span class="n">result</span><span class="o">:</span><span class="w"> </span><span class="o">?</span><span class="n">T</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">var</span><span class="w"> </span><span class="n">name_token</span><span class="o">:</span><span class="w"> </span><span class="o">?</span><span class="n">Token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">source</span><span class="p">.</span><span class="n">nextAllocMax</span><span class="p">(</span><span class="n">allocator</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">alloc_if_needed</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">.</span><span class="n">max_value_len</span><span class="p">.</span><span class="o">?</span><span class="p">);</span>
+<span class="w">            </span><span class="kr">const</span><span class="w"> </span><span class="n">field_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="n">name_token</span><span class="p">.</span><span class="o">?</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kr">inline</span><span class="w"> </span><span class="p">.</span><span class="n">string</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">allocated_string</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">|</span><span class="n">slice</span><span class="o">|</span><span class="w"> </span><span class="n">slice</span><span class="p">,</span>
+<span class="w">                </span><span class="k">else</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="k">error</span><span class="p">.</span><span class="n">UnexpectedToken</span><span class="p">,</span>
+<span class="w">            </span><span class="p">};</span>
 
-            inline for (unionInfo.fields) |u_field| {
-</code></pre>
+<span class="w">            </span><span class="kr">inline</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">unionInfo</span><span class="p">.</span><span class="n">fields</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">u_field</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+</pre></div>
 <p>Then right after that (lines 226-243) we see them conditionally
 modifying the result object:</p>
-<pre><code class="hljs zig">            inline for (unionInfo.fields) |u_field| {
-                if (std.mem.eql(u8, u_field.name, field_name)) {
-                    // Free the name token now in case we&#39;re using an allocator that optimizes freeing the last allocated object.
-                    // (Recursing into parseInternal() might trigger more allocations.)
-                    freeAllocated(allocator, name_token.?);
-                    name_token = null;
+<div class="highlight"><pre><span></span><span class="w">            </span><span class="kr">inline</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">unionInfo</span><span class="p">.</span><span class="n">fields</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">u_field</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">field_name</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="c1">// Free the name token now in case we&#39;re using an allocator that optimizes freeing the last allocated object.</span>
+<span class="w">                    </span><span class="c1">// (Recursing into parseInternal() might trigger more allocations.)</span>
+<span class="w">                    </span><span class="n">freeAllocated</span><span class="p">(</span><span class="n">allocator</span><span class="p">,</span><span class="w"> </span><span class="n">name_token</span><span class="p">.</span><span class="o">?</span><span class="p">);</span>
+<span class="w">                    </span><span class="n">name_token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
 
-                    if (u_field.type == void) {
-                        // void isn&#39;t really a json type, but we can support void payload union tags with {} as a value.
-                        if (.object_begin != try source.next()) return error.UnexpectedToken;
-                        if (.object_end != try source.next()) return error.UnexpectedToken;
-                        result = @unionInit(T, u_field.name, {});
-                    } else {
-                        // Recurse.
-                        result = @unionInit(T, u_field.name, try parseInternal(u_field.type, allocator, source, options));
-                    }
-                    break;
-                }
-</code></pre>
+<span class="w">                    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">u_field</span><span class="p">.</span><span class="kt">type</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kt">void</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="c1">// void isn&#39;t really a json type, but we can support void payload union tags with {} as a value.</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="p">(.</span><span class="n">object_begin</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">source</span><span class="p">.</span><span class="n">next</span><span class="p">())</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="k">error</span><span class="p">.</span><span class="n">UnexpectedToken</span><span class="p">;</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="p">(.</span><span class="n">object_end</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">source</span><span class="p">.</span><span class="n">next</span><span class="p">())</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="k">error</span><span class="p">.</span><span class="n">UnexpectedToken</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@unionInit</span><span class="p">(</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="p">{});</span>
+<span class="w">                    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="c1">// Recurse.</span>
+<span class="w">                        </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@unionInit</span><span class="p">(</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">parseInternal</span><span class="p">(</span><span class="n">u_field</span><span class="p">.</span><span class="kt">type</span><span class="p">,</span><span class="w"> </span><span class="n">allocator</span><span class="p">,</span><span class="w"> </span><span class="n">source</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">));</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                    </span><span class="k">break</span><span class="p">;</span>
+<span class="w">                </span><span class="p">}</span>
+</pre></div>
 <p>We can see that the <code>.Union =&gt; |unionInfo|</code> condition is entered by
 switching on <code>@typeInfo(T)</code> (<a href="https://github.com/ziglang/zig/blob/32cb9462ffa0a9df7a080d67eaf3a5762173f742/lib/std/json/static.zig#L149">line
 149</a>)
@@ -428,72 +427,72 @@ and that <code>T</code> is a type (<a href="https://github.com/ziglang/zig/blob/
 <code>CSSProperty</code>. And we know <code>CSSProperty</code> is a union so we don't need
 the <code>switch</code> either.</p>
 <p>So let's apply that to our <code>match_property</code> implementation.</p>
-<pre><code class="hljs zig">fn match_property(
-    name: []const u8,
-    value: []const u8,
-) !CSSProperty {
-    const cssPropertyInfo = @typeInfo(CSSProperty);
+<div class="highlight"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="n">match_property</span><span class="p">(</span>
+<span class="w">    </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">value</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="n">CSSProperty</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">const</span><span class="w"> </span><span class="n">cssPropertyInfo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@typeInfo</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">);</span>
 
-    for (cssPropertyInfo.Union.fields) |u_field| {
-        if (std.mem.eql(u8, u_field.name, name)) {
-            return @unionInit(CSSProperty, u_field.name, value);
-        }
-    }
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">cssPropertyInfo</span><span class="p">.</span><span class="n">Union</span><span class="p">.</span><span class="n">fields</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">u_field</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nb">@unionInit</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return error.UnknownProperty;
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">error</span><span class="p">.</span><span class="n">UnknownProperty</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>And if we try to build that we'll get an error like this:</p>
-<pre><code class="hljs zig">main.zig:15:31: error: values of type &#39;[]const builtin.Type.UnionField&#39; must be comptime-known, but index value is runtime-known
-    for (cssPropertyInfo.Union.fields) |u_field| {
-</code></pre>
+<div class="highlight"><pre><span></span><span class="n">main</span><span class="p">.</span><span class="n">zig</span><span class="o">:</span><span class="mi">15</span><span class="o">:</span><span class="mi">31</span><span class="o">:</span><span class="w"> </span><span class="k">error</span><span class="o">:</span><span class="w"> </span><span class="n">values</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="kt">type</span><span class="w"> </span><span class="err">&#39;</span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="n">builtin</span><span class="p">.</span><span class="n">Type</span><span class="p">.</span><span class="n">UnionField</span><span class="err">&#39;</span><span class="w"> </span><span class="n">must</span><span class="w"> </span><span class="n">be</span><span class="w"> </span><span class="kr">comptime</span><span class="o">-</span><span class="n">known</span><span class="p">,</span><span class="w"> </span><span class="n">but</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="n">is</span><span class="w"> </span><span class="n">runtime</span><span class="o">-</span><span class="n">known</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">cssPropertyInfo</span><span class="p">.</span><span class="n">Union</span><span class="p">.</span><span class="n">fields</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">u_field</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+</pre></div>
 <p>Zig's "reflection" abilities here are comptime only. So we can't use a
 runtime <code>for</code> loop, we must use a comptime <code>inline for</code> loop.</p>
-<pre><code class="hljs zig">fn match_property(
-    name: []const u8,
-    value: []const u8,
-) !CSSProperty {
-    const cssPropertyInfo = @typeInfo(CSSProperty);
+<div class="highlight"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="n">match_property</span><span class="p">(</span>
+<span class="w">    </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">value</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="n">CSSProperty</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">const</span><span class="w"> </span><span class="n">cssPropertyInfo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@typeInfo</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">);</span>
 
-    inline for (cssPropertyInfo.Union.fields) |u_field| {
-        if (std.mem.eql(u8, u_field.name, name)) {
-            return @unionInit(CSSProperty, u_field.name, value);
-        }
-    }
+<span class="w">    </span><span class="kr">inline</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">cssPropertyInfo</span><span class="p">.</span><span class="n">Union</span><span class="p">.</span><span class="n">fields</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">u_field</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nb">@unionInit</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return error.UnknownProperty;
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">error</span><span class="p">.</span><span class="n">UnknownProperty</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>As far as I understand it, this loop is basically unrolled and the
 generated code would look a lot like our hard-coded initial version.</p>
 <p>i.e. it would probably look like this:</p>
-<pre><code class="hljs zig">fn match_property(
-    name: []const u8,
-    value: []const u8,
-) !CSSProperty {
-    const cssPropertyInfo = @typeInfo(CSSProperty);
+<div class="highlight"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="n">match_property</span><span class="p">(</span>
+<span class="w">    </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">value</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="n">CSSProperty</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">const</span><span class="w"> </span><span class="n">cssPropertyInfo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@typeInfo</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">);</span>
 
-    if (std.mem.eql(u8, &quot;background&quot;, name)) {
-        return @unionInit(CSSProperty, &quot;background&quot;, value);
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;background&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">@unionInit</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;background&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (std.mem.eql(u8, &quot;color&quot;, name)) {
-        return @unionInit(CSSProperty, &quot;color&quot;, value);
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;color&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">@unionInit</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;color&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (std.mem.eql(u8, &quot;unknown&quot;, name)) {
-        return @unionInit(CSSProperty, &quot;unknown&quot;, value);
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;unknown&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">@unionInit</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;unknown&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return error.UnknownProperty;
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">error</span><span class="p">.</span><span class="n">UnknownProperty</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>Again that's just how I imagine the compiler to generate code from the
 Union field reflection and <code>inline for</code> over the fields.</p>
 <p>Try compiling that code. I get this:</p>
-<pre><code class="hljs console">main.zig:17:58: error: expected type &#39;void&#39;, found &#39;[]const u8&#39;
-            return @unionInit(CSSProperty, u_field.name, value);
-</code></pre>
+<div class="highlight"><pre><span></span><span class="go">main.zig:17:58: error: expected type &#39;void&#39;, found &#39;[]const u8&#39;</span>
+<span class="go">            return @unionInit(CSSProperty, u_field.name, value);</span>
+</pre></div>
 <p>Thinking about the generated code makes it especially clear what's
 happening. We have an <code>unknown</code> field in there that has a <code>void</code>
 type. You can't assign a string to void.</p>
@@ -508,43 +507,43 @@ failure.</p>
 evaluated at comptime and filters out the <code>unknown</code> pass of the
 <code>inline for</code> loop, the compiler shouldn't generate any code trying to
 assign to the <code>unknown</code> field.</p>
-<pre><code class="hljs zig">fn match_property(
-    name: []const u8,
-    value: []const u8,
-) !CSSProperty {
-    const cssPropertyInfo = @typeInfo(CSSProperty);
+<div class="highlight"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="n">match_property</span><span class="p">(</span>
+<span class="w">    </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">value</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="n">CSSProperty</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">const</span><span class="w"> </span><span class="n">cssPropertyInfo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@typeInfo</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">);</span>
 
-    inline for (cssPropertyInfo.Union.fields) |u_field| {
-        if (comptime !std.mem.eql(u8, u_field.name, &quot;unknown&quot;)) {
-            if (std.mem.eql(u8, u_field.name, name)) {
-                return @unionInit(CSSProperty, u_field.name, value);
-            }
-        }
-    }
+<span class="w">    </span><span class="kr">inline</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">cssPropertyInfo</span><span class="p">.</span><span class="n">Union</span><span class="p">.</span><span class="n">fields</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">u_field</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="kr">comptime</span><span class="w"> </span><span class="o">!</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;unknown&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nb">@unionInit</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">);</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return error.UnknownProperty;
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">error</span><span class="p">.</span><span class="n">UnknownProperty</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>And indeed, if you try to compile it, this works. Since the
 conditional is evaluated at compile time, we can imagine the code the
 compiler generates is this:</p>
-<pre><code class="hljs zig">fn match_property(
-    name: []const u8,
-    value: []const u8,
-) !CSSProperty {
-    const cssPropertyInfo = @typeInfo(CSSProperty);
+<div class="highlight"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="n">match_property</span><span class="p">(</span>
+<span class="w">    </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">value</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="n">CSSProperty</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">const</span><span class="w"> </span><span class="n">cssPropertyInfo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@typeInfo</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">);</span>
 
-    if (std.mem.eql(u8, &quot;background&quot;, name)) {
-        return @unionInit(CSSProperty, &quot;background&quot;, value);
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;background&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">@unionInit</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;background&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (std.mem.eql(u8, &quot;color&quot;, name)) {
-        return @unionInit(CSSProperty, &quot;color&quot;, value);
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;color&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">@unionInit</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;color&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return error.UnknownProperty;
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">error</span><span class="p">.</span><span class="n">UnknownProperty</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>The <code>unknown</code> field has been skipped.</p>
 <p>In retrospect, I realize that the <code>unknown</code> field probably isn't
 even needed. We could eliminate it from the <code>CSSProperty</code> union and
@@ -556,20 +555,20 @@ the resulting <code>CSSSheet</code> we'd get after parsing.</p>
 <h3 id="<code>sheet.display()</code>"><code>sheet.display()</code></h3><p>If we didn't have metaprogramming and wanted to display the sheet,
 we'd have to switch on every possible union field.</p>
 <p>Like so (I've modified the <code>CSSSheet</code> struct definition so it includes this method):</p>
-<pre><code class="hljs zig">    fn display(sheet: *CSSSheet) void {
-        for (sheet.rules) |rule| {
-            std.debug.print(&quot;selector: {s}\n&quot;, .{rule.selector});
-            for (rule.properties) |property| {
-                switch (property) {
-                    .unknown =&gt; unreachable,
-                    .color =&gt; |color_value| std.debug.print(&quot;  color: {s}\n&quot;, .{color_value}),
-                    .background =&gt; |background_value| std.debug.print(&quot;  background: {s}\n&quot;, .{background_value}),
-                };
-            }
-            std.debug.print(&quot;\n&quot;, .{});
-        }
-    }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">display</span><span class="p">(</span><span class="n">sheet</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">CSSSheet</span><span class="p">)</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">sheet</span><span class="p">.</span><span class="n">rules</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">rule</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;selector: {s}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">rule</span><span class="p">.</span><span class="n">selector</span><span class="p">});</span>
+<span class="w">            </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">rule</span><span class="p">.</span><span class="n">properties</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">property</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="n">property</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="p">.</span><span class="n">unknown</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">unreachable</span><span class="p">,</span>
+<span class="w">                    </span><span class="p">.</span><span class="n">color</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">|</span><span class="n">color_value</span><span class="o">|</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;  color: {s}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">color_value</span><span class="p">}),</span>
+<span class="w">                    </span><span class="p">.</span><span class="n">background</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">|</span><span class="n">background_value</span><span class="o">|</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;  background: {s}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">background_value</span><span class="p">}),</span>
+<span class="w">                </span><span class="p">};</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{});</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
 <p>This is already a little annoying and could get unwieldy as we add
 fields to the <code>CSSProperty</code> union.</p>
 <p>Instead we can use the <code>inline for
@@ -577,94 +576,94 @@ fields to the <code>CSSProperty</code> union.</p>
 over all fields, skip the <code>unknown</code> field at comptime, and print out
 the field name and value by matching on the current value of the
 <code>property</code> enum by using the <code>@tagName</code> builtin.</p>
-<pre><code class="hljs zig">    fn display(sheet: *CSSSheet) void {
-        for (sheet.rules) |rule| {
-            std.debug.print(&quot;selector: {s}\n&quot;, .{rule.selector});
-            for (rule.properties) |property| {
-                inline for (@typeInfo(CSSProperty).Union.fields) |u_field| {
-                    if (comptime !std.mem.eql(u8, u_field.name, &quot;unknown&quot;)) {
-                        if (std.mem.eql(u8, u_field.name, @tagName(property))) {
-                            std.debug.print(&quot;  {s}: {s}\n&quot;, .{
-                                @tagName(property),
-                                @field(property, u_field.name),
-                            });
-                        }
-                    }
-                }
-            }
-            std.debug.print(&quot;\n&quot;, .{});
-        }
-    }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">display</span><span class="p">(</span><span class="n">sheet</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">CSSSheet</span><span class="p">)</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">sheet</span><span class="p">.</span><span class="n">rules</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">rule</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;selector: {s}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">rule</span><span class="p">.</span><span class="n">selector</span><span class="p">});</span>
+<span class="w">            </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">rule</span><span class="p">.</span><span class="n">properties</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">property</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kr">inline</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="nb">@typeInfo</span><span class="p">(</span><span class="n">CSSProperty</span><span class="p">).</span><span class="n">Union</span><span class="p">.</span><span class="n">fields</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">u_field</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="kr">comptime</span><span class="w"> </span><span class="o">!</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;unknown&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="nb">@tagName</span><span class="p">(</span><span class="n">property</span><span class="p">)))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;  {s}: {s}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span>
+<span class="w">                                </span><span class="nb">@tagName</span><span class="p">(</span><span class="n">property</span><span class="p">),</span>
+<span class="w">                                </span><span class="nb">@field</span><span class="p">(</span><span class="n">property</span><span class="p">,</span><span class="w"> </span><span class="n">u_field</span><span class="p">.</span><span class="n">name</span><span class="p">),</span>
+<span class="w">                            </span><span class="p">});</span>
+<span class="w">                        </span><span class="p">}</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{});</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
 <h3 id="<code>main</code>"><code>main</code></h3><p>Finally, we pull it all together with a little <code>main</code> function.</p>
-<pre><code class="hljs zig">pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
+<div class="highlight"><pre><span></span><span class="kr">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="n">main</span><span class="p">()</span><span class="w"> </span><span class="o">!</span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">arena</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">heap</span><span class="p">.</span><span class="n">ArenaAllocator</span><span class="p">.</span><span class="n">init</span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">heap</span><span class="p">.</span><span class="n">page_allocator</span><span class="p">);</span>
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="n">arena</span><span class="p">.</span><span class="n">deinit</span><span class="p">();</span>
 
-    const allocator = arena.allocator();
+<span class="w">    </span><span class="kr">const</span><span class="w"> </span><span class="n">allocator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">arena</span><span class="p">.</span><span class="n">allocator</span><span class="p">();</span>
 
-    // Let&#39;s read in a CSS file.
-    var args = std.process.args();
+<span class="w">    </span><span class="c1">// Let&#39;s read in a CSS file.</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">args</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="n">args</span><span class="p">();</span>
 
-    // Skips the program name.
-    _ = args.next();
+<span class="w">    </span><span class="c1">// Skips the program name.</span>
+<span class="w">    </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">();</span>
 
-    var file_name: []const u8 = &quot;&quot;;
-    if (args.next()) |f| {
-        file_name = f;
-    }
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">file_name</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">())</span><span class="w"> </span><span class="o">|</span><span class="n">f</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">file_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    const file = try std.fs.cwd().openFile(file_name, .{});
-    defer file.close();
+<span class="w">    </span><span class="kr">const</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">fs</span><span class="p">.</span><span class="n">cwd</span><span class="p">().</span><span class="n">openFile</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span><span class="w"> </span><span class="p">.{});</span>
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="n">file</span><span class="p">.</span><span class="n">close</span><span class="p">();</span>
 
-    const file_size = try file.getEndPos();
-    var css_file = try allocator.alloc(u8, file_size);
-    _ = try file.read(css_file);
+<span class="w">    </span><span class="kr">const</span><span class="w"> </span><span class="n">file_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">file</span><span class="p">.</span><span class="n">getEndPos</span><span class="p">();</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">css_file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">allocator</span><span class="p">.</span><span class="n">alloc</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">file_size</span><span class="p">);</span>
+<span class="w">    </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">file</span><span class="p">.</span><span class="n">read</span><span class="p">(</span><span class="n">css_file</span><span class="p">);</span>
 
-    var sheet = parse(&amp;arena, css_file) catch return;
-    sheet.display();
-}
-</code></pre>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">sheet</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse</span><span class="p">(</span><span class="o">&amp;</span><span class="n">arena</span><span class="p">,</span><span class="w"> </span><span class="n">css_file</span><span class="p">)</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="n">sheet</span><span class="p">.</span><span class="n">display</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
 <p>And try it against some tests.</p>
-<pre><code class="hljs console">$ zig build-exe main.zig
-$ cat tests/basic.css
-div {
-    background: white;
-}
-$ ./main tests/basic.css
-selector: div
-  background: white
-</code></pre>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>zig<span class="w"> </span>build-exe<span class="w"> </span>main.zig
+<span class="gp">$ </span>cat<span class="w"> </span>tests/basic.css
+<span class="go">div {</span>
+<span class="go">    background: white;</span>
+<span class="go">}</span>
+<span class="gp">$ </span>./main<span class="w"> </span>tests/basic.css
+<span class="go">selector: div</span>
+<span class="go">  background: white</span>
+</pre></div>
 <p>Nice! Let's try it against a more complex test.</p>
-<pre><code class="hljs console">$ cat tests/multiple-blocks.css
-div {
-    background: black;
-    color: white;
-}
+<div class="highlight"><pre><span></span><span class="gp">$ </span>cat<span class="w"> </span>tests/multiple-blocks.css
+<span class="go">div {</span>
+<span class="go">    background: black;</span>
+<span class="go">    color: white;</span>
+<span class="go">}</span>
 
-a {
-    color: blue;
-}
-$ ./main tests/multiple-blocks.css
-selector: div
-  background: black
-  color: white
+<span class="go">a {</span>
+<span class="go">    color: blue;</span>
+<span class="go">}</span>
+<span class="gp">$ </span>./main<span class="w"> </span>tests/multiple-blocks.css
+<span class="go">selector: div</span>
+<span class="go">  background: black</span>
+<span class="go">  color: white</span>
 
-selector: a
-  color: blue
-</code></pre>
+<span class="go">selector: a</span>
+<span class="go">  color: blue</span>
+</pre></div>
 <p>Awesome. And against a bad CSS sheet:</p>
-<pre><code class="hljs console">$ cat tests/bad-property.css
-a {
-    big: pink;
-}
-$ ./main cat tests/bad-property.css
-Error at line 2, column 4. Unknown property: &#39;big&#39;.
+<div class="highlight"><pre><span></span><span class="gp">$ </span>cat<span class="w"> </span>tests/bad-property.css
+<span class="go">a {</span>
+<span class="go">    big: pink;</span>
+<span class="go">}</span>
+<span class="gp">$ </span>./main<span class="w"> </span>cat<span class="w"> </span>tests/bad-property.css
+<span class="go">Error at line 2, column 4. Unknown property: &#39;big&#39;.</span>
 
 
-    big: pink;
-    ^ Near here.
-</code></pre>
+<span class="go">    big: pink;</span>
+<span class="go">    ^ Near here.</span>
+</pre></div>
 <p>We've got it!</p>
 <h3 id="addendum:-<code>@field</code>">Addendum: <code>@field</code></h3><p>The docs were quite clear about using <code>@field(object, fieldName)</code> to
 access the value of an <code>object</code> of type <code>@TypeOf(object)</code> at field
@@ -1309,7 +1308,6 @@ so it I wanted to call this LHS behavior out.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

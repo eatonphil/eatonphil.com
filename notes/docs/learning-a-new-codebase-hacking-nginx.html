@@ -6,7 +6,6 @@
     <title>Learning a new codebase: hacking on nginx | notes.eatonphil.com</title>
     <meta name="description" content="Learning a new codebase: hacking on nginx" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -70,11 +69,11 @@ the same:</p>
 <h3 id="nginx">nginx</h3><p>Let's follow these steps for nginx. We google <code>nginx github</code>
 to learn that there's a read-only copy of the source on
 <a href="https://github.com/nginx/nginx">Github</a>.</p>
-<pre><code class="hljs bash">$ mkdir ~/vendor
-$ cd ~/vendor
-$ git clone https://github.com/nginx/nginx
-$ cd nginx
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>mkdir<span class="w"> </span>~/vendor
+$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>~/vendor
+$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/nginx/nginx
+$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>nginx
+</pre></div>
 <p>There's no readme, bummer. We google <code>nginx build from
 source</code> and find
 <a href="http://nginx.org/en/docs/configure.html">this</a>. We see it's a typical
@@ -85,209 +84,209 @@ dependencies besides my C compiler.</p>
 file in this directory but notice there is a <code>configure</code> file in
 <code>auto</code>. Trying <code>cd auto &amp;&amp; ./configure</code> crashes so let's try
 <code>./auto/configure</code>. That seems to do it except for the warning:</p>
-<pre><code class="hljs bash">$ ./auto/configure
+<div class="highlight"><pre><span></span>$<span class="w"> </span>./auto/configure
 ...
-./auto/configure: error: the HTTP rewrite module requires the PCRE library.
-You can either disable the module by using --without-http_rewrite_module
-option, or install the PCRE library into the system, or build the PCRE library
-statically from the source with nginx by using --with-pcre=&lt;path&gt; option.
-</code></pre>
+./auto/configure:<span class="w"> </span>error:<span class="w"> </span>the<span class="w"> </span>HTTP<span class="w"> </span>rewrite<span class="w"> </span>module<span class="w"> </span>requires<span class="w"> </span>the<span class="w"> </span>PCRE<span class="w"> </span>library.
+You<span class="w"> </span>can<span class="w"> </span>either<span class="w"> </span>disable<span class="w"> </span>the<span class="w"> </span>module<span class="w"> </span>by<span class="w"> </span>using<span class="w"> </span>--without-http_rewrite_module
+option,<span class="w"> </span>or<span class="w"> </span>install<span class="w"> </span>the<span class="w"> </span>PCRE<span class="w"> </span>library<span class="w"> </span>into<span class="w"> </span>the<span class="w"> </span>system,<span class="w"> </span>or<span class="w"> </span>build<span class="w"> </span>the<span class="w"> </span>PCRE<span class="w"> </span>library
+statically<span class="w"> </span>from<span class="w"> </span>the<span class="w"> </span><span class="nb">source</span><span class="w"> </span>with<span class="w"> </span>nginx<span class="w"> </span>by<span class="w"> </span>using<span class="w"> </span>--with-pcre<span class="o">=</span>&lt;path&gt;<span class="w"> </span>option.
+</pre></div>
 <p>Run <code>./auto/configure --without-http_rewrite_module</code>. And then again
 when that fails but also omitting <code>http_gzip_module</code>.</p>
 <p>Ok autoconfigure is done. Now we've got a Makefile. Run <code>make -j</code> to
 compile using all cores.</p>
 <p>Run <code>git status</code> to see where the binary was placed. Run <code>ls objs</code> and
 there it is, great:</p>
-<pre><code class="hljs bash">$ ls objs
-autoconf.err  nginx    ngx_auto_config.h   ngx_modules.c  src
-Makefile      nginx.8  ngx_auto_headers.h  ngx_modules.o
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>ls<span class="w"> </span>objs
+autoconf.err<span class="w">  </span>nginx<span class="w">    </span>ngx_auto_config.h<span class="w">   </span>ngx_modules.c<span class="w">  </span>src
+Makefile<span class="w">      </span>nginx.8<span class="w">  </span>ngx_auto_headers.h<span class="w">  </span>ngx_modules.o
+</pre></div>
 <h3 id="the-hack">The hack</h3><p>We want a simple <code>dump</code> command that will return a literal string in a
 <code>location</code> block. So something like this:</p>
-<pre><code class="hljs diff">$ diff --git a/conf/nginx.conf b/conf/nginx.conf
-index 29bc085f..e96e817f 100644
---- a/conf/nginx.conf
-+++ b/conf/nginx.conf
+<div class="highlight"><pre><span></span>$ diff --git a/conf/nginx.conf b/conf/nginx.conf
+<span class="gh">index 29bc085f..e96e817f 100644</span>
+<span class="gd">--- a/conf/nginx.conf</span>
+<span class="gi">+++ b/conf/nginx.conf</span>
 
-@@ -41,8 +41,7 @@ http {
+<span class="gu">@@ -41,8 +41,7 @@ http {</span>
 #access_log  logs/host.access.log  main;
 
 location / {
--            root   html;
--            index  index.html index.htm;
-+            dump &#39;It was a good Thursday.&#39;;
-         }
+<span class="gd">-            root   html;</span>
+<span class="gd">-            index  index.html index.htm;</span>
+<span class="gi">+            dump &#39;It was a good Thursday.&#39;;</span>
+<span class="w"> </span>        }
 
-         #error_page  404              /404.html;
+<span class="w"> </span>        #error_page  404              /404.html;
 }
-</code></pre>
+</pre></div>
 <p>Now that we've built nginx we can use the <code>-t</code> flag to test the
 validity of this config:</p>
-<pre><code class="hljs bash">$ ./objs/nginx -t -c $(pwd)/conf/nginx.conf
-nginx: [alert] could not open error log file: open() &quot;/usr/local/nginx/logs/error.log&quot; failed (2: No such file or directory)
-2021/04/04 21:24:09 [emerg] 1030951#0: unknown directive &quot;dump&quot; in /home/phil/vendor/nginx/conf/nginx.conf:44
-nginx: configuration file /home/phil/vendor/nginx/conf/nginx.conf test failed
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>./objs/nginx<span class="w"> </span>-t<span class="w"> </span>-c<span class="w"> </span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/conf/nginx.conf
+nginx:<span class="w"> </span><span class="o">[</span>alert<span class="o">]</span><span class="w"> </span>could<span class="w"> </span>not<span class="w"> </span>open<span class="w"> </span>error<span class="w"> </span>log<span class="w"> </span>file:<span class="w"> </span>open<span class="o">()</span><span class="w"> </span><span class="s2">&quot;/usr/local/nginx/logs/error.log&quot;</span><span class="w"> </span>failed<span class="w"> </span><span class="o">(</span><span class="m">2</span>:<span class="w"> </span>No<span class="w"> </span>such<span class="w"> </span>file<span class="w"> </span>or<span class="w"> </span>directory<span class="o">)</span>
+<span class="m">2021</span>/04/04<span class="w"> </span><span class="m">21</span>:24:09<span class="w"> </span><span class="o">[</span>emerg<span class="o">]</span><span class="w"> </span><span class="m">1030951</span><span class="c1">#0: unknown directive &quot;dump&quot; in /home/phil/vendor/nginx/conf/nginx.conf:44</span>
+nginx:<span class="w"> </span>configuration<span class="w"> </span>file<span class="w"> </span>/home/phil/vendor/nginx/conf/nginx.conf<span class="w"> </span><span class="nb">test</span><span class="w"> </span>failed
+</pre></div>
 <p>And now we've got something to go on! Clearly we have to register this
 directive and the log gives us enough info to start grepping:</p>
-<pre><code class="hljs bash">$ git --no-pager grep &#39;unknown directive&#39;
-src/core/ngx_conf_file.c:                       &quot;unknown directive \&quot;%s\&quot;&quot;, name-&gt;data);
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>grep<span class="w"> </span><span class="s1">&#39;unknown directive&#39;</span>
+src/core/ngx_conf_file.c:<span class="w">                       </span><span class="s2">&quot;unknown directive \&quot;%s\&quot;&quot;</span>,<span class="w"> </span>name-&gt;data<span class="o">)</span><span class="p">;</span>
+</pre></div>
 <p>The case that has this failing comes from line 463: <code>rv = cmd-&gt;set(cf, cmd, conf)</code>. So let's see what this <code>set</code> does. <code>git grep set</code> is useless. Let's try finding out what <code>cmd</code> is so we can locate the struct that has <code>set</code> on it. Ah it's an <code>ngx_command_t</code>. Since it doesn't have <code>struct</code> behind it it means it's typedef-ed and will likely have a <code>;</code> after it. So <code>git grep ngx_command_t\;</code> finds us:</p>
-<pre><code>$ git --no-pager grep ngx_command_t\;
-src/core/ngx_core.h:typedef struct ngx_command_s         ngx_command_t;
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>grep<span class="w"> </span>ngx_command_t<span class="se">\;</span>
+src/core/ngx_core.h:typedef<span class="w"> </span>struct<span class="w"> </span>ngx_command_s<span class="w">         </span>ngx_command_t<span class="p">;</span>
+</pre></div>
 <p>Which means the implementation is hidden, so grep for ngx_command_s:</p>
-<pre><code class="hljs bash">$ git --no-pager grep ngx_command_s
-src/core/ngx_conf_file.h:struct ngx_command_s {
-src/core/ngx_core.h:typedef struct ngx_command_s         ngx_command_t;
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>grep<span class="w"> </span>ngx_command_s
+src/core/ngx_conf_file.h:struct<span class="w"> </span>ngx_command_s<span class="w"> </span><span class="o">{</span>
+src/core/ngx_core.h:typedef<span class="w"> </span>struct<span class="w"> </span>ngx_command_s<span class="w">         </span>ngx_command_t<span class="p">;</span>
+</pre></div>
 <p>Ok this is going nowhere. Different approach. What command did we remove?</p>
-<pre><code class="hljs bash">$ git --no-pager diff
-diff --git a/conf/nginx.conf b/conf/nginx.conf
-index 29bc085f..e96e817f 100644
---- a/conf/nginx.conf
-+++ b/conf/nginx.conf
-@@ -41,8 +41,7 @@ http {
-         #access_log  logs/host.access.log  main;
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>diff
+diff<span class="w"> </span>--git<span class="w"> </span>a/conf/nginx.conf<span class="w"> </span>b/conf/nginx.conf
+index<span class="w"> </span>29bc085f..e96e817f<span class="w"> </span><span class="m">100644</span>
+---<span class="w"> </span>a/conf/nginx.conf
++++<span class="w"> </span>b/conf/nginx.conf
+@@<span class="w"> </span>-41,8<span class="w"> </span>+41,7<span class="w"> </span>@@<span class="w"> </span>http<span class="w"> </span><span class="o">{</span>
+<span class="w">         </span><span class="c1">#access_log  logs/host.access.log  main;</span>
 
-         location / {
--            root   html;
--            index  index.html index.htm;
-+            dump &#39;It was a good Thursday.&#39;;
-         }
+<span class="w">         </span>location<span class="w"> </span>/<span class="w"> </span><span class="o">{</span>
+-<span class="w">            </span>root<span class="w">   </span>html<span class="p">;</span>
+-<span class="w">            </span>index<span class="w">  </span>index.html<span class="w"> </span>index.htm<span class="p">;</span>
++<span class="w">            </span>dump<span class="w"> </span><span class="s1">&#39;It was a good Thursday.&#39;</span><span class="p">;</span>
+<span class="w">         </span><span class="o">}</span>
 
-         #error_page  404              /404.html;
-</code></pre>
+<span class="w">         </span><span class="c1">#error_page  404              /404.html;</span>
+</pre></div>
 <p><code>root</code> is a command. Maybe we can copy that.</p>
-<pre><code class="hljs bash">$ git --no-pager grep \&quot;root\&quot;
-docs/xml/nginx/changes.xml:in the &quot;root&quot; or &quot;auth_basic_user_file&quot; directives.
-docs/xml/nginx/changes.xml:a request was handled incorrectly, if a &quot;root&quot; directive used variables;
-docs/xml/nginx/changes.xml:the $document_root variable usage in the &quot;root&quot; and &quot;alias&quot; directives
-docs/xml/nginx/changes.xml:the $document_root variable did not support the variables in the &quot;root&quot;
-docs/xml/nginx/changes.xml:if a &quot;root&quot; was specified by variable only, then the root was relative
-src/http/ngx_http_core_module.c:    { ngx_string(&quot;root&quot;),
-src/http/ngx_http_core_module.c:                           &amp;cmd-&gt;name, clcf-&gt;alias ? &quot;alias&quot; : &quot;root&quot;);
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>grep<span class="w"> </span><span class="se">\&quot;</span>root<span class="se">\&quot;</span>
+docs/xml/nginx/changes.xml:in<span class="w"> </span>the<span class="w"> </span><span class="s2">&quot;root&quot;</span><span class="w"> </span>or<span class="w"> </span><span class="s2">&quot;auth_basic_user_file&quot;</span><span class="w"> </span>directives.
+docs/xml/nginx/changes.xml:a<span class="w"> </span>request<span class="w"> </span>was<span class="w"> </span>handled<span class="w"> </span>incorrectly,<span class="w"> </span><span class="k">if</span><span class="w"> </span>a<span class="w"> </span><span class="s2">&quot;root&quot;</span><span class="w"> </span>directive<span class="w"> </span>used<span class="w"> </span>variables<span class="p">;</span>
+docs/xml/nginx/changes.xml:the<span class="w"> </span><span class="nv">$document_root</span><span class="w"> </span>variable<span class="w"> </span>usage<span class="w"> </span><span class="k">in</span><span class="w"> </span>the<span class="w"> </span><span class="s2">&quot;root&quot;</span><span class="w"> </span>and<span class="w"> </span><span class="s2">&quot;alias&quot;</span><span class="w"> </span>directives
+docs/xml/nginx/changes.xml:the<span class="w"> </span><span class="nv">$document_root</span><span class="w"> </span>variable<span class="w"> </span>did<span class="w"> </span>not<span class="w"> </span>support<span class="w"> </span>the<span class="w"> </span>variables<span class="w"> </span><span class="k">in</span><span class="w"> </span>the<span class="w"> </span><span class="s2">&quot;root&quot;</span>
+docs/xml/nginx/changes.xml:if<span class="w"> </span>a<span class="w"> </span><span class="s2">&quot;root&quot;</span><span class="w"> </span>was<span class="w"> </span>specified<span class="w"> </span>by<span class="w"> </span>variable<span class="w"> </span>only,<span class="w"> </span><span class="k">then</span><span class="w"> </span>the<span class="w"> </span>root<span class="w"> </span>was<span class="w"> </span>relative
+src/http/ngx_http_core_module.c:<span class="w">    </span><span class="o">{</span><span class="w"> </span>ngx_string<span class="o">(</span><span class="s2">&quot;root&quot;</span><span class="o">)</span>,
+src/http/ngx_http_core_module.c:<span class="w">                           </span><span class="p">&amp;</span>cmd-&gt;name,<span class="w"> </span>clcf-&gt;alias<span class="w"> </span>?<span class="w"> </span><span class="s2">&quot;alias&quot;</span><span class="w"> </span>:<span class="w"> </span><span class="s2">&quot;root&quot;</span><span class="o">)</span><span class="p">;</span>
+</pre></div>
 <p>That looks more promising. Let's copy that:</p>
-<pre><code class="hljs bash">$ git --no-pager diff src/http/
-diff --git a/src/http/ngx_http_core_module.c b/src/http/ngx_http_core_module.c             index 9b94b328..17a64e80 100644                                                            --- a/src/http/ngx_http_core_module.c                                                      +++ b/src/http/ngx_http_core_module.c                                                      @@ -331,6 +331,14 @@ static ngx_command_t  ngx_http_core_commands[] = {
-       0,
-       NULL },
-+    { ngx_string(&quot;dump&quot;),
-+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_HTTP_LIF_CONF
-+                        |NGX_CONF_TAKE1,
-+      ngx_http_core_dump,
-+      NGX_HTTP_LOC_CONF_OFFSET,
-+      0,
-+      NULL },
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>diff<span class="w"> </span>src/http/
+diff<span class="w"> </span>--git<span class="w"> </span>a/src/http/ngx_http_core_module.c<span class="w"> </span>b/src/http/ngx_http_core_module.c<span class="w">             </span>index<span class="w"> </span>9b94b328..17a64e80<span class="w"> </span><span class="m">100644</span><span class="w">                                                            </span>---<span class="w"> </span>a/src/http/ngx_http_core_module.c<span class="w">                                                      </span>+++<span class="w"> </span>b/src/http/ngx_http_core_module.c<span class="w">                                                      </span>@@<span class="w"> </span>-331,6<span class="w"> </span>+331,14<span class="w"> </span>@@<span class="w"> </span>static<span class="w"> </span>ngx_command_t<span class="w">  </span>ngx_http_core_commands<span class="o">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">{</span>
+<span class="w">       </span><span class="m">0</span>,
+<span class="w">       </span>NULL<span class="w"> </span><span class="o">}</span>,
++<span class="w">    </span><span class="o">{</span><span class="w"> </span>ngx_string<span class="o">(</span><span class="s2">&quot;dump&quot;</span><span class="o">)</span>,
++<span class="w">      </span>NGX_HTTP_MAIN_CONF<span class="p">|</span>NGX_HTTP_SRV_CONF<span class="p">|</span>NGX_HTTP_LOC_CONF<span class="p">|</span>NGX_HTTP_LIF_CONF
++<span class="w">                        </span><span class="p">|</span>NGX_CONF_TAKE1,
++<span class="w">      </span>ngx_http_core_dump,
++<span class="w">      </span>NGX_HTTP_LOC_CONF_OFFSET,
++<span class="w">      </span><span class="m">0</span>,
++<span class="w">      </span>NULL<span class="w"> </span><span class="o">}</span>,
 +
-     { ngx_string(&quot;alias&quot;),
-       NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-       ngx_http_core_root,
-</code></pre>
+<span class="w">     </span><span class="o">{</span><span class="w"> </span>ngx_string<span class="o">(</span><span class="s2">&quot;alias&quot;</span><span class="o">)</span>,
+<span class="w">       </span>NGX_HTTP_LOC_CONF<span class="p">|</span>NGX_CONF_TAKE1,
+<span class="w">       </span>ngx_http_core_root,
+</pre></div>
 <p>Ok so this is how a command is registered. It obviously won't build without <code>ngx_http_core_dump</code> so let's implement that by copying/renaming <code>ngx_http_core_root</code>:</p>
-<pre><code class="hljs bash">$ git --no-pager diff src
-diff --git a/src/http/ngx_http_core_module.c b/src/http/ngx_http_core_module.c
-index 9b94b328..c184dab5 100644
---- a/src/http/ngx_http_core_module.c
-+++ b/src/http/ngx_http_core_module.c
-@@ -4402,6 +4410,16 @@ ngx_http_core_root(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-}
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>diff<span class="w"> </span>src
+diff<span class="w"> </span>--git<span class="w"> </span>a/src/http/ngx_http_core_module.c<span class="w"> </span>b/src/http/ngx_http_core_module.c
+index<span class="w"> </span>9b94b328..c184dab5<span class="w"> </span><span class="m">100644</span>
+---<span class="w"> </span>a/src/http/ngx_http_core_module.c
++++<span class="w"> </span>b/src/http/ngx_http_core_module.c
+@@<span class="w"> </span>-4402,6<span class="w"> </span>+4410,16<span class="w"> </span>@@<span class="w"> </span>ngx_http_core_root<span class="o">(</span>ngx_conf_t<span class="w"> </span>*cf,<span class="w"> </span>ngx_command_t<span class="w"> </span>*cmd,<span class="w"> </span>void<span class="w"> </span>*conf<span class="o">)</span>
+<span class="o">}</span>
 
 
-+static char *
-+ngx_http_core_dump(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-+{
-+    ngx_http_core_loc_conf_t *clcf = conf;
-+    ngx_str_t *value = cf-&gt;args-&gt;elts;
-+    clcf-&gt;dump = value[1];
-+    return NGX_CONF_OK;
-+}
++static<span class="w"> </span>char<span class="w"> </span>*
++ngx_http_core_dump<span class="o">(</span>ngx_conf_t<span class="w"> </span>*cf,<span class="w"> </span>ngx_command_t<span class="w"> </span>*cmd,<span class="w"> </span>void<span class="w"> </span>*conf<span class="o">)</span>
++<span class="o">{</span>
++<span class="w">    </span>ngx_http_core_loc_conf_t<span class="w"> </span>*clcf<span class="w"> </span><span class="o">=</span><span class="w"> </span>conf<span class="p">;</span>
++<span class="w">    </span>ngx_str_t<span class="w"> </span>*value<span class="w"> </span><span class="o">=</span><span class="w"> </span>cf-&gt;args-&gt;elts<span class="p">;</span>
++<span class="w">    </span>clcf-&gt;dump<span class="w"> </span><span class="o">=</span><span class="w"> </span>value<span class="o">[</span><span class="m">1</span><span class="o">]</span><span class="p">;</span>
++<span class="w">    </span><span class="k">return</span><span class="w"> </span>NGX_CONF_OK<span class="p">;</span>
++<span class="o">}</span>
 +
 +
-static ngx_http_method_name_t  ngx_methods_names[] = {
-     { (u_char *) &quot;GET&quot;,       (uint32_t) ~NGX_HTTP_GET },
-     { (u_char *) &quot;HEAD&quot;,      (uint32_t) ~NGX_HTTP_HEAD },
-</code></pre>
+static<span class="w"> </span>ngx_http_method_name_t<span class="w">  </span>ngx_methods_names<span class="o">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">{</span>
+<span class="w">     </span><span class="o">{</span><span class="w"> </span><span class="o">(</span>u_char<span class="w"> </span>*<span class="o">)</span><span class="w"> </span><span class="s2">&quot;GET&quot;</span>,<span class="w">       </span><span class="o">(</span>uint32_t<span class="o">)</span><span class="w"> </span>~NGX_HTTP_GET<span class="w"> </span><span class="o">}</span>,
+<span class="w">     </span><span class="o">{</span><span class="w"> </span><span class="o">(</span>u_char<span class="w"> </span>*<span class="o">)</span><span class="w"> </span><span class="s2">&quot;HEAD&quot;</span>,<span class="w">      </span><span class="o">(</span>uint32_t<span class="o">)</span><span class="w"> </span>~NGX_HTTP_HEAD<span class="w"> </span><span class="o">}</span>,
+</pre></div>
 <p>The goal here is to just store the dump string on this conf
 object. Then while serving the request we can check if this is set and
 if so, respond to the request with this string.</p>
 <p>This still clearly won't build because we didn't modify this conf
 object. But let's run <code>make</code> anyway.</p>
-<pre><code class="hljs bash">$ make -f objs/Makefile
-make[1]: Entering directory &#39;/home/phil/vendor/nginx&#39;
-cc -c -pipe  -O -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g  -I src/core -I src/event -I src/event/modules -I src/os/unix -I objs -I src/http -I src/http/modules \
-        -o objs/src/http/ngx_http_core_module.o \
-        src/http/ngx_http_core_module.c
-src/http/ngx_http_core_module.c:337:7: error: ngx_http_core_dump undeclared here (not in a function); did you mean ngx_http_core_type?
-337 |       ngx_http_core_dump,
-    |       ^~~~~~~~~~~~~~~~~~~~~
-    |       ngx_http_core_type
-src/http/ngx_http_core_module.c: In function ngx_http_core_dump:
-src/http/ngx_http_core_module.c:4418:9: error: ngx_http_core_loc_conf_t {aka struct ngx_http_core_loc_conf_s} has no member named dump
-4418 |     clcf-&gt;dump = value[1];
-     |         ^~
-src/http/ngx_http_core_module.c:4418:5: error: statement with no effect [-Werror=unused-value]
-4418 |     clcf-&gt;dump = value[1];
-     |     ^~~~
-At top level:
-src/http/ngx_http_core_module.c:4414:1: error: ngx_http_core_dump defined but not used [-Werror=unused-function]
-4414 | ngx_http_core_dump(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-     | ^~~~~~~~~~~~~~~~~~~~~
-cc1: all warnings being treated as errors
-make[1]: *** [objs/Makefile:834: objs/src/http/ngx_http_core_module.o] Error 1
-make[1]: Leaving directory &#39;/home/phil/vendor/nginx&#39;
-make: *** [Makefile:10: build] Error 2
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>make<span class="w"> </span>-f<span class="w"> </span>objs/Makefile
+make<span class="o">[</span><span class="m">1</span><span class="o">]</span>:<span class="w"> </span>Entering<span class="w"> </span>directory<span class="w"> </span><span class="s1">&#39;/home/phil/vendor/nginx&#39;</span>
+cc<span class="w"> </span>-c<span class="w"> </span>-pipe<span class="w">  </span>-O<span class="w"> </span>-W<span class="w"> </span>-Wall<span class="w"> </span>-Wpointer-arith<span class="w"> </span>-Wno-unused-parameter<span class="w"> </span>-Werror<span class="w"> </span>-g<span class="w">  </span>-I<span class="w"> </span>src/core<span class="w"> </span>-I<span class="w"> </span>src/event<span class="w"> </span>-I<span class="w"> </span>src/event/modules<span class="w"> </span>-I<span class="w"> </span>src/os/unix<span class="w"> </span>-I<span class="w"> </span>objs<span class="w"> </span>-I<span class="w"> </span>src/http<span class="w"> </span>-I<span class="w"> </span>src/http/modules<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>-o<span class="w"> </span>objs/src/http/ngx_http_core_module.o<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>src/http/ngx_http_core_module.c
+src/http/ngx_http_core_module.c:337:7:<span class="w"> </span>error:<span class="w"> </span>ngx_http_core_dump<span class="w"> </span>undeclared<span class="w"> </span>here<span class="w"> </span><span class="o">(</span>not<span class="w"> </span><span class="k">in</span><span class="w"> </span>a<span class="w"> </span><span class="k">function</span><span class="o">)</span><span class="p">;</span><span class="w"> </span>did<span class="w"> </span>you<span class="w"> </span>mean<span class="w"> </span>ngx_http_core_type?
+<span class="m">337</span><span class="w"> </span><span class="p">|</span><span class="w">       </span>ngx_http_core_dump,
+<span class="w">    </span><span class="p">|</span><span class="w">       </span>^~~~~~~~~~~~~~~~~~~~~
+<span class="w">    </span><span class="p">|</span><span class="w">       </span>ngx_http_core_type
+src/http/ngx_http_core_module.c:<span class="w"> </span>In<span class="w"> </span><span class="k">function</span><span class="w"> </span>ngx_http_core_dump:
+src/http/ngx_http_core_module.c:4418:9:<span class="w"> </span>error:<span class="w"> </span>ngx_http_core_loc_conf_t<span class="w"> </span><span class="o">{</span>aka<span class="w"> </span>struct<span class="w"> </span>ngx_http_core_loc_conf_s<span class="o">}</span><span class="w"> </span>has<span class="w"> </span>no<span class="w"> </span>member<span class="w"> </span>named<span class="w"> </span>dump
+<span class="m">4418</span><span class="w"> </span><span class="p">|</span><span class="w">     </span>clcf-&gt;dump<span class="w"> </span><span class="o">=</span><span class="w"> </span>value<span class="o">[</span><span class="m">1</span><span class="o">]</span><span class="p">;</span>
+<span class="w">     </span><span class="p">|</span><span class="w">         </span>^~
+src/http/ngx_http_core_module.c:4418:5:<span class="w"> </span>error:<span class="w"> </span>statement<span class="w"> </span>with<span class="w"> </span>no<span class="w"> </span>effect<span class="w"> </span><span class="o">[</span>-Werror<span class="o">=</span>unused-value<span class="o">]</span>
+<span class="m">4418</span><span class="w"> </span><span class="p">|</span><span class="w">     </span>clcf-&gt;dump<span class="w"> </span><span class="o">=</span><span class="w"> </span>value<span class="o">[</span><span class="m">1</span><span class="o">]</span><span class="p">;</span>
+<span class="w">     </span><span class="p">|</span><span class="w">     </span>^~~~
+At<span class="w"> </span>top<span class="w"> </span>level:
+src/http/ngx_http_core_module.c:4414:1:<span class="w"> </span>error:<span class="w"> </span>ngx_http_core_dump<span class="w"> </span>defined<span class="w"> </span>but<span class="w"> </span>not<span class="w"> </span>used<span class="w"> </span><span class="o">[</span>-Werror<span class="o">=</span>unused-function<span class="o">]</span>
+<span class="m">4414</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>ngx_http_core_dump<span class="o">(</span>ngx_conf_t<span class="w"> </span>*cf,<span class="w"> </span>ngx_command_t<span class="w"> </span>*cmd,<span class="w"> </span>void<span class="w"> </span>*conf<span class="o">)</span>
+<span class="w">     </span><span class="p">|</span><span class="w"> </span>^~~~~~~~~~~~~~~~~~~~~
+cc1:<span class="w"> </span>all<span class="w"> </span>warnings<span class="w"> </span>being<span class="w"> </span>treated<span class="w"> </span>as<span class="w"> </span>errors
+make<span class="o">[</span><span class="m">1</span><span class="o">]</span>:<span class="w"> </span>***<span class="w"> </span><span class="o">[</span>objs/Makefile:834:<span class="w"> </span>objs/src/http/ngx_http_core_module.o<span class="o">]</span><span class="w"> </span>Error<span class="w"> </span><span class="m">1</span>
+make<span class="o">[</span><span class="m">1</span><span class="o">]</span>:<span class="w"> </span>Leaving<span class="w"> </span>directory<span class="w"> </span><span class="s1">&#39;/home/phil/vendor/nginx&#39;</span>
+make:<span class="w"> </span>***<span class="w"> </span><span class="o">[</span>Makefile:10:<span class="w"> </span>build<span class="o">]</span><span class="w"> </span>Error<span class="w"> </span><span class="m">2</span>
+</pre></div>
 <p>The dump handler is undeclared. While copying <code>ngx_http_core_root</code> earlier I saw that there was a forward declaration toward the top. Let's copy that as well and see if that fixes anything.</p>
-<pre><code class="hljs bash">$ git --no-pager diff
-diff --git a/src/http/ngx_http_core_module.c b/src/http/ngx_http_core_module.c
-index 9b94b328..430e1256 100644
---- a/src/http/ngx_http_core_module.c
-+++ b/src/http/ngx_http_core_module.c
-@@ -56,6 +56,7 @@ static char *ngx_http_core_listen(ngx_conf_t *cf, ngx_command_t *cmd,
-static char *ngx_http_core_server_name(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf);
-static char *ngx_http_core_root(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-+static char *ngx_http_core_dump(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
- static char *ngx_http_core_limit_except(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf);
- static char *ngx_http_core_set_aio(ngx_conf_t *cf, ngx_command_t *cmd,
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>diff
+diff<span class="w"> </span>--git<span class="w"> </span>a/src/http/ngx_http_core_module.c<span class="w"> </span>b/src/http/ngx_http_core_module.c
+index<span class="w"> </span>9b94b328..430e1256<span class="w"> </span><span class="m">100644</span>
+---<span class="w"> </span>a/src/http/ngx_http_core_module.c
++++<span class="w"> </span>b/src/http/ngx_http_core_module.c
+@@<span class="w"> </span>-56,6<span class="w"> </span>+56,7<span class="w"> </span>@@<span class="w"> </span>static<span class="w"> </span>char<span class="w"> </span>*ngx_http_core_listen<span class="o">(</span>ngx_conf_t<span class="w"> </span>*cf,<span class="w"> </span>ngx_command_t<span class="w"> </span>*cmd,
+static<span class="w"> </span>char<span class="w"> </span>*ngx_http_core_server_name<span class="o">(</span>ngx_conf_t<span class="w"> </span>*cf,<span class="w"> </span>ngx_command_t<span class="w"> </span>*cmd,
+<span class="w">    </span>void<span class="w"> </span>*conf<span class="o">)</span><span class="p">;</span>
+static<span class="w"> </span>char<span class="w"> </span>*ngx_http_core_root<span class="o">(</span>ngx_conf_t<span class="w"> </span>*cf,<span class="w"> </span>ngx_command_t<span class="w"> </span>*cmd,<span class="w"> </span>void<span class="w"> </span>*conf<span class="o">)</span><span class="p">;</span>
++static<span class="w"> </span>char<span class="w"> </span>*ngx_http_core_dump<span class="o">(</span>ngx_conf_t<span class="w"> </span>*cf,<span class="w"> </span>ngx_command_t<span class="w"> </span>*cmd,<span class="w"> </span>void<span class="w"> </span>*conf<span class="o">)</span><span class="p">;</span>
+<span class="w"> </span>static<span class="w"> </span>char<span class="w"> </span>*ngx_http_core_limit_except<span class="o">(</span>ngx_conf_t<span class="w"> </span>*cf,<span class="w"> </span>ngx_command_t<span class="w"> </span>*cmd,
+<span class="w">    </span>void<span class="w"> </span>*conf<span class="o">)</span><span class="p">;</span>
+<span class="w"> </span>static<span class="w"> </span>char<span class="w"> </span>*ngx_http_core_set_aio<span class="o">(</span>ngx_conf_t<span class="w"> </span>*cf,<span class="w"> </span>ngx_command_t<span class="w"> </span>*cmd,
+</pre></div>
 <p>And build:</p>
-<pre><code class="hljs bash">$ make
-make -f objs/Makefile
-make[1]: Entering directory &#39;/home/phil/vendor/nginx&#39;
-cc -c -pipe  -O -W -Wall -Wpointer-arith -Wno-unused-parameter -Werror -g  -I src/core -I src/event -I src/event/modules -I src/os/unix -I objs -I src/http -I src/http/modules \
-        -o objs/src/http/ngx_http_core_module.o \
+<div class="highlight"><pre><span></span>$<span class="w"> </span>make
+make<span class="w"> </span>-f<span class="w"> </span>objs/Makefile
+make<span class="o">[</span><span class="m">1</span><span class="o">]</span>:<span class="w"> </span>Entering<span class="w"> </span>directory<span class="w"> </span><span class="s1">&#39;/home/phil/vendor/nginx&#39;</span>
+cc<span class="w"> </span>-c<span class="w"> </span>-pipe<span class="w">  </span>-O<span class="w"> </span>-W<span class="w"> </span>-Wall<span class="w"> </span>-Wpointer-arith<span class="w"> </span>-Wno-unused-parameter<span class="w"> </span>-Werror<span class="w"> </span>-g<span class="w">  </span>-I<span class="w"> </span>src/core<span class="w"> </span>-I<span class="w"> </span>src/event<span class="w"> </span>-I<span class="w"> </span>src/event/modules<span class="w"> </span>-I<span class="w"> </span>src/os/unix<span class="w"> </span>-I<span class="w"> </span>objs<span class="w"> </span>-I<span class="w"> </span>src/http<span class="w"> </span>-I<span class="w"> </span>src/http/modules<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>-o<span class="w"> </span>objs/src/http/ngx_http_core_module.o<span class="w"> </span><span class="se">\</span>
 src/http/ngx_http_core_module.c
-src/http/ngx_http_core_module.c: In function ngx_http_core_dump:
-src/http/ngx_http_core_module.c:4419:9: error: ngx_http_core_loc_conf_t {aka struct ngx_http_core_loc_conf_s} has no member named dump
-4419 |     clcf-&gt;dump = value[1];
-     |         ^~
-make[1]: *** [objs/Makefile:834: objs/src/http/ngx_http_core_module.o] Error 1
-make[1]: Leaving directory &#39;/home/phil/vendor/nginx&#39;
-make: *** [Makefile:10: build] Error 2
-</code></pre>
+src/http/ngx_http_core_module.c:<span class="w"> </span>In<span class="w"> </span><span class="k">function</span><span class="w"> </span>ngx_http_core_dump:
+src/http/ngx_http_core_module.c:4419:9:<span class="w"> </span>error:<span class="w"> </span>ngx_http_core_loc_conf_t<span class="w"> </span><span class="o">{</span>aka<span class="w"> </span>struct<span class="w"> </span>ngx_http_core_loc_conf_s<span class="o">}</span><span class="w"> </span>has<span class="w"> </span>no<span class="w"> </span>member<span class="w"> </span>named<span class="w"> </span>dump
+<span class="m">4419</span><span class="w"> </span><span class="p">|</span><span class="w">     </span>clcf-&gt;dump<span class="w"> </span><span class="o">=</span><span class="w"> </span>value<span class="o">[</span><span class="m">1</span><span class="o">]</span><span class="p">;</span>
+<span class="w">     </span><span class="p">|</span><span class="w">         </span>^~
+make<span class="o">[</span><span class="m">1</span><span class="o">]</span>:<span class="w"> </span>***<span class="w"> </span><span class="o">[</span>objs/Makefile:834:<span class="w"> </span>objs/src/http/ngx_http_core_module.o<span class="o">]</span><span class="w"> </span>Error<span class="w"> </span><span class="m">1</span>
+make<span class="o">[</span><span class="m">1</span><span class="o">]</span>:<span class="w"> </span>Leaving<span class="w"> </span>directory<span class="w"> </span><span class="s1">&#39;/home/phil/vendor/nginx&#39;</span>
+make:<span class="w"> </span>***<span class="w"> </span><span class="o">[</span>Makefile:10:<span class="w"> </span>build<span class="o">]</span><span class="w"> </span>Error<span class="w"> </span><span class="m">2</span>
+</pre></div>
 <p>Perfect. Now let's add <code>dump</code> as a member to this conf object.</p>
-<pre><code class="hljs bash">$ git --no-pager grep ngx_http_core_loc_conf_t\;
-src/http/ngx_http_core_module.h:typedef struct ngx_http_core_loc_conf_s  ngx_http_core_loc_conf_t;
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>grep<span class="w"> </span>ngx_http_core_loc_conf_t<span class="se">\;</span>
+src/http/ngx_http_core_module.h:typedef<span class="w"> </span>struct<span class="w"> </span>ngx_http_core_loc_conf_s<span class="w">  </span>ngx_http_core_loc_conf_t<span class="p">;</span>
+</pre></div>
 <p>Let's just clone the <code>root</code> member:</p>
-<pre><code class="hljs bash">$ diff --git a/src/http/ngx_http_core_module.h b/src/http/ngx_http_core_module.h
-index 2aadae7f..6b1b178b 100644
---- a/src/http/ngx_http_core_module.h
-+++ b/src/http/ngx_http_core_module.h
-@@ -333,6 +333,7 @@ struct ngx_http_core_loc_conf_s {
-/* location name length for inclusive location with inherited alias */
-     size_t        alias;
-     ngx_str_t     root;                    /* root, alias */
-+    ngx_str_t     dump;
-     ngx_str_t     post_action;
+<div class="highlight"><pre><span></span>$<span class="w"> </span>diff<span class="w"> </span>--git<span class="w"> </span>a/src/http/ngx_http_core_module.h<span class="w"> </span>b/src/http/ngx_http_core_module.h
+index<span class="w"> </span>2aadae7f..6b1b178b<span class="w"> </span><span class="m">100644</span>
+---<span class="w"> </span>a/src/http/ngx_http_core_module.h
++++<span class="w"> </span>b/src/http/ngx_http_core_module.h
+@@<span class="w"> </span>-333,6<span class="w"> </span>+333,7<span class="w"> </span>@@<span class="w"> </span>struct<span class="w"> </span>ngx_http_core_loc_conf_s<span class="w"> </span><span class="o">{</span>
+/*<span class="w"> </span>location<span class="w"> </span>name<span class="w"> </span>length<span class="w"> </span><span class="k">for</span><span class="w"> </span>inclusive<span class="w"> </span>location<span class="w"> </span>with<span class="w"> </span>inherited<span class="w"> </span><span class="nb">alias</span><span class="w"> </span>*/
+<span class="w">     </span>size_t<span class="w">        </span>alias<span class="p">;</span>
+<span class="w">     </span>ngx_str_t<span class="w">     </span>root<span class="p">;</span><span class="w">                    </span>/*<span class="w"> </span>root,<span class="w"> </span><span class="nb">alias</span><span class="w"> </span>*/
++<span class="w">    </span>ngx_str_t<span class="w">     </span>dump<span class="p">;</span>
+<span class="w">     </span>ngx_str_t<span class="w">     </span>post_action<span class="p">;</span>
 
-     ngx_array_t  *root_lengths;
-</code></pre>
+<span class="w">     </span>ngx_array_t<span class="w">  </span>*root_lengths<span class="p">;</span>
+</pre></div>
 <p>Run <code>make</code> and it succeeds!</p>
 <p>Now we spend a few hours looking around for a good place to add a hook
 during a request. Ultimately, <code>ngx_http_core_find_config_phase</code> seems
@@ -296,11 +295,11 @@ we added <code>dump</code> to.</p>
 <p>Next step is figuring out how to send a response. Grepping for
 <code>response</code> isn't super useful, neither is <code>write</code>. But <code>send</code> has some
 pretty low-level but obvious behavior.</p>
-<pre><code class="hljs bash">$ git --no-pager grep send\(
-src/mail/ngx_mail.h:void ngx_mail_send(ngx_event_t *wev);
-src/mail/ngx_mail_auth_http_module.c:    n = ngx_send(c, ctx-&gt;request-&gt;pos, size);)
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>grep<span class="w"> </span>send<span class="se">\(</span>
+src/mail/ngx_mail.h:void<span class="w"> </span>ngx_mail_send<span class="o">(</span>ngx_event_t<span class="w"> </span>*wev<span class="o">)</span><span class="p">;</span>
+src/mail/ngx_mail_auth_http_module.c:<span class="w">    </span><span class="nv">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>ngx_send<span class="o">(</span>c,<span class="w"> </span>ctx-&gt;request-&gt;pos,<span class="w"> </span>size<span class="o">)</span><span class="p">;</span><span class="o">)</span>
 ...
-</code></pre>
+</pre></div>
 <p>That second result looks promising. Looking at that file it looks like
 we need an object that has a <code>-&gt;data</code> member. In
 <code>src/http/ngx_http_core_module.c</code> I noticed that the request object
@@ -308,123 +307,123 @@ has a member that looks interesting: <code>r-&gt;connection-&gt;write-&gt;data</
 if we look up the signature we just need to also send <code>ngx_send</code> a
 string and a length.</p>
 <p>Thankfully we already have that from our <code>dump</code> member. So let's try something simple:</p>
-<pre><code class="hljs bash">$ git --no-pager diff
-diff --git a/src/http/ngx_http_core_module.c b/src/http/ngx_http_core_module.c
-index 9b94b328..bd58788b 100644
---- a/src/http/ngx_http_core_module.c
-+++ b/src/http/ngx_http_core_module.c
-@@ -989,6 +996,11 @@ ngx_http_core_find_config_phase(ngx_http_request_t *r,
-         ngx_http_finalize_request(r, NGX_HTTP_REQUEST_ENTITY_TOO_LARGE);
-         return NGX_OK;
-}
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>diff
+diff<span class="w"> </span>--git<span class="w"> </span>a/src/http/ngx_http_core_module.c<span class="w"> </span>b/src/http/ngx_http_core_module.c
+index<span class="w"> </span>9b94b328..bd58788b<span class="w"> </span><span class="m">100644</span>
+---<span class="w"> </span>a/src/http/ngx_http_core_module.c
++++<span class="w"> </span>b/src/http/ngx_http_core_module.c
+@@<span class="w"> </span>-989,6<span class="w"> </span>+996,11<span class="w"> </span>@@<span class="w"> </span>ngx_http_core_find_config_phase<span class="o">(</span>ngx_http_request_t<span class="w"> </span>*r,
+<span class="w">         </span>ngx_http_finalize_request<span class="o">(</span>r,<span class="w"> </span>NGX_HTTP_REQUEST_ENTITY_TOO_LARGE<span class="o">)</span><span class="p">;</span>
+<span class="w">         </span><span class="k">return</span><span class="w"> </span>NGX_OK<span class="p">;</span>
+<span class="o">}</span>
 +
-+    if (clcf-&gt;dump.len) {
-+      ngx_send(r-&gt;connection-&gt;write-&gt;data, clcf-&gt;dump.data, clcf-&gt;dump.len);
-+      return NGX_OK;
-+    }
-</code></pre>
++<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">(</span>clcf-&gt;dump.len<span class="o">)</span><span class="w"> </span><span class="o">{</span>
++<span class="w">      </span>ngx_send<span class="o">(</span>r-&gt;connection-&gt;write-&gt;data,<span class="w"> </span>clcf-&gt;dump.data,<span class="w"> </span>clcf-&gt;dump.len<span class="o">)</span><span class="p">;</span>
++<span class="w">      </span><span class="k">return</span><span class="w"> </span>NGX_OK<span class="p">;</span>
++<span class="w">    </span><span class="o">}</span>
+</pre></div>
 <p>Run <code>make</code> and it's good! Let's turn off the nginx daemon and worker processes so it's easier to quit as we're iterating.</p>
-<pre><code class="hljs bash">$ git --no-pager diff conf/
-diff --git a/conf/nginx.conf b/conf/nginx.conf
-index 29bc085f..7cce7d65 100644
---- a/conf/nginx.conf
-+++ b/conf/nginx.conf
-@@ -1,4 +1,5 @@
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>diff<span class="w"> </span>conf/
+diff<span class="w"> </span>--git<span class="w"> </span>a/conf/nginx.conf<span class="w"> </span>b/conf/nginx.conf
+index<span class="w"> </span>29bc085f..7cce7d65<span class="w"> </span><span class="m">100644</span>
+---<span class="w"> </span>a/conf/nginx.conf
++++<span class="w"> </span>b/conf/nginx.conf
+@@<span class="w"> </span>-1,4<span class="w"> </span>+1,5<span class="w"> </span>@@
 -
-+daemon off;
-+master_process off;
- #user  nobody;
- worker_processes  1;
-</code></pre>
++daemon<span class="w"> </span>off<span class="p">;</span>
++master_process<span class="w"> </span>off<span class="p">;</span>
+<span class="w"> </span><span class="c1">#user  nobody;</span>
+<span class="w"> </span>worker_processes<span class="w">  </span><span class="m">1</span><span class="p">;</span>
+</pre></div>
 <p>Now run <code>./objs/nginx -c $(pwd)/conf/nginx.conf</code>. Try to curl:</p>
-<pre><code class="hljs bash">$ curl localhost:2020
-curl: (1) Received HTTP/0.9 when not allowed
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>localhost:2020
+curl:<span class="w"> </span><span class="o">(</span><span class="m">1</span><span class="o">)</span><span class="w"> </span>Received<span class="w"> </span>HTTP/0.9<span class="w"> </span>when<span class="w"> </span>not<span class="w"> </span>allowed
+</pre></div>
 <p>Huh, that's unexpected. Let's try using telnet to get the whole raw
 response:</p>
-<pre><code class="hljs bash">$ telnet localhost 2020
-Trying ::1...
-telnet: connect to address ::1: Connection refused
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is &#39;^]&#39;.
-GET /
-It was a good Thursday.
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>telnet<span class="w"> </span>localhost<span class="w"> </span><span class="m">2020</span>
+Trying<span class="w"> </span>::1...
+telnet:<span class="w"> </span>connect<span class="w"> </span>to<span class="w"> </span>address<span class="w"> </span>::1:<span class="w"> </span>Connection<span class="w"> </span>refused
+Trying<span class="w"> </span><span class="m">127</span>.0.0.1...
+Connected<span class="w"> </span>to<span class="w"> </span>localhost.
+Escape<span class="w"> </span>character<span class="w"> </span>is<span class="w"> </span><span class="s1">&#39;^]&#39;</span>.
+GET<span class="w"> </span>/
+It<span class="w"> </span>was<span class="w"> </span>a<span class="w"> </span>good<span class="w"> </span>Thursday.
+</pre></div>
 <p>Oh man. That's super cool. Unfortunately it's also not valid HTTP. It
 seems like if we're using <code>ngx_send</code> we'll have to set the HTTP
 response headers manually.</p>
 <p>If we're going to pass a literal string to <code>ngx_send</code> we'll have to
 convert it to an <code>ngx_str_t</code>. Judging from <code>src/core/ngx_string.h</code> the
 <code>ngx_string</code> macro should be able to do this.</p>
-<pre><code class="hljs bash">$ git --no-pager diff src
-diff --git a/src/http/ngx_http_core_module.c b/src/http/ngx_http_core_module.c
-index 9b94b328..1a1baccd 100644
---- a/src/http/ngx_http_core_module.c
-+++ b/src/http/ngx_http_core_module.c
-@@ -989,6 +996,13 @@ ngx_http_core_find_config_phase(ngx_http_request_t *r,
-         ngx_http_finalize_request(r, NGX_HTTP_REQUEST_ENTITY_TOO_LARGE);
-         return NGX_OK;
-     }
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>diff<span class="w"> </span>src
+diff<span class="w"> </span>--git<span class="w"> </span>a/src/http/ngx_http_core_module.c<span class="w"> </span>b/src/http/ngx_http_core_module.c
+index<span class="w"> </span>9b94b328..1a1baccd<span class="w"> </span><span class="m">100644</span>
+---<span class="w"> </span>a/src/http/ngx_http_core_module.c
++++<span class="w"> </span>b/src/http/ngx_http_core_module.c
+@@<span class="w"> </span>-989,6<span class="w"> </span>+996,13<span class="w"> </span>@@<span class="w"> </span>ngx_http_core_find_config_phase<span class="o">(</span>ngx_http_request_t<span class="w"> </span>*r,
+<span class="w">         </span>ngx_http_finalize_request<span class="o">(</span>r,<span class="w"> </span>NGX_HTTP_REQUEST_ENTITY_TOO_LARGE<span class="o">)</span><span class="p">;</span>
+<span class="w">         </span><span class="k">return</span><span class="w"> </span>NGX_OK<span class="p">;</span>
+<span class="w">     </span><span class="o">}</span>
 +
-+    static ngx_str_t header = ngx_string(&quot;HTTP/1.0 200 OK\r\n\r\n&quot;);
-+    if (clcf-&gt;dump.len) {
-+      ngx_send(r-&gt;connection-&gt;write-&gt;data, header.data, header.len);
-+      ngx_send(r-&gt;connection-&gt;write-&gt;data, clcf-&gt;dump.data, clcf-&gt;dump.len);
-+      return NGX_OK;
-+    }
++<span class="w">    </span>static<span class="w"> </span>ngx_str_t<span class="w"> </span><span class="nv">header</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>ngx_string<span class="o">(</span><span class="s2">&quot;HTTP/1.0 200 OK\r\n\r\n&quot;</span><span class="o">)</span><span class="p">;</span>
++<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">(</span>clcf-&gt;dump.len<span class="o">)</span><span class="w"> </span><span class="o">{</span>
++<span class="w">      </span>ngx_send<span class="o">(</span>r-&gt;connection-&gt;write-&gt;data,<span class="w"> </span>header.data,<span class="w"> </span>header.len<span class="o">)</span><span class="p">;</span>
++<span class="w">      </span>ngx_send<span class="o">(</span>r-&gt;connection-&gt;write-&gt;data,<span class="w"> </span>clcf-&gt;dump.data,<span class="w"> </span>clcf-&gt;dump.len<span class="o">)</span><span class="p">;</span>
++<span class="w">      </span><span class="k">return</span><span class="w"> </span>NGX_OK<span class="p">;</span>
++<span class="w">    </span><span class="o">}</span>
 
-     if (rc == NGX_DONE) {
-         ngx_http_clear_location(r);
-}
-</code></pre>
+<span class="w">     </span><span class="k">if</span><span class="w"> </span><span class="o">(</span><span class="nv">rc</span><span class="w"> </span><span class="o">==</span><span class="w"> </span>NGX_DONE<span class="o">)</span><span class="w"> </span><span class="o">{</span>
+<span class="w">         </span>ngx_http_clear_location<span class="o">(</span>r<span class="o">)</span><span class="p">;</span>
+<span class="o">}</span>
+</pre></div>
 <p>Compile, run and curl:</p>
-<pre><code class="hljs bash">$ curl localhost:2020
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>localhost:2020
+</pre></div>
 <p>Huh. It's no longer complaining about HTTP/0.9 but it's now
 hanging. Let's try verbose curling.</p>
-<pre><code class="hljs bash">$ curl -vvv localhost:2020
-*   Trying ::1:2020...
-* connect to ::1 port 2020 failed: Connection refused
-*   Trying 127.0.0.1:2020...
-* Connected to localhost (127.0.0.1) port 2020 (#0)
-&gt; GET / HTTP/1.1
-&gt; Host: localhost:2020
-&gt; User-Agent: curl/7.71.1
-&gt; Accept: */*
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>-vvv<span class="w"> </span>localhost:2020
+*<span class="w">   </span>Trying<span class="w"> </span>::1:2020...
+*<span class="w"> </span>connect<span class="w"> </span>to<span class="w"> </span>::1<span class="w"> </span>port<span class="w"> </span><span class="m">2020</span><span class="w"> </span>failed:<span class="w"> </span>Connection<span class="w"> </span>refused
+*<span class="w">   </span>Trying<span class="w"> </span><span class="m">127</span>.0.0.1:2020...
+*<span class="w"> </span>Connected<span class="w"> </span>to<span class="w"> </span>localhost<span class="w"> </span><span class="o">(</span><span class="m">127</span>.0.0.1<span class="o">)</span><span class="w"> </span>port<span class="w"> </span><span class="m">2020</span><span class="w"> </span><span class="o">(</span><span class="c1">#0)</span>
+&gt;<span class="w"> </span>GET<span class="w"> </span>/<span class="w"> </span>HTTP/1.1
+&gt;<span class="w"> </span>Host:<span class="w"> </span>localhost:2020
+&gt;<span class="w"> </span>User-Agent:<span class="w"> </span>curl/7.71.1
+&gt;<span class="w"> </span>Accept:<span class="w"> </span>*/*
 &gt;
-* Mark bundle as not supporting multiuse
-* HTTP 1.0, assume close after body
-&lt; HTTP/1.0 200 OK
-</code></pre>
+*<span class="w"> </span>Mark<span class="w"> </span>bundle<span class="w"> </span>as<span class="w"> </span>not<span class="w"> </span>supporting<span class="w"> </span>multiuse
+*<span class="w"> </span>HTTP<span class="w"> </span><span class="m">1</span>.0,<span class="w"> </span>assume<span class="w"> </span>close<span class="w"> </span>after<span class="w"> </span>body
+&lt;<span class="w"> </span>HTTP/1.0<span class="w"> </span><span class="m">200</span><span class="w"> </span>OK
+</pre></div>
 <p>That's really weird. But I noticed there was a
 <code>ngx_http_request_finalize</code> function that other parts of the code were
 calling. Let's try adding that.</p>
-<pre><code class="hljs bash">$ git --no-pager diff src
-diff --git a/src/http/ngx_http_core_module.c b/src/http/ngx_http_core_module.c
-index 9b94b328..1a1baccd 100644
---- a/src/http/ngx_http_core_module.c
-+++ b/src/http/ngx_http_core_module.c
-@@ -989,6 +996,14 @@ ngx_http_core_find_config_phase(ngx_http_request_t *r,
-         ngx_http_finalize_request(r, NGX_HTTP_REQUEST_ENTITY_TOO_LARGE);
-         return NGX_OK;
-     }
+<div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>--no-pager<span class="w"> </span>diff<span class="w"> </span>src
+diff<span class="w"> </span>--git<span class="w"> </span>a/src/http/ngx_http_core_module.c<span class="w"> </span>b/src/http/ngx_http_core_module.c
+index<span class="w"> </span>9b94b328..1a1baccd<span class="w"> </span><span class="m">100644</span>
+---<span class="w"> </span>a/src/http/ngx_http_core_module.c
++++<span class="w"> </span>b/src/http/ngx_http_core_module.c
+@@<span class="w"> </span>-989,6<span class="w"> </span>+996,14<span class="w"> </span>@@<span class="w"> </span>ngx_http_core_find_config_phase<span class="o">(</span>ngx_http_request_t<span class="w"> </span>*r,
+<span class="w">         </span>ngx_http_finalize_request<span class="o">(</span>r,<span class="w"> </span>NGX_HTTP_REQUEST_ENTITY_TOO_LARGE<span class="o">)</span><span class="p">;</span>
+<span class="w">         </span><span class="k">return</span><span class="w"> </span>NGX_OK<span class="p">;</span>
+<span class="w">     </span><span class="o">}</span>
 +
-+    static ngx_str_t header = ngx_string(&quot;HTTP/1.0 200 OK\r\n\r\n&quot;);
-+    if (clcf-&gt;dump.len) {
-+      ngx_send(r-&gt;connection-&gt;write-&gt;data, header.data, header.len);
-+      ngx_send(r-&gt;connection-&gt;write-&gt;data, clcf-&gt;dump.data, clcf-&gt;dump.len);
-+      ngx_http_finalize_request(r, NGX_DONE);
-+      return NGX_OK;
-+    }
-</code></pre>
++<span class="w">    </span>static<span class="w"> </span>ngx_str_t<span class="w"> </span><span class="nv">header</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>ngx_string<span class="o">(</span><span class="s2">&quot;HTTP/1.0 200 OK\r\n\r\n&quot;</span><span class="o">)</span><span class="p">;</span>
++<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">(</span>clcf-&gt;dump.len<span class="o">)</span><span class="w"> </span><span class="o">{</span>
++<span class="w">      </span>ngx_send<span class="o">(</span>r-&gt;connection-&gt;write-&gt;data,<span class="w"> </span>header.data,<span class="w"> </span>header.len<span class="o">)</span><span class="p">;</span>
++<span class="w">      </span>ngx_send<span class="o">(</span>r-&gt;connection-&gt;write-&gt;data,<span class="w"> </span>clcf-&gt;dump.data,<span class="w"> </span>clcf-&gt;dump.len<span class="o">)</span><span class="p">;</span>
++<span class="w">      </span>ngx_http_finalize_request<span class="o">(</span>r,<span class="w"> </span>NGX_DONE<span class="o">)</span><span class="p">;</span>
++<span class="w">      </span><span class="k">return</span><span class="w"> </span>NGX_OK<span class="p">;</span>
++<span class="w">    </span><span class="o">}</span>
+</pre></div>
 <p>Build, run, curl. Still hanging. Looking into the source code of
 <code>ngx_http_finalize_request</code> it seems like there's a case where the
 connection is completely closed if you pass in <code>NGX_HTTP_CLOSE</code>. Let's
 try that.</p>
-<pre><code>$ curl localhost:2020
-It was a good Thursday.
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>localhost:2020
+It<span class="w"> </span>was<span class="w"> </span>a<span class="w"> </span>good<span class="w"> </span>Thursday.
+</pre></div>
 <p>Well hot dog, it works.</p>
 <h3 id="reflection">Reflection</h3><p>Is this a good way to implement commands in nginx? No. While I knew a
 bit about nginx modules as a user it's clear that as a developer this
@@ -1066,7 +1065,6 @@ responses rather than writing out headers manually.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

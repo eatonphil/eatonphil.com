@@ -6,7 +6,6 @@
     <title>Writing a SQL database from scratch in Go: 2. binary expressions and WHERE filters | notes.eatonphil.com</title>
     <meta name="description" content="Writing a SQL database from scratch in Go: 2. binary expressions and WHERE filters" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -67,32 +66,32 @@ an identifier (where the result is the value of the cell corresponding
 to that column in the row), a numeric literal, a combination via a
 binary expression, etc.</p>
 <p>The following interactions will be possible:</p>
-<pre><code class="hljs sql"># CREATE TABLE users (name TEXT, age INT);
-ok
-#  INSERT INTO users VALUES (&#39;Stephen&#39;, 16);
-ok
-# SELECT name, age FROM users;
-name   | age
-----------+------
-Stephen |  16
-(1 result)
-ok
-# INSERT INTO users VALUES (&#39;Adrienne&#39;, 23);
-ok
-# SELECT age + 2, name FROM users WHERE age = 23;
-age |   name
-------+-----------
-25 | Adrienne
-(1 result)
-ok
-# SELECT name FROM users;
-name
-------------
-Stephen
-Adrienne
-(2 results)
-ok
-</code></pre>
+<div class="highlight"><pre><span></span><span class="o">#</span><span class="w"> </span><span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="p">(</span><span class="n">name</span><span class="w"> </span><span class="nb">TEXT</span><span class="p">,</span><span class="w"> </span><span class="n">age</span><span class="w"> </span><span class="nb">INT</span><span class="p">);</span>
+<span class="n">ok</span>
+<span class="o">#</span><span class="w">  </span><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;Stephen&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">);</span>
+<span class="n">ok</span>
+<span class="o">#</span><span class="w"> </span><span class="k">SELECT</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">age</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">users</span><span class="p">;</span>
+<span class="n">name</span><span class="w">   </span><span class="o">|</span><span class="w"> </span><span class="n">age</span>
+<span class="c1">----------+------</span>
+<span class="n">Stephen</span><span class="w"> </span><span class="o">|</span><span class="w">  </span><span class="mi">16</span>
+<span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">result</span><span class="p">)</span>
+<span class="n">ok</span>
+<span class="o">#</span><span class="w"> </span><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;Adrienne&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">23</span><span class="p">);</span>
+<span class="n">ok</span>
+<span class="o">#</span><span class="w"> </span><span class="k">SELECT</span><span class="w"> </span><span class="n">age</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">age</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">23</span><span class="p">;</span>
+<span class="n">age</span><span class="w"> </span><span class="o">|</span><span class="w">   </span><span class="n">name</span>
+<span class="c1">------+-----------</span>
+<span class="mi">25</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">Adrienne</span>
+<span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">result</span><span class="p">)</span>
+<span class="n">ok</span>
+<span class="o">#</span><span class="w"> </span><span class="k">SELECT</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">users</span><span class="p">;</span>
+<span class="n">name</span>
+<span class="c1">------------</span>
+<span class="n">Stephen</span>
+<span class="n">Adrienne</span>
+<span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="n">results</span><span class="p">)</span>
+<span class="n">ok</span>
+</pre></div>
 <p>The changes we'll make in this post are roughly a walk through of
 <a href="https://github.com/eatonphil/gosql/commit/bd6a5d0d4a7410699b0d01beaabf91923df34b28">this
 commit</a>.</p>
@@ -125,70 +124,70 @@ going further:
 <code>helpMessage</code>.</p>
 <p>The <code>parseToken</code> helper will consume a token if it matches
 the one provided as an argument (ignoring location).</p>
-<pre><code class="hljs go">func parseToken(tokens []*token, initialCursor uint, t token) (*token, uint, bool) {
-    cursor := initialCursor
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="w"> </span><span class="p">[]</span><span class="o">*</span><span class="nx">token</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="w"> </span><span class="nx">token</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">token</span><span class="p">,</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">cursor</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">initialCursor</span>
 
-    if cursor &gt;= uint(len(tokens)) {
-        return nil, initialCursor, false
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">cursor</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="nb">uint</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nx">tokens</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if p := tokens[cursor]; t.equals(p) {
-        return p, cursor + 1, true
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">p</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">tokens</span><span class="p">[</span><span class="nx">cursor</span><span class="p">];</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">equals</span><span class="p">(</span><span class="nx">p</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">p</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return nil, initialCursor, false
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="p">}</span>
+</pre></div>
 <p>The <code>parseTokenKind</code> helper will consume a token if it is
 the same kind as an argument provided.</p>
-<pre><code class="hljs go">func parseTokenKind(tokens []*token, initialCursor uint, kind tokenKind) (*token, uint, bool) {
-    cursor := initialCursor
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">parseTokenKind</span><span class="p">(</span><span class="nx">tokens</span><span class="w"> </span><span class="p">[]</span><span class="o">*</span><span class="nx">token</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="nx">kind</span><span class="w"> </span><span class="nx">tokenKind</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">token</span><span class="p">,</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">cursor</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">initialCursor</span>
 
-    if cursor &gt;= uint(len(tokens)) {
-        return nil, initialCursor, false
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">cursor</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="nb">uint</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nx">tokens</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="p">}</span>
 
-    current := tokens[cursor]
-    if current.kind == kind {
-        return current, cursor + 1, true
-    }
+<span class="w">    </span><span class="nx">current</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">tokens</span><span class="p">[</span><span class="nx">cursor</span><span class="p">]</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">current</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">kind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">current</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return nil, initialCursor, false
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="p">}</span>
+</pre></div>
 <p>And the <code>helpMessage</code> helper will give an indication of
 where in a program something happened.</p>
-<pre><code class="hljs go">func helpMessage(tokens []*token, cursor uint, msg string) {
-    var c *token
-    if cursor+1 &lt; uint(len(tokens)) {
-        c = tokens[cursor+1]
-    } else {
-        c = tokens[cursor]
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="w"> </span><span class="p">[]</span><span class="o">*</span><span class="nx">token</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="nx">msg</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="o">*</span><span class="nx">token</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">cursor</span><span class="o">+</span><span class="mi">1</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nb">uint</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nx">tokens</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">c</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">tokens</span><span class="p">[</span><span class="nx">cursor</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">c</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">tokens</span><span class="p">[</span><span class="nx">cursor</span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
 
-    fmt.Printf(&quot;[%d,%d]: %s, near: %s\n&quot;, c.loc.line, c.loc.col, msg, c.value)
-}
-</code></pre>
+<span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;[%d,%d]: %s, near: %s\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">loc</span><span class="p">.</span><span class="nx">line</span><span class="p">,</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">loc</span><span class="p">.</span><span class="nx">col</span><span class="p">,</span><span class="w"> </span><span class="nx">msg</span><span class="p">,</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="parsing-binary-expressions">Parsing binary expressions</h3><p>Next we'll extend the AST structure in <code>ast.go</code> to
 support a "binary kind" of expression. The binary expression will have
 two sub-expressions and an operator.</p>
-<pre><code class="hljs go">const (
-    literalKind expressionKind
-    binaryKind
-)
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="nx">literalKind</span><span class="w"> </span><span class="nx">expressionKind</span>
+<span class="w">    </span><span class="nx">binaryKind</span>
+<span class="p">)</span>
 
-type binaryExpression struct {
-    a  expression
-    b  expression
-    op token
-}
+<span class="kd">type</span><span class="w"> </span><span class="nx">binaryExpression</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">a</span><span class="w">  </span><span class="nx">expression</span>
+<span class="w">    </span><span class="nx">b</span><span class="w">  </span><span class="nx">expression</span>
+<span class="w">    </span><span class="nx">op</span><span class="w"> </span><span class="nx">token</span>
+<span class="p">}</span>
 
-type expression struct {
-    literal *token
-    binary  *binaryExpression
-    kind    expressionKind
-}
-</code></pre>
+<span class="kd">type</span><span class="w"> </span><span class="nx">expression</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">literal</span><span class="w"> </span><span class="o">*</span><span class="nx">token</span>
+<span class="w">    </span><span class="nx">binary</span><span class="w">  </span><span class="o">*</span><span class="nx">binaryExpression</span>
+<span class="w">    </span><span class="nx">kind</span><span class="w">    </span><span class="nx">expressionKind</span>
+<span class="p">}</span>
+</pre></div>
 <p>We'll use Pratt parsing to handle operator precedence. There is an
 excellent introduction to this technique
 <a href="https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html">here</a>.</p>
@@ -196,119 +195,119 @@ excellent introduction to this technique
 consume it and parse an expression within it. Then we'll look for a
 right parenthesis. Otherwise we'll look for a non-binary expression
 first (e.g. symbol, number).</p>
-<pre><code class="hljs go">func parseExpression(tokens []*token, initialCursor uint, delimiters []token, minBp uint) (*expression, uint, bool) {
-    cursor := initialCursor
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">parseExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="w"> </span><span class="p">[]</span><span class="o">*</span><span class="nx">token</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="nx">delimiters</span><span class="w"> </span><span class="p">[]</span><span class="nx">token</span><span class="p">,</span><span class="w"> </span><span class="nx">minBp</span><span class="w"> </span><span class="kt">uint</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">expression</span><span class="p">,</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">cursor</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">initialCursor</span>
 
-    var exp *expression
-    _, newCursor, ok := parseToken(tokens, cursor, tokenFromSymbol(leftParenSymbol))
-    if ok {
-        cursor = newCursor
-        rightParenToken := tokenFromSymbol(rightParenSymbol)
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">exp</span><span class="w"> </span><span class="o">*</span><span class="nx">expression</span>
+<span class="w">    </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">newCursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">leftParenSymbol</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">newCursor</span>
+<span class="w">        </span><span class="nx">rightParenToken</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">rightParenSymbol</span><span class="p">)</span>
 
-        exp, cursor, ok = parseExpression(tokens, cursor, append(delimiters, rightParenToken), minBp)
-        if !ok {
-            helpMessage(tokens, cursor, &quot;Expected expression after opening paren&quot;)
-            return nil, initialCursor, false
-        }
+<span class="w">        </span><span class="nx">exp</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">delimiters</span><span class="p">,</span><span class="w"> </span><span class="nx">rightParenToken</span><span class="p">),</span><span class="w"> </span><span class="nx">minBp</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected expression after opening paren&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
 
-        _, cursor, ok = parseToken(tokens, cursor, rightParenToken)
-        if !ok {
-            helpMessage(tokens, cursor, &quot;Expected closing paren&quot;)
-            return nil, initialCursor, false
-        }
-    } else {
-        exp, cursor, ok = parseLiteralExpression(tokens, cursor)
-        if !ok {
-            return nil, initialCursor, false
-        }
-    }
+<span class="w">        </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">rightParenToken</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected closing paren&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">exp</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseLiteralExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    ...
+<span class="w">    </span><span class="o">...</span>
 
-    return exp, cursor, true
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">exp</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
 <p>Then we'll look for a binary operator (e.g. <code>=</code>,
 <code>and</code>) or delimiter. If we find an operator and it of
 lesser "binding power" than the current minimum (<code>minBp</code>
 passed as an argument to the parse function with a default value of
 <code>0</code>), we'll return the current expression.</p>
-<pre><code class="hljs go">    ...
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="o">...</span>
 
-    lastCursor := cursor
-outer:
-    for cursor &lt; uint(len(tokens)) {
-        for _, d := range delimiters {
-            _, _, ok = parseToken(tokens, cursor, d)
-            if ok {
-                break outer
-            }
-        }
+<span class="w">    </span><span class="nx">lastCursor</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">cursor</span>
+<span class="nx">outer</span><span class="p">:</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">cursor</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nb">uint</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nx">tokens</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">d</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">delimiters</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">d</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">break</span><span class="w"> </span><span class="nx">outer</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        binOps := []token{
-            tokenFromKeyword(andKeyword),
-            tokenFromKeyword(orKeyword),
-            tokenFromSymbol(eqSymbol),
-            tokenFromSymbol(neqSymbol),
-            tokenFromSymbol(concatSymbol),
-            tokenFromSymbol(plusSymbol),
-        }
+<span class="w">        </span><span class="nx">binOps</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">token</span><span class="p">{</span>
+<span class="w">            </span><span class="nx">tokenFromKeyword</span><span class="p">(</span><span class="nx">andKeyword</span><span class="p">),</span>
+<span class="w">            </span><span class="nx">tokenFromKeyword</span><span class="p">(</span><span class="nx">orKeyword</span><span class="p">),</span>
+<span class="w">            </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">eqSymbol</span><span class="p">),</span>
+<span class="w">            </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">neqSymbol</span><span class="p">),</span>
+<span class="w">            </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">concatSymbol</span><span class="p">),</span>
+<span class="w">            </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">plusSymbol</span><span class="p">),</span>
+<span class="w">        </span><span class="p">}</span>
 
-        var op *token = nil
-        for _, bo := range binOps {
-            var t *token
-            t, cursor, ok = parseToken(tokens, cursor, bo)
-            if ok {
-                op = t
-                break
-            }
-        }
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">op</span><span class="w"> </span><span class="o">*</span><span class="nx">token</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">bo</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">binOps</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kd">var</span><span class="w"> </span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">token</span>
+<span class="w">            </span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">bo</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">op</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">t</span>
+<span class="w">                </span><span class="k">break</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if op == nil {
-            helpMessage(tokens, cursor, &quot;Expected binary operator&quot;)
-            return nil, initialCursor, false
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">op</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected binary operator&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
 
-        bp := op.bindingPower()
-        if bp &lt; minBp {
-            cursor = lastCursor
-            break
-        }
+<span class="w">        </span><span class="nx">bp</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">op</span><span class="p">.</span><span class="nx">bindingPower</span><span class="p">()</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">bp</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nx">minBp</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">lastCursor</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="p">}</span>
 
-        ...
-    }
+<span class="w">        </span><span class="o">...</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return exp, cursor, true
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">exp</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span>
+</pre></div>
 <p>The <code>bindingPower</code> function on tokens can be defined for
 now such that sum and concatenation have the highest binding power,
 followed by equality operations, then boolean operators, and then
 everything else at zero.</p>
-<pre><code class="hljs go">func (t token) bindingPower() uint {
-    switch t.kind {
-    case keywordKind:
-        switch keyword(t.value) {
-        case andKeyword:
-            fallthrough
-        case orKeyword:
-            return 1
-        }
-    case symbolKind:
-        switch symbol(t.value) {
-        case eqSymbol:
-            fallthrough
-        case neqSymbol:
-            fallthrough
-        case concatSymbol:
-            fallthrough
-        case plusSymbol:
-            return 3
-        }
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="nx">token</span><span class="p">)</span><span class="w"> </span><span class="nx">bindingPower</span><span class="p">()</span><span class="w"> </span><span class="kt">uint</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">keywordKind</span><span class="p">:</span>
+<span class="w">        </span><span class="k">switch</span><span class="w"> </span><span class="nx">keyword</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">andKeyword</span><span class="p">:</span>
+<span class="w">            </span><span class="k">fallthrough</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">orKeyword</span><span class="p">:</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">symbolKind</span><span class="p">:</span>
+<span class="w">        </span><span class="k">switch</span><span class="w"> </span><span class="nx">symbol</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">eqSymbol</span><span class="p">:</span>
+<span class="w">            </span><span class="k">fallthrough</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">neqSymbol</span><span class="p">:</span>
+<span class="w">            </span><span class="k">fallthrough</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">concatSymbol</span><span class="p">:</span>
+<span class="w">            </span><span class="k">fallthrough</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">plusSymbol</span><span class="p">:</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return 0
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span>
+<span class="p">}</span>
+</pre></div>
 <p>Back in <code>parseExpression</code>, if the new operator has greater
 binding power we'll parse the next operand expression (a recursive
 call, passing the binding power of the new operator as the new
@@ -317,171 +316,171 @@ call, passing the binding power of the new operator as the new
 recursive call) is set to a new binary expression containing the
 previously current expression on the left and the just-parsed
 expression on the right.</p>
-<pre><code class="hljs go">        ...
+<div class="highlight"><pre><span></span><span class="w">        </span><span class="o">...</span>
 
-        b, newCursor, ok := parseExpression(tokens, cursor, delimiters, bp)
-        if !ok {
-            helpMessage(tokens, cursor, &quot;Expected right operand&quot;)
-            return nil, initialCursor, false
-        }
-        exp = &amp;expression{
-            binary: &amp;binaryExpression{
-                *exp,
-                *b,
-                *op,
-            },
-            kind: binaryKind,
-        }
-        cursor = newCursor
-        lastCursor = cursor
-    }
+<span class="w">        </span><span class="nx">b</span><span class="p">,</span><span class="w"> </span><span class="nx">newCursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parseExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">delimiters</span><span class="p">,</span><span class="w"> </span><span class="nx">bp</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected right operand&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nx">exp</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">expression</span><span class="p">{</span>
+<span class="w">            </span><span class="nx">binary</span><span class="p">:</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">binaryExpression</span><span class="p">{</span>
+<span class="w">                </span><span class="o">*</span><span class="nx">exp</span><span class="p">,</span>
+<span class="w">                </span><span class="o">*</span><span class="nx">b</span><span class="p">,</span>
+<span class="w">                </span><span class="o">*</span><span class="nx">op</span><span class="p">,</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nx">kind</span><span class="p">:</span><span class="w"> </span><span class="nx">binaryKind</span><span class="p">,</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">newCursor</span>
+<span class="w">        </span><span class="nx">lastCursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">cursor</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return exp, cursor, true
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">exp</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
 <p>All together:</p>
-<pre><code class="hljs go">func parseExpression(tokens []*token, initialCursor uint, delimiters []token, minBp uint) (*expression, uint, bool) {
-    cursor := initialCursor
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">parseExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="w"> </span><span class="p">[]</span><span class="o">*</span><span class="nx">token</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="nx">delimiters</span><span class="w"> </span><span class="p">[]</span><span class="nx">token</span><span class="p">,</span><span class="w"> </span><span class="nx">minBp</span><span class="w"> </span><span class="kt">uint</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">expression</span><span class="p">,</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">cursor</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">initialCursor</span>
 
-    var exp *expression
-    _, newCursor, ok := parseToken(tokens, cursor, tokenFromSymbol(leftParenSymbol))
-    if ok {
-        cursor = newCursor
-        rightParenToken := tokenFromSymbol(rightParenSymbol)
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">exp</span><span class="w"> </span><span class="o">*</span><span class="nx">expression</span>
+<span class="w">    </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">newCursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">leftParenSymbol</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">newCursor</span>
+<span class="w">        </span><span class="nx">rightParenToken</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">rightParenSymbol</span><span class="p">)</span>
 
-        exp, cursor, ok = parseExpression(tokens, cursor, append(delimiters, rightParenToken), minBp)
-        if !ok {
-            helpMessage(tokens, cursor, &quot;Expected expression after opening paren&quot;)
-            return nil, initialCursor, false
-        }
+<span class="w">        </span><span class="nx">exp</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">delimiters</span><span class="p">,</span><span class="w"> </span><span class="nx">rightParenToken</span><span class="p">),</span><span class="w"> </span><span class="nx">minBp</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected expression after opening paren&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
 
-        _, cursor, ok = parseToken(tokens, cursor, rightParenToken)
-        if !ok {
-            helpMessage(tokens, cursor, &quot;Expected closing paren&quot;)
-            return nil, initialCursor, false
-        }
-    } else {
-        exp, cursor, ok = parseLiteralExpression(tokens, cursor)
-        if !ok {
-            return nil, initialCursor, false
-        }
-    }
+<span class="w">        </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">rightParenToken</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected closing paren&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">exp</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseLiteralExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    lastCursor := cursor
-outer:
-    for cursor &lt; uint(len(tokens)) {
-        for _, d := range delimiters {
-            _, _, ok = parseToken(tokens, cursor, d)
-            if ok {
-                break outer
-            }
-        }
+<span class="w">    </span><span class="nx">lastCursor</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">cursor</span>
+<span class="nx">outer</span><span class="p">:</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">cursor</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nb">uint</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nx">tokens</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">d</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">delimiters</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">d</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">break</span><span class="w"> </span><span class="nx">outer</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        binOps := []token{
-            tokenFromKeyword(andKeyword),
-            tokenFromKeyword(orKeyword),
-            tokenFromSymbol(eqSymbol),
-            tokenFromSymbol(neqSymbol),
-            tokenFromSymbol(concatSymbol),
-            tokenFromSymbol(plusSymbol),
-        }
+<span class="w">        </span><span class="nx">binOps</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">token</span><span class="p">{</span>
+<span class="w">            </span><span class="nx">tokenFromKeyword</span><span class="p">(</span><span class="nx">andKeyword</span><span class="p">),</span>
+<span class="w">            </span><span class="nx">tokenFromKeyword</span><span class="p">(</span><span class="nx">orKeyword</span><span class="p">),</span>
+<span class="w">            </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">eqSymbol</span><span class="p">),</span>
+<span class="w">            </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">neqSymbol</span><span class="p">),</span>
+<span class="w">            </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">concatSymbol</span><span class="p">),</span>
+<span class="w">            </span><span class="nx">tokenFromSymbol</span><span class="p">(</span><span class="nx">plusSymbol</span><span class="p">),</span>
+<span class="w">        </span><span class="p">}</span>
 
-        var op *token = nil
-        for _, bo := range binOps {
-            var t *token
-            t, cursor, ok = parseToken(tokens, cursor, bo)
-            if ok {
-                op = t
-                break
-            }
-        }
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">op</span><span class="w"> </span><span class="o">*</span><span class="nx">token</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">bo</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">binOps</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kd">var</span><span class="w"> </span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">token</span>
+<span class="w">            </span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">bo</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">op</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">t</span>
+<span class="w">                </span><span class="k">break</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if op == nil {
-            helpMessage(tokens, cursor, &quot;Expected binary operator&quot;)
-            return nil, initialCursor, false
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">op</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected binary operator&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
 
-        bp := op.bindingPower()
-        if bp &lt; minBp {
-            cursor = lastCursor
-            break
-        }
+<span class="w">        </span><span class="nx">bp</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">op</span><span class="p">.</span><span class="nx">bindingPower</span><span class="p">()</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">bp</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nx">minBp</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">lastCursor</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="p">}</span>
 
-        b, newCursor, ok := parseExpression(tokens, cursor, delimiters, bp)
-        if !ok {
-            helpMessage(tokens, cursor, &quot;Expected right operand&quot;)
-            return nil, initialCursor, false
-        }
-        exp = &amp;expression{
-            binary: &amp;binaryExpression{
-                *exp,
-                *b,
-                *op,
-            },
-            kind: binaryKind,
-        }
-        cursor = newCursor
-        lastCursor = cursor
-    }
+<span class="w">        </span><span class="nx">b</span><span class="p">,</span><span class="w"> </span><span class="nx">newCursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parseExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">delimiters</span><span class="p">,</span><span class="w"> </span><span class="nx">bp</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected right operand&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nx">exp</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">expression</span><span class="p">{</span>
+<span class="w">            </span><span class="nx">binary</span><span class="p">:</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">binaryExpression</span><span class="p">{</span>
+<span class="w">                </span><span class="o">*</span><span class="nx">exp</span><span class="p">,</span>
+<span class="w">                </span><span class="o">*</span><span class="nx">b</span><span class="p">,</span>
+<span class="w">                </span><span class="o">*</span><span class="nx">op</span><span class="p">,</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nx">kind</span><span class="p">:</span><span class="w"> </span><span class="nx">binaryKind</span><span class="p">,</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">newCursor</span>
+<span class="w">        </span><span class="nx">lastCursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">cursor</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return exp, cursor, true
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">exp</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
 <p>Now that we have this general parse expression helper in place, we can
 add support for parsing <code>WHERE</code> in <code>SELECT</code>
 statements.</p>
 <h3 id="parsing-where">Parsing WHERE</h3><p>This part's pretty easy. We modify the existing
 <code>parseSelectStatement</code> to search for an optional
 <code>WHERE</code> token followed by an expression.</p>
-<pre><code class="hljs go">func parseSelectStatement(tokens []*token, initialCursor uint, delimiter token) (*SelectStatement, uint, bool) {
-    var ok bool
-    cursor := initialCursor
-    _, cursor, ok = parseToken(tokens, cursor, tokenFromKeyword(selectKeyword))
-    if !ok {
-        return nil, initialCursor, false
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">parseSelectStatement</span><span class="p">(</span><span class="nx">tokens</span><span class="w"> </span><span class="p">[]</span><span class="o">*</span><span class="nx">token</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="nx">delimiter</span><span class="w"> </span><span class="nx">token</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">SelectStatement</span><span class="p">,</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="kt">bool</span>
+<span class="w">    </span><span class="nx">cursor</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">initialCursor</span>
+<span class="w">    </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">tokenFromKeyword</span><span class="p">(</span><span class="nx">selectKeyword</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="p">}</span>
 
-    slct := SelectStatement{}
+<span class="w">    </span><span class="nx">slct</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">SelectStatement</span><span class="p">{}</span>
 
-    fromToken := tokenFromKeyword(fromKeyword)
-    item, newCursor, ok := parseSelectItem(tokens, cursor, []token{fromToken, delimiter})
-    if !ok {
-        return nil, initialCursor, false
-    }
+<span class="w">    </span><span class="nx">fromToken</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">tokenFromKeyword</span><span class="p">(</span><span class="nx">fromKeyword</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">item</span><span class="p">,</span><span class="w"> </span><span class="nx">newCursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parseSelectItem</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="nx">token</span><span class="p">{</span><span class="nx">fromToken</span><span class="p">,</span><span class="w"> </span><span class="nx">delimiter</span><span class="p">})</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="p">}</span>
 
-    slct.item = item
-    cursor = newCursor
+<span class="w">    </span><span class="nx">slct</span><span class="p">.</span><span class="nx">item</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">item</span>
+<span class="w">    </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">newCursor</span>
 
-    whereToken := tokenFromKeyword(whereKeyword)
-    delimiters := []token{delimiter, whereToken}
+<span class="w">    </span><span class="nx">whereToken</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">tokenFromKeyword</span><span class="p">(</span><span class="nx">whereKeyword</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">delimiters</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">token</span><span class="p">{</span><span class="nx">delimiter</span><span class="p">,</span><span class="w"> </span><span class="nx">whereToken</span><span class="p">}</span>
 
-    _, cursor, ok = parseToken(tokens, cursor, fromToken)
-    if ok {
-        from, newCursor, ok := parseFromItem(tokens, cursor, delimiters)
-        if !ok {
-            helpMessage(tokens, cursor, &quot;Expected FROM item&quot;)
-            return nil, initialCursor, false
-        }
+<span class="w">    </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">fromToken</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">from</span><span class="p">,</span><span class="w"> </span><span class="nx">newCursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parseFromItem</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">delimiters</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected FROM item&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
 
-        slct.from = from
-        cursor = newCursor
-    }
+<span class="w">        </span><span class="nx">slct</span><span class="p">.</span><span class="nx">from</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">from</span>
+<span class="w">        </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">newCursor</span>
+<span class="w">    </span><span class="p">}</span>
 
-    _, cursor, ok = parseToken(tokens, cursor, whereToken)
-    if ok {
-        where, newCursor, ok := parseExpression(tokens, cursor, []token{delimiter}, 0)
-        if !ok {
-            helpMessage(tokens, cursor, &quot;Expected WHERE conditionals&quot;)
-            return nil, initialCursor, false
-        }
+<span class="w">    </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">whereToken</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">where</span><span class="p">,</span><span class="w"> </span><span class="nx">newCursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parseExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="nx">token</span><span class="p">{</span><span class="nx">delimiter</span><span class="p">},</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected WHERE conditionals&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
 
-        slct.where = where
-        cursor = newCursor
-    }
+<span class="w">        </span><span class="nx">slct</span><span class="p">.</span><span class="nx">where</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">where</span>
+<span class="w">        </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">newCursor</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return &amp;slct, cursor, true
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">slct</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
 <p>Now we're all done with parsing binary expressions and
 <code>WHERE</code> filters! If in doubt, refer to
 <a href="https://github.com/eatonphil/gosql/blob/master/parser.go">parser.go</a>
@@ -499,143 +498,142 @@ we'll print a message. This allows the REPL loop to keep going.</p>
 <h4 id="memory-cells">Memory cells</h4><p>Again the fundamental blocks of memory in the table will be an untyped
 array of bytes. We'll provide conversion methods from this memory cell
 into integers, strings, and boolean Go values.</p>
-<pre><code class="hljs go">type MemoryCell []byte
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span>
 
-func (mc MemoryCell) AsInt() int32 {
-    var i int32
-    err := binary.Read(bytes.NewBuffer(mc), binary.BigEndian, &amp;i)
-    if err != nil {
-        fmt.Printf(&quot;Corrupted data [%s]: %s\n&quot;, mc, err)
-        return 0
-    }
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mc</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="p">)</span><span class="w"> </span><span class="nx">AsInt</span><span class="p">()</span><span class="w"> </span><span class="kt">int32</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="kt">int32</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">binary</span><span class="p">.</span><span class="nx">Read</span><span class="p">(</span><span class="nx">bytes</span><span class="p">.</span><span class="nx">NewBuffer</span><span class="p">(</span><span class="nx">mc</span><span class="p">),</span><span class="w"> </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Corrupted data [%s]: %s\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">mc</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return i
-}
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">i</span>
+<span class="p">}</span>
 
-func (mc MemoryCell) AsText() string {
-    return string(mc)
-}
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mc</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="p">)</span><span class="w"> </span><span class="nx">AsText</span><span class="p">()</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">mc</span><span class="p">)</span>
+<span class="p">}</span>
 
-func (mc MemoryCell) AsBool() bool {
-    return len(mc) != 0
-}
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mc</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="p">)</span><span class="w"> </span><span class="nx">AsBool</span><span class="p">()</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">mc</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span>
+<span class="p">}</span>
 
-func (mc MemoryCell) equals(b MemoryCell) bool {
-    // Seems verbose but need to make sure if one is nil, the
-    // comparison still fails quickly
-    if mc == nil || b == nil {
-        return mc == nil &amp;&amp; b == nil
-    }
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mc</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="p">)</span><span class="w"> </span><span class="nx">equals</span><span class="p">(</span><span class="nx">b</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Seems verbose but need to make sure if one is nil, the</span>
+<span class="w">    </span><span class="c1">// comparison still fails quickly</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">mc</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">mc</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return bytes.Compare(mc, b) == 0
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">bytes</span><span class="p">.</span><span class="nx">Compare</span><span class="p">(</span><span class="nx">mc</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span>
+<span class="p">}</span>
+</pre></div>
 <p>We'll also extend the <code>Cell</code> interface in
 <code>backend.go</code> to support the new boolean type.</p>
-<pre><code class="hljs go">package gosql
+<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">gosql</span>
 
-type ColumnType uint
+<span class="kd">type</span><span class="w"> </span><span class="nx">ColumnType</span><span class="w"> </span><span class="kt">uint</span>
 
-const (
-    TextType ColumnType = iota
-    IntType
-    BoolType
-)
+<span class="kd">const</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="nx">TextType</span><span class="w"> </span><span class="nx">ColumnType</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">iota</span>
+<span class="w">    </span><span class="nx">IntType</span>
+<span class="w">    </span><span class="nx">BoolType</span>
+<span class="p">)</span>
 
-type Cell interface {
-    AsText() string
-    AsInt() int32
-    AsBool() bool
-}
+<span class="kd">type</span><span class="w"> </span><span class="nx">Cell</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">AsText</span><span class="p">()</span><span class="w"> </span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">AsInt</span><span class="p">()</span><span class="w"> </span><span class="kt">int32</span>
+<span class="w">    </span><span class="nx">AsBool</span><span class="p">()</span><span class="w"> </span><span class="kt">bool</span>
+<span class="p">}</span>
 
-...
-</code></pre>
+<span class="o">...</span>
+</pre></div>
 <p>Finally, we need a way for mapping a Go value <em>into</em> a memory
 cell.</p>
-<pre><code class="hljs go">func literalToMemoryCell(t *token) MemoryCell {
-    if t.kind == numericKind {
-        buf := new(bytes.Buffer)
-        i, err := strconv.Atoi(t.value)
-        if err != nil {
-            fmt.Printf(&quot;Corrupted data [%s]: %s\n&quot;, t.value, err)
-            return MemoryCell(nil)
-        }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">literalToMemoryCell</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">token</span><span class="p">)</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">numericKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">buf</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">new</span><span class="p">(</span><span class="nx">bytes</span><span class="p">.</span><span class="nx">Buffer</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">strconv</span><span class="p">.</span><span class="nx">Atoi</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Corrupted data [%s]: %s\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="p">(</span><span class="kc">nil</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
-        // TODO: handle bigint
-        err = binary.Write(buf, binary.BigEndian, int32(i))
-        if err != nil {
-            fmt.Printf(&quot;Corrupted data [%s]: %s\n&quot;, string(buf.Bytes()), err)
-            return MemoryCell(nil)
-        }
-        return MemoryCell(buf.Bytes())
-    }
+<span class="w">        </span><span class="c1">// TODO: handle bigint</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">binary</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">buf</span><span class="p">,</span><span class="w"> </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">,</span><span class="w"> </span><span class="nb">int32</span><span class="p">(</span><span class="nx">i</span><span class="p">))</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Corrupted data [%s]: %s\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">buf</span><span class="p">.</span><span class="nx">Bytes</span><span class="p">()),</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="p">(</span><span class="kc">nil</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="p">(</span><span class="nx">buf</span><span class="p">.</span><span class="nx">Bytes</span><span class="p">())</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if t.kind == stringKind {
-        return MemoryCell(t.value)
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">stringKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if t.kind == boolKind {
-        if t.value == &quot;true&quot; {
-            return MemoryCell([]byte{1})
-        } else {
-            return MemoryCell(nil)
-        }
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">boolKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">value</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;true&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="p">([]</span><span class="kt">byte</span><span class="p">{</span><span class="mi">1</span><span class="p">})</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">MemoryCell</span><span class="p">(</span><span class="kc">nil</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>And we'll provide global <code>true</code> and <code>false</code>
 values:</p>
-<pre><code class="hljs go">
-var (
-    trueToken  = token{kind: boolKind, value: &quot;true&quot;}
-    falseToken = token{kind: boolKind, value: &quot;false&quot;}
+<div class="highlight"><pre><span></span><span class="kd">var</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="nx">trueToken</span><span class="w">  </span><span class="p">=</span><span class="w"> </span><span class="nx">token</span><span class="p">{</span><span class="nx">kind</span><span class="p">:</span><span class="w"> </span><span class="nx">boolKind</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span><span class="p">}</span>
+<span class="w">    </span><span class="nx">falseToken</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">token</span><span class="p">{</span><span class="nx">kind</span><span class="p">:</span><span class="w"> </span><span class="nx">boolKind</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;false&quot;</span><span class="p">}</span>
 
-    trueMemoryCell  = literalToMemoryCell(&amp;trueToken)
-    falseMemoryCell = literalToMemoryCell(&amp;falseToken)
-)
-</code></pre>
+<span class="w">    </span><span class="nx">trueMemoryCell</span><span class="w">  </span><span class="p">=</span><span class="w"> </span><span class="nx">literalToMemoryCell</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">trueToken</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">falseMemoryCell</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">literalToMemoryCell</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">falseToken</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
 <h4 id="tables">Tables</h4><p>A table has a list of rows (an array of memory cells) and a list of
 column names and types.</p>
-<pre><code class="hljs go">type table struct {
-    columns     []string
-    columnTypes []ColumnType
-    rows        [][]MemoryCell
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">table</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">columns</span><span class="w">     </span><span class="p">[]</span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">columnTypes</span><span class="w"> </span><span class="p">[]</span><span class="nx">ColumnType</span>
+<span class="w">    </span><span class="nx">rows</span><span class="w">        </span><span class="p">[][]</span><span class="nx">MemoryCell</span>
+<span class="p">}</span>
+</pre></div>
 <p>Finally we'll add a series of methods on <code>table</code> that,
 given a row index, interprets an expression AST against that row in
 the table.</p>
 <h3 id="interpreting-literals">Interpreting literals</h3><p>First we'll implement <code>evaluateLiteralCell</code> that will look
 up an identifier or return the value of integers, strings, and
 booleans.</p>
-<pre><code class="hljs go">func (t *table) evaluateLiteralCell(rowIndex uint, exp expression) (MemoryCell, string, ColumnType, error) {
-    if exp.kind != literalKind {
-        return nil, &quot;&quot;, 0, ErrInvalidCell
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">table</span><span class="p">)</span><span class="w"> </span><span class="nx">evaluateLiteralCell</span><span class="p">(</span><span class="nx">rowIndex</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="nx">exp</span><span class="w"> </span><span class="nx">expression</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">MemoryCell</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">ColumnType</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">exp</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">literalKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">ErrInvalidCell</span>
+<span class="w">    </span><span class="p">}</span>
 
-    lit := exp.literal
-    if lit.kind == identifierKind {
-        for i, tableCol := range t.columns {
-            if tableCol == lit.value {
-                return t.rows[rowIndex][i], tableCol, t.columnTypes[i], nil
-            }
-        }
+<span class="w">    </span><span class="nx">lit</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">exp</span><span class="p">.</span><span class="nx">literal</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">lit</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">identifierKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">tableCol</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">columns</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">tableCol</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">lit</span><span class="p">.</span><span class="nx">value</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">rows</span><span class="p">[</span><span class="nx">rowIndex</span><span class="p">][</span><span class="nx">i</span><span class="p">],</span><span class="w"> </span><span class="nx">tableCol</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">columnTypes</span><span class="p">[</span><span class="nx">i</span><span class="p">],</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        return nil, &quot;&quot;, 0, ErrColumnDoesNotExist
-    }
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">ErrColumnDoesNotExist</span>
+<span class="w">    </span><span class="p">}</span>
 
-    columnType := IntType
-    if lit.kind == stringKind {
-        columnType = TextType
-    } else if lit.kind == boolKind {
-        columnType = BoolType
-    }
+<span class="w">    </span><span class="nx">columnType</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">IntType</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">lit</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">stringKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">columnType</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">TextType</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nx">lit</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">boolKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">columnType</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">BoolType</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return literalToMemoryCell(lit), &quot;?column?&quot;, columnType, nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">literalToMemoryCell</span><span class="p">(</span><span class="nx">lit</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;?column?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">columnType</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="interpreting-binary-expressions">Interpreting binary expressions</h3><p>Now we can implement <code>evaluateBinaryCell</code> that will
 evaluate it's two sub-expressions and combine them together according
 to the operator. The SQL operators we have defined so far do no
@@ -643,121 +641,121 @@ coercion. So we'll fail immediately if the two sides of the operation
 are not of the same type. Additionally, the concatenation and addition
 operators require that their arguments are strings and numbers,
 respectively.</p>
-<pre><code class="hljs go">func (t *table) evaluateBinaryCell(rowIndex uint, exp expression) (MemoryCell, string, ColumnType, error) {
-    if exp.kind != binaryKind {
-        return nil, &quot;&quot;, 0, ErrInvalidCell
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">table</span><span class="p">)</span><span class="w"> </span><span class="nx">evaluateBinaryCell</span><span class="p">(</span><span class="nx">rowIndex</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="nx">exp</span><span class="w"> </span><span class="nx">expression</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">MemoryCell</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">ColumnType</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">exp</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">binaryKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">ErrInvalidCell</span>
+<span class="w">    </span><span class="p">}</span>
 
-    bexp := exp.binary
+<span class="w">    </span><span class="nx">bexp</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">exp</span><span class="p">.</span><span class="nx">binary</span>
 
-    l, _, lt, err := t.evaluateCell(rowIndex, bexp.a)
-    if err != nil {
-        return nil, &quot;&quot;, 0, err
-    }
+<span class="w">    </span><span class="nx">l</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">lt</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="nx">rowIndex</span><span class="p">,</span><span class="w"> </span><span class="nx">bexp</span><span class="p">.</span><span class="nx">a</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    r, _, rt, err := t.evaluateCell(rowIndex, bexp.b)
-    if err != nil {
-        return nil, &quot;&quot;, 0, err
-    }
+<span class="w">    </span><span class="nx">r</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">rt</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="nx">rowIndex</span><span class="p">,</span><span class="w"> </span><span class="nx">bexp</span><span class="p">.</span><span class="nx">b</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    switch bexp.op.kind {
-    case symbolKind:
-        switch symbol(bexp.op.value) {
-        case eqSymbol:
-            eq := l.equals(r)
-            if lt == TextType &amp;&amp; rt == TextType &amp;&amp; eq {
-                return trueMemoryCell, &quot;?column?&quot;, BoolType, nil
-            }
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="nx">bexp</span><span class="p">.</span><span class="nx">op</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">symbolKind</span><span class="p">:</span>
+<span class="w">        </span><span class="k">switch</span><span class="w"> </span><span class="nx">symbol</span><span class="p">(</span><span class="nx">bexp</span><span class="p">.</span><span class="nx">op</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">eqSymbol</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">eq</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">l</span><span class="p">.</span><span class="nx">equals</span><span class="p">(</span><span class="nx">r</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">lt</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">TextType</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">rt</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">TextType</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">eq</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nx">trueMemoryCell</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;?column?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">BoolType</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">            </span><span class="p">}</span>
 
-            if lt == IntType &amp;&amp; rt == IntType &amp;&amp; eq {
-                return trueMemoryCell, &quot;?column?&quot;, BoolType, nil
-            }
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">lt</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">IntType</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">rt</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">IntType</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">eq</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nx">trueMemoryCell</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;?column?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">BoolType</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">            </span><span class="p">}</span>
 
-            if lt == BoolType &amp;&amp; rt == BoolType &amp;&amp; eq {
-                return trueMemoryCell, &quot;?column?&quot;, BoolType, nil
-            }
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">lt</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">BoolType</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">rt</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">BoolType</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">eq</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nx">trueMemoryCell</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;?column?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">BoolType</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">            </span><span class="p">}</span>
 
-            return falseMemoryCell, &quot;?column?&quot;, BoolType, nil
-        case neqSymbol:
-            if lt != rt || !l.equals(r) {
-                return trueMemoryCell, &quot;?column?&quot;, BoolType, nil
-            }
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">falseMemoryCell</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;?column?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">BoolType</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">neqSymbol</span><span class="p">:</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">lt</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">rt</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">!</span><span class="nx">l</span><span class="p">.</span><span class="nx">equals</span><span class="p">(</span><span class="nx">r</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nx">trueMemoryCell</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;?column?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">BoolType</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">            </span><span class="p">}</span>
 
-            return falseMemoryCell, &quot;?column?&quot;, BoolType, nil
-        case concatSymbol:
-            if lt != TextType || rt != TextType {
-                return nil, &quot;&quot;, 0, ErrInvalidOperands
-            }
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">falseMemoryCell</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;?column?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">BoolType</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">concatSymbol</span><span class="p">:</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">lt</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">TextType</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">rt</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">TextType</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">ErrInvalidOperands</span>
+<span class="w">            </span><span class="p">}</span>
 
-            return literalToMemoryCell(&amp;token{kind: stringKind, value: l.AsText() + r.AsText()}), &quot;?column?&quot;, TextType, nil
-        case plusSymbol:
-            if lt != IntType || rt != IntType {
-                return nil, &quot;&quot;, 0, ErrInvalidOperands
-            }
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">literalToMemoryCell</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">token</span><span class="p">{</span><span class="nx">kind</span><span class="p">:</span><span class="w"> </span><span class="nx">stringKind</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">:</span><span class="w"> </span><span class="nx">l</span><span class="p">.</span><span class="nx">AsText</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">AsText</span><span class="p">()}),</span><span class="w"> </span><span class="s">&quot;?column?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">TextType</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">plusSymbol</span><span class="p">:</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">lt</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">IntType</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">rt</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">IntType</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">ErrInvalidOperands</span>
+<span class="w">            </span><span class="p">}</span>
 
-            iValue := int(l.AsInt() + r.AsInt())
-            return literalToMemoryCell(&amp;token{kind: numericKind, value: strconv.Itoa(iValue)}), &quot;?column?&quot;, IntType, nil
-        default:
-            // TODO
-            break
-        }
-    case keywordKind:
-        switch keyword(bexp.op.value) {
-        case andKeyword:
-            if lt != BoolType || rt != BoolType {
-                return nil, &quot;&quot;, 0, ErrInvalidOperands
-            }
+<span class="w">            </span><span class="nx">iValue</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">int</span><span class="p">(</span><span class="nx">l</span><span class="p">.</span><span class="nx">AsInt</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">AsInt</span><span class="p">())</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">literalToMemoryCell</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">token</span><span class="p">{</span><span class="nx">kind</span><span class="p">:</span><span class="w"> </span><span class="nx">numericKind</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">:</span><span class="w"> </span><span class="nx">strconv</span><span class="p">.</span><span class="nx">Itoa</span><span class="p">(</span><span class="nx">iValue</span><span class="p">)}),</span><span class="w"> </span><span class="s">&quot;?column?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">IntType</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="k">default</span><span class="p">:</span>
+<span class="w">            </span><span class="c1">// TODO</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">keywordKind</span><span class="p">:</span>
+<span class="w">        </span><span class="k">switch</span><span class="w"> </span><span class="nx">keyword</span><span class="p">(</span><span class="nx">bexp</span><span class="p">.</span><span class="nx">op</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">andKeyword</span><span class="p">:</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">lt</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">BoolType</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">rt</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">BoolType</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">ErrInvalidOperands</span>
+<span class="w">            </span><span class="p">}</span>
 
-            res := falseMemoryCell
-            if l.AsBool() &amp;&amp; r.AsBool() {
-                res = trueMemoryCell
-            }
+<span class="w">            </span><span class="nx">res</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">falseMemoryCell</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">l</span><span class="p">.</span><span class="nx">AsBool</span><span class="p">()</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">AsBool</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">trueMemoryCell</span>
+<span class="w">            </span><span class="p">}</span>
 
-            return res, &quot;?column?&quot;, BoolType, nil
-        case orKeyword:
-            if lt != BoolType || rt != BoolType {
-                return nil, &quot;&quot;, 0, ErrInvalidOperands
-            }
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;?column?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">BoolType</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">orKeyword</span><span class="p">:</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">lt</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">BoolType</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">rt</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">BoolType</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">ErrInvalidOperands</span>
+<span class="w">            </span><span class="p">}</span>
 
-            res := falseMemoryCell
-            if l.AsBool() || r.AsBool() {
-                res = trueMemoryCell
-            }
+<span class="w">            </span><span class="nx">res</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">falseMemoryCell</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">l</span><span class="p">.</span><span class="nx">AsBool</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">AsBool</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">trueMemoryCell</span>
+<span class="w">            </span><span class="p">}</span>
 
-            return res, &quot;?column?&quot;, BoolType, nil
-        default:
-            // TODO
-            break
-        }
-    }
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;?column?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">BoolType</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="k">default</span><span class="p">:</span>
+<span class="w">            </span><span class="c1">// TODO</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return nil, &quot;&quot;, 0, ErrInvalidCell
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">ErrInvalidCell</span>
+<span class="p">}</span>
+</pre></div>
 <p>Then we'll provide a generic <code>evaluateCell</code> method to wrap
 these two correctly:</p>
-<pre><code class="hljs go">func (t *table) evaluateCell(rowIndex uint, exp expression) (MemoryCell, string, ColumnType, error) {
-    switch exp.kind {
-        case literalKind:
-            return t.evaluateLiteralCell(rowIndex, exp)
-        case binaryKind:
-            return t.evaluateBinaryCell(rowIndex, exp)
-        default:
-            return nil, &quot;&quot;, 0, ErrInvalidCell
-    }
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">table</span><span class="p">)</span><span class="w"> </span><span class="nx">evaluateCell</span><span class="p">(</span><span class="nx">rowIndex</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="nx">exp</span><span class="w"> </span><span class="nx">expression</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">MemoryCell</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">ColumnType</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="nx">exp</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">literalKind</span><span class="p">:</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateLiteralCell</span><span class="p">(</span><span class="nx">rowIndex</span><span class="p">,</span><span class="w"> </span><span class="nx">exp</span><span class="p">)</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">binaryKind</span><span class="p">:</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateBinaryCell</span><span class="p">(</span><span class="nx">rowIndex</span><span class="p">,</span><span class="w"> </span><span class="nx">exp</span><span class="p">)</span>
+<span class="w">        </span><span class="k">default</span><span class="p">:</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">ErrInvalidCell</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="implementing-select">Implementing SELECT</h3><p>As before, each statement will operate on a backend of tables.</p>
-<pre><code class="hljs go">type MemoryBackend struct {
-    tables map[string]*table
-}
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">MemoryBackend</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">tables</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="o">*</span><span class="nx">table</span>
+<span class="p">}</span>
 
-func NewMemoryBackend() *MemoryBackend {
-    return &amp;MemoryBackend{
-        tables: map[string]*table{},
-    }
-}
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="nx">NewMemoryBackend</span><span class="p">()</span><span class="w"> </span><span class="o">*</span><span class="nx">MemoryBackend</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">MemoryBackend</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">tables</span><span class="p">:</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="o">*</span><span class="nx">table</span><span class="p">{},</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>When we implement <code>SELECT</code>, we'll iterate over each row in
 the table (we only support looking up one table for now).  If the
 <code>SELECT</code> statement contains a <code>WHERE</code> block,
@@ -767,174 +765,174 @@ row and move on if the result is <code>false</code>.</p>
 we'll evaluate it against the current row in the table.</p>
 <p>If there is no table selected, we provide a fake table with a single
 empty row.</p>
-<pre><code class="hljs go">func (mb *MemoryBackend) Select(slct *SelectStatement) (*Results, error) {
-    t := &amp;table{}
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mb</span><span class="w"> </span><span class="o">*</span><span class="nx">MemoryBackend</span><span class="p">)</span><span class="w"> </span><span class="nx">Select</span><span class="p">(</span><span class="nx">slct</span><span class="w"> </span><span class="o">*</span><span class="nx">SelectStatement</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">Results</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">t</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">table</span><span class="p">{}</span>
 
-    if slct.from != nil &amp;&amp; slct.from.table != nil {
-        var ok bool
-        t, ok = mb.tables[slct.from.table.value]
-        if !ok {
-            return nil, ErrTableDoesNotExist
-        }
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">slct</span><span class="p">.</span><span class="nx">from</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">slct</span><span class="p">.</span><span class="nx">from</span><span class="p">.</span><span class="nx">table</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="kt">bool</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">mb</span><span class="p">.</span><span class="nx">tables</span><span class="p">[</span><span class="nx">slct</span><span class="p">.</span><span class="nx">from</span><span class="p">.</span><span class="nx">table</span><span class="p">.</span><span class="nx">value</span><span class="p">]</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">ErrTableDoesNotExist</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if slct.item == nil || len(*slct.item) == 0 {
-        return &amp;Results{}, nil
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">slct</span><span class="p">.</span><span class="nx">item</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="o">*</span><span class="nx">slct</span><span class="p">.</span><span class="nx">item</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">Results</span><span class="p">{},</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    results := [][]Cell{}
-    columns := []struct {
-        Type ColumnType
-        Name string
-    }{}
+<span class="w">    </span><span class="nx">results</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[][]</span><span class="nx">Cell</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">columns</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">Type</span><span class="w"> </span><span class="nx">ColumnType</span>
+<span class="w">        </span><span class="nx">Name</span><span class="w"> </span><span class="kt">string</span>
+<span class="w">    </span><span class="p">}{}</span>
 
-    if slct.from == nil {
-        t = &amp;table{}
-        t.rows = [][]MemoryCell{{}}
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">slct</span><span class="p">.</span><span class="nx">from</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">t</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">table</span><span class="p">{}</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">rows</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[][]</span><span class="nx">MemoryCell</span><span class="p">{{}}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    for i := range t.rows {
-        result := []Cell{}
-        isFirstRow := len(results) == 0
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">rows</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">result</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">Cell</span><span class="p">{}</span>
+<span class="w">        </span><span class="nx">isFirstRow</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">results</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span>
 
-        if slct.where != nil {
-            val, _, _, err := t.evaluateCell(uint(i), *slct.where)
-            if err != nil {
-                return nil, err
-            }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">slct</span><span class="p">.</span><span class="nx">where</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">val</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="nb">uint</span><span class="p">(</span><span class="nx">i</span><span class="p">),</span><span class="w"> </span><span class="o">*</span><span class="nx">slct</span><span class="p">.</span><span class="nx">where</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">            </span><span class="p">}</span>
 
-            if !val.AsBool() {
-                continue
-            }
-        }
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">val</span><span class="p">.</span><span class="nx">AsBool</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">continue</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        for _, col := range *slct.item {
-            if col.asterisk {
-                // TODO: handle asterisk
-                fmt.Println(&quot;Skipping asterisk.&quot;)
-                continue
-            }
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">col</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="o">*</span><span class="nx">slct</span><span class="p">.</span><span class="nx">item</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">asterisk</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="c1">// TODO: handle asterisk</span>
+<span class="w">                </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Skipping asterisk.&quot;</span><span class="p">)</span>
+<span class="w">                </span><span class="k">continue</span>
+<span class="w">            </span><span class="p">}</span>
 
-            value, columnName, columnType, err := t.evaluateCell(uint(i), *col.exp)
-            if err != nil {
-                return nil, err
-            }
+<span class="w">            </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">columnName</span><span class="p">,</span><span class="w"> </span><span class="nx">columnType</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="nb">uint</span><span class="p">(</span><span class="nx">i</span><span class="p">),</span><span class="w"> </span><span class="o">*</span><span class="nx">col</span><span class="p">.</span><span class="nx">exp</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">            </span><span class="p">}</span>
 
-            if isFirstRow {
-                columns = append(columns, struct {
-                    Type ColumnType
-                    Name string
-                }{
-                    Type: columnType,
-                    Name: columnName,
-                })
-            }
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">isFirstRow</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">columns</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">columns</span><span class="p">,</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nx">Type</span><span class="w"> </span><span class="nx">ColumnType</span>
+<span class="w">                    </span><span class="nx">Name</span><span class="w"> </span><span class="kt">string</span>
+<span class="w">                </span><span class="p">}{</span>
+<span class="w">                    </span><span class="nx">Type</span><span class="p">:</span><span class="w"> </span><span class="nx">columnType</span><span class="p">,</span>
+<span class="w">                    </span><span class="nx">Name</span><span class="p">:</span><span class="w"> </span><span class="nx">columnName</span><span class="p">,</span>
+<span class="w">                </span><span class="p">})</span>
+<span class="w">            </span><span class="p">}</span>
 
-            result = append(result, value)
-        }
+<span class="w">            </span><span class="nx">result</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
-        results = append(results, result)
-    }
+<span class="w">        </span><span class="nx">results</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">results</span><span class="p">,</span><span class="w"> </span><span class="nx">result</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return &amp;Results{
-        Columns: columns,
-        Rows:    results,
-    }, nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">Results</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">Columns</span><span class="p">:</span><span class="w"> </span><span class="nx">columns</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">Rows</span><span class="p">:</span><span class="w">    </span><span class="nx">results</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="implementing-insert,-create">Implementing INSERT, CREATE</h3><p>The <code>INSERT</code> and <code>CREATE</code> statements stay mostly
 the same except for that we'll use the <code>evaluateCell</code> help
 for every expression. Refer back to the first post if the
 implementation is otherwise unclear.</p>
-<pre><code class="hljs go">func (mb *MemoryBackend) Insert(inst *InsertStatement) error {
-    t, ok := mb.tables[inst.table.value]
-    if !ok {
-        return ErrTableDoesNotExist
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mb</span><span class="w"> </span><span class="o">*</span><span class="nx">MemoryBackend</span><span class="p">)</span><span class="w"> </span><span class="nx">Insert</span><span class="p">(</span><span class="nx">inst</span><span class="w"> </span><span class="o">*</span><span class="nx">InsertStatement</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">mb</span><span class="p">.</span><span class="nx">tables</span><span class="p">[</span><span class="nx">inst</span><span class="p">.</span><span class="nx">table</span><span class="p">.</span><span class="nx">value</span><span class="p">]</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">ErrTableDoesNotExist</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if inst.values == nil {
-        return nil
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">inst</span><span class="p">.</span><span class="nx">values</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    row := []MemoryCell{}
+<span class="w">    </span><span class="nx">row</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">MemoryCell</span><span class="p">{}</span>
 
-    if len(*inst.values) != len(t.columns) {
-        return ErrMissingValues
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="o">*</span><span class="nx">inst</span><span class="p">.</span><span class="nx">values</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">columns</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">ErrMissingValues</span>
+<span class="w">    </span><span class="p">}</span>
 
-    for _, value := range *inst.values {
-        if value.kind != literalKind {
-            fmt.Println(&quot;Skipping non-literal.&quot;)
-            continue
-        }
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="o">*</span><span class="nx">inst</span><span class="p">.</span><span class="nx">values</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">value</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">literalKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Skipping non-literal.&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">continue</span>
+<span class="w">        </span><span class="p">}</span>
 
-        emptyTable := &amp;table{}
-        value, _, _, err := emptyTable.evaluateCell(0, *value)
-        if err != nil {
-            return err
-        }
+<span class="w">        </span><span class="nx">emptyTable</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">table</span><span class="p">{}</span>
+<span class="w">        </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">emptyTable</span><span class="p">.</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="nx">value</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
 
-        row = append(row, value)
-    }
+<span class="w">        </span><span class="nx">row</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">row</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    t.rows = append(t.rows, row)
-    return nil
-}
+<span class="w">    </span><span class="nx">t</span><span class="p">.</span><span class="nx">rows</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">rows</span><span class="p">,</span><span class="w"> </span><span class="nx">row</span><span class="p">)</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
 
-func (mb *MemoryBackend) CreateTable(crt *CreateTableStatement) error {
-    t := table{}
-    mb.tables[crt.name.value] = &amp;t
-    if crt.cols == nil {
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mb</span><span class="w"> </span><span class="o">*</span><span class="nx">MemoryBackend</span><span class="p">)</span><span class="w"> </span><span class="nx">CreateTable</span><span class="p">(</span><span class="nx">crt</span><span class="w"> </span><span class="o">*</span><span class="nx">CreateTableStatement</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">t</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">table</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">mb</span><span class="p">.</span><span class="nx">tables</span><span class="p">[</span><span class="nx">crt</span><span class="p">.</span><span class="nx">name</span><span class="p">.</span><span class="nx">value</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">t</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">crt</span><span class="p">.</span><span class="nx">cols</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
 
-        return nil
-    }
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    for _, col := range *crt.cols {
-        t.columns = append(t.columns, col.name.value)
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">col</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="o">*</span><span class="nx">crt</span><span class="p">.</span><span class="nx">cols</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">columns</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">columns</span><span class="p">,</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">name</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span>
 
-        var dt ColumnType
-        switch col.datatype.value {
-        case &quot;int&quot;:
-            dt = IntType
-        case &quot;text&quot;:
-            dt = TextType
-        default:
-            return ErrInvalidDatatype
-        }
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">dt</span><span class="w"> </span><span class="nx">ColumnType</span>
+<span class="w">        </span><span class="k">switch</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">datatype</span><span class="p">.</span><span class="nx">value</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="s">&quot;int&quot;</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">dt</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">IntType</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="s">&quot;text&quot;</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">dt</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">TextType</span>
+<span class="w">        </span><span class="k">default</span><span class="p">:</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">ErrInvalidDatatype</span>
+<span class="w">        </span><span class="p">}</span>
 
-        t.columnTypes = append(t.columnTypes, dt)
-    }
+<span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">columnTypes</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">columnTypes</span><span class="p">,</span><span class="w"> </span><span class="nx">dt</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="back-to-the-repl">Back to the REPL</h3><p>Putting it all together, we run the following session:</p>
-<pre><code class="hljs go"># CREATE TABLE users (name TEXT, age INT);
-ok
-#  INSERT INTO users VALUES (&#39;Stephen&#39;, 16);
-ok
-# SELECT name, age FROM users;
-name   | age
-----------+------
-Stephen |  16
-(1 result)
-ok
-# INSERT INTO users VALUES (&#39;Adrienne&#39;, 23);
-ok
-# SELECT age + 2, name FROM users WHERE age = 23;
-age |   name
-------+-----------
-25 | Adrienne
-(1 result)
-ok
-# SELECT name FROM users;
-name
-------------
-Stephen
-Adrienne
-(2 results)
-ok
-</code></pre>
+<div class="highlight"><pre><span></span><span class="err">#</span><span class="w"> </span><span class="nx">CREATE</span><span class="w"> </span><span class="nx">TABLE</span><span class="w"> </span><span class="nx">users</span><span class="w"> </span><span class="p">(</span><span class="nx">name</span><span class="w"> </span><span class="nx">TEXT</span><span class="p">,</span><span class="w"> </span><span class="nx">age</span><span class="w"> </span><span class="nx">INT</span><span class="p">);</span>
+<span class="nx">ok</span>
+<span class="err">#</span><span class="w">  </span><span class="nx">INSERT</span><span class="w"> </span><span class="nx">INTO</span><span class="w"> </span><span class="nx">users</span><span class="w"> </span><span class="nx">VALUES</span><span class="w"> </span><span class="p">(</span><span class="err">&#39;</span><span class="nx">Stephen</span><span class="err">&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">);</span>
+<span class="nx">ok</span>
+<span class="err">#</span><span class="w"> </span><span class="nx">SELECT</span><span class="w"> </span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">age</span><span class="w"> </span><span class="nx">FROM</span><span class="w"> </span><span class="nx">users</span><span class="p">;</span>
+<span class="nx">name</span><span class="w">   </span><span class="o">|</span><span class="w"> </span><span class="nx">age</span>
+<span class="o">----------+------</span>
+<span class="nx">Stephen</span><span class="w"> </span><span class="o">|</span><span class="w">  </span><span class="mi">16</span>
+<span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="nx">result</span><span class="p">)</span>
+<span class="nx">ok</span>
+<span class="err">#</span><span class="w"> </span><span class="nx">INSERT</span><span class="w"> </span><span class="nx">INTO</span><span class="w"> </span><span class="nx">users</span><span class="w"> </span><span class="nx">VALUES</span><span class="w"> </span><span class="p">(</span><span class="err">&#39;</span><span class="nx">Adrienne</span><span class="err">&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">23</span><span class="p">);</span>
+<span class="nx">ok</span>
+<span class="err">#</span><span class="w"> </span><span class="nx">SELECT</span><span class="w"> </span><span class="nx">age</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="w"> </span><span class="nx">FROM</span><span class="w"> </span><span class="nx">users</span><span class="w"> </span><span class="nx">WHERE</span><span class="w"> </span><span class="nx">age</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">23</span><span class="p">;</span>
+<span class="nx">age</span><span class="w"> </span><span class="o">|</span><span class="w">   </span><span class="nx">name</span>
+<span class="o">------+-----------</span>
+<span class="mi">25</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="nx">Adrienne</span>
+<span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="nx">result</span><span class="p">)</span>
+<span class="nx">ok</span>
+<span class="err">#</span><span class="w"> </span><span class="nx">SELECT</span><span class="w"> </span><span class="nx">name</span><span class="w"> </span><span class="nx">FROM</span><span class="w"> </span><span class="nx">users</span><span class="p">;</span>
+<span class="nx">name</span>
+<span class="o">------------</span>
+<span class="nx">Stephen</span>
+<span class="nx">Adrienne</span>
+<span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="nx">results</span><span class="p">)</span>
+<span class="nx">ok</span>
+</pre></div>
 <p>And that's it for now! In future posts we'll get into indices, joining
 tables, etc.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Latest post up in the database basics series: adding support for binary expressions and WHERE filtering in SELECTs.<br><br>Much nicer to have a real table rendering library and readline implementation in the REPL too.<a href="https://t.co/GYzn3FUNon">https://t.co/GYzn3FUNon</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1249426633347473408?ref_src=twsrc%5Etfw">April 12, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
@@ -1572,7 +1570,6 @@ tables, etc.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

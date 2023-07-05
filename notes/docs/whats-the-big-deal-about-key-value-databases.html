@@ -6,7 +6,6 @@
     <title>What's the big deal about key-value databases like FoundationDB and RocksDB? | notes.eatonphil.com</title>
     <meta name="description" content="What's the big deal about key-value databases like FoundationDB and RocksDB?" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -98,8 +97,8 @@ about <a href="https://github.com/cockroachdb/cockroach/blob/master/docs/tech-no
 form</a>.</p>
 <p>To simplify that doc though you can imagine mapping each row
 to a key-value form like this:</p>
-<pre><code class="hljs javascript">${TABLE_IDENTIFIER}_${PRIMARY_KEY}_${ROW_IDENTIFIER}: ${ENCODED_VALUE}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nx">$</span><span class="p">{</span><span class="nx">TABLE_IDENTIFIER</span><span class="p">}</span><span class="nx">_$</span><span class="p">{</span><span class="nx">PRIMARY_KEY</span><span class="p">}</span><span class="nx">_$</span><span class="p">{</span><span class="nx">ROW_IDENTIFIER</span><span class="p">}</span><span class="o">:</span><span class="w"> </span><span class="nx">$</span><span class="p">{</span><span class="nx">ENCODED_VALUE</span><span class="p">}</span>
+</pre></div>
 <p>Embedded key-value stores almost always support efficient scanning of
 rows by a key-prefix. This means that you can efficiently grab all rows
 within a table by prefix-scanning on the table identifier. If you also
@@ -848,7 +847,6 @@ correcting</a>.</li>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

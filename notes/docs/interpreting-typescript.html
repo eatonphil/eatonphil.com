@@ -6,7 +6,6 @@
     <title>Interpreting TypeScript | notes.eatonphil.com</title>
     <meta name="description" content="Interpreting TypeScript" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -56,16 +55,16 @@ article</a>
 and cover a few areas that were confusing to me as I built out
 <a href="https://github.com/eatonphil/jsc">a separate project</a>.</p>
 <p>The end result we're building will look like this:</p>
-<pre><code class="hljs bash">$ cat test.ts # A program we can interpret
-print(1 + 5);
-$ tsc interpreter.ts # Build the source code for the interpreter
-$ node interpreter.js test.ts # Run the interpreter against test program
-6
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>test.ts<span class="w"> </span><span class="c1"># A program we can interpret</span>
+print<span class="o">(</span><span class="m">1</span><span class="w"> </span>+<span class="w"> </span><span class="m">5</span><span class="o">)</span><span class="p">;</span>
+$<span class="w"> </span>tsc<span class="w"> </span>interpreter.ts<span class="w"> </span><span class="c1"># Build the source code for the interpreter</span>
+$<span class="w"> </span>node<span class="w"> </span>interpreter.js<span class="w"> </span>test.ts<span class="w"> </span><span class="c1"># Run the interpreter against test program</span>
+<span class="m">6</span>
+</pre></div>
 <p><a href="https://github.com/eatonphil/jsi">All code is available on Github.</a></p>
 <h3 id="setup">Setup</h3><p>To begin with, we need Node.js and some dependencies:</p>
-<pre><code class="hljs bash">$ yarn add typescript @types/node
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>yarn<span class="w"> </span>add<span class="w"> </span>typescript<span class="w"> </span>@types/node
+</pre></div>
 <p>Then we can begin the first stage of an interpreter: parsing the code.</p>
 <h3 id="parsing">Parsing</h3><p>Parsing a fixed set of files is simple enough. We pass a list of files
 to <code>createProgram</code> along with compiler options. But, as a user, we
@@ -75,25 +74,25 @@ single-file entrypoint (something like a main.js) and have our
 interpreter figure out all the imports and handle them
 recursively. More on this later, for now we'll just parse the
 single-file entrypoint.</p>
-<pre><code class="hljs typescript">import * as ts from &#39;typescript&#39;;
+<div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">ts</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;typescript&#39;</span><span class="p">;</span>
 
-const TS_COMPILER_OPTIONS = {
-  allowNonTsExtensions: true,
-};
+<span class="kd">const</span><span class="w"> </span><span class="nx">TS_COMPILER_OPTIONS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">allowNonTsExtensions</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span>
+<span class="p">};</span>
 
-function parse(fileName: string): ts.Program {
-  return ts.createProgram([fileName], TS_COMPILER_OPTIONS);
-}
+<span class="kd">function</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">fileName</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">Program</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">createProgram</span><span class="p">([</span><span class="nx">fileName</span><span class="p">],</span><span class="w"> </span><span class="nx">TS_COMPILER_OPTIONS</span><span class="p">);</span>
+<span class="p">}</span>
 
-function interpret(program: ts.Program) { // TODO }
+<span class="kd">function</span><span class="w"> </span><span class="nx">interpret</span><span class="p">(</span><span class="nx">program</span><span class="o">:</span><span class="w"> </span><span class="kt">ts.Program</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="c1">// TODO }</span>
 
-function main(entrypoint: string) {
-  const program = parse(entrypoint);
-  interpret(program);
-}
+<span class="kd">function</span><span class="w"> </span><span class="nx">main</span><span class="p">(</span><span class="nx">entrypoint</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">program</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">entrypoint</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">interpret</span><span class="p">(</span><span class="nx">program</span><span class="p">);</span>
+<span class="p">}</span>
 
-main(process.argv[2]);
-</code></pre>
+<span class="nx">main</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">argv</span><span class="p">[</span><span class="mf">2</span><span class="p">]);</span>
+</pre></div>
 <h3 id="interpret-and-ts.program">interpret and ts.Program</h3><p>A program contains all source files as well as any implicitly needed
 TypeScript definition files (for us it will just be the TypeScript
 definitions for the Node.js standard library).</p>
@@ -104,23 +103,23 @@ definitions for the Node.js standard library).</p>
 </p><p>Our interpret program will iterate over all the source files, ignoring
 the TypeScript definition files, and call interpretNode on all the
 elements of the source file.</p>
-<pre><code class="hljs typescript">function interpretNode(node: ts.Node) { // TODO }
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">(</span><span class="nx">node</span><span class="o">:</span><span class="w"> </span><span class="kt">ts.Node</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="c1">// TODO }</span>
 
-function interpret(program: ts.Program) {
-  return program.getSourceFiles().map((source) =&gt; {
-    const { fileName } = source;
-    if (fileName.endsWith(&#39;.d.ts&#39;)) {
-      return;
-    }
+<span class="kd">function</span><span class="w"> </span><span class="nx">interpret</span><span class="p">(</span><span class="nx">program</span><span class="o">:</span><span class="w"> </span><span class="kt">ts.Program</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">program</span><span class="p">.</span><span class="nx">getSourceFiles</span><span class="p">().</span><span class="nx">map</span><span class="p">((</span><span class="nx">source</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">fileName</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">source</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">fileName</span><span class="p">.</span><span class="nx">endsWith</span><span class="p">(</span><span class="s1">&#39;.d.ts&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    const results = [];
-    ts.forEachChild(source, (node) =&gt; {
-      results.push(interpretNode(node));
-    });
-    return results;
-  });
-}
-</code></pre>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="nx">ts</span><span class="p">.</span><span class="nx">forEachChild</span><span class="p">(</span><span class="nx">source</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">node</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">results</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">interpretNode</span><span class="p">(</span><span class="nx">node</span><span class="p">));</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">results</span><span class="p">;</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="interpretnode-and-ts.node">interpretNode and ts.Node</h3><p>A Node is a wrapper for most elements of what we consider a program to
 be, such as a binary expression (<code>2 + 3</code>), a literal
 expression (<code>2</code>), a function call expression
@@ -128,49 +127,49 @@ expression (<code>2</code>), a function call expression
 time to become familiar with the particular way that a parser breaks
 out a program into a tree of nodes.</p>
 <p>As a concrete example, the following program:</p>
-<pre><code class="hljs typescript">print(a);
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nx">print</span><span class="p">(</span><span class="nx">a</span><span class="p">);</span>
+</pre></div>
 <p>Will be built into ts.Node tree along these lines:</p>
-<pre><code>Node: ExpressionStatement: print(a);
-  Node: CallExpression: print, a
-    Node: Identifier: print
-    Node: Identifier: a
-Node: EndOfFileToken
-</code></pre>
+<div class="highlight"><pre><span></span><span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">ExpressionStatement</span><span class="o">:</span><span class="w"> </span><span class="n">print</span><span class="o">(</span><span class="n">a</span><span class="o">);</span>
+<span class="w">  </span><span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">CallExpression</span><span class="o">:</span><span class="w"> </span><span class="n">print</span><span class="o">,</span><span class="w"> </span><span class="n">a</span>
+<span class="w">    </span><span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">Identifier</span><span class="o">:</span><span class="w"> </span><span class="n">print</span>
+<span class="w">    </span><span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">Identifier</span><span class="o">:</span><span class="w"> </span><span class="n">a</span>
+<span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">EndOfFileToken</span>
+</pre></div>
 <p>And another example:</p>
-<pre><code class="hljs typescript">1 + 3;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="mf">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">3</span><span class="p">;</span>
+</pre></div>
 <p>Will be built into a ts.Node tree along these lines:</p>
-<pre><code>Node: Expression: 1 + 3
-  Node: BinaryExpression: 1, 3, +
-    Node: NumericLiteral: 1
-    Node: NumericLiteral: 3
-    Node: PlusToken
-Node: EndOfFileToken
-</code></pre>
+<div class="highlight"><pre><span></span><span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">Expression</span><span class="o">:</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">  </span><span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">BinaryExpression</span><span class="o">:</span><span class="w"> </span><span class="mi">1</span><span class="o">,</span><span class="w"> </span><span class="mi">3</span><span class="o">,</span><span class="w"> </span><span class="o">+</span>
+<span class="w">    </span><span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">NumericLiteral</span><span class="o">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">NumericLiteral</span><span class="o">:</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">    </span><span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">PlusToken</span>
+<span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">EndOfFileToken</span>
+</pre></div>
 <p>But how would one come to know this?</p>
 <h4 id="exploring-the-ts.node-tree">Exploring the ts.Node tree</h4><p>The easiest thing to do is throw an error on every Node type we don't
 yet know about and fill in support for each program we throw at the
 interpreter.</p>
 <p>For example:</p>
-<pre><code class="hljs typescript">function interpretNode(node: ts.Node) {
-  switch (node.kind) {
-    default:
-      throw new Error(&#39;Unsupported node type: &#39; + ts.SyntaxKind[node.kind]);
-  }
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">(</span><span class="nx">node</span><span class="o">:</span><span class="w"> </span><span class="kt">ts.Node</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">node</span><span class="p">.</span><span class="nx">kind</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">default</span><span class="o">:</span>
+<span class="w">      </span><span class="kt">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Unsupported node type: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">SyntaxKind</span><span class="p">[</span><span class="nx">node</span><span class="p">.</span><span class="nx">kind</span><span class="p">]);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>Now let's run our interpreter against an input file,
 <code>test.ts</code>, that combines these two to make a
 semi-interesting program:</p>
-<pre><code class="hljs bash">$ cat test.ts
-print(1 + 2);
-$ tsc interpreter.ts
-$ node interpreter.js test.ts
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>test.ts
+print<span class="o">(</span><span class="m">1</span><span class="w"> </span>+<span class="w"> </span><span class="m">2</span><span class="o">)</span><span class="p">;</span>
+$<span class="w"> </span>tsc<span class="w"> </span>interpreter.ts
+$<span class="w"> </span>node<span class="w"> </span>interpreter.js<span class="w"> </span>test.ts
 ...
-Error: Unsupported node type: ExpressionStatement
+Error:<span class="w"> </span>Unsupported<span class="w"> </span>node<span class="w"> </span>type:<span class="w"> </span>ExpressionStatement
 ...
-</code></pre>
+</pre></div>
 <p>And we see an outer wrapper, an ExpressionStatement. To proceed we
 look up the definition of an ExpressionStatement in TypeScript source
 code,
@@ -179,17 +178,17 @@ to be specific. This file will become our best friend. Hit ctrl-f and
 look for "interface ExpressionStatement ". We see that it has only one
 child, <code>expression</code>, so we call <code>interpretNode</code>
 on this recursively:</p>
-<pre><code class="hljs typescript">function interpretNode(node: ts.Node) {
-  switch (node.kind) {
-    case ts.SyntaxKind.ExpressionStatement: {
-      const es = node as ts.ExpressionStatement;
-      return interpretNode(es.expression);
-    }
-    default:
-      throw new Error(&#39;Unsupported node type: &#39; + ts.SyntaxKind[node.kind]);
-  }
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">(</span><span class="nx">node</span><span class="o">:</span><span class="w"> </span><span class="kt">ts.Node</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">node</span><span class="p">.</span><span class="nx">kind</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">SyntaxKind</span><span class="p">.</span><span class="nx">ExpressionStatement</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">es</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">node</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">ExpressionStatement</span><span class="p">;</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">(</span><span class="nx">es</span><span class="p">.</span><span class="nx">expression</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nx">default</span><span class="o">:</span>
+<span class="w">      </span><span class="kt">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Unsupported node type: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">SyntaxKind</span><span class="p">[</span><span class="nx">node</span><span class="p">.</span><span class="nx">kind</span><span class="p">]);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>Thankfully TypeScript will be very quick to call us out if we
 misunderstand this structure.</p>
 <p class="note">
@@ -198,12 +197,12 @@ misunderstand this structure.</p>
   TypeScript source so I don't think I'm misunderstanding.
 </p><p>Now we recompile and run the interpreter against the program to
 discover the next ts.Node type.</p>
-<pre><code class="hljs bash">$ tsc interpreter.ts
-$ node interpreter.js test.ts
+<div class="highlight"><pre><span></span>$<span class="w"> </span>tsc<span class="w"> </span>interpreter.ts
+$<span class="w"> </span>node<span class="w"> </span>interpreter.js<span class="w"> </span>test.ts
 ...
-Error: Unsupported node type: CallExpression
+Error:<span class="w"> </span>Unsupported<span class="w"> </span>node<span class="w"> </span>type:<span class="w"> </span>CallExpression
 ...
-</code></pre>
+</pre></div>
 <p>Cool! Back to
 <a href="https://github.com/Microsoft/TypeScript/blob/master/src/compiler/types.ts">src/compiler/types.ts</a>.
 Call expressions are complex enough that we'll break out handling them
@@ -212,60 +211,60 @@ into a separate function.</p>
 evaluates to a function, and we need to handle its parameters. We'll
 just call <code>interpretNode</code> on each of these to get their
 real value. And finally we'll call the function with the arguments.</p>
-<pre><code class="hljs typescript">function interpretCall(ce: ts.CallExpression) {
-  const fn = interpretNode(ce.expression);
-  const args = ce.arguments.map(interpretNode);
-  return fn(...args);
-}
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpretCall</span><span class="p">(</span><span class="nx">ce</span><span class="o">:</span><span class="w"> </span><span class="kt">ts.CallExpression</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">fn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">(</span><span class="nx">ce</span><span class="p">.</span><span class="nx">expression</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">args</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">ce</span><span class="p">.</span><span class="nx">arguments</span><span class="p">.</span><span class="nx">map</span><span class="p">(</span><span class="nx">interpretNode</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">fn</span><span class="p">(...</span><span class="nx">args</span><span class="p">);</span>
+<span class="p">}</span>
 
-function interpretNode() {
-  switch (node.kind) {
-    ...
-    case ts.SyntaxKind.CallExpression: {
-      const ce = node as ts.CallExpression;
-      return interpretCall(ce);
-    }
-    ...
-  }
-}
-</code></pre>
+<span class="kd">function</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">node</span><span class="p">.</span><span class="nx">kind</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">SyntaxKind</span><span class="p">.</span><span class="nx">CallExpression</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">ce</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">node</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">CallExpression</span><span class="p">;</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">interpretCall</span><span class="p">(</span><span class="nx">ce</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p class="node">
   Please ignore the fact that we are not correctly setting
   <code>this</code> here.
 </p><p>Recompile and let's see what's next!</p>
-<pre><code class="hljs bash">$ tsc interpreter.ts
-$ node interpreter.js test.ts
+<div class="highlight"><pre><span></span>$<span class="w"> </span>tsc<span class="w"> </span>interpreter.ts
+$<span class="w"> </span>node<span class="w"> </span>interpreter.js<span class="w"> </span>test.ts
 ...
-Error: Unsupported node type: Identifier
+Error:<span class="w"> </span>Unsupported<span class="w"> </span>node<span class="w"> </span>type:<span class="w"> </span>Identifier
 ...
-</code></pre>
+</pre></div>
 <p>And back to types.ts.</p>
 <h3 id="ts.identifier">ts.Identifier</h3><p>In order to support identifiers in general we'd need to have a context
 we could use to look up the value of an identifier. But we don't have
 a context like this right now so we'll add builtin support for a
 <code>print</code> function so we can get some output!</p>
-<pre><code class="hljs typescript">function interpretNode() {
-  switch (node.kind) {
-    ...
-    case ts.SyntaxKind.Identifier: {
-      const id = (node as ts.Identifier).escapedText as string;
-      if (id === &#39;print&#39;) {
-        return function (...args) { console.log(...args); };
-      }
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">node</span><span class="p">.</span><span class="nx">kind</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">SyntaxKind</span><span class="p">.</span><span class="nx">Identifier</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">node</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">Identifier</span><span class="p">).</span><span class="nx">escapedText</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">id</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;print&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="p">(...</span><span class="nx">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(...</span><span class="nx">args</span><span class="p">);</span><span class="w"> </span><span class="p">};</span>
+<span class="w">      </span><span class="p">}</span>
 
-      throw new Error(&#39;Unsupported identifier: &#39; + id);
-    }
-    ...
-  }
-}
-</code></pre>
+<span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Unsupported identifier: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">id</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>Recompile and let's see what's next!</p>
-<pre><code class="hljs bash">$ tsc interpreter.ts
-$ node interpreter.js test.ts
+<div class="highlight"><pre><span></span>$<span class="w"> </span>tsc<span class="w"> </span>interpreter.ts
+$<span class="w"> </span>node<span class="w"> </span>interpreter.js<span class="w"> </span>test.ts
 ...
-Error: Unsupported node type: BinaryExpression
+Error:<span class="w"> </span>Unsupported<span class="w"> </span>node<span class="w"> </span>type:<span class="w"> </span>BinaryExpression
 ...
-</code></pre>
+</pre></div>
 <p>And we're finally into the parameters.</p>
 <h3 id="interpretbinaryexpression-and-ts.binaryexpression">interpretBinaryExpression and ts.BinaryExpression</h3><p>Looking into types.ts for this Node type suggests we may want to break
 this out into its own function as well; there are a ton of operator
@@ -273,33 +272,33 @@ types. Within the <code>interpretBinaryExpression</code> helper we'll
 interpret each operand and then switch on the operator type. We'll
 throw an error on operators we don't know about -- all of them at
 first:</p>
-<pre><code class="hljs typescript">function interpretBinaryExpression(be: ts.BinaryExpression) {
-  const left = interpretNode(be.left);
-  const right = interpretNode(be.right);
-  switch (be.operatorToken.kind) {
-    default:
-      throw new Error(&#39;Unsupported operator: &#39; + ts.SyntaxKind[be.operatorToken.kind]);
-  }
-}
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpretBinaryExpression</span><span class="p">(</span><span class="nx">be</span><span class="o">:</span><span class="w"> </span><span class="kt">ts.BinaryExpression</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">left</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">(</span><span class="nx">be</span><span class="p">.</span><span class="nx">left</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">right</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">(</span><span class="nx">be</span><span class="p">.</span><span class="nx">right</span><span class="p">);</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">be</span><span class="p">.</span><span class="nx">operatorToken</span><span class="p">.</span><span class="nx">kind</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">default</span><span class="o">:</span>
+<span class="w">      </span><span class="kt">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Unsupported operator: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">SyntaxKind</span><span class="p">[</span><span class="nx">be</span><span class="p">.</span><span class="nx">operatorToken</span><span class="p">.</span><span class="nx">kind</span><span class="p">]);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
 
-function interpretNode() {
-  switch (node.kind) {
-    ...
-    case ts.SyntaxKind.BinaryExpression: {
-      const be = node as ts.BinaryExpression;
-      return interpretBinaryExpression(be);
-    }
-    ...
-  }
-}
-</code></pre>
+<span class="kd">function</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">node</span><span class="p">.</span><span class="nx">kind</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">SyntaxKind</span><span class="p">.</span><span class="nx">BinaryExpression</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">be</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">node</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">BinaryExpression</span><span class="p">;</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">interpretBinaryExpression</span><span class="p">(</span><span class="nx">be</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>We know the drill.</p>
-<pre><code class="hljs bash">$ tsc interpreter.ts
-$ node interpreter.js test.ts
+<div class="highlight"><pre><span></span>$<span class="w"> </span>tsc<span class="w"> </span>interpreter.ts
+$<span class="w"> </span>node<span class="w"> </span>interpreter.js<span class="w"> </span>test.ts
 ...
-Error: Unsupported node type: FirstLiteralToken
+Error:<span class="w"> </span>Unsupported<span class="w"> </span>node<span class="w"> </span>type:<span class="w"> </span>FirstLiteralToken
 ...
-</code></pre>
+</pre></div>
 <p>At this point we're actually failing first on an unknown <strong>node type</strong>
 rather than an operator. This is because we interpret the operands
 (which are numeric literals) before we look up the operator. Time to
@@ -307,67 +306,67 @@ revisit types.ts!</p>
 <h3 id="ts.firstliteraltoken,-ts.numericliteral">ts.FirstLiteralToken, ts.NumericLiteral</h3><p>Looking at types.ts shows us that <code>FirstLiteralToken</code> is a
 synonym for <code>NumericLiteral</code>. The latter name is more
 obvious, so let's add that to our supported Node list:</p>
-<pre><code class="hljs typescript">function interpretNode() {
-  switch (node.kind) {
-    ...
-      case ts.SyntaxKind.NumericLiteral: {
-      const nl = node as ts.NumericLiteral;
-      return Number(nl.text);
-    }
-    ...
-  }
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">node</span><span class="p">.</span><span class="nx">kind</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">SyntaxKind</span><span class="p">.</span><span class="nx">NumericLiteral</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">nl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">node</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">NumericLiteral</span><span class="p">;</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nb">Number</span><span class="p">(</span><span class="nx">nl</span><span class="p">.</span><span class="nx">text</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>And we keep going!</p>
-<pre><code class="hljs bash">$ tsc interpreter.ts
-$ node interpreter.js test.ts
+<div class="highlight"><pre><span></span>$<span class="w"> </span>tsc<span class="w"> </span>interpreter.ts
+$<span class="w"> </span>node<span class="w"> </span>interpreter.js<span class="w"> </span>test.ts
 ...
-Error: Unsupported operator: PlusToken
+Error:<span class="w"> </span>Unsupported<span class="w"> </span>operator:<span class="w"> </span>PlusToken
 ...
-</code></pre>
+</pre></div>
 <p>And we're into unknown operator territory!</p>
 <h3 id="interpretbinaryexpression-and-ts.plustoken">interpretBinaryExpression and ts.PlusToken</h3><p>A simple extension to our existing
 <code>interpretBinaryExpression</code>, we return the sum of the left
 and right values:</p>
-<pre><code class="hljs typescript">function interpretBinaryExpression(be: ts.BinaryExpression) {
-  const left = interpretNode(be.left);
-  const right = interpretNode(be.right);
-  switch (be.operatorToken.kind) {
-    case ts.SyntaxKind.PlusToken:
-      return left + right;
-    default:
-      throw new Error(&#39;Unsupported operator: &#39; + ts.SyntaxKind[be.operatorToken.kind]);
-  }
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpretBinaryExpression</span><span class="p">(</span><span class="nx">be</span><span class="o">:</span><span class="w"> </span><span class="kt">ts.BinaryExpression</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">left</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">(</span><span class="nx">be</span><span class="p">.</span><span class="nx">left</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">right</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">(</span><span class="nx">be</span><span class="p">.</span><span class="nx">right</span><span class="p">);</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">be</span><span class="p">.</span><span class="nx">operatorToken</span><span class="p">.</span><span class="nx">kind</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">ts.SyntaxKind.PlusToken</span><span class="o">:</span>
+<span class="w">      </span><span class="kt">return</span><span class="w"> </span><span class="nx">left</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">right</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">default</span><span class="o">:</span>
+<span class="w">      </span><span class="kt">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Unsupported operator: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">ts</span><span class="p">.</span><span class="nx">SyntaxKind</span><span class="p">[</span><span class="nx">be</span><span class="p">.</span><span class="nx">operatorToken</span><span class="p">.</span><span class="nx">kind</span><span class="p">]);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>And we give it another shot.</p>
-<pre><code class="hljs bash">$ tsc interpreter.ts
-$ node interpreter.js test.ts
+<div class="highlight"><pre><span></span>$<span class="w"> </span>tsc<span class="w"> </span>interpreter.ts
+$<span class="w"> </span>node<span class="w"> </span>interpreter.js<span class="w"> </span>test.ts
 ...
-Error: Unsupported node type: EndOfFileToken
+Error:<span class="w"> </span>Unsupported<span class="w"> </span>node<span class="w"> </span>type:<span class="w"> </span>EndOfFileToken
 ...
-</code></pre>
+</pre></div>
 <h3 id="ts.syntaxkind.endoffiletoken">ts.SyntaxKind.EndOfFileToken</h3><p>Our final Node type before a working program, we simply do nothing:</p>
-<pre><code class="hljs typescript">function interpretNode() {
-  switch (node.kind) {
-    ...
-    case ts.SyntaxKind.EndOfFileToken:
-      break;
-    ...
-  }
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpretNode</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">node</span><span class="p">.</span><span class="nx">kind</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">ts.SyntaxKind.EndOfFileToken</span><span class="o">:</span>
+<span class="w">      </span><span class="kt">break</span><span class="p">;</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>One more time:</p>
-<pre><code class="hljs bash">$ tsc interpreter.ts
-$ node interpreter.js test.ts
-3
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>tsc<span class="w"> </span>interpreter.ts
+$<span class="w"> </span>node<span class="w"> </span>interpreter.js<span class="w"> </span>test.ts
+<span class="m">3</span>
+</pre></div>
 <p>A working program! And if we jiggle the test?</p>
-<pre><code>$ cat test.ts
-print(1 + 5);
-$ node interpreter.js test.ts
-6
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>test.ts
+print<span class="o">(</span><span class="m">1</span><span class="w"> </span>+<span class="w"> </span><span class="m">5</span><span class="o">)</span><span class="p">;</span>
+$<span class="w"> </span>node<span class="w"> </span>interpreter.js<span class="w"> </span>test.ts
+<span class="m">6</span>
+</pre></div>
 <p>We're well on our way to interpreting TypeScript, and have gained some
 familiarity with the TypeScript Compiler API.</p>
 <p><a href="https://github.com/eatonphil/jsi">All code is available on Github.</a></p>
@@ -1006,7 +1005,6 @@ familiarity with the TypeScript Compiler API.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

@@ -6,7 +6,6 @@
     <title>Writing an x86 emulator from scratch in JavaScript: 1. a stack and register machine | notes.eatonphil.com</title>
     <meta name="description" content="Writing an x86 emulator from scratch in JavaScript: 1. a stack and register machine" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -66,8 +65,8 @@ an integer stack. Each register can store a 64-bit integer. The stack
 is an array of 8-bit (or 1 byte) integers.</p>
 <p>We'll make the following registers available for modification and use
 by the program(mer):</p>
-<pre><code class="hljs assembly">RDI, RSI, RSP, RBP, RAX, RBX, RCX, RDX, R8, R9, R10, R11, R12, R13, R14, R15
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nf">RDI</span><span class="p">,</span><span class="w"> </span><span class="nb">RSI</span><span class="p">,</span><span class="w"> </span><span class="nb">RSP</span><span class="p">,</span><span class="w"> </span><span class="nb">RBP</span><span class="p">,</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="nb">RBX</span><span class="p">,</span><span class="w"> </span><span class="nb">RCX</span><span class="p">,</span><span class="w"> </span><span class="nb">RDX</span><span class="p">,</span><span class="w"> </span><span class="nb">R8</span><span class="p">,</span><span class="w"> </span><span class="nb">R9</span><span class="p">,</span><span class="w"> </span><span class="nb">R10</span><span class="p">,</span><span class="w"> </span><span class="nb">R11</span><span class="p">,</span><span class="w"> </span><span class="nb">R12</span><span class="p">,</span><span class="w"> </span><span class="nb">R13</span><span class="p">,</span><span class="w"> </span><span class="nb">R14</span><span class="p">,</span><span class="w"> </span><span class="nb">R15</span>
+</pre></div>
 <p>The <code>RSP</code> register is used by the virtual machine for
 tracking the location of the last entry in the stack. It will be
 modified by the virtual machine when it encounters the
@@ -76,8 +75,8 @@ modified by the virtual machine when it encounters the
 specifics shortly.</p>
 <p>And we'll make the following registers available for use (but not
 modification) by the program(mer):</p>
-<pre><code class="hljs assembly">RIP, CS, DS, FS, SS, ES, GS, CF, ZF, PF, AF, SF, TF, IF, DF, OF
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nf">RIP</span><span class="p">,</span><span class="w"> </span><span class="nb">CS</span><span class="p">,</span><span class="w"> </span><span class="nb">DS</span><span class="p">,</span><span class="w"> </span><span class="nb">FS</span><span class="p">,</span><span class="w"> </span><span class="nb">SS</span><span class="p">,</span><span class="w"> </span><span class="nb">ES</span><span class="p">,</span><span class="w"> </span><span class="nb">GS</span><span class="p">,</span><span class="w"> </span><span class="nv">CF</span><span class="p">,</span><span class="w"> </span><span class="nv">ZF</span><span class="p">,</span><span class="w"> </span><span class="nv">PF</span><span class="p">,</span><span class="w"> </span><span class="nv">AF</span><span class="p">,</span><span class="w"> </span><span class="nv">SF</span><span class="p">,</span><span class="w"> </span><span class="nv">TF</span><span class="p">,</span><span class="w"> </span><span class="nv">IF</span><span class="p">,</span><span class="w"> </span><span class="nv">DF</span><span class="p">,</span><span class="w"> </span><span class="nv">OF</span>
+</pre></div>
 <p>Each of these has a special meaning but we'll focus on
 <code>RIP</code>. The <code>RIP</code> register contains the address
 of the instruction currently being interpreted by our virtual
@@ -86,15 +85,15 @@ the value in this register -- except for a few special instructions
 like <code>CALL</code> and <code>RET</code>.</p>
 <h4 id="memory-addresses">Memory addresses</h4><p>It will become useful to provide direct access to memory with a special
 syntax. We'll focus just on 64-bit addresses that will look like this:</p>
-<pre><code class="hljs assembly">  MOV QWORD PTR [RBP - 8], 12
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="kt">QWORD</span><span class="w"> </span><span class="nv">PTR</span><span class="w"> </span><span class="p">[</span><span class="nb">RBP</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">8</span><span class="p">],</span><span class="w"> </span><span class="mi">12</span>
+</pre></div>
 <p>This asks for the value <code>12</code> to be written into the memory
 address at <code>RBP - 8</code> bytes. The <code>QWORD PTR</code> part
 clarifies that we want to write 8 bytes worth of the value. Since
 <code>12</code> is less than 8 bytes, the rest will be filled with
 zeros.</p>
-<pre><code class="hljs assembly">  ADD RAX, QWORD PTR [RBP - 8]
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">ADD</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="kt">QWORD</span><span class="w"> </span><span class="nv">PTR</span><span class="w"> </span><span class="p">[</span><span class="nb">RBP</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">8</span><span class="p">]</span>
+</pre></div>
 <p>This asks for eight bytes starting from the memory address <code>RBP -
 8</code> to be added to the value in <code>RAX</code> and stored back
 in <code>RAX</code>.</p>
@@ -133,12 +132,12 @@ a <code>RET</code> instruction. Once we hit the terminal
 <code>RET</code>, we will exit the virtual machine and set the exit
 code to the value stored in the <code>RAX</code> register.</p>
 <p>Let's look at a simple program:</p>
-<pre><code class="hljs assembly">main: ; the required main label
-  MOV RAX, 1 ; store 1 in RAX
-  MOV RDI, 2 ; store 2 in RDI
-  ADD RAX, RDI ; store the result of adding RAX and RDI in RAX
-  RET ; give control back to the virtual machine
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nl">main:</span><span class="w"> </span><span class="c1">; the required main label</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="c1">; store 1 in RAX</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RDI</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="c1">; store 2 in RDI</span>
+<span class="w">  </span><span class="nf">ADD</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="nb">RDI</span><span class="w"> </span><span class="c1">; store the result of adding RAX and RDI in RAX</span>
+<span class="w">  </span><span class="nf">RET</span><span class="w"> </span><span class="c1">; give control back to the virtual machine</span>
+</pre></div>
 <p>When we run this program, first we initialize a stack (we'll give it
 1000 elements) and set the <code>RSP</code> register to 1000 (the top
 of the stack). Then we look for the <code>main</code> label and set
@@ -148,17 +147,17 @@ we interpret the instruction at the line number stored in the
 <code>RIP</code> register. Once the <code>RIP</code> register hits
 1000, we exit the program setting <code>RAX</code> as the exit code.</p>
 <h4 id="one-more-example">One more example</h4><p>Now let's look at one more program:</p>
-<pre><code class="hljs assembly">plus:
-  ADD RDI, RSI
-  MOV RAX, RDI
-  RET
+<div class="highlight"><pre><span></span><span class="nl">plus:</span>
+<span class="w">  </span><span class="nf">ADD</span><span class="w"> </span><span class="nb">RDI</span><span class="p">,</span><span class="w"> </span><span class="nb">RSI</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="nb">RDI</span>
+<span class="w">  </span><span class="nf">RET</span>
 
-main:
-  MOV RDI, 1
-  MOV RSI, 2
-  CALL plus
-  RET
-</code></pre>
+<span class="nl">main:</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RDI</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RSI</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span>
+<span class="w">  </span><span class="nf">CALL</span><span class="w"> </span><span class="nv">plus</span>
+<span class="w">  </span><span class="nf">RET</span>
+</pre></div>
 <p>Our virtual machine will start at the line after the
 <code>main</code> label. Then it will store <code>1</code> into
 <code>RDI</code> and <code>2</code> into <code>RSI</code>. Then it
@@ -180,112 +179,112 @@ line. These are comments.</p>
 number of the label plus one) and without the colon.</p>
 <p>And we'll store the instructions as an array of objects composed of an
 operation and optional operands.</p>
-<h4 id="code">Code</h4><pre><code class="hljs javascript">function parse(program) {
-  const labels = {};
-  const instructions = [];
+<h4 id="code">Code</h4><div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">program</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">labels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{};</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">instructions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
 
-  const lines = program.split(&#39;\n&#39;);
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">program</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;\n&#39;</span><span class="p">);</span>
 
-  for (let i = 0; i &lt; lines.length; i++) {
-    let line = lines[i].trim(); // Remove any trailing, leading whitespace
-    // TODO: handle each line
-  }
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">trim</span><span class="p">();</span><span class="w"> </span><span class="c1">// Remove any trailing, leading whitespace</span>
+<span class="w">    </span><span class="c1">// TODO: handle each line</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return { labels, instructions };
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">labels</span><span class="p">,</span><span class="w"> </span><span class="nx">instructions</span><span class="w"> </span><span class="p">};</span>
+<span class="p">}</span>
+</pre></div>
 <p>First let's handle the directives we want to ignore:</p>
-<pre><code class="hljs javascript">  for (let i = 0; i &lt; lines.length; i++) {
-    let line = lines[i].trim(); // Remove any trailing, leading whitespace
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">trim</span><span class="p">();</span><span class="w"> </span><span class="c1">// Remove any trailing, leading whitespace</span>
 
-    if (line.startsWith(&#39;.&#39;)) {
-      continue;
-    }
-  }
-</code></pre>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>And then comments:</p>
-<pre><code class="hljs javascript">  for (let i = 0; i &lt; lines.length; i++) {
-    let line = lines[i].trim(); // Remove any trailing, leading whitespace
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">trim</span><span class="p">();</span><span class="w"> </span><span class="c1">// Remove any trailing, leading whitespace</span>
 
-    if (line.startsWith(&#39;.&#39;) || line.startsWith(&#39;;&#39;) || line.startsWith(&#39;#&#39;)) {
-      continue;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (line.includes(&#39;;&#39;)) {
-      line = line.split(&#39;;&#39;)[0];
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">)[</span><span class="mf">0</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (line.includes(&#39;#&#39;)) {
-      line = line.split(&#39;#&#39;)[0];
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">)[</span><span class="mf">0</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (!line) {
-      continue;
-    }
-  }
-</code></pre>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">line</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>And then labels:</p>
-<pre><code class="hljs javascript">  for (let i = 0; i &lt; lines.length; i++) {
-    let line = lines[i].trim(); // Remove any trailing, leading whitespace
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">trim</span><span class="p">();</span><span class="w"> </span><span class="c1">// Remove any trailing, leading whitespace</span>
 
-    if (line.startsWith(&#39;.&#39;) || line.startsWith(&#39;;&#39;) || line.startsWith(&#39;#&#39;)) {
-      continue;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (line.includes(&#39;;&#39;)) {
-      line = line.split(&#39;;&#39;)[0];
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">)[</span><span class="mf">0</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (line.includes(&#39;#&#39;)) {
-      line = line.split(&#39;#&#39;)[0];
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">)[</span><span class="mf">0</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (!line) {
-      continue;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">line</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (line.includes(&#39;:&#39;)) {
-      const label = line.split(&#39;:&#39;)[0];
-      labels[label] = instructions.length;
-      continue;
-    }
-  }
-</code></pre>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)[</span><span class="mf">0</span><span class="p">];</span>
+<span class="w">      </span><span class="nx">labels</span><span class="p">[</span><span class="nx">label</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">instructions</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span>
+<span class="w">      </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>And finally instruction parsing plus the rest:</p>
-<pre><code class="hljs javascript">function parse(program) {
-  const labels = {};
-  const instructions = [];
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">program</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">labels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{};</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">instructions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
 
-  const lines = program.split(&#39;\n&#39;);
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">program</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;\n&#39;</span><span class="p">);</span>
 
-  for (let i = 0; i &lt; lines.length; i++) {
-    let line = lines[i].trim(); // Remove any trailing, leading whitespace
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">trim</span><span class="p">();</span><span class="w"> </span><span class="c1">// Remove any trailing, leading whitespace</span>
 
-    if (line.startsWith(&#39;.&#39;) || line.startsWith(&#39;;&#39;)) {
-      continue;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (line.includes(&#39;;&#39;)) {
-      line = line.split(&#39;;&#39;)[0];
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">)[</span><span class="mf">0</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (line.includes(&#39;:&#39;)) {
-      const label = line.split(&#39;:&#39;)[0];
-      labels[label] = instructions.length;
-      continue;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)[</span><span class="mf">0</span><span class="p">];</span>
+<span class="w">      </span><span class="nx">labels</span><span class="p">[</span><span class="nx">label</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">instructions</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span>
+<span class="w">      </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    const operation = line.split(/\s/)[0].toLowerCase();
-    const operands = line.substring(operation.length).split(&#39;,&#39;).map(t =&gt; t.trim());
-    instructions.push({
-      operation,
-      operands,
-    });
-  }
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">operation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="sr">/\s/</span><span class="p">)[</span><span class="mf">0</span><span class="p">].</span><span class="nx">toLowerCase</span><span class="p">();</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">operands</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">substring</span><span class="p">(</span><span class="nx">operation</span><span class="p">.</span><span class="nx">length</span><span class="p">).</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">).</span><span class="nx">map</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">trim</span><span class="p">());</span>
+<span class="w">    </span><span class="nx">instructions</span><span class="p">.</span><span class="nx">push</span><span class="p">({</span>
+<span class="w">      </span><span class="nx">operation</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">operands</span><span class="p">,</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return { labels, instructions };
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">labels</span><span class="p">,</span><span class="w"> </span><span class="nx">instructions</span><span class="w"> </span><span class="p">};</span>
+<span class="p">}</span>
+</pre></div>
 <p>Hurray! A brittle parser.</p>
 <h3 id="interpreting">Interpreting</h3><p>We've already described the semantics a few times. So let's get
 started with the foundation and initialization.</p>
@@ -297,234 +296,234 @@ without.</p>
 <p>And we'll make process memory available as an array of 8-bit integers.
 In order to make this easy to use, we'll also provide helper function
 for writing to and reading from memory.</p>
-<pre><code class="hljs javascript">const fs = require(&#39;fs&#39;);
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">fs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;fs&#39;</span><span class="p">);</span>
 
-const REGISTERS = [
-  &#39;RDI&#39;, &#39;RSI&#39;, &#39;RSP&#39;, &#39;RBP&#39;, &#39;RAX&#39;, &#39;RBX&#39;, &#39;RCX&#39;, &#39;RDX&#39;, &#39;RIP&#39;, &#39;R8&#39;,
-  &#39;R9&#39;, &#39;R10&#39;, &#39;R11&#39;, &#39;R12&#39;, &#39;R13&#39;, &#39;R14&#39;, &#39;R15&#39;, &#39;CS&#39;, &#39;DS&#39;, &#39;FS&#39;,
-  &#39;SS&#39;, &#39;ES&#39;, &#39;GS&#39;, &#39;CF&#39;, &#39;ZF&#39;, &#39;PF&#39;, &#39;AF&#39;, &#39;SF&#39;, &#39;TF&#39;, &#39;IF&#39;, &#39;DF&#39;, &#39;OF&#39;,
-];
+<span class="kd">const</span><span class="w"> </span><span class="nx">REGISTERS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="s1">&#39;RDI&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RSI&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RSP&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RBP&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RBX&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RCX&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RDX&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RIP&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;R8&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="s1">&#39;R9&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;R10&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;R11&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;R12&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;R13&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;R14&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;R15&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;CS&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;DS&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;FS&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="s1">&#39;SS&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;ES&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;GS&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;CF&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;ZF&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;PF&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;AF&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;SF&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;TF&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;IF&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;DF&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;OF&#39;</span><span class="p">,</span>
+<span class="p">];</span>
 
-function writeMemoryBytes(process, address, value, size) {
-  for (let i = 0n; i &lt; size; i++) {
-    value &gt;&gt;= i * 8n;
-    process.memory[address + i] = value &amp; 0xFFn;
-  }
-}
+<span class="kd">function</span><span class="w"> </span><span class="nx">writeMemoryBytes</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">address</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">size</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0n</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">size</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">value</span><span class="w"> </span><span class="o">&gt;&gt;=</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">8n</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">process</span><span class="p">.</span><span class="nx">memory</span><span class="p">[</span><span class="nx">address</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0xFFn</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
 
-function readMemoryBytes(process, address, size) {
-  let value = 0n;
-  for (let i = 0n; i &lt; size; i++) {
-    value |= (process.memory[address + i] || 0n) &lt;&lt; (i * 8n);
-  }
-  return value;
-}
+<span class="kd">function</span><span class="w"> </span><span class="nx">readMemoryBytes</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">address</span><span class="p">,</span><span class="w"> </span><span class="nx">size</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0n</span><span class="p">;</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0n</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">size</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">value</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">memory</span><span class="p">[</span><span class="nx">address</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">i</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="mi">0n</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">8n</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">value</span><span class="p">;</span>
+<span class="p">}</span>
 
-function interpret(process) {
-  // TODO: interpret
-}
+<span class="kd">function</span><span class="w"> </span><span class="nx">interpret</span><span class="p">(</span><span class="nx">process</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// TODO: interpret</span>
+<span class="p">}</span>
 
-function main(file) {
-  const memory = new Array(10000);
-  const code = fs.readFileSync(file).toString();
-  const { instructions, labels } = parse(code);
+<span class="kd">function</span><span class="w"> </span><span class="nx">main</span><span class="p">(</span><span class="nx">file</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">memory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Array</span><span class="p">(</span><span class="mf">10000</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">code</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">fs</span><span class="p">.</span><span class="nx">readFileSync</span><span class="p">(</span><span class="nx">file</span><span class="p">).</span><span class="nx">toString</span><span class="p">();</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">instructions</span><span class="p">,</span><span class="w"> </span><span class="nx">labels</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">code</span><span class="p">);</span>
 
-  const registers = REGISTERS.reduce((rs, r) =&gt; ({ ...rs, [r]: 0n }), {});
-  registers.RIP = BigInt(labels.main === undefined ? labels._main : labels.main);
-  registers.RSP = BigInt(memory.length - 8);
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">registers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">REGISTERS</span><span class="p">.</span><span class="nx">reduce</span><span class="p">((</span><span class="nx">rs</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">({</span><span class="w"> </span><span class="p">...</span><span class="nx">rs</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="nx">r</span><span class="p">]</span><span class="o">:</span><span class="w"> </span><span class="mi">0n</span><span class="w"> </span><span class="p">}),</span><span class="w"> </span><span class="p">{});</span>
+<span class="w">  </span><span class="nx">registers</span><span class="p">.</span><span class="nx">RIP</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">BigInt</span><span class="p">(</span><span class="nx">labels</span><span class="p">.</span><span class="nx">main</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">undefined</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="nx">labels</span><span class="p">.</span><span class="nx">_main</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="nx">labels</span><span class="p">.</span><span class="nx">main</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSP</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">BigInt</span><span class="p">(</span><span class="nx">memory</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">8</span><span class="p">);</span>
 
-  const process = {
-    registers,
-    memory,
-    instructions,
-    labels,
-  };
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">process</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">registers</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">memory</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">instructions</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">labels</span><span class="p">,</span>
+<span class="w">  </span><span class="p">};</span>
 
-  writeMemoryBytes(process, registers.RSP, registers.RSP, 8);
+<span class="w">  </span><span class="nx">writeMemoryBytes</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSP</span><span class="p">,</span><span class="w"> </span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSP</span><span class="p">,</span><span class="w"> </span><span class="mf">8</span><span class="p">);</span>
 
-  interpret(process);
-  return Number(registers.RAX);
-}
+<span class="w">  </span><span class="nx">interpret</span><span class="p">(</span><span class="nx">process</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nb">Number</span><span class="p">(</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RAX</span><span class="p">);</span>
+<span class="p">}</span>
 
-process.exit(main(process.argv[2]));
-</code></pre>
+<span class="nx">process</span><span class="p">.</span><span class="nx">exit</span><span class="p">(</span><span class="nx">main</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">argv</span><span class="p">[</span><span class="mf">2</span><span class="p">]));</span>
+</pre></div>
 <p>We'll accept <code>_main</code> as an entry point as well as
 <code>main</code> to support our macOS users. If you know why our
 macOS users use <code>_main</code> I'd love to know.</p>
 <p>To interpret, we grab the instruction pointed to in <code>RIP</code>
 and switch on the operation.</p>
-<pre><code class="hljs javascript">function interpret(process) {
-  do {
-    const instruction = process.instructions[process.registers.RIP];
-    switch (instruction.operation.toLowerCase()) {
-      case &#39;mov&#39;:
-        break;
-      case &#39;add&#39;:
-        break;
-      case &#39;call&#39;:
-        break;
-      case &#39;ret&#39;:
-        break;
-      case &#39;push&#39;:
-        break;
-      case &#39;pop&#39;:
-        break;
-    }
-  } while (process.registers.RIP != BigInt(readMemoryBytes(process, memory.length - 8, 8)));
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpret</span><span class="p">(</span><span class="nx">process</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">do</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">instruction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">instructions</span><span class="p">[</span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RIP</span><span class="p">];</span>
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">operation</span><span class="p">.</span><span class="nx">toLowerCase</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;mov&#39;</span><span class="o">:</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;add&#39;</span><span class="o">:</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;call&#39;</span><span class="o">:</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;ret&#39;</span><span class="o">:</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;push&#39;</span><span class="o">:</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;pop&#39;</span><span class="o">:</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RIP</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nb">BigInt</span><span class="p">(</span><span class="nx">readMemoryBytes</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">memory</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">8</span><span class="p">,</span><span class="w"> </span><span class="mf">8</span><span class="p">)));</span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="interpreting-mov">Interpreting MOV</h4><p>Example:</p>
-<pre><code class="hljs assembly">  MOV RAX, 1
-  MOV RAX, RDI
-  MOV QWORD PTR [RBP - 8], 8
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="nb">RDI</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="kt">QWORD</span><span class="w"> </span><span class="nv">PTR</span><span class="w"> </span><span class="p">[</span><span class="nb">RBP</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">8</span><span class="p">],</span><span class="w"> </span><span class="mi">8</span>
+</pre></div>
 <p>This instruction will store a value into a register or address and
 increment <code>RIP</code>. If the left-hand side is a memory address
 we will write to memory.</p>
-<pre><code class="hljs javascript">      case &#39;mov&#39;: {
-        const lhs = interpretValue(process, instruction.operands[0], { lhs: true });
-        const rhs = interpretValue(process, instruction.operands[1]);
-        if (REGISTERS.includes(lhs)) {
-          process.registers[lhs] = rhs;
-        } else {
-          writeMemoryBytes(process, lhs.address, rhs, lhs.size);
-        }
-        process.registers.RIP++;
-        break;
-      }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;mov&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">lhs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">interpretValue</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">instruction</span><span class="p">.</span><span class="nx">operands</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">lhs</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">});</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">rhs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">interpretValue</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">instruction</span><span class="p">.</span><span class="nx">operands</span><span class="p">[</span><span class="mf">1</span><span class="p">]);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">REGISTERS</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="nx">lhs</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">[</span><span class="nx">lhs</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">rhs</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="nx">writeMemoryBytes</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">lhs</span><span class="p">.</span><span class="nx">address</span><span class="p">,</span><span class="w"> </span><span class="nx">rhs</span><span class="p">,</span><span class="w"> </span><span class="nx">lhs</span><span class="p">.</span><span class="nx">size</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RIP</span><span class="o">++</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+</pre></div>
 <p>We're delegating to a helper function to handle registers vs. memory
 addresses vs. literals appropriately. Without memory addresses it's a
 simple function:</p>
-<pre><code class="hljs javascript">function interpretValue(process, value, { lhs } = { lhs: false }) {
-  if (REGISTERS.includes(value)) {
-    if (lhs) {
-      return value;
-    } else {
-      return process.registers[value];
-    }
-  }
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpretValue</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">lhs</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">lhs</span><span class="o">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">REGISTERS</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="nx">value</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">lhs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">value</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">[</span><span class="nx">value</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return BigInt.asIntN(64, value);
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nb">BigInt</span><span class="p">.</span><span class="nx">asIntN</span><span class="p">(</span><span class="mf">64</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>We need to do some hacking to support memory addresses:</p>
-<pre><code class="hljs javascript">function interpretValue(process, value, { lhs } = { lhs: false }) {
-  if (REGISTERS.includes(value)) {
-    if (lhs) {
-      return value;
-    } else {
-      return process.registers[value];
-    }
-  }
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">interpretValue</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">lhs</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">lhs</span><span class="o">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">REGISTERS</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="nx">value</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">lhs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">value</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">[</span><span class="nx">value</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
 
-  if (value.startsWith(&#39;QWORD PTR [&#39;)) {
-    const offsetString = value.substring(&#39;QWORD PTR [&#39;.length, value.length - 1).trim();
-    if (offsetString.includes(&#39;-&#39;)) {
-      const [l, r] = offsetString.split(&#39;-&#39;).map(l =&gt; interpretValue(process, l.trim()));
-      const address = l - r;
-      const bytes = 8; // qword is 8 bytes
-      if (lhs) {
-        return { address, size: bytes };
-      } else {
-        return readMemoryBytes(process, address, bytes);
-      }
-    }
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">value</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;QWORD PTR [&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">offsetString</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">value</span><span class="p">.</span><span class="nx">substring</span><span class="p">(</span><span class="s1">&#39;QWORD PTR [&#39;</span><span class="p">.</span><span class="nx">length</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="p">).</span><span class="nx">trim</span><span class="p">();</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">offsetString</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">l</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">offsetString</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">).</span><span class="nx">map</span><span class="p">(</span><span class="nx">l</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">interpretValue</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">l</span><span class="p">.</span><span class="nx">trim</span><span class="p">()));</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">address</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">l</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">r</span><span class="p">;</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">8</span><span class="p">;</span><span class="w"> </span><span class="c1">// qword is 8 bytes</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">lhs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">address</span><span class="p">,</span><span class="w"> </span><span class="nx">size</span><span class="o">:</span><span class="w"> </span><span class="nx">bytes</span><span class="w"> </span><span class="p">};</span>
+<span class="w">      </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">readMemoryBytes</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">address</span><span class="p">,</span><span class="w"> </span><span class="nx">bytes</span><span class="p">);</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    throw new Error(&#39;Unsupported offset calculation: &#39; + value);
-  }
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Unsupported offset calculation: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">value</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return BigInt.asIntN(64, value);
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nb">BigInt</span><span class="p">.</span><span class="nx">asIntN</span><span class="p">(</span><span class="mf">64</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="interpreting-add">Interpreting ADD</h4><p>Example:</p>
-<pre><code class="hljs assembly">  ADD RAX, RDI
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">ADD</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="nb">RDI</span>
+</pre></div>
 <p>This instruction will combine both registers and store the result in
 the first, then increment the <code>RIP</code> register.</p>
-<pre><code class="hljs javascript">      case &#39;add&#39;: {
-        const lhs = interpretValue(process, instruction.operands[0], { lhs: true });
-        const rhs = interpretValue(process, instruction.operands[1]);
-        process.registers[lhs] += rhs;
-        process.registers.RIP++;
-        break;
-      }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;add&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">lhs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">interpretValue</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">instruction</span><span class="p">.</span><span class="nx">operands</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">lhs</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">});</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">rhs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">interpretValue</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">instruction</span><span class="p">.</span><span class="nx">operands</span><span class="p">[</span><span class="mf">1</span><span class="p">]);</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">[</span><span class="nx">lhs</span><span class="p">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">rhs</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RIP</span><span class="o">++</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+</pre></div>
 <h4 id="interpreting-call">Interpreting CALL</h4><p>Example:</p>
-<pre><code class="hljs assembly">  CALL plus
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">CALL</span><span class="w"> </span><span class="nv">plus</span>
+</pre></div>
 <p>This instruction store <code>RIP</code> (plus one, to continue after
 the call instruction) on the stack and sets <code>RIP</code> to the
 location specified by the label.</p>
-<pre><code class="hljs javascript">      case &#39;call&#39;: {
-        process.registers.RSP -= 8n;
-        writeMemoryBytes(process, process.registers.RSP, process.registers.RIP + 1n, 8);
-        const label = instruction.operands[0];
-        process.registers.RIP = process.labels[label];
-        break;
-      }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;call&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSP</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="mi">8n</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">writeMemoryBytes</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSP</span><span class="p">,</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RIP</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1n</span><span class="p">,</span><span class="w"> </span><span class="mf">8</span><span class="p">);</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">instruction</span><span class="p">.</span><span class="nx">operands</span><span class="p">[</span><span class="mf">0</span><span class="p">];</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RIP</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">labels</span><span class="p">[</span><span class="nx">label</span><span class="p">];</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+</pre></div>
 <h4 id="interpreting-ret">Interpreting RET</h4><p>Example:</p>
-<pre><code class="hljs assembly">  RET
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">RET</span>
+</pre></div>
 <p>This instruction removes the last element from the stack and stores it
 in the <code>RIP</code> register.</p>
-<pre><code class="hljs javascript">      case &#39;ret&#39;: {
-        const value = readMemoryBytes(process, process.registers.RSP, 8);
-        process.registers.RSP += 8n;
-        process.registers.RIP = value;
-        break;
-      }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;ret&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">readMemoryBytes</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSP</span><span class="p">,</span><span class="w"> </span><span class="mf">8</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSP</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">8n</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RIP</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">value</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+</pre></div>
 <h4 id="interpreting-push">Interpreting PUSH</h4><p>Example:</p>
-<pre><code class="hljs assembly">  PUSH RAX
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">PUSH</span><span class="w"> </span><span class="nb">RAX</span>
+</pre></div>
 <p>This instruction stores the value in the register on the stack and
 increments <code>RIP</code>.</p>
-<pre><code class="hljs javascript">      case &#39;push&#39;: {
-        const value = interpretValue(process, instruction.operands[0]);
-        process.registers.RSP -= 8n;
-        writeMemoryBytes(process, process.registers.RSP, value, 8);
-        process.registers.RIP++;
-        break;
-      }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;push&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">interpretValue</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">instruction</span><span class="p">.</span><span class="nx">operands</span><span class="p">[</span><span class="mf">0</span><span class="p">]);</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSP</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="mi">8n</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">writeMemoryBytes</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSP</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="mf">8</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RIP</span><span class="o">++</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+</pre></div>
 <h4 id="interpreting-pop">Interpreting POP</h4><p>Example:</p>
-<pre><code class="hljs assembly">  POP RAX
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">POP</span><span class="w"> </span><span class="nb">RAX</span>
+</pre></div>
 <p>This instruction removes the last element from the stack and stores it
 into the register specified. Then it increments <code>RIP</code>.</p>
-<pre><code class="hljs javascript">      case &#39;pop&#39;: {
-        const lhs = interpretValue(process, instruction.operands[0], { lhs: true });
-        const value = readMemoryBytes(process, process.registers.RSP, 8);
-        process.registers.RSP += 8n;
-        process.registers[lhs] = value;
-        process.registers.RIP++;
-        break;
-      }
-</code></pre>
-<h3 id="all-together">All together</h3><pre><code class="hljs bash">$ cat test1.asm
-main: ; the required main label
-  MOV RAX, 1 ; store 1 in RAX
-  MOV RDI, 2 ; store 2 in RDI
-  ADD RAX, RDI ; store the result of adding RAX and RDI in RAX
-  RET ; give control back to the virtual machine
-$ node emulator.js test1.asm
-$ echo $?
-3
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;pop&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">lhs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">interpretValue</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">instruction</span><span class="p">.</span><span class="nx">operands</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">lhs</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">});</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">readMemoryBytes</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSP</span><span class="p">,</span><span class="w"> </span><span class="mf">8</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSP</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">8n</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">[</span><span class="nx">lhs</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">value</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RIP</span><span class="o">++</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+</pre></div>
+<h3 id="all-together">All together</h3><div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>test1.asm
+main:<span class="w"> </span><span class="p">;</span><span class="w"> </span>the<span class="w"> </span>required<span class="w"> </span>main<span class="w"> </span>label
+<span class="w">  </span>MOV<span class="w"> </span>RAX,<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="p">;</span><span class="w"> </span>store<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="k">in</span><span class="w"> </span>RAX
+<span class="w">  </span>MOV<span class="w"> </span>RDI,<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="p">;</span><span class="w"> </span>store<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="k">in</span><span class="w"> </span>RDI
+<span class="w">  </span>ADD<span class="w"> </span>RAX,<span class="w"> </span>RDI<span class="w"> </span><span class="p">;</span><span class="w"> </span>store<span class="w"> </span>the<span class="w"> </span>result<span class="w"> </span>of<span class="w"> </span>adding<span class="w"> </span>RAX<span class="w"> </span>and<span class="w"> </span>RDI<span class="w"> </span><span class="k">in</span><span class="w"> </span>RAX
+<span class="w">  </span>RET<span class="w"> </span><span class="p">;</span><span class="w"> </span>give<span class="w"> </span>control<span class="w"> </span>back<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>virtual<span class="w"> </span>machine
+$<span class="w"> </span>node<span class="w"> </span>emulator.js<span class="w"> </span>test1.asm
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">3</span>
+</pre></div>
 <p>And finally, let's see what we can do with a simple C program:</p>
-<pre><code class="hljs bash">$ cat plus.c
-long main() {
-  long a = 5;
-  long b = 6;
-  return a + b;
-}
-$ gcc -S -masm=intel -o plus.s plus.c
-$ node emulator.js plus.s
-$ echo $?
-11
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>plus.c
+long<span class="w"> </span>main<span class="o">()</span><span class="w"> </span><span class="o">{</span>
+<span class="w">  </span>long<span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">5</span><span class="p">;</span>
+<span class="w">  </span>long<span class="w"> </span><span class="nv">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">6</span><span class="p">;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span>a<span class="w"> </span>+<span class="w"> </span>b<span class="p">;</span>
+<span class="o">}</span>
+$<span class="w"> </span>gcc<span class="w"> </span>-S<span class="w"> </span>-masm<span class="o">=</span>intel<span class="w"> </span>-o<span class="w"> </span>plus.s<span class="w"> </span>plus.c
+$<span class="w"> </span>node<span class="w"> </span>emulator.js<span class="w"> </span>plus.s
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">11</span>
+</pre></div>
 <p>And we've got the start of a working x86_64/AMD64 emulator.</p>
 <h3 id="next-steps">Next steps</h3><p>We aren't setting flags appropriately to support conditionals, so
 that's low-hanging fruit. Additionally, syscalls open up a new world
@@ -1177,7 +1176,6 @@ I'm not concerned about absolute correctness (yet).</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

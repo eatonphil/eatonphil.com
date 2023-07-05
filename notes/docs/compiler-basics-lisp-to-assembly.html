@@ -6,7 +6,6 @@
     <title>Writing a lisp compiler from scratch in JavaScript: 1. lisp to assembly | notes.eatonphil.com</title>
     <meta name="description" content="Writing a lisp compiler from scratch in JavaScript: 1. lisp to assembly" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -115,14 +114,14 @@ string) and returns a tuple containing the program parsed so far (an
 AST) and the rest of the program (a string) that hasn't been
 parsed.</p>
 <p>That leaves us with a function skeleton that looks like this:</p>
-<pre><code class="hljs javascript">module.exports.parse = function parse(program) {
-  const tokens = [];
+<div class="highlight"><pre><span></span><span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">parse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">program</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">tokens</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
 
-  ... logic to be added ...
+<span class="w">  </span><span class="p">...</span><span class="w"> </span><span class="nx">logic</span><span class="w"> </span><span class="nx">to</span><span class="w"> </span><span class="nx">be</span><span class="w"> </span><span class="nx">added</span><span class="w"> </span><span class="p">...</span>
 
-  return [tokens, &#39;&#39;];
-};
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">[</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">];</span>
+<span class="p">};</span>
+</pre></div>
 <p>The code that initially calls parse will thus have to deal with
 unwrapping the outermost tuple to get to the AST. For a more helpful
 compiler we could check that the entire program <em>was</em> actually parsed
@@ -130,101 +129,101 @@ by failing if the second element of the return result is not the empty
 string.</p>
 <p>Within the function we will iterate over each character and accumulate
 until we hit space, left or right parenthesis:</p>
-<pre><code class="hljs javascript">module.exports.parse = function parse(program) {
-  const tokens = [];
-  let currentToken = &#39;&#39;;
+<div class="highlight"><pre><span></span><span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">parse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">program</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">tokens</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
 
-  for (let i = 0; i &lt; program.length; i++) {
-    const char = program.charAt(i);
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">program</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="kr">char</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">program</span><span class="p">.</span><span class="nx">charAt</span><span class="p">(</span><span class="nx">i</span><span class="p">);</span>
 
-    switch (char) {
-      case &#39;(&#39;: // TODO
-        break;
-      case &#39;)&#39;: // TODO
-        break;
-      case &#39; &#39;:
-        tokens.push(+currentToken || currentToken);
-        currentToken = &#39;&#39;;
-        break;
-      default:
-        currentToken += char;
-        break;
-    }
-  }
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="kr">char</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;(&#39;</span><span class="o">:</span><span class="w"> </span><span class="c1">// TODO</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;)&#39;</span><span class="o">:</span><span class="w"> </span><span class="c1">// TODO</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39; &#39;</span><span class="o">:</span>
+<span class="w">        </span><span class="nx">tokens</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="o">+</span><span class="nx">currentToken</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">currentToken</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="k">default</span><span class="o">:</span>
+<span class="w">        </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="kr">char</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return [tokens, &#39;&#39;];
-};
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">[</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">];</span>
+<span class="p">};</span>
+</pre></div>
 <p>The recursive parts are always the most challenging. The right paren
 is easiest. We must push the current token and return all tokens with
 the rest of the program:</p>
-<pre><code class="hljs javascript">module.exports.parse = function parse(program) {
-  const tokens = [];
-  let currentToken = &#39;&#39;;
+<div class="highlight"><pre><span></span><span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">parse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">program</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">tokens</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
 
-  for (let i = 0; i &lt; program.length; i++) {
-    const char = program.charAt(i);
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">program</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="kr">char</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">program</span><span class="p">.</span><span class="nx">charAt</span><span class="p">(</span><span class="nx">i</span><span class="p">);</span>
 
-    switch (char) {
-      case &#39;(&#39;: // TODO
-        break;
-      case &#39;)&#39;:
-        tokens.push(+currentToken || currentToken);
-        return [tokens, program.substring(i + 1)];
-      case &#39; &#39;:
-        tokens.push(+currentToken || currentToken);
-        currentToken = &#39;&#39;;
-        break;
-      default:
-        currentToken += char;
-        break;
-    }
-  }
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="kr">char</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;(&#39;</span><span class="o">:</span><span class="w"> </span><span class="c1">// TODO</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;)&#39;</span><span class="o">:</span>
+<span class="w">        </span><span class="nx">tokens</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="o">+</span><span class="nx">currentToken</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">currentToken</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">[</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">program</span><span class="p">.</span><span class="nx">substring</span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">1</span><span class="p">)];</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39; &#39;</span><span class="o">:</span>
+<span class="w">        </span><span class="nx">tokens</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="o">+</span><span class="nx">currentToken</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">currentToken</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="k">default</span><span class="o">:</span>
+<span class="w">        </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="kr">char</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return [tokens, &#39;&#39;];
-};
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">[</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">];</span>
+<span class="p">};</span>
+</pre></div>
 <p>Finally the left paren should recurse, add the parsed tokens to the
 list of sibling tokens, and force the loop to start at the new
 unparsed point.</p>
-<pre><code class="hljs javascript">module.exports.parse = function parse(program) {
-  const tokens = [];
-  let currentToken = &#39;&#39;;
+<div class="highlight"><pre><span></span><span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">parse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">program</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">tokens</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
 
-  for (let i = 0; i &lt; program.length; i++) {
-    const char = program.charAt(i);
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">program</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="kr">char</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">program</span><span class="p">.</span><span class="nx">charAt</span><span class="p">(</span><span class="nx">i</span><span class="p">);</span>
 
-    switch (char) {
-      case &#39;(&#39;: {
-        const [parsed, rest] = parse(program.substring(i + 1));
-        tokens.push(parsed);
-        program = rest;
-        i = 0;
-        break;
-      }
-      case &#39;)&#39;:
-        tokens.push(+currentToken || currentToken);
-        return [tokens, program.substring(i + 1)];
-      case &#39; &#39;:
-        tokens.push(+currentToken || currentToken);
-        currentToken = &#39;&#39;;
-        break;
-      default:
-        currentToken += char;
-        break;
-    }
-  }
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="kr">char</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;(&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">parsed</span><span class="p">,</span><span class="w"> </span><span class="nx">rest</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">program</span><span class="p">.</span><span class="nx">substring</span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">1</span><span class="p">));</span>
+<span class="w">        </span><span class="nx">tokens</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">parsed</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">program</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">rest</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;)&#39;</span><span class="o">:</span>
+<span class="w">        </span><span class="nx">tokens</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="o">+</span><span class="nx">currentToken</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">currentToken</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">[</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">program</span><span class="p">.</span><span class="nx">substring</span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">1</span><span class="p">)];</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39; &#39;</span><span class="o">:</span>
+<span class="w">        </span><span class="nx">tokens</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="o">+</span><span class="nx">currentToken</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">currentToken</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="k">default</span><span class="o">:</span>
+<span class="w">        </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="kr">char</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return [tokens, &#39;&#39;];
-};
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">[</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">];</span>
+<span class="p">};</span>
+</pre></div>
 <p>Assuming this is all in <code>parser.js</code>, let's try it out in the REPL:</p>
-<pre><code class="hljs bash">$ node
-&gt; const { parse } = require(&#39;./parser&#39;);
+<div class="highlight"><pre><span></span>$<span class="w"> </span>node
+&gt;<span class="w"> </span>const<span class="w"> </span><span class="o">{</span><span class="w"> </span>parse<span class="w"> </span><span class="o">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>require<span class="o">(</span><span class="s1">&#39;./parser&#39;</span><span class="o">)</span><span class="p">;</span>
 undefined
-&gt; console.log(JSON.stringify(parse(&#39;(+ 3 (+ 1 2)&#39;)));
-[[[&quot;+&quot;,3,[&quot;+&quot;,1,2]]],&quot;&quot;]
-</code></pre>
+&gt;<span class="w"> </span>console.log<span class="o">(</span>JSON.stringify<span class="o">(</span>parse<span class="o">(</span><span class="s1">&#39;(+ 3 (+ 1 2)&#39;</span><span class="o">)))</span><span class="p">;</span>
+<span class="o">[[[</span><span class="s2">&quot;+&quot;</span>,3,<span class="o">[</span><span class="s2">&quot;+&quot;</span>,1,2<span class="o">]]]</span>,<span class="s2">&quot;&quot;</span><span class="o">]</span>
+</pre></div>
 <p>Solid. We move on.</p>
 <h3 id="assembly-101">Assembly 101</h3><p>Assembly is essentially the lowest-level programming language we can
 use. It is a human readable, 1:1 representation of the binary
@@ -271,80 +270,80 @@ answers for development on x86_64 macOS and Linux systems:</p>
 <h3 id="code-generation">Code generation</h3><p>With assembly basics and the function call convention in mind, we've
 got enough to generate code from the parsed program's AST.</p>
 <p>The skeleton of our compile code will look like this:</p>
-<pre><code class="hljs javascript">function emit(depth, code) {
-  const indent = new Array(depth + 1).map(() =&gt; &#39;&#39;).join(&#39;  &#39;);
-  console.log(indent + code);
-}
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="nx">code</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">indent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Array</span><span class="p">(</span><span class="nx">depth</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">1</span><span class="p">).</span><span class="nx">map</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">).</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;  &#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">indent</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">code</span><span class="p">);</span>
+<span class="p">}</span>
 
-function compile_argument(arg, destination) {
-  // If arg AST is a list, call compile_call on it
+<span class="kd">function</span><span class="w"> </span><span class="nx">compile_argument</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// If arg AST is a list, call compile_call on it</span>
 
-  // Else must be a literal number, store in destination register
-}
+<span class="w">  </span><span class="c1">// Else must be a literal number, store in destination register</span>
+<span class="p">}</span>
 
-function compile_call(fun, args, destination) {
-  // Save param registers to the stack
+<span class="kd">function</span><span class="w"> </span><span class="nx">compile_call</span><span class="p">(</span><span class="nx">fun</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Save param registers to the stack</span>
 
-  // Compile arguments and store in param registers
+<span class="w">  </span><span class="c1">// Compile arguments and store in param registers</span>
 
-  // Call function
+<span class="w">  </span><span class="c1">// Call function</span>
 
-  // Restore param registers from the stack
+<span class="w">  </span><span class="c1">// Restore param registers from the stack</span>
 
-  // Move result into destination if provided
-}
+<span class="w">  </span><span class="c1">// Move result into destination if provided</span>
+<span class="p">}</span>
 
-function emit_prefix() {
-  // Assembly prefix
-}
+<span class="kd">function</span><span class="w"> </span><span class="nx">emit_prefix</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Assembly prefix</span>
+<span class="p">}</span>
 
-function emit_postfix() {
-  // Assembly postfix
-}
+<span class="kd">function</span><span class="w"> </span><span class="nx">emit_postfix</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Assembly postfix</span>
+<span class="p">}</span>
 
-module.exports.compile = function parse(ast) {
-  emit_prefix();
-  compile_call(ast[0], ast.slice(1));
-  emit_postfix();
-};
-</code></pre>
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">compile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">ast</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">emit_prefix</span><span class="p">();</span>
+<span class="w">  </span><span class="nx">compile_call</span><span class="p">(</span><span class="nx">ast</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">ast</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mf">1</span><span class="p">));</span>
+<span class="w">  </span><span class="nx">emit_postfix</span><span class="p">();</span>
+<span class="p">};</span>
+</pre></div>
 <p>From our pseudo-code in comments it is simple enough to fill in.
 Let's fill in everything but the prefix and postfix code.</p>
-<pre><code class="hljs javascript">function compile_argument(arg, destination) {
-  // If arg AST is a list, call compile_call on it
-  if (Array.isArray(arg)) {
-    compile_call(arg[0], arg.slice(1), destination);
-    return;
-  }
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">compile_argument</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// If arg AST is a list, call compile_call on it</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Array</span><span class="p">.</span><span class="nx">isArray</span><span class="p">(</span><span class="nx">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">compile_call</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">arg</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">destination</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  // Else must be a literal number, store in destination register
-  emit(1, `MOV ${destination}, ${arg}`);
-}
+<span class="w">  </span><span class="c1">// Else must be a literal number, store in destination register</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV </span><span class="si">${</span><span class="nx">destination</span><span class="si">}</span><span class="sb">, </span><span class="si">${</span><span class="nx">arg</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="p">}</span>
 
-const BUILTIN_FUNCTIONS = { &#39;+&#39;: &#39;plus&#39; };
-const PARAM_REGISTERS = [&#39;RDI&#39;, &#39;RSI&#39;, &#39;RDX&#39;];
+<span class="kd">const</span><span class="w"> </span><span class="nx">BUILTIN_FUNCTIONS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s1">&#39;+&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;plus&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">PARAM_REGISTERS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;RDI&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RSI&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RDX&#39;</span><span class="p">];</span>
 
-function compile_call(fun, args, destination) {
-  // Save param registers to the stack
-  args.forEach((_, i) =&gt; emit(1, `PUSH ${PARAM_REGISTERS[i]}`));
+<span class="kd">function</span><span class="w"> </span><span class="nx">compile_call</span><span class="p">(</span><span class="nx">fun</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Save param registers to the stack</span>
+<span class="w">  </span><span class="nx">args</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH </span><span class="si">${</span><span class="nx">PARAM_REGISTERS</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">));</span>
 
-  // Compile arguments and store in param registers
-  args.forEach((arg, i) =&gt; compile_argument(arg, PARAM_REGISTERS[i]));
+<span class="w">  </span><span class="c1">// Compile arguments and store in param registers</span>
+<span class="w">  </span><span class="nx">args</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">compile_argument</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">PARAM_REGISTERS</span><span class="p">[</span><span class="nx">i</span><span class="p">]));</span>
 
-  // Call function
-  emit(1, `CALL ${BUILTIN_FUNCTIONS[fun] || fun}`);
+<span class="w">  </span><span class="c1">// Call function</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`CALL </span><span class="si">${</span><span class="nx">BUILTIN_FUNCTIONS</span><span class="p">[</span><span class="nx">fun</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">fun</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 
-  // Restore param registers from the stack
-  args.forEach((_, i) =&gt; emit(1, `POP ${PARAM_REGISTERS[args.length - i - 1]}`));
+<span class="w">  </span><span class="c1">// Restore param registers from the stack</span>
+<span class="w">  </span><span class="nx">args</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP </span><span class="si">${</span><span class="nx">PARAM_REGISTERS</span><span class="p">[</span><span class="nx">args</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">));</span>
 
-  // Move result into destination if provided
-  if (destination) {
-    emit(1, `MOV ${destination}, RAX`);
-  }
+<span class="w">  </span><span class="c1">// Move result into destination if provided</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">destination</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV </span><span class="si">${</span><span class="nx">destination</span><span class="si">}</span><span class="sb">, RAX`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  emit(0, &#39;&#39;); // For nice formatting
-}
-</code></pre>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">);</span><span class="w"> </span><span class="c1">// For nice formatting</span>
+<span class="p">}</span>
+</pre></div>
 <p>In a better compiler, we would not make <code>plus</code> a built-in
 function. We'd emit code for the assembly instruction <code>ADD</code>. However,
 making <code>plus</code> a function makes code generation simpler and also allows
@@ -374,32 +373,32 @@ is visible externally. This is important because we let <code>gcc</code> handle
 the hairier parts of generating an executable file and it needs access
 to the entrypoint.</p>
 <p>So far, our prefix looks like this:</p>
-<pre><code class="hljs javascript">function emit_prefix() {
-  emit(1, &#39;.global _main\n&#39;);
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">emit_prefix</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;.global _main\n&#39;</span><span class="p">);</span>
 
-  emit(1, &#39;.text\n&#39;);
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;.text\n&#39;</span><span class="p">);</span>
 
-  // TODO: add built-in functions
+<span class="w">  </span><span class="c1">// TODO: add built-in functions</span>
 
-  emit(0, &#39;_main:&#39;);
-}
-</code></pre>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_main:&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>The last part of our prefix needs to include the <code>plus</code> built-in
 function. For this, we add the first two parameter registers we agreed
 on (<code>RDI</code> and <code>RSI</code>) and store the result in <code>RAX</code>.</p>
-<pre><code class="hljs javascript">function emit_prefix() {
-  emit(1, &#39;.global _main\n&#39;);
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">emit_prefix</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;.global _main\n&#39;</span><span class="p">);</span>
 
-  emit(1, &#39;.text\n&#39;);
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;.text\n&#39;</span><span class="p">);</span>
 
-  emit(0, &#39;plus:&#39;);
-  emit(1, &#39;ADD RDI, RSI&#39;);
-  emit(1, &#39;MOV RAX, RDI&#39;);
-  emit(1, &#39;RET\n&#39;);
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;plus:&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;ADD RDI, RSI&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;MOV RAX, RDI&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RET\n&#39;</span><span class="p">);</span>
 
-  emit(0, &#39;_main:&#39;);
-}
-</code></pre>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_main:&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>And we're golden.</p>
 <h3 id="the-postfix">The postfix</h3><p>The job of the postfix will be simple, call <code>exit</code> with the value of
 <code>RAX</code> since this will be the result of the last function called by the
@@ -417,76 +416,76 @@ will be <code>60</code>; on macOS it is <code>0x2000001</code>.</p>
   program that uses syscalls or calls out to (say) glibc, you'll need
   to follow these conventions.
 </p><p>The postfix then looks like this:</p>
-<pre><code class="hljs javascript">const os = require(&#39;os&#39;);
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">os</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;os&#39;</span><span class="p">);</span>
 
-const SYSCALL_MAP = os.platform() === &#39;darwin&#39; ? {
-    &#39;exit&#39;: &#39;0x2000001&#39;,
-} : {
-    &#39;exit&#39;: 60,
-};
+<span class="kd">const</span><span class="w"> </span><span class="nx">SYSCALL_MAP</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">platform</span><span class="p">()</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;darwin&#39;</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="s1">&#39;exit&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;0x2000001&#39;</span><span class="p">,</span>
+<span class="p">}</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="s1">&#39;exit&#39;</span><span class="o">:</span><span class="w"> </span><span class="mf">60</span><span class="p">,</span>
+<span class="p">};</span>
 
-function emit_postfix() {
-  emit(1, &#39;MOV RDI, RAX&#39;); // Set exit arg
-  emit(1, `MOV RAX, ${SYSCALL_MAP[&#39;exit&#39;]}`); // Set syscall number
-  emit(1, &#39;SYSCALL&#39;);
-}
-</code></pre>
+<span class="kd">function</span><span class="w"> </span><span class="nx">emit_postfix</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;MOV RDI, RAX&#39;</span><span class="p">);</span><span class="w"> </span><span class="c1">// Set exit arg</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV RAX, </span><span class="si">${</span><span class="nx">SYSCALL_MAP</span><span class="p">[</span><span class="s1">&#39;exit&#39;</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span><span class="w"> </span><span class="c1">// Set syscall number</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;SYSCALL&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>And we're set here too.</p>
 <h3 id="putting-it-all-together">Putting it all together</h3><p>We can finally write our Javascript entrypoint and run our compiler
 against a sample program.</p>
 <p>The entrypoint might look like this:</p>
-<pre><code class="hljs javascript">const { parse } = require(&#39;./parser&#39;);
-const { compile } = require(&#39;./compiler&#39;);
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">parse</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./parser&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">compile</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./compiler&#39;</span><span class="p">);</span>
 
-function main(args) {
-  const script = args[2];
-  const [ast] = parse(script);
-  compile(ast[0]);
-}
+<span class="kd">function</span><span class="w"> </span><span class="nx">main</span><span class="p">(</span><span class="nx">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">script</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">args</span><span class="p">[</span><span class="mf">2</span><span class="p">];</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">ast</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">script</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">compile</span><span class="p">(</span><span class="nx">ast</span><span class="p">[</span><span class="mf">0</span><span class="p">]);</span>
+<span class="p">}</span>
 
-main(process.argv);
-</code></pre>
+<span class="nx">main</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">argv</span><span class="p">);</span>
+</pre></div>
 <p>And we can call it like so:</p>
-<pre><code class="hljs x86asm">$ node ulisp.js &#39;(+ 3 (+ 2 1))&#39;
-  .global _main
+<div class="highlight"><pre><span></span><span class="nf">$</span><span class="w"> </span><span class="nv">node</span><span class="w"> </span><span class="nv">ulisp.js</span><span class="w"> </span><span class="s">&#39;(+ 3 (+ 2 1))&#39;</span>
+<span class="w">  </span><span class="nf">.global</span><span class="w"> </span><span class="nv">_main</span>
 
-  .text
+<span class="w">  </span><span class="nf">.text</span>
 
-plus:
-  ADD RDI, RSI
-  MOV RAX, RDI
-  RET
+<span class="nl">plus:</span>
+<span class="w">  </span><span class="nf">ADD</span><span class="w"> </span><span class="nb">RDI</span><span class="p">,</span><span class="w"> </span><span class="nb">RSI</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="nb">RDI</span>
+<span class="w">  </span><span class="nf">RET</span>
 
-_main:
-  PUSH RDI
-  PUSH RSI
-  MOV RDI, 3
-  PUSH RDI
-  PUSH RSI
-  MOV RDI, 2
-  MOV RSI, 1
-  CALL plus
-  POP RSI
-  POP RDI
-  MOV RSI, RAX
+<span class="nl">_main:</span>
+<span class="w">  </span><span class="nf">PUSH</span><span class="w"> </span><span class="nb">RDI</span>
+<span class="w">  </span><span class="nf">PUSH</span><span class="w"> </span><span class="nb">RSI</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RDI</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span>
+<span class="w">  </span><span class="nf">PUSH</span><span class="w"> </span><span class="nb">RDI</span>
+<span class="w">  </span><span class="nf">PUSH</span><span class="w"> </span><span class="nb">RSI</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RDI</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RSI</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">  </span><span class="nf">CALL</span><span class="w"> </span><span class="nv">plus</span>
+<span class="w">  </span><span class="nf">POP</span><span class="w"> </span><span class="nb">RSI</span>
+<span class="w">  </span><span class="nf">POP</span><span class="w"> </span><span class="nb">RDI</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RSI</span><span class="p">,</span><span class="w"> </span><span class="nb">RAX</span>
 
-  CALL plus
-  POP RSI
-  POP RDI
+<span class="w">  </span><span class="nf">CALL</span><span class="w"> </span><span class="nv">plus</span>
+<span class="w">  </span><span class="nf">POP</span><span class="w"> </span><span class="nb">RSI</span>
+<span class="w">  </span><span class="nf">POP</span><span class="w"> </span><span class="nb">RDI</span>
 
-  MOV RDI, RAX
-  MOV RAX, 0x2000001
-  SYSCALL
-</code></pre>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RDI</span><span class="p">,</span><span class="w"> </span><span class="nb">RAX</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="mh">0x2000001</span>
+<span class="w">  </span><span class="nf">SYSCALL</span>
+</pre></div>
 <h3 id="generating-an-executable-file-from-the-output">Generating an executable file from the output</h3><p>If we redirect the previous output to an assembly file and call <code>gcc</code>
 on it, we can generate a program we can run. Then we can echo the <code>$?</code>
 variable to see the exit code of the previous process.</p>
-<pre><code class="hljs bash">$ node ulisp.js &#39;(+ 3 (+ 2 1))&#39; &gt; program.S
-$ gcc -mstackrealign -masm=intel -o program program.s
-$ ./program
-$ echo $?
-6
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>node<span class="w"> </span>ulisp.js<span class="w"> </span><span class="s1">&#39;(+ 3 (+ 2 1))&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>program.S
+$<span class="w"> </span>gcc<span class="w"> </span>-mstackrealign<span class="w"> </span>-masm<span class="o">=</span>intel<span class="w"> </span>-o<span class="w"> </span>program<span class="w"> </span>program.s
+$<span class="w"> </span>./program
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">6</span>
+</pre></div>
 <p>And we've got a working compiler! The full source of the compiler is
 available <a href="https://github.com/eatonphil/ulisp">here</a>.</p>
 <h3 id="further-reading">Further reading</h3><ul>
@@ -502,7 +501,7 @@ available <a href="https://github.com/eatonphil/ulisp">here</a>.</p>
 </ul>
 </li>
 </ul>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/languages/x86asm.min.js"></script><p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Finished that intro to compilers post :) lisp to assembly in Javascript <a href="https://t.co/0HDIn4Mv7a">https://t.co/0HDIn4Mv7a</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1066863077000441856?ref_src=twsrc%5Etfw">November 26, 2018</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
+<p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Finished that intro to compilers post :) lisp to assembly in Javascript <a href="https://t.co/0HDIn4Mv7a">https://t.co/0HDIn4Mv7a</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1066863077000441856?ref_src=twsrc%5Etfw">November 26, 2018</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
 	<div class="feedback">
 	  <h4>Feedback</h4>
@@ -1137,7 +1136,6 @@ available <a href="https://github.com/eatonphil/ulisp">here</a>.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

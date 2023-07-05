@@ -6,7 +6,6 @@
     <title>Writing a web server from scratch: 1. HTTP and sockets | notes.eatonphil.com</title>
     <meta name="description" content="Writing a web server from scratch: 1. HTTP and sockets" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -48,12 +47,12 @@
     <div class="container">
       <div class="col-6">
         <p>Say we have some HTML:</p>
-<pre><code class="hljs html">&lt;html&gt;
-  &lt;body&gt;
-    &lt;h1&gt;Hello world!&lt;/h1&gt;
-  &lt;/body&gt;
-&lt;/html&gt;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">&lt;</span><span class="nt">html</span><span class="p">&gt;</span>
+  <span class="p">&lt;</span><span class="nt">body</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">h1</span><span class="p">&gt;</span>Hello world!<span class="p">&lt;/</span><span class="nt">h1</span><span class="p">&gt;</span>
+  <span class="p">&lt;/</span><span class="nt">body</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">html</span><span class="p">&gt;</span>
+</pre></div>
 <p>And say we'd like to be able to render this page in a web browser. If
 the server is hosted locally we may want to enter
 <code>localhost:9000/hello-world.html</code> in the address bar, hit
@@ -62,117 +61,117 @@ by some server), and render the result (done by the browser).</p>
 <p>Here is a minimal, often incomplete, and unsafe Node.js program (about
 100 LoC) that would serve this (<a href="https://github.com/eatonphil/uweb">code available on
 Github</a>):</p>
-<pre><code class="hljs javascript">const fs = require(&#39;fs&#39;);
-const net = require(&#39;net&#39;);
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">fs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;fs&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">net</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;net&#39;</span><span class="p">);</span>
 
-const CRLF = &#39;\r\n&#39;;
+<span class="kd">const</span><span class="w"> </span><span class="nx">CRLF</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;\r\n&#39;</span><span class="p">;</span>
 
-const HELLO_WORLD = `&lt;html&gt;
-  &lt;body&gt;
-    &lt;h1&gt;Hello world!&lt;/h1&gt;
-  &lt;/body&gt;
-&lt;/html&gt;`;
-const NOT_FOUND = `&lt;html&gt;
-  &lt;body&gt;
-    &lt;h1&gt;Not found&lt;/h1&gt;
-  &lt;/body&gt;
-&lt;/html&gt;`;
+<span class="kd">const</span><span class="w"> </span><span class="nx">HELLO_WORLD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sb">`&lt;html&gt;</span>
+<span class="sb">  &lt;body&gt;</span>
+<span class="sb">    &lt;h1&gt;Hello world!&lt;/h1&gt;</span>
+<span class="sb">  &lt;/body&gt;</span>
+<span class="sb">&lt;/html&gt;`</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">NOT_FOUND</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sb">`&lt;html&gt;</span>
+<span class="sb">  &lt;body&gt;</span>
+<span class="sb">    &lt;h1&gt;Not found&lt;/h1&gt;</span>
+<span class="sb">  &lt;/body&gt;</span>
+<span class="sb">&lt;/html&gt;`</span><span class="p">;</span>
 
-class HTTPRequestHandler {
-  constructor(connection) {
-    this.connection = connection;
-    this.request = {
-      statusLine: null,
-      headers: {},
-      body: null,
-    };
-  }
+<span class="kd">class</span><span class="w"> </span><span class="nx">HTTPRequestHandler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">(</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">connection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">connection</span><span class="p">;</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">statusLine</span><span class="o">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">headers</span><span class="o">:</span><span class="w"> </span><span class="p">{},</span>
+<span class="w">      </span><span class="nx">body</span><span class="o">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
 
-  parse(buffer) {
-    const lines = buffer.toString().split(CRLF);
+<span class="w">  </span><span class="nx">parse</span><span class="p">(</span><span class="nx">buffer</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">buffer</span><span class="p">.</span><span class="nx">toString</span><span class="p">().</span><span class="nx">split</span><span class="p">(</span><span class="nx">CRLF</span><span class="p">);</span>
 
-    // Parse/store status line if necessary
-    if (!this.request.statusLine) {
-      const [method, path, protocol] = lines.shift().split(&#39; &#39;);
-      this.request.statusLine = { method, path, protocol };
-    }
+<span class="w">    </span><span class="c1">// Parse/store status line if necessary</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">statusLine</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">method</span><span class="p">,</span><span class="w"> </span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="nx">protocol</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">shift</span><span class="p">().</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">statusLine</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">method</span><span class="p">,</span><span class="w"> </span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="nx">protocol</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // Parse/store headers if the body hasn&#39;t begun
-    if (!this.request.body) {
-      for (let line = lines.shift(); lines.length; line = lines.shift()) {
-        // Reached the end of headers, double CRLF
-        if (line === &#39;&#39;) {
-          this.request.body = &#39;&#39;;
-          break;
-        }
+<span class="w">    </span><span class="c1">// Parse/store headers if the body hasn&#39;t begun</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">body</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">shift</span><span class="p">();</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">shift</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Reached the end of headers, double CRLF</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+<span class="w">          </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
 
-        const [key, value] = line.split(&#39;:&#39;);
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">key</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">);</span>
 
-        const safeKey = key.toLowerCase();
-        if (!this.request.headers[safeKey]) {
-          this.request.headers[safeKey] = [];
-        }
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">safeKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">key</span><span class="p">.</span><span class="nx">toLowerCase</span><span class="p">();</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="nx">safeKey</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="nx">safeKey</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">        </span><span class="p">}</span>
 
-        this.request.headers[safeKey].push(value.trimStart());
-      }
-    }
+<span class="w">        </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="nx">safeKey</span><span class="p">].</span><span class="nx">push</span><span class="p">(</span><span class="nx">value</span><span class="p">.</span><span class="nx">trimStart</span><span class="p">());</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    this.request.body += lines.join(CRLF);
-  }
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">body</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">CRLF</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  requestComplete() {
-    if (!this.request.statusLine || !Object.keys(this.request.headers).length || this.request.body === null) {
-      return false;
-    }
+<span class="w">  </span><span class="nx">requestComplete</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">statusLine</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">headers</span><span class="p">).</span><span class="nx">length</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">body</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    const [contentLength] = this.request.headers[&#39;content-length&#39;] || [];
-    if (this.request.statusLine.method !== &#39;GET&#39; &amp;&amp; this.request.body.length !== contentLength) {
-      return false;
-    }
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">contentLength</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="s1">&#39;content-length&#39;</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">statusLine</span><span class="p">.</span><span class="nx">method</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;GET&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">body</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="nx">contentLength</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return true;
-  }
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  sendResponse() {
-    const response = { status: 200, statusMessage: &#39;OK&#39;, body: &#39;&#39; };
+<span class="w">  </span><span class="nx">sendResponse</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">status</span><span class="o">:</span><span class="w"> </span><span class="mf">200</span><span class="p">,</span><span class="w"> </span><span class="nx">statusMessage</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;OK&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">body</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="p">};</span>
 
-    if (this.request.statusLine.path === &#39;/hello-world.html&#39;) {
-      response.body = HELLO_WORLD;
-    } else {
-      response.status = 404;
-      response.statusMessage = &#39;NOT FOUND&#39;;
-      response.body = NOT_FOUND;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">statusLine</span><span class="p">.</span><span class="nx">path</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;/hello-world.html&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">response</span><span class="p">.</span><span class="nx">body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">HELLO_WORLD</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">response</span><span class="p">.</span><span class="nx">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">404</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">response</span><span class="p">.</span><span class="nx">statusMessage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;NOT FOUND&#39;</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">response</span><span class="p">.</span><span class="nx">body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">NOT_FOUND</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    const serialized = &#39;HTTP/1.1 ${response.status} ${response.statusMessage}&#39; + CRLF +
-                       &#39;Content-Length: &#39; + response.body.length + CRLF + CRLF +
-                       response.body;
-    this.connection.write(serialized);
-  }
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">serialized</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;HTTP/1.1 ${response.status} ${response.statusMessage}&#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">CRLF</span><span class="w"> </span><span class="o">+</span>
+<span class="w">                       </span><span class="s1">&#39;Content-Length: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">response</span><span class="p">.</span><span class="nx">body</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">CRLF</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">CRLF</span><span class="w"> </span><span class="o">+</span>
+<span class="w">                       </span><span class="nx">response</span><span class="p">.</span><span class="nx">body</span><span class="p">;</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">connection</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="nx">serialized</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  handle(buffer) {
-    this.parse(buffer);
+<span class="w">  </span><span class="nx">handle</span><span class="p">(</span><span class="nx">buffer</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">buffer</span><span class="p">);</span>
 
-    if (!this.requestComplete()) {
-      return;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">requestComplete</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    this.sendResponse();
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">sendResponse</span><span class="p">();</span>
 
-    // Other-wise the connection may attempt to be re-used, we don&#39;t support this.
-    this.connection.end();
-  }
-}
+<span class="w">    </span><span class="c1">// Other-wise the connection may attempt to be re-used, we don&#39;t support this.</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">connection</span><span class="p">.</span><span class="nx">end</span><span class="p">();</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
 
-function handleConnection(connection) {
-  const handler = new HTTPRequestHandler(connection);
-  connection.on(&#39;data&#39;, (buffer) =&gt; handler.handle(buffer));
-}
+<span class="kd">function</span><span class="w"> </span><span class="nx">handleConnection</span><span class="p">(</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">handler</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">HTTPRequestHandler</span><span class="p">(</span><span class="nx">connection</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">connection</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">buffer</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">handler</span><span class="p">.</span><span class="nx">handle</span><span class="p">(</span><span class="nx">buffer</span><span class="p">));</span>
+<span class="p">}</span>
 
-const server = net.createServer(handleConnection);
+<span class="kd">const</span><span class="w"> </span><span class="nx">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">createServer</span><span class="p">(</span><span class="nx">handleConnection</span><span class="p">);</span>
 
-server.listen(&#39;9000&#39;);
-</code></pre>
+<span class="nx">server</span><span class="p">.</span><span class="nx">listen</span><span class="p">(</span><span class="s1">&#39;9000&#39;</span><span class="p">);</span>
+</pre></div>
 <p>So what's going on?</p>
 <h3 id="the-protocol">The protocol</h3><p>HTTP (version 1.1, specifically) is a convention for connecting over
 TCP/IP and sending plain-text messages between two processes. HTTP
@@ -189,15 +188,15 @@ it will try to render the response.</p>
 here</a>) based
 on the request for <code>localhost:9000/hello-world.html</code> is the
 following:</p>
-<pre><code class="hljs text">GET /hello-world.html HTTP/1.1\r\nHost: localhost:9000\r\n\r\n
-</code></pre>
+<div class="highlight"><pre><span></span>GET /hello-world.html HTTP/1.1\r\nHost: localhost:9000\r\n\r\n
+</pre></div>
 <p class="note">
   The spec explicitly requires the <code>\r\n</code> combo to
   represent a newline instead of simply <code>\n</code>.
 </p><p>If we printed out this request it would look like this:</p>
-<pre><code class="hljs text">GET /hello-world.html HTTP/1.1
+<div class="highlight"><pre><span></span>GET /hello-world.html HTTP/1.1
 Host: localhost:9000
-</code></pre>
+</pre></div>
 <h4 id="components-of-an-http-request">Components of an HTTP request</h4><p>An HTTP/1.1 request is made up of a few parts:</p>
 <ul>
 <li>[Mandatory]: The status line (the first line) followed by a CRLF (the <code>\r\n</code> combo)</li>
@@ -216,17 +215,17 @@ methods (e.g. POST but not GET).</p>
 <h4 id="an-http-response">An HTTP response</h4><p>A bare minimum HTTP/1.1 response (<a href="https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html">defined
 here</a>) based
 on the file we wanted to send back is the following:</p>
-<pre><code class="hljs text">HTTP/1.1 200 OK\r\n\r\n&lt;html&gt;\n  &lt;body&gt;\n    &lt;h1&gt;Hello world!&lt;/h1&gt;\n  &lt;/body&gt;\n&lt;/html&gt;
-</code></pre>
+<div class="highlight"><pre><span></span>HTTP/1.1 200 OK\r\n\r\n&lt;html&gt;\n  &lt;body&gt;\n    &lt;h1&gt;Hello world!&lt;/h1&gt;\n  &lt;/body&gt;\n&lt;/html&gt;
+</pre></div>
 <p>If we printed out this response it would look like this:</p>
-<pre><code class="hljs text">HTTP/1.1 200 OK
+<div class="highlight"><pre><span></span>HTTP/1.1 200 OK
 
 &lt;html&gt;
   &lt;body&gt;
     &lt;h1&gt;Hello world!&lt;/h1&gt;
   &lt;/body&gt;
 &lt;/html&gt;
-</code></pre>
+</pre></div>
 <h4 id="components-of-an-http-response">Components of an HTTP response</h4><p>An HTTP/1.1 response is made up of a few parts:</p>
 <ul>
 <li>[Mandatory]: The status line (the first line) followed by a CRLF</li>
@@ -249,14 +248,14 @@ us to treat TCP/IP connections like files in memory. Most programming
 languages have a built-in socket library. Node.js provides a
 high-level interface for listening on a port and handling new
 connections.</p>
-<pre><code class="hljs javascript">function handleConnection(connection) {
-  connection.on(&#39;data&#39;, (buffer) =&gt; doSomething???);
-}
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">handleConnection</span><span class="p">(</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">connection</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">buffer</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">doSomething</span><span class="o">???</span><span class="p">);</span>
+<span class="p">}</span>
 
-const server = net.createServer(handleConnection);
+<span class="kd">const</span><span class="w"> </span><span class="nx">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">createServer</span><span class="p">(</span><span class="nx">handleConnection</span><span class="p">);</span>
 
-server.listen(&#39;9000&#39;);
-</code></pre>
+<span class="nx">server</span><span class="p">.</span><span class="nx">listen</span><span class="p">(</span><span class="s1">&#39;9000&#39;</span><span class="p">);</span>
+</pre></div>
 <p>Once the program is listening, clients can open TCP/IP connections to
 the address (<code>localhost</code>) and port (<code>9000</code>) and
 our program takes over from there. Each connection is handled
@@ -265,38 +264,38 @@ bytes available for us to handle.</p>
 <p>Let's encapsulate the state of each connection in HTTPRequestHandler
 class. Its function will be to parse data as it becomes available and
 respond to the request when the request is done.</p>
-<pre><code class="hljs javascript">class HTTPRequestHandler {
-  constructor(connection) {
-    this.connection = connection;
-  }
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">HTTPRequestHandler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">(</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">connection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">connection</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  parse(buffer) {}
+<span class="w">  </span><span class="nx">parse</span><span class="p">(</span><span class="nx">buffer</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
 
-  requestComplete() {}
+<span class="w">  </span><span class="nx">requestComplete</span><span class="p">()</span><span class="w"> </span><span class="p">{}</span>
 
-  sendResponse() {}
+<span class="w">  </span><span class="nx">sendResponse</span><span class="p">()</span><span class="w"> </span><span class="p">{}</span>
 
-  handle(buffer) {
-    this.parse(buffer);
+<span class="w">  </span><span class="nx">handle</span><span class="p">(</span><span class="nx">buffer</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">buffer</span><span class="p">);</span>
 
-    if (!this.requestComplete()) {
-      return;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">requestComplete</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    this.sendResponse();
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">sendResponse</span><span class="p">();</span>
 
-    // Other-wise the connection may attempt to be re-used, we don&#39;t support this.
-    this.connection.end();
-  }
-}
+<span class="w">    </span><span class="c1">// Other-wise the connection may attempt to be re-used, we don&#39;t support this.</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">connection</span><span class="p">.</span><span class="nx">end</span><span class="p">();</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
 
-function handleConnection(connection) {
-  const handler = new HTTPRequestHandler(connection);
-  connection.on(&#39;data&#39;, (buffer) =&gt; handler.handle(buffer));
-}
+<span class="kd">function</span><span class="w"> </span><span class="nx">handleConnection</span><span class="p">(</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">handler</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">HTTPRequestHandler</span><span class="p">(</span><span class="nx">connection</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">connection</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">buffer</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">handler</span><span class="p">.</span><span class="nx">handle</span><span class="p">(</span><span class="nx">buffer</span><span class="p">));</span>
+<span class="p">}</span>
 
-...
-</code></pre>
+<span class="p">...</span>
+</pre></div>
 <p>There are three functions we need to implement
 now: <code>parse(buffer)</code>, <code>requestComplete()</code>,
 and <code>sendResponse</code>.</p>
@@ -306,111 +305,111 @@ to grab the status line. If the body has not yet started, it will
 accumulate headers. Then it will continue accumulating the body until
 we close the connection (this will happen implicitly when
 <code>requestComplete()</code> returns true).</p>
-<pre><code class="hljs javascript">class HTTPRequestHandler {
-  constructor(connection) {
-    this.connection = connection;
-    this.request = {
-      statusLine: null,
-      headers: {},
-      body: null,
-    };
-  }
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">HTTPRequestHandler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">(</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">connection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">connection</span><span class="p">;</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">statusLine</span><span class="o">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">headers</span><span class="o">:</span><span class="w"> </span><span class="p">{},</span>
+<span class="w">      </span><span class="nx">body</span><span class="o">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
 
-  parse(buffer) {
-    const lines = buffer.toString().split(CRLF);
+<span class="w">  </span><span class="nx">parse</span><span class="p">(</span><span class="nx">buffer</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">buffer</span><span class="p">.</span><span class="nx">toString</span><span class="p">().</span><span class="nx">split</span><span class="p">(</span><span class="nx">CRLF</span><span class="p">);</span>
 
-    // Parse/store status line if necessary
-    if (!this.request.statusLine) {
-      const [method, path, protocol] = lines.shift().split(&#39; &#39;);
-      this.request.statusLine = { method, path, protocol };
-    }
+<span class="w">    </span><span class="c1">// Parse/store status line if necessary</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">statusLine</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">method</span><span class="p">,</span><span class="w"> </span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="nx">protocol</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">shift</span><span class="p">().</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">statusLine</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">method</span><span class="p">,</span><span class="w"> </span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="nx">protocol</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // Parse/store headers if the body hasn&#39;t begun
-    if (this.request.body === null) {
-      for (let line = lines.shift(); lines.length; line = lines.shift()) {
-        // Reached the end of headers, double CRLF
-        if (line === &#39;&#39;) {
-          this.request.body = &#39;&#39;;
-          break;
-        }
+<span class="w">    </span><span class="c1">// Parse/store headers if the body hasn&#39;t begun</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">body</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">shift</span><span class="p">();</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">shift</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Reached the end of headers, double CRLF</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+<span class="w">          </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
 
-        const [key, value] = line.split(&#39;:&#39;);
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">key</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">line</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">);</span>
 
-        const safeKey = key.toLowerCase();
-        if (!this.request.headers[safeKey]) {
-          this.request.headers[safeKey] = [];
-        }
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">safeKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">key</span><span class="p">.</span><span class="nx">toLowerCase</span><span class="p">();</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="nx">safeKey</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="nx">safeKey</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">        </span><span class="p">}</span>
 
-        this.request.headers[safeKey].push(value.trimStart());
-      }
-    }
+<span class="w">        </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="nx">safeKey</span><span class="p">].</span><span class="nx">push</span><span class="p">(</span><span class="nx">value</span><span class="p">.</span><span class="nx">trimStart</span><span class="p">());</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    this.request.body += lines.join(CRLF);
-  }
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">body</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">CRLF</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-...
+<span class="p">...</span>
 
-}
-</code></pre>
+<span class="p">}</span>
+</pre></div>
 <h4 id="requestcomplete()">requestComplete()</h4><p>This function will look at the internal request state and return false
 if the status line has not been received, no headers have been
 received (although this is stricter than the HTTP/1.1 standard
 requires), or if the body length is not equal to the value of the
 <code>Content-Length</code> header.</p>
-<pre><code class="hljs javascript">class HTTPRequestHandler {
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">HTTPRequestHandler</span><span class="w"> </span><span class="p">{</span>
 
-...
+<span class="p">...</span>
 
-  requestComplete() {
-    if (!this.request.statusLine || !Object.keys(this.request.headers).length || this.request.body === null) {
-      return false;
-    }
+<span class="w">  </span><span class="nx">requestComplete</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">statusLine</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">headers</span><span class="p">).</span><span class="nx">length</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">body</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    const [contentLength] = this.request.headers[&#39;content-length&#39;] || [];
-    if (this.request.statusLine.method !== &#39;GET&#39; &amp;&amp; this.request.body.length !== contentLength) {
-      return false;
-    }
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">contentLength</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="s1">&#39;content-length&#39;</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">statusLine</span><span class="p">.</span><span class="nx">method</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;GET&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">request</span><span class="p">.</span><span class="nx">body</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="nx">contentLength</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return true;
-  }
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-...
+<span class="p">...</span>
 
-}
-</code></pre>
+<span class="p">}</span>
+</pre></div>
 <h4 id="sendresponse()">sendResponse()</h4><p>Finally we'll hard-code two responses (one for the valid request for
 /hello-world.html and a catch-all 404 response for every other
 request). These responses need to be serialized according the HTTP
 response format described above and written to the connection.</p>
-<pre><code>class HTTPRequestHandler {
+<div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="n">HTTPRequestHandler</span><span class="w"> </span><span class="p">{</span>
 
-...
+<span class="o">...</span>
 
-  sendResponse() {
-    const response = { status: 200, statusMessage: 'OK', body: '' };
+<span class="w">  </span><span class="n">sendResponse</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">status</span><span class="p">:</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="n">statusMessage</span><span class="p">:</span><span class="w"> </span><span class="s1">&#39;OK&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">body</span><span class="p">:</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="p">};</span>
 
-    if (this.request.statusLine.path === '/hello-world.html') {
-      response.body = HELLO_WORLD;
-    } else {
-      response.status = 404;
-      response.statusMessage = 'NOT FOUND';
-      response.body = NOT_FOUND;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">statusLine</span><span class="o">.</span><span class="n">path</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;/hello-world.html&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">response</span><span class="o">.</span><span class="n">body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HELLO_WORLD</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">response</span><span class="o">.</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">404</span><span class="p">;</span>
+<span class="w">      </span><span class="n">response</span><span class="o">.</span><span class="n">statusMessage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;NOT FOUND&#39;</span><span class="p">;</span>
+<span class="w">      </span><span class="n">response</span><span class="o">.</span><span class="n">body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">NOT_FOUND</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    const serialized = 'HTTP/1.1 ${response.status} ${response.statusMessage}' + CRLF +
-                       'Content-Length: ' + response.body.length + CRLF + CRLF +
-                       response.body;
-    this.connection.write(serialized);
-  }  
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">serialized</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;HTTP/1.1 ${response.status} ${response.statusMessage}&#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">CRLF</span><span class="w"> </span><span class="o">+</span>
+<span class="w">                       </span><span class="s1">&#39;Content-Length: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">response</span><span class="o">.</span><span class="n">body</span><span class="o">.</span><span class="n">length</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">CRLF</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">CRLF</span><span class="w"> </span><span class="o">+</span>
+<span class="w">                       </span><span class="n">response</span><span class="o">.</span><span class="n">body</span><span class="p">;</span>
+<span class="w">    </span><span class="n">this</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">serialized</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span><span class="w">  </span>
 
-...
+<span class="o">...</span>
 
-}
-</code></pre>
+<span class="p">}</span>
+</pre></div>
 <h3 id="run-it">Run it</h3><p>Now that we've got all the pieces we can finally run the initial program:</p>
-<pre><code>$ node uweb.js &amp;
-$ open localhost:9000/hello-world.html
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>node<span class="w"> </span>uweb.js<span class="w"> </span><span class="p">&amp;</span>
+$<span class="w"> </span>open<span class="w"> </span>localhost:9000/hello-world.html
+</pre></div>
 <p>And we see the page! Try any other path and we receive a 404.</p>
 <h3 id="review-and-next-steps">Review and next steps</h3><p>We covered the basics of HTTP/1.1: a very simple, plain-text protocol
 oriented around requests and responses over a TCP/IP connection. We
@@ -1056,7 +1055,6 @@ performance and more features.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

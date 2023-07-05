@@ -6,7 +6,6 @@
     <title>Writing a simple JSON path parser | notes.eatonphil.com</title>
     <meta name="description" content="Writing a simple JSON path parser" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -57,63 +56,63 @@ like?</p>
 implement <code>filter</code> by splitting the <code>jsonPath</code>
 on periods and look at each object in the <code>listOfObjects</code>
 for matching values. It might look something like this:</p>
-<pre><code class="hljs javascript">function filter(jsonPath, equals, listOfObjects) {
-  const parts = jsonPath.split(&#39;.&#39;);
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">filter</span><span class="p">(</span><span class="nx">jsonPath</span><span class="p">,</span><span class="w"> </span><span class="nx">equals</span><span class="p">,</span><span class="w"> </span><span class="nx">listOfObjects</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">parts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">jsonPath</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">);</span>
 
-  function filterSingle(object) {
-    let objectAtPath = object;
-    let i = 0;
-    for (let part = parts[i]; part &amp;&amp; objectAtPath; part = parts[++i]) {
-      objectAtPath = objectAtPath[part];
-    }
+<span class="w">  </span><span class="kd">function</span><span class="w"> </span><span class="nx">filterSingle</span><span class="p">(</span><span class="nx">object</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">object</span><span class="p">;</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">part</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parts</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span><span class="w"> </span><span class="nx">part</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="p">;</span><span class="w"> </span><span class="nx">part</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parts</span><span class="p">[</span><span class="o">++</span><span class="nx">i</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">objectAtPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="p">[</span><span class="nx">part</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return i === parts.length &amp;&amp; objectAtPath === equals;
-  }
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="nx">parts</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="nx">equals</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return listOfObjects.filter(filterSingle);
-}
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">listOfObjects</span><span class="p">.</span><span class="nx">filter</span><span class="p">(</span><span class="nx">filterSingle</span><span class="p">);</span>
+<span class="p">}</span>
 
-require(&#39;assert&#39;).deepEqual(
-  filter(&#39;foo.bar&#39;, 12, [{ foo: { bar: 12 } }, { foo: null }]),
-  [{ foo: { bar: 12 } }],
-);
-</code></pre>
+<span class="nx">require</span><span class="p">(</span><span class="s1">&#39;assert&#39;</span><span class="p">).</span><span class="nx">deepEqual</span><span class="p">(</span>
+<span class="w">  </span><span class="nx">filter</span><span class="p">(</span><span class="s1">&#39;foo.bar&#39;</span><span class="p">,</span><span class="w"> </span><span class="mf">12</span><span class="p">,</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nx">foo</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">bar</span><span class="o">:</span><span class="w"> </span><span class="mf">12</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">foo</span><span class="o">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}]),</span>
+<span class="w">  </span><span class="p">[{</span><span class="w"> </span><span class="nx">foo</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">bar</span><span class="o">:</span><span class="w"> </span><span class="mf">12</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}],</span>
+<span class="p">);</span>
+</pre></div>
 <p>That doesn't work too badly. We haven't handled edge cases like a
 <code>jsonPath</code> of <code>foo..bar</code> or
 <code>bar.</code>. But those would not be difficult to handle:</p>
-<pre><code class="hljs javascript">function filter(jsonPath, equals, listOfObjects) {
-  if (jsonPath.charAt(0) === &#39;.&#39;) {
-    throw new Error(&#39;JSON path cannot begin with a dot, in: &#39; + jsonPath);
-  } else if (jsonPath.charAt(jsonPath.length - 1) === &#39;.&#39;) {
-    throw new Error(&#39;JSON path cannot end with a dot, in: &#39; + jsonPath);
-  }
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">filter</span><span class="p">(</span><span class="nx">jsonPath</span><span class="p">,</span><span class="w"> </span><span class="nx">equals</span><span class="p">,</span><span class="w"> </span><span class="nx">listOfObjects</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">jsonPath</span><span class="p">.</span><span class="nx">charAt</span><span class="p">(</span><span class="mf">0</span><span class="p">)</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;.&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path cannot begin with a dot, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">jsonPath</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">jsonPath</span><span class="p">.</span><span class="nx">charAt</span><span class="p">(</span><span class="nx">jsonPath</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="p">)</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;.&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path cannot end with a dot, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">jsonPath</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  const parts = jsonPath.split(&#39;.&#39;);
-  if (parts.reduce((hasEmptyPart, part) =&gt; hasEmptyPart || part.length === 0, false)) {
-    throw new Error(&#39;JSON path cannot contain an empty section, in: &#39; + jsonPath);
-  }
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">parts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">jsonPath</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">parts</span><span class="p">.</span><span class="nx">reduce</span><span class="p">((</span><span class="nx">hasEmptyPart</span><span class="p">,</span><span class="w"> </span><span class="nx">part</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">hasEmptyPart</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">part</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path cannot contain an empty section, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">jsonPath</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  function filterSingle(object) {
-    let objectAtPath = object;
-    let i = 0;
-    for (let part = parts[i]; part &amp;&amp; objectAtPath; part = parts[++i]) {
-      objectAtPath = objectAtPath[part];
-    }
+<span class="w">  </span><span class="kd">function</span><span class="w"> </span><span class="nx">filterSingle</span><span class="p">(</span><span class="nx">object</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">object</span><span class="p">;</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">part</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parts</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span><span class="w"> </span><span class="nx">part</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="p">;</span><span class="w"> </span><span class="nx">part</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parts</span><span class="p">[</span><span class="o">++</span><span class="nx">i</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">objectAtPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="p">[</span><span class="nx">part</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return i === parts.length &amp;&amp; objectAtPath === equals;
-  }
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="nx">parts</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="nx">equals</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return listOfObjects.filter(filterSingle);
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">listOfObjects</span><span class="p">.</span><span class="nx">filter</span><span class="p">(</span><span class="nx">filterSingle</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>And we now handle the most obvious invalid path cases.</p>
 <h3 id="arrays?">Arrays?</h3><p>If we want to support array path syntax, things get harder. For
 example:</p>
-<pre><code class="hljs javascript">require(&#39;assert&#39;).deepEqual(
-  filter(&#39;foo.bar[0].biz&#39;, 14, [{ foo: { bar: [ { biz: 14 }, { biz: 19 } ] } }, { foo: { bar: null } }]),
-  [{ foo: { bar: [ { biz: 14 }, { biz: 19 } ] } }],
-);
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;assert&#39;</span><span class="p">).</span><span class="nx">deepEqual</span><span class="p">(</span>
+<span class="w">  </span><span class="nx">filter</span><span class="p">(</span><span class="s1">&#39;foo.bar[0].biz&#39;</span><span class="p">,</span><span class="w"> </span><span class="mf">14</span><span class="p">,</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nx">foo</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">bar</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">biz</span><span class="o">:</span><span class="w"> </span><span class="mf">14</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">biz</span><span class="o">:</span><span class="w"> </span><span class="mf">19</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">foo</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">bar</span><span class="o">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}]),</span>
+<span class="w">  </span><span class="p">[{</span><span class="w"> </span><span class="nx">foo</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">bar</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">biz</span><span class="o">:</span><span class="w"> </span><span class="mf">14</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">biz</span><span class="o">:</span><span class="w"> </span><span class="mf">19</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}],</span>
+<span class="p">);</span>
+</pre></div>
 <p>We could try to stick with the hammer that is
 <code>String.prototype.split</code> and write some really messy
 code. :) Or we could switch to an approach that gives us more
@@ -122,137 +121,137 @@ control. Let's do that.</p>
 accumulating characters into individual tokens that represent the
 pieces of the path. Let's start by supporting the original
 <code>jsonPath</code> syntax and error-handling.</p>
-<pre><code class="hljs javascript">function getJsonPathParts(path) {
-  const parts = [];
-  let currentToken = &#39;&#39;;
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">getJsonPathParts</span><span class="p">(</span><span class="nx">path</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">parts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
 
-  for (let i = 0; i &lt; path.length; i++) {
-    const c = path[i];
-    switch (c) {
-      case &#39;.&#39;: {
-        if (!currentToken) {
-          throw new Error(&#39;JSON path cannot contain empty section, in: &#39; + path);
-        }
-        parts.push(currentToken);
-        currentToken = &#39;&#39;;
-        break;
-      }
-      default: {
-        currentToken += c;
-        break;
-      }
-    }
-  }
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">c</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;.&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">currentToken</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path cannot contain empty section, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">path</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nx">parts</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">currentToken</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">      </span><span class="k">default</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">c</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
 
-  if (!currentToken) {
-    throw new Error(&#39;JSON path cannot end with dot, in: &#39; + path);
-  }
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">currentToken</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path cannot end with dot, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">path</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  parts.push(currentToken);
-  return parts;
-}
+<span class="w">  </span><span class="nx">parts</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">currentToken</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">parts</span><span class="p">;</span>
+<span class="p">}</span>
 
-function filter(jsonPath, equals, listOfObjects) {
-  const parts = getJsonPathParts(jsonPath);
+<span class="kd">function</span><span class="w"> </span><span class="nx">filter</span><span class="p">(</span><span class="nx">jsonPath</span><span class="p">,</span><span class="w"> </span><span class="nx">equals</span><span class="p">,</span><span class="w"> </span><span class="nx">listOfObjects</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">parts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">getJsonPathParts</span><span class="p">(</span><span class="nx">jsonPath</span><span class="p">);</span>
 
-  function filterSingle(object) {
-    let objectAtPath = object;
-    let i = 0;
-    for (let part = parts[i]; part &amp;&amp; objectAtPath; part = parts[++i]) {
-      objectAtPath = objectAtPath[part];
-    }
+<span class="w">  </span><span class="kd">function</span><span class="w"> </span><span class="nx">filterSingle</span><span class="p">(</span><span class="nx">object</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">object</span><span class="p">;</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">part</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parts</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span><span class="w"> </span><span class="nx">part</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="p">;</span><span class="w"> </span><span class="nx">part</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parts</span><span class="p">[</span><span class="o">++</span><span class="nx">i</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">objectAtPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="p">[</span><span class="nx">part</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return i === parts.length &amp;&amp; objectAtPath === equals;
-  }
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="nx">parts</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">objectAtPath</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="nx">equals</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return listOfObjects.filter(filterSingle);
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">listOfObjects</span><span class="p">.</span><span class="nx">filter</span><span class="p">(</span><span class="nx">filterSingle</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>Not too bad!</p>
 <h3 id="arrays?">Arrays?</h3><p>Right. Let's build on <code>getJsonPathParts</code> to support array
 syntax. Along with that we're going to impose some restrictions. The
 object path parts must be only alphanumeric characters plus dashes and
 underscores. The array index must only be numeric characters. Anything
 else should throw an error.</p>
-<pre><code class="hljs javascript">function getJsonPathParts(path) {
-  const parts = [];
-  let currentToken = &#39;&#39;;
-  let inArray = false;
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">getJsonPathParts</span><span class="p">(</span><span class="nx">path</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">parts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">inArray</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
 
-  for (let i = 0; i &lt; path.length; i++) {
-    const c = path[i];
-    switch (c) {
-      case &#39;.&#39;: {
-        if (currentToken === &#39;&#39;) {
-          throw new Error(&#39;JSON path cannot contain empty section, in: &#39; + path);
-        }
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">c</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;.&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">currentToken</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path cannot contain empty section, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">path</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
 
-        parts.push(currentToken);
-        currentToken = &#39;&#39;;
-        break;
-      }
-      case &#39;[&#39;: {
-        if (inArray) {
-          throw new Error(&#39;JSON path contains unexpected left bracket, in: &#39; + path);
-        }
+<span class="w">        </span><span class="nx">parts</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">currentToken</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;[&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">inArray</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path contains unexpected left bracket, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">path</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if (currentToken === &#39;&#39;) {
-          throw new Error(&#39;JSON path cannot contain empty section, in: &#39; + path);
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">currentToken</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path cannot contain empty section, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">path</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
 
-        parts.push(currentToken);
-        currentToken = &#39;&#39;;
-        inArray = true;
-        break;
-      }
-      case &#39;]&#39;: {
-        if (!inArray) {
-          throw new Error(&#39;JSON path contains unexpected right bracket, in: &#39; + path);
-        }
+<span class="w">        </span><span class="nx">parts</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">currentToken</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">inArray</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;]&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">inArray</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path contains unexpected right bracket, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">path</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if (currentToken === &#39;&#39;) {
-          throw new Error(&#39;JSON path array index must not be empty, in: &#39; + path);
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">currentToken</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path array index must not be empty, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">path</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
 
-        // Array indices are recorded as numbers, not strings.
-        currentToken = parseInt(currentToken, 10);
-        inArray = false;
-        break;
-      }
-      default: {
-        const code = c.charCodeAt(0);
+<span class="w">        </span><span class="c1">// Array indices are recorded as numbers, not strings.</span>
+<span class="w">        </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">parseInt</span><span class="p">(</span><span class="nx">currentToken</span><span class="p">,</span><span class="w"> </span><span class="mf">10</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">inArray</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">      </span><span class="k">default</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">code</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">charCodeAt</span><span class="p">(</span><span class="mf">0</span><span class="p">);</span>
 
-        if (inArray) {
-          if (code &gt;= &#39;0&#39;.charCodeAt(0) &amp;&amp; code &lt;= &#39;9&#39;.charCodeAt(0)) {
-            currentToken += c;
-            continue;
-          }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">inArray</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">code</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="s1">&#39;0&#39;</span><span class="p">.</span><span class="nx">charCodeAt</span><span class="p">(</span><span class="mf">0</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">code</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="s1">&#39;9&#39;</span><span class="p">.</span><span class="nx">charCodeAt</span><span class="p">(</span><span class="mf">0</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">c</span><span class="p">;</span>
+<span class="w">            </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">          </span><span class="p">}</span>
 
-          throw new Error(&#39;JSON path array index must be numeric, in: &#39; + path);
-        }
+<span class="w">          </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path array index must be numeric, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">path</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if ((code &gt;= &#39;A&#39;.charCodeAt(0) &amp;&amp; code &lt;= &#39;z&#39;.charCodeAt(0)) ||
-            (code &gt;= &#39;0&#39;.charCodeAt(0) &amp;&amp; code &lt;= &#39;9&#39;.charCodeAt(0)) ||
-            [&#39;-&#39;, &#39;_&#39;].includes(c)) {
-          currentToken += c;
-          continue;
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="nx">code</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="s1">&#39;A&#39;</span><span class="p">.</span><span class="nx">charCodeAt</span><span class="p">(</span><span class="mf">0</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">code</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="s1">&#39;z&#39;</span><span class="p">.</span><span class="nx">charCodeAt</span><span class="p">(</span><span class="mf">0</span><span class="p">))</span><span class="w"> </span><span class="o">||</span>
+<span class="w">            </span><span class="p">(</span><span class="nx">code</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="s1">&#39;0&#39;</span><span class="p">.</span><span class="nx">charCodeAt</span><span class="p">(</span><span class="mf">0</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">code</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="s1">&#39;9&#39;</span><span class="p">.</span><span class="nx">charCodeAt</span><span class="p">(</span><span class="mf">0</span><span class="p">))</span><span class="w"> </span><span class="o">||</span>
+<span class="w">            </span><span class="p">[</span><span class="s1">&#39;-&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">].</span><span class="nx">includes</span><span class="p">(</span><span class="nx">c</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="nx">currentToken</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">c</span><span class="p">;</span>
+<span class="w">          </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
 
-        throw new Error(&#39;JSON path part must contain only alphanumeric characters, in: &#39; + path);
-      }
-    }
-  }
+<span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path part must contain only alphanumeric characters, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">path</span><span class="p">);</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
 
-  if (currentToken === &#39;&#39;) {
-    throw new Error(&#39;JSON path cannot end with dot, in: &#39; + path);
-  }
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">currentToken</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;JSON path cannot end with dot, in: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">path</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  parts.push(currentToken);
-  return parts;
-}
+<span class="w">  </span><span class="nx">parts</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">currentToken</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">parts</span><span class="p">;</span>
+<span class="p">}</span>
 
-require(&#39;assert&#39;).deepEqual(getJsonPathParts(&#39;foo.bar[0].biz&#39;), [&#39;foo&#39;, &#39;bar&#39;, 0, &#39;biz&#39;]);
-</code></pre>
+<span class="nx">require</span><span class="p">(</span><span class="s1">&#39;assert&#39;</span><span class="p">).</span><span class="nx">deepEqual</span><span class="p">(</span><span class="nx">getJsonPathParts</span><span class="p">(</span><span class="s1">&#39;foo.bar[0].biz&#39;</span><span class="p">),</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;foo&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;bar&#39;</span><span class="p">,</span><span class="w"> </span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;biz&#39;</span><span class="p">]);</span>
+</pre></div>
 <p>Now we've got a simple JSON path parser with decent error handling! Of
 course we wouldn't want to use this little library in production until
 we had some serious test coverage. But writing tests and calling out
@@ -892,7 +891,6 @@ my mistakes will be left here as an exercise for the reader. :)</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

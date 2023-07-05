@@ -6,7 +6,6 @@
     <title>Implementing zip archiving in Golang: unzipping | notes.eatonphil.com</title>
     <meta name="description" content="Implementing zip archiving in Golang: unzipping" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -49,34 +48,34 @@
       <div class="col-6">
         <p><small>All code for this post is <a href="https://github.com/eatonphil/gozip">available on Github</a>.</small></p>
 <p>Let's take a look at how zip files work. Take a small file for example:</p>
-<pre><code class="hljs bash">$ cat hello.text
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>hello.text
 Hello!
-</code></pre>
+</pre></div>
 <p>Let's zip it up.</p>
-<pre><code class="hljs bash">$ zip test.zip hello.text
-adding: hello.text (stored 0%)
-$ ls -lah test.zip
--rw-r--r-- 1 phil phil 177 Nov 23 23:04 test.zip
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>zip<span class="w"> </span>test.zip<span class="w"> </span>hello.text
+adding:<span class="w"> </span>hello.text<span class="w"> </span><span class="o">(</span>stored<span class="w"> </span><span class="m">0</span>%<span class="o">)</span>
+$<span class="w"> </span>ls<span class="w"> </span>-lah<span class="w"> </span>test.zip
+-rw-r--r--<span class="w"> </span><span class="m">1</span><span class="w"> </span>phil<span class="w"> </span>phil<span class="w"> </span><span class="m">177</span><span class="w"> </span>Nov<span class="w"> </span><span class="m">23</span><span class="w"> </span><span class="m">23</span>:04<span class="w"> </span>test.zip
+</pre></div>
 <p>So a 6 byte text file becomes a 177 byte zip file. That is pretty
 small! Parsing 177 bytes sounds like it can't possibly be too
 complicated!</p>
 <p>Let's hexdump the zip file.</p>
-<pre><code class="hljs bash">$ hexdump -C test.zip
-00000000  50 4b 03 04 0a 00 00 00  00 00 8a b8 77 53 9e d8  |PK..........wS..|
-00000010  42 b0 07 00 00 00 07 00  00 00 0a 00 1c 00 68 65  |B.............he|
-00000020  6c 6c 6f 2e 74 65 78 74  55 54 09 00 03 74 73 9d  |llo.textUT...ts.|
-00000030  61 74 73 9d 61 75 78 0b  00 01 04 eb 03 00 00 04  |ats.aux.........|
-00000040  eb 03 00 00 48 65 6c 6c  6f 21 0a 50 4b 01 02 1e  |....Hello!.PK...|
-00000050  03 0a 00 00 00 00 00 8a  b8 77 53 9e d8 42 b0 07  |.........wS..B..|
-00000060  00 00 00 07 00 00 00 0a  00 18 00 00 00 00 00 01  |................|
-00000070  00 00 00 a4 81 00 00 00  00 68 65 6c 6c 6f 2e 74  |.........hello.t|
-00000080  65 78 74 55 54 05 00 03  74 73 9d 61 75 78 0b 00  |extUT...ts.aux..|
-00000090  01 04 eb 03 00 00 04 eb  03 00 00 50 4b 05 06 00  |...........PK...|
-000000a0  00 00 00 01 00 01 00 50  00 00 00 4b 00 00 00 00  |.......P...K....|
-000000b0  00                                                |.|
+<div class="highlight"><pre><span></span>$<span class="w"> </span>hexdump<span class="w"> </span>-C<span class="w"> </span>test.zip
+<span class="m">00000000</span><span class="w">  </span><span class="m">50</span><span class="w"> </span>4b<span class="w"> </span><span class="m">03</span><span class="w"> </span><span class="m">04</span><span class="w"> </span>0a<span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w">  </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>8a<span class="w"> </span>b8<span class="w"> </span><span class="m">77</span><span class="w"> </span><span class="m">53</span><span class="w"> </span>9e<span class="w"> </span>d8<span class="w">  </span><span class="p">|</span>PK..........wS..<span class="p">|</span>
+<span class="m">00000010</span><span class="w">  </span><span class="m">42</span><span class="w"> </span>b0<span class="w"> </span><span class="m">07</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">07</span><span class="w"> </span><span class="m">00</span><span class="w">  </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>0a<span class="w"> </span><span class="m">00</span><span class="w"> </span>1c<span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">68</span><span class="w"> </span><span class="m">65</span><span class="w">  </span><span class="p">|</span>B.............he<span class="p">|</span>
+<span class="m">00000020</span><span class="w">  </span>6c<span class="w"> </span>6c<span class="w"> </span>6f<span class="w"> </span>2e<span class="w"> </span><span class="m">74</span><span class="w"> </span><span class="m">65</span><span class="w"> </span><span class="m">78</span><span class="w"> </span><span class="m">74</span><span class="w">  </span><span class="m">55</span><span class="w"> </span><span class="m">54</span><span class="w"> </span><span class="m">09</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">03</span><span class="w"> </span><span class="m">74</span><span class="w"> </span><span class="m">73</span><span class="w"> </span>9d<span class="w">  </span><span class="p">|</span>llo.textUT...ts.<span class="p">|</span>
+<span class="m">00000030</span><span class="w">  </span><span class="m">61</span><span class="w"> </span><span class="m">74</span><span class="w"> </span><span class="m">73</span><span class="w"> </span>9d<span class="w"> </span><span class="m">61</span><span class="w"> </span><span class="m">75</span><span class="w"> </span><span class="m">78</span><span class="w"> </span>0b<span class="w">  </span><span class="m">00</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">04</span><span class="w"> </span>eb<span class="w"> </span><span class="m">03</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">04</span><span class="w">  </span><span class="p">|</span>ats.aux.........<span class="p">|</span>
+<span class="m">00000040</span><span class="w">  </span>eb<span class="w"> </span><span class="m">03</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">48</span><span class="w"> </span><span class="m">65</span><span class="w"> </span>6c<span class="w"> </span>6c<span class="w">  </span>6f<span class="w"> </span><span class="m">21</span><span class="w"> </span>0a<span class="w"> </span><span class="m">50</span><span class="w"> </span>4b<span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">02</span><span class="w"> </span>1e<span class="w">  </span><span class="p">|</span>....Hello!.PK...<span class="p">|</span>
+<span class="m">00000050</span><span class="w">  </span><span class="m">03</span><span class="w"> </span>0a<span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>8a<span class="w">  </span>b8<span class="w"> </span><span class="m">77</span><span class="w"> </span><span class="m">53</span><span class="w"> </span>9e<span class="w"> </span>d8<span class="w"> </span><span class="m">42</span><span class="w"> </span>b0<span class="w"> </span><span class="m">07</span><span class="w">  </span><span class="p">|</span>.........wS..B..<span class="p">|</span>
+<span class="m">00000060</span><span class="w">  </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">07</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>0a<span class="w">  </span><span class="m">00</span><span class="w"> </span><span class="m">18</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">01</span><span class="w">  </span><span class="p">|</span>................<span class="p">|</span>
+<span class="m">00000070</span><span class="w">  </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>a4<span class="w"> </span><span class="m">81</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w">  </span><span class="m">00</span><span class="w"> </span><span class="m">68</span><span class="w"> </span><span class="m">65</span><span class="w"> </span>6c<span class="w"> </span>6c<span class="w"> </span>6f<span class="w"> </span>2e<span class="w"> </span><span class="m">74</span><span class="w">  </span><span class="p">|</span>.........hello.t<span class="p">|</span>
+<span class="m">00000080</span><span class="w">  </span><span class="m">65</span><span class="w"> </span><span class="m">78</span><span class="w"> </span><span class="m">74</span><span class="w"> </span><span class="m">55</span><span class="w"> </span><span class="m">54</span><span class="w"> </span><span class="m">05</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">03</span><span class="w">  </span><span class="m">74</span><span class="w"> </span><span class="m">73</span><span class="w"> </span>9d<span class="w"> </span><span class="m">61</span><span class="w"> </span><span class="m">75</span><span class="w"> </span><span class="m">78</span><span class="w"> </span>0b<span class="w"> </span><span class="m">00</span><span class="w">  </span><span class="p">|</span>extUT...ts.aux..<span class="p">|</span>
+<span class="m">00000090</span><span class="w">  </span><span class="m">01</span><span class="w"> </span><span class="m">04</span><span class="w"> </span>eb<span class="w"> </span><span class="m">03</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">04</span><span class="w"> </span>eb<span class="w">  </span><span class="m">03</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">50</span><span class="w"> </span>4b<span class="w"> </span><span class="m">05</span><span class="w"> </span><span class="m">06</span><span class="w"> </span><span class="m">00</span><span class="w">  </span><span class="p">|</span>...........PK...<span class="p">|</span>
+000000a0<span class="w">  </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">50</span><span class="w">  </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>4b<span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w">  </span><span class="p">|</span>.......P...K....<span class="p">|</span>
+000000b0<span class="w">  </span><span class="m">00</span><span class="w">                                                </span><span class="p">|</span>.<span class="p">|</span>
 000000b1
-</code></pre>
+</pre></div>
 <p>We can see both the file name and the file contents in there.</p>
 <h3 id="structure">Structure</h3><p>Let's take a look at the zip structure defined
 <a href="https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT">here</a>. Based
@@ -158,261 +157,260 @@ or <code>8</code> for DEFLATE compression/decompression.</p>
 <a href="https://groups.google.com/g/comp.os.msdos.programmer/c/ffAVUFN2NbA">pretty
 funky</a>.</p>
 <p>Let's translate this roughly to Go with some high level flourishes.</p>
-<pre><code class="hljs go">package main
+<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 
-import (
-    &quot;os&quot;
-    &quot;bytes&quot;
-    &quot;compress/flate&quot;
-    &quot;io/ioutil&quot;
-    &quot;encoding/binary&quot;
-    &quot;time&quot;
-    &quot;fmt&quot;
-)
+<span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="s">&quot;os&quot;</span>
+<span class="w">    </span><span class="s">&quot;bytes&quot;</span>
+<span class="w">    </span><span class="s">&quot;compress/flate&quot;</span>
+<span class="w">    </span><span class="s">&quot;io/ioutil&quot;</span>
+<span class="w">    </span><span class="s">&quot;encoding/binary&quot;</span>
+<span class="w">    </span><span class="s">&quot;time&quot;</span>
+<span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+<span class="p">)</span>
 
-type compression uint8
-const (
-    noCompression compression = iota
-    deflateCompression
-)
+<span class="kd">type</span><span class="w"> </span><span class="nx">compression</span><span class="w"> </span><span class="kt">uint8</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="nx">noCompression</span><span class="w"> </span><span class="nx">compression</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">iota</span>
+<span class="w">    </span><span class="nx">deflateCompression</span>
+<span class="p">)</span>
 
-type localFileHeader struct {
-    signature uint32
-    version uint16
-    bitFlag uint16
-    compression compression
-    lastModified time.Time
-    crc32 uint32
-    compressedSize uint32
-    uncompressedSize uint32
-    fileName string
-    extraField []byte
-    fileContents string
-}
-</code></pre>
+<span class="kd">type</span><span class="w"> </span><span class="nx">localFileHeader</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">signature</span><span class="w"> </span><span class="kt">uint32</span>
+<span class="w">    </span><span class="nx">version</span><span class="w"> </span><span class="kt">uint16</span>
+<span class="w">    </span><span class="nx">bitFlag</span><span class="w"> </span><span class="kt">uint16</span>
+<span class="w">    </span><span class="nx">compression</span><span class="w"> </span><span class="nx">compression</span>
+<span class="w">    </span><span class="nx">lastModified</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Time</span>
+<span class="w">    </span><span class="nx">crc32</span><span class="w"> </span><span class="kt">uint32</span>
+<span class="w">    </span><span class="nx">compressedSize</span><span class="w"> </span><span class="kt">uint32</span>
+<span class="w">    </span><span class="nx">uncompressedSize</span><span class="w"> </span><span class="kt">uint32</span>
+<span class="w">    </span><span class="nx">fileName</span><span class="w"> </span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">extraField</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span>
+<span class="w">    </span><span class="nx">fileContents</span><span class="w"> </span><span class="kt">string</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="main">main</h3><p>Our entrypoint will read a zip file and keep walking through the file
 until we stop being able to parse zip file entries.</p>
-<pre><code class="hljs go">func main() {
-    f, err := ioutil.ReadFile(os.Args[1])
-    if err != nil {
-        panic(err)
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">f</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ioutil</span><span class="p">.</span><span class="nx">ReadFile</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    end := 0
-    for end &lt; len(f) {
-        var err error
-        var lfh *localFileHeader
-        var next int
-        lfh, next, err = parseLocalFileHeader(f, end)
-        if err == errNotZip &amp;&amp; end &gt; 0 {
-            break
-        }
-        if err != nil {
-            panic(err)
-        }
+<span class="w">    </span><span class="nx">end</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">end</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">f</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="kt">error</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">lfh</span><span class="w"> </span><span class="o">*</span><span class="nx">localFileHeader</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">next</span><span class="w"> </span><span class="kt">int</span>
+<span class="w">        </span><span class="nx">lfh</span><span class="p">,</span><span class="w"> </span><span class="nx">next</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parseLocalFileHeader</span><span class="p">(</span><span class="nx">f</span><span class="p">,</span><span class="w"> </span><span class="nx">end</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">errNotZip</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">end</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
-        end = next
+<span class="w">        </span><span class="nx">end</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">next</span>
 
-        fmt.Println(lfh.lastModified, lfh.fileName, lfh.fileContents)
-    }
-}
-</code></pre>
+<span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">lfh</span><span class="p">.</span><span class="nx">lastModified</span><span class="p">,</span><span class="w"> </span><span class="nx">lfh</span><span class="p">.</span><span class="nx">fileName</span><span class="p">,</span><span class="w"> </span><span class="nx">lfh</span><span class="p">.</span><span class="nx">fileContents</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="files">Files</h3><p>For each file we'll fail early if the first four bytes are not the magic zip signature.</p>
-<pre><code class="hljs go">var errNotZip = fmt.Errorf(&quot;Not a zip file&quot;)
+<div class="highlight"><pre><span></span><span class="kd">var</span><span class="w"> </span><span class="nx">errNotZip</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Not a zip file&quot;</span><span class="p">)</span>
 
-func parseLocalFileHeader(bs []byte, start int) (*localFileHeader, int, error) {
-    signature, i, err := readUint32(bs, start)
-    if signature != 0x04034b50 {
-        return nil, 0, errNotZip
-    }
-    if err != nil {
-        return nil, 0, err
-    }
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="nx">parseLocalFileHeader</span><span class="p">(</span><span class="nx">bs</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">start</span><span class="w"> </span><span class="kt">int</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">localFileHeader</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">signature</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">readUint32</span><span class="p">(</span><span class="nx">bs</span><span class="p">,</span><span class="w"> </span><span class="nx">start</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">signature</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mh">0x04034b50</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">errNotZip</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
 <p>The basic pattern is that one of these read helpers will take an
 offset and return a Go value and a new offset. The read helper will do
 bounds checking. We'll define the read helpers further down.</p>
 <p>Let's follow the same pattern to the end of the struct:</p>
-<pre><code>    version, i, err := readUint16(bs, i)
-    if err != nil {
-        return nil, 0, err
-    }
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="nv">version</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readUint16</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    bitFlag, i, err := readUint16(bs, i)
-    if err != nil {
-        return nil, 0, err
-    }
+<span class="w">    </span><span class="nv">bitFlag</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readUint16</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    compression := noCompression
-    compressionRaw, i, err := readUint16(bs, i)
-    if err != nil {
-        return nil, 0, err
-    }
-    if compressionRaw == 8 {
-        compression = deflateCompression
-    }
+<span class="w">    </span><span class="nv">compression</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nv">noCompression</span>
+<span class="w">    </span><span class="nv">compressionRaw</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readUint16</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">compressionRaw</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">compression</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">deflateCompression</span>
+<span class="w">    </span><span class="p">}</span>
 
-    lmTime, i, err := readUint16(bs, i)
-    if err != nil {
-        return nil, 0, err
-    }
+<span class="w">    </span><span class="nv">lmTime</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readUint16</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    lmDate, i, err := readUint16(bs, i)
-    if err != nil {
-        return nil, 0, err
-    }
-    lastModified := msdosTimeToGoTime(lmDate, lmTime)
+<span class="w">    </span><span class="nv">lmDate</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readUint16</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nv">lastModified</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">msdosTimeToGoTime</span><span class="p">(</span><span class="nv">lmDate</span><span class="p">,</span><span class="w"> </span><span class="nv">lmTime</span><span class="p">)</span>
 
-    crc32, i, err := readUint32(bs, i)
-    if err != nil {
-        return nil, 0, err
-    }
+<span class="w">    </span><span class="nv">crc32</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readUint32</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    compressedSize, i, err := readUint32(bs, i)
-    if err != nil {
-        return nil, 0, err
-    }
+<span class="w">    </span><span class="nv">compressedSize</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readUint32</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    uncompressedSize, i, err := readUint32(bs, i)
-    if err != nil {
-        return nil, 0, err
-    }
+<span class="w">    </span><span class="nv">uncompressedSize</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readUint32</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    fileNameLength, i, err := readUint16(bs, i)
-    if err != nil {
-        return nil, 0, err
-    }
+<span class="w">    </span><span class="nv">fileNameLength</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readUint16</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    extraFieldLength, i, err := readUint16(bs, i)
-    if err != nil {
-        return nil, 0, err
-    }
+<span class="w">    </span><span class="nv">extraFieldLength</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readUint16</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    fileName, i, err := readString(bs, i, int(fileNameLength))
-    if err != nil {
-        return nil, 0, err
-    }
+<span class="w">    </span><span class="nv">fileName</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readString</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nf">int</span><span class="p">(</span><span class="nv">fileNameLength</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    extraField, i, err := readBytes(bs, i, int(extraFieldLength))
-    if err != nil {
-        return nil, 0, err
-    }
-</code></pre>
+<span class="w">    </span><span class="nv">extraField</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nf">readBytes</span><span class="p">(</span><span class="nv">bs</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nf">int</span><span class="p">(</span><span class="nv">extraFieldLength</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nv">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">return</span><span class="w"> </span><span class="nv">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">err</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
 <p>Now if the file contents are uncompressed we can just copy bytes after
 the file header. If the file contents are compressed though we'll use
 Go's builtin DEFLATE support to decompress the bytes after the file
 header.</p>
-<pre><code class="hljs go">    var fileContents string
-    if compression == noCompression {
-        fileContents, i, err = readString(bs, i, int(uncompressedSize))
-        if err != nil {
-            return nil, 0, err
-        }
-    } else {
-        end := i + int(compressedSize)
-        if end &gt; len(bs) {
-            return nil, 0, errOverranBuffer
-        }
-        flateReader := flate.NewReader(bytes.NewReader(bs[i:end]))
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">fileContents</span><span class="w"> </span><span class="kt">string</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">compression</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">noCompression</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">fileContents</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">readString</span><span class="p">(</span><span class="nx">bs</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nb">int</span><span class="p">(</span><span class="nx">uncompressedSize</span><span class="p">))</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">end</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">int</span><span class="p">(</span><span class="nx">compressedSize</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">end</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">bs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">errOverranBuffer</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nx">flateReader</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">flate</span><span class="p">.</span><span class="nx">NewReader</span><span class="p">(</span><span class="nx">bytes</span><span class="p">.</span><span class="nx">NewReader</span><span class="p">(</span><span class="nx">bs</span><span class="p">[</span><span class="nx">i</span><span class="p">:</span><span class="nx">end</span><span class="p">]))</span>
 
-        defer flateReader.Close()
-        read, err := ioutil.ReadAll(flateReader)
-        if err != nil {
-            return nil, 0, err
-        }
+<span class="w">        </span><span class="k">defer</span><span class="w"> </span><span class="nx">flateReader</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">read</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ioutil</span><span class="p">.</span><span class="nx">ReadAll</span><span class="p">(</span><span class="nx">flateReader</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
 
-        fileContents = string(read)
+<span class="w">        </span><span class="nx">fileContents</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">read</span><span class="p">)</span>
 
-        i = end
-    }
-</code></pre>
+<span class="w">        </span><span class="nx">i</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">end</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
 <p>And return the filled out representation:</p>
-<pre><code class="hljs go">
-    return &amp;localFileHeader{
-        signature: signature,
-        version: version,
-        bitFlag: bitFlag,
-        compression: compression,
-        lastModified: lastModified,
-        crc32: crc32,
-        compressedSize: compressedSize,
-        uncompressedSize: uncompressedSize,
-        fileName: fileName,
-        extraField: extraField,
-        fileContents: fileContents,
-    }, i, nil
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">localFileHeader</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">signature</span><span class="p">:</span><span class="w"> </span><span class="nx">signature</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">version</span><span class="p">:</span><span class="w"> </span><span class="nx">version</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">bitFlag</span><span class="p">:</span><span class="w"> </span><span class="nx">bitFlag</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">compression</span><span class="p">:</span><span class="w"> </span><span class="nx">compression</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">lastModified</span><span class="p">:</span><span class="w"> </span><span class="nx">lastModified</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">crc32</span><span class="p">:</span><span class="w"> </span><span class="nx">crc32</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">compressedSize</span><span class="p">:</span><span class="w"> </span><span class="nx">compressedSize</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">uncompressedSize</span><span class="p">:</span><span class="w"> </span><span class="nx">uncompressedSize</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">fileName</span><span class="p">:</span><span class="w"> </span><span class="nx">fileName</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">extraField</span><span class="p">:</span><span class="w"> </span><span class="nx">extraField</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">fileContents</span><span class="p">:</span><span class="w"> </span><span class="nx">fileContents</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="read-helpers">Read helpers</h3><p>Now we just define those read helpers with bounds checking, using Go's
 builtin libraries for dealing with binary encodings.</p>
-<pre><code class="hljs go">var errOverranBuffer = fmt.Errorf(&quot;Overran buffer&quot;)
+<div class="highlight"><pre><span></span><span class="kd">var</span><span class="w"> </span><span class="nx">errOverranBuffer</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Overran buffer&quot;</span><span class="p">)</span>
 
-func readUint32(bs []byte, offset int) (uint32, int, error) {
-    end := offset + 4
-    if end &gt; len(bs) {
-        return 0, 0, errOverranBuffer
-    }
+<span class="kd">func</span><span class="w"> </span><span class="nx">readUint32</span><span class="p">(</span><span class="nx">bs</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="kt">int</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">uint32</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">end</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">end</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">bs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">errOverranBuffer</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return binary.LittleEndian.Uint32(bs[offset:end]), end, nil
-}
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">Uint32</span><span class="p">(</span><span class="nx">bs</span><span class="p">[</span><span class="nx">offset</span><span class="p">:</span><span class="nx">end</span><span class="p">]),</span><span class="w"> </span><span class="nx">end</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
 
-func readUint16(bs []byte, offset int) (uint16, int, error) {
-    end := offset+2
-    if end &gt; len(bs) {
-        return 0, 0, errOverranBuffer
-    }
+<span class="kd">func</span><span class="w"> </span><span class="nx">readUint16</span><span class="p">(</span><span class="nx">bs</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="kt">int</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">uint16</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">end</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">offset</span><span class="o">+</span><span class="mi">2</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">end</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">bs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">errOverranBuffer</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return binary.LittleEndian.Uint16(bs[offset:end]), end, nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">Uint16</span><span class="p">(</span><span class="nx">bs</span><span class="p">[</span><span class="nx">offset</span><span class="p">:</span><span class="nx">end</span><span class="p">]),</span><span class="w"> </span><span class="nx">end</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>And basically only bounds checking for grabbing bytes and strings.</p>
-<pre><code class="hljs go">func readBytes(bs []byte, offset int, n int) ([]byte, int, error) {
-    end := offset + n
-    if end &gt; len(bs) {
-        return nil, 0, errOverranBuffer
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">readBytes</span><span class="p">(</span><span class="nx">bs</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="nx">n</span><span class="w"> </span><span class="kt">int</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">end</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">n</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">end</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">bs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">errOverranBuffer</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return bs[offset:offset+n], end, nil
-}
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">bs</span><span class="p">[</span><span class="nx">offset</span><span class="p">:</span><span class="nx">offset</span><span class="o">+</span><span class="nx">n</span><span class="p">],</span><span class="w"> </span><span class="nx">end</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
 
-func readString(bs []byte, offset int, n int) (string, int, error) {
-    read, end, err := readBytes(bs, offset, n)
-    return string(read), end, err
-}
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="nx">readString</span><span class="p">(</span><span class="nx">bs</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="nx">n</span><span class="w"> </span><span class="kt">int</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">read</span><span class="p">,</span><span class="w"> </span><span class="nx">end</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">readBytes</span><span class="p">(</span><span class="nx">bs</span><span class="p">,</span><span class="w"> </span><span class="nx">offset</span><span class="p">,</span><span class="w"> </span><span class="nx">n</span><span class="p">)</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">read</span><span class="p">),</span><span class="w"> </span><span class="nx">end</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="msdos-time">MSDOS time</h3><p>At the time zip was created, MSDOS time format was popular, I
 guess. But it's not popular today so it took a bit of work to finally
 find <a href="https://groups.google.com/g/comp.os.msdos.programmer/c/ffAVUFN2NbA">an explanation of the
 format</a>
 with some code (in C).</p>
-<pre><code class="hljs go">func msdosTimeToGoTime(d uint16, t uint16) time.Time {
-    seconds := int((t &amp; 0x1F) * 2)
-    minutes := int((t &gt;&gt; 5) &amp; 0x3F)
-    hours := int(t &gt;&gt; 11)
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">msdosTimeToGoTime</span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="kt">uint16</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="w"> </span><span class="kt">uint16</span><span class="p">)</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Time</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">seconds</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">int</span><span class="p">((</span><span class="nx">t</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x1F</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">minutes</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">int</span><span class="p">((</span><span class="nx">t</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">5</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x3F</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">hours</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">int</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">11</span><span class="p">)</span>
 
-    day := int(d &amp; 0x1F)
-    month := time.Month((d &gt;&gt; 5) &amp; 0x0F)
-    year := int((d &gt;&gt; 9) &amp; 0x7F) + 1980
-    return time.Date(year, month, day, hours, minutes, seconds, 0, time.Local)
-}
-</code></pre>
+<span class="w">    </span><span class="nx">day</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">int</span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x1F</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">month</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Month</span><span class="p">((</span><span class="nx">d</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">5</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x0F</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">year</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">int</span><span class="p">((</span><span class="nx">d</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">9</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x7F</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1980</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Date</span><span class="p">(</span><span class="nx">year</span><span class="p">,</span><span class="w"> </span><span class="nx">month</span><span class="p">,</span><span class="w"> </span><span class="nx">day</span><span class="p">,</span><span class="w"> </span><span class="nx">hours</span><span class="p">,</span><span class="w"> </span><span class="nx">minutes</span><span class="p">,</span><span class="w"> </span><span class="nx">seconds</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Local</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="tout-ensemble">Tout ensemble</h3><p>Running it we get:</p>
-<pre><code class="hljs bash">$ go build
-$ ./gozip test.zip
-2021-11-23 23:04:20 +0000 UTC hello.text Hello!
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>go<span class="w"> </span>build
+$<span class="w"> </span>./gozip<span class="w"> </span>test.zip
+<span class="m">2021</span>-11-23<span class="w"> </span><span class="m">23</span>:04:20<span class="w"> </span>+0000<span class="w"> </span>UTC<span class="w"> </span>hello.text<span class="w"> </span>Hello!
+</pre></div>
 <p>That looks good! Now let's try zipping more than one file.</p>
-<pre><code class="hljs bash">$ cat bye.text
-Au revoir!
-$ rm test.zip
-$ zip test.zip *.text
-  adding: bye.text (stored 0%)
-  adding: hello.text (stored 0%)
-$ ./gozip test.zip
-2021-11-24 03:40:00 +0000 UTC bye.text Au revoir!
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>bye.text
+Au<span class="w"> </span>revoir!
+$<span class="w"> </span>rm<span class="w"> </span>test.zip
+$<span class="w"> </span>zip<span class="w"> </span>test.zip<span class="w"> </span>*.text
+<span class="w">  </span>adding:<span class="w"> </span>bye.text<span class="w"> </span><span class="o">(</span>stored<span class="w"> </span><span class="m">0</span>%<span class="o">)</span>
+<span class="w">  </span>adding:<span class="w"> </span>hello.text<span class="w"> </span><span class="o">(</span>stored<span class="w"> </span><span class="m">0</span>%<span class="o">)</span>
+$<span class="w"> </span>./gozip<span class="w"> </span>test.zip
+<span class="m">2021</span>-11-24<span class="w"> </span><span class="m">03</span>:40:00<span class="w"> </span>+0000<span class="w"> </span>UTC<span class="w"> </span>bye.text<span class="w"> </span>Au<span class="w"> </span>revoir!
 
-2021-11-23 23:04:20 +0000 UTC hello.text Hello!
-</code></pre>
+<span class="m">2021</span>-11-23<span class="w"> </span><span class="m">23</span>:04:20<span class="w"> </span>+0000<span class="w"> </span>UTC<span class="w"> </span>hello.text<span class="w"> </span>Hello!
+</pre></div>
 <p>Fab.</p>
 <h3 id="notes">Notes</h3><p>There are many parts of the standard to deal with (e.g. directories)
 and many common extensions. I'm ignoring them.</p>
@@ -1055,7 +1053,6 @@ if I want to be able to <em>create</em> zip archives.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

@@ -6,7 +6,6 @@
     <title>Unit testing C code with gtest | notes.eatonphil.com</title>
     <meta name="description" content="Unit testing C code with gtest" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -71,93 +70,93 @@ directory. Tests are written in C++ (since gtest is a C++ testing
 framework) and are in the <code>test/</code> directory.</p>
 <p>Here's an overview of the source and test code.</p>
 <h4 id="src/widget.c">src/widget.c</h4><p>This file has some library code that we should be able to test.</p>
-<pre><code class="hljs c">#include &quot;testy/widget.h&quot;
+<div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;testy/widget.h&quot;</span>
 
-int private_ok_value = 2;
+<span class="kt">int</span><span class="w"> </span><span class="n">private_ok_value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
 
-int widget_ok(int a, int b) {
-  return a + b == private_ok_value;
-}
-</code></pre>
+<span class="kt">int</span><span class="w"> </span><span class="nf">widget_ok</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">private_ok_value</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="include/testy/widget.h">include/testy/widget.h</h4><p>This file handles exported symbols for widget code.</p>
-<pre><code class="hljs c">#ifndef _WIDGET_H_
-#define _WIDGET_H_
+<div class="highlight"><pre><span></span><span class="cp">#ifndef _WIDGET_H_</span>
+<span class="cp">#define _WIDGET_H_</span>
 
-int widget_ok(int, int);
+<span class="kt">int</span><span class="w"> </span><span class="nf">widget_ok</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="p">);</span>
 
-#endif
-</code></pre>
+<span class="cp">#endif</span>
+</pre></div>
 <h4 id="src/customer.c">src/customer.c</h4><p>This file has some more library code that we should be able to test.</p>
-<pre><code class="hljs c">#include &quot;testy/customer.h&quot;
+<div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;testy/customer.h&quot;</span>
 
-int customer_check(int a) {
-  return a == 5;
-}
-</code></pre>
+<span class="kt">int</span><span class="w"> </span><span class="nf">customer_check</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">a</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="include/testy/customer.h">include/testy/customer.h</h4><p>This file handles exported symbols for customer code.</p>
-<pre><code class="hljs c">#ifndef _CUSTOMER_H_
-#define _CUSTOMER_H_
+<div class="highlight"><pre><span></span><span class="cp">#ifndef _CUSTOMER_H_</span>
+<span class="cp">#define _CUSTOMER_H_</span>
 
-int customer_check(int);
+<span class="kt">int</span><span class="w"> </span><span class="nf">customer_check</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span>
 
-#endif
-</code></pre>
+<span class="cp">#endif</span>
+</pre></div>
 <h4 id="src/main.c">src/main.c</h4><p>This is the entrypoint to a program built around libtesty.</p>
-<pre><code class="hljs c">#include &quot;testy/customer.h&quot;
-#include &quot;testy/widget.h&quot;
+<div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;testy/customer.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;testy/widget.h&quot;</span>
 
-int main() {
-  if (widget_ok(1, 1)) {
-    return customer_check(5);
-  }
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">widget_ok</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">customer_check</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return 0;
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="test/widget.cpp">test/widget.cpp</h4><p>This is one of our test files. It registers test cases and uses gtest
 to make assertions. We need to wrap the <code>testy/widget.h</code> include in an
 <code>extern "C"</code> to stop C++ from
 <a href="https://www.geeksforgeeks.org/extern-c-in-c/">name-mangling</a>.</p>
-<pre><code class="hljs cpp">#include &quot;gtest/gtest.h&quot;
+<div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;gtest/gtest.h&quot;</span>
 
-extern &quot;C&quot; {
-#include &quot;testy/widget.h&quot;
-}
+<span class="k">extern</span><span class="w"> </span><span class="s">&quot;C&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;testy/widget.h&quot;</span>
+<span class="p">}</span>
 
-TEST(widget, ok) {
-  ASSERT_EQ(widget_ok(1, 1), 1);
-}
+<span class="n">TEST</span><span class="p">(</span><span class="n">widget</span><span class="p">,</span><span class="w"> </span><span class="n">ok</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">ASSERT_EQ</span><span class="p">(</span><span class="n">widget_ok</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
 
-TEST(testy, not_ok) {
-  ASSERT_EQ(widget_ok(1, 2), 0);
-}
-</code></pre>
+<span class="n">TEST</span><span class="p">(</span><span class="n">testy</span><span class="p">,</span><span class="w"> </span><span class="n">not_ok</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">ASSERT_EQ</span><span class="p">(</span><span class="n">widget_ok</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>You can see a good high-level overview of gtest testing utilities like
 <code>ASSERT_EQ</code> and <code>TEST</code>
 <a href="https://github.com/google/googletest/blob/master/googletest/docs/primer.md">here</a>.</p>
 <h4 id="test/customer.cpp">test/customer.cpp</h4><p>This is another one of our test files.</p>
-<pre><code class="hljs cpp">#include &quot;gtest/gtest.h&quot;
+<div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;gtest/gtest.h&quot;</span>
 
-extern &quot;C&quot; {
-#include &quot;testy/customer.h&quot;
-}
+<span class="k">extern</span><span class="w"> </span><span class="s">&quot;C&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;testy/customer.h&quot;</span>
+<span class="p">}</span>
 
-TEST(customer, ok) {
-  ASSERT_EQ(customer_check(5), 1);
-}
+<span class="n">TEST</span><span class="p">(</span><span class="n">customer</span><span class="p">,</span><span class="w"> </span><span class="n">ok</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">ASSERT_EQ</span><span class="p">(</span><span class="n">customer_check</span><span class="p">(</span><span class="mi">5</span><span class="p">),</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
 
-TEST(testy, not_ok) {
-  ASSERT_EQ(customer_check(0), 0);  
-}
-</code></pre>
+<span class="n">TEST</span><span class="p">(</span><span class="n">testy</span><span class="p">,</span><span class="w"> </span><span class="n">not_ok</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">ASSERT_EQ</span><span class="p">(</span><span class="n">customer_check</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">  </span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="test/main.cpp">test/main.cpp</h4><p>This is a standard entrypoint for the test runner.</p>
-<pre><code class="hljs cpp">#include &quot;gtest/gtest.h&quot;
+<div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;gtest/gtest.h&quot;</span>
 
-int main(int argc, char **argv) {
-  ::testing::InitGoogleTest(&amp;argc, argv);
-  return RUN_ALL_TESTS();
-}
-</code></pre>
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">**</span><span class="n">argv</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">InitGoogleTest</span><span class="p">(</span><span class="o">&amp;</span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="n">argv</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">RUN_ALL_TESTS</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="building-with-cmake">Building with CMake</h3><p><a href="https://cmake.org">CMake</a> is a build tool that (among other things)
 produces a Makefile we can run to build our code. We will also use it
 for dependency management. But fundementally we use it because gtest
@@ -166,20 +165,20 @@ requires it.</p>
 one in the root directory, one in the test directory, and a template
 for one that will handle the gtest dependency.</p>
 <p>A first draft of the top-level CMakeLists.txt might look like this:</p>
-<pre><code class="hljs cmake">cmake_minimum_required(VERSION 3.1)
+<div class="highlight"><pre><span></span><span class="nb">cmake_minimum_required</span><span class="p">(</span><span class="s">VERSION</span><span class="w"> </span><span class="s">3.1</span><span class="p">)</span>
 
-project(testy)
+<span class="nb">project</span><span class="p">(</span><span class="s">testy</span><span class="p">)</span>
 
-##
-### Source definitions ###
-##
+<span class="c">##</span>
+<span class="c">### Source definitions ###</span>
+<span class="c">##</span>
 
-include_directories(&quot;${PROJECT_SOURCE_DIR}/include&quot;)
+<span class="nb">include_directories</span><span class="p">(</span><span class="s2">&quot;${PROJECT_SOURCE_DIR}/include&quot;</span><span class="p">)</span>
 
-file(GLOB sources &quot;${PROJECT_SOURCE_DIR}/src/*.c&quot;)
+<span class="nb">file</span><span class="p">(</span><span class="s">GLOB</span><span class="w"> </span><span class="s">sources</span><span class="w"> </span><span class="s2">&quot;${PROJECT_SOURCE_DIR}/src/*.c&quot;</span><span class="p">)</span>
 
-add_executable(testy ${sources})
-</code></pre>
+<span class="nb">add_executable</span><span class="p">(</span><span class="s">testy</span><span class="w"> </span><span class="o">${</span><span class="nv">sources</span><span class="o">}</span><span class="p">)</span>
+</pre></div>
 <p>Using <code>include_directory</code> will make sure we compile with the <code>-I</code> flag
 set up correctly for our include directory.</p>
 <p>Using <code>add_executable</code> sets up the binary name to produce from the
@@ -190,201 +189,201 @@ of C files rather than listing them all out verbatim in the
 different directory, so we'll make a <code>build/</code> directory so we don't
 pollute root. Then we'll build a Makefile with CMake, run Make, and
 run our program.</p>
-<pre><code class="hljs bash">$ mkdir build
-$ cd build
-$ cmake ..
--- The C compiler identification is AppleClang 10.0.1.10010046
--- The CXX compiler identification is AppleClang 10.0.1.10010046
--- Check for working C compiler: /Library/Developer/CommandLineTools/usr/bin/cc
--- Check for working C compiler: /Library/Developer/CommandLineTools/usr/bin/cc -- works
--- Detecting C compiler ABI info
--- Detecting C compiler ABI info - done
--- Detecting C compile features
--- Detecting C compile features - done
--- Check for working CXX compiler: /Library/Developer/CommandLineTools/usr/bin/c++
--- Check for working CXX compiler: /Library/Developer/CommandLineTools/usr/bin/c++ -- works
--- Detecting CXX compiler ABI info
--- Detecting CXX compiler ABI info - done
--- Detecting CXX compile features
--- Detecting CXX compile features - done
--- Configuring done
--- Generating done
--- Build files have been written to: /Users/philipeaton/tmp/testy/build
-$ make
-[ 25%] Building C object CMakeFiles/testy.dir/src/customer.c.o
-[ 50%] Building C object CMakeFiles/testy.dir/src/widget.c.o
-[ 75%] Building C object CMakeFiles/testy.dir/src/main.c.o
-[100%] Linking C executable testy
-[100%] Built target testy
-$ ./testy
-$ echo $?
-1
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>mkdir<span class="w"> </span>build
+$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+$<span class="w"> </span>cmake<span class="w"> </span>..
+--<span class="w"> </span>The<span class="w"> </span>C<span class="w"> </span>compiler<span class="w"> </span>identification<span class="w"> </span>is<span class="w"> </span>AppleClang<span class="w"> </span><span class="m">10</span>.0.1.10010046
+--<span class="w"> </span>The<span class="w"> </span>CXX<span class="w"> </span>compiler<span class="w"> </span>identification<span class="w"> </span>is<span class="w"> </span>AppleClang<span class="w"> </span><span class="m">10</span>.0.1.10010046
+--<span class="w"> </span>Check<span class="w"> </span><span class="k">for</span><span class="w"> </span>working<span class="w"> </span>C<span class="w"> </span>compiler:<span class="w"> </span>/Library/Developer/CommandLineTools/usr/bin/cc
+--<span class="w"> </span>Check<span class="w"> </span><span class="k">for</span><span class="w"> </span>working<span class="w"> </span>C<span class="w"> </span>compiler:<span class="w"> </span>/Library/Developer/CommandLineTools/usr/bin/cc<span class="w"> </span>--<span class="w"> </span>works
+--<span class="w"> </span>Detecting<span class="w"> </span>C<span class="w"> </span>compiler<span class="w"> </span>ABI<span class="w"> </span>info
+--<span class="w"> </span>Detecting<span class="w"> </span>C<span class="w"> </span>compiler<span class="w"> </span>ABI<span class="w"> </span>info<span class="w"> </span>-<span class="w"> </span><span class="k">done</span>
+--<span class="w"> </span>Detecting<span class="w"> </span>C<span class="w"> </span>compile<span class="w"> </span>features
+--<span class="w"> </span>Detecting<span class="w"> </span>C<span class="w"> </span>compile<span class="w"> </span>features<span class="w"> </span>-<span class="w"> </span><span class="k">done</span>
+--<span class="w"> </span>Check<span class="w"> </span><span class="k">for</span><span class="w"> </span>working<span class="w"> </span>CXX<span class="w"> </span>compiler:<span class="w"> </span>/Library/Developer/CommandLineTools/usr/bin/c++
+--<span class="w"> </span>Check<span class="w"> </span><span class="k">for</span><span class="w"> </span>working<span class="w"> </span>CXX<span class="w"> </span>compiler:<span class="w"> </span>/Library/Developer/CommandLineTools/usr/bin/c++<span class="w"> </span>--<span class="w"> </span>works
+--<span class="w"> </span>Detecting<span class="w"> </span>CXX<span class="w"> </span>compiler<span class="w"> </span>ABI<span class="w"> </span>info
+--<span class="w"> </span>Detecting<span class="w"> </span>CXX<span class="w"> </span>compiler<span class="w"> </span>ABI<span class="w"> </span>info<span class="w"> </span>-<span class="w"> </span><span class="k">done</span>
+--<span class="w"> </span>Detecting<span class="w"> </span>CXX<span class="w"> </span>compile<span class="w"> </span>features
+--<span class="w"> </span>Detecting<span class="w"> </span>CXX<span class="w"> </span>compile<span class="w"> </span>features<span class="w"> </span>-<span class="w"> </span><span class="k">done</span>
+--<span class="w"> </span>Configuring<span class="w"> </span><span class="k">done</span>
+--<span class="w"> </span>Generating<span class="w"> </span><span class="k">done</span>
+--<span class="w"> </span>Build<span class="w"> </span>files<span class="w"> </span>have<span class="w"> </span>been<span class="w"> </span>written<span class="w"> </span>to:<span class="w"> </span>/Users/philipeaton/tmp/testy/build
+$<span class="w"> </span>make
+<span class="o">[</span><span class="w"> </span><span class="m">25</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>C<span class="w"> </span>object<span class="w"> </span>CMakeFiles/testy.dir/src/customer.c.o
+<span class="o">[</span><span class="w"> </span><span class="m">50</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>C<span class="w"> </span>object<span class="w"> </span>CMakeFiles/testy.dir/src/widget.c.o
+<span class="o">[</span><span class="w"> </span><span class="m">75</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>C<span class="w"> </span>object<span class="w"> </span>CMakeFiles/testy.dir/src/main.c.o
+<span class="o">[</span><span class="m">100</span>%<span class="o">]</span><span class="w"> </span>Linking<span class="w"> </span>C<span class="w"> </span>executable<span class="w"> </span>testy
+<span class="o">[</span><span class="m">100</span>%<span class="o">]</span><span class="w"> </span>Built<span class="w"> </span>target<span class="w"> </span>testy
+$<span class="w"> </span>./testy
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">1</span>
+</pre></div>
 <h3 id="cmakelists.txt.in">CMakeLists.txt.in</h3><p>This template file handles downloading the gtest dependency from
 github.com pinned to a release. It will be copied into a subdirectory
 during the <code>cmake ..</code> step.</p>
-<pre><code class="hljs cmake">cmake_minimum_required(VERSION 3.1)
+<div class="highlight"><pre><span></span><span class="nb">cmake_minimum_required</span><span class="p">(</span><span class="s">VERSION</span><span class="w"> </span><span class="s">3.1</span><span class="p">)</span>
 
-project(googletest-download NONE)
+<span class="nb">project</span><span class="p">(</span><span class="s">googletest-download</span><span class="w"> </span><span class="s">NONE</span><span class="p">)</span>
 
-include(ExternalProject)
-ExternalProject_Add(googletest
-  GIT_REPOSITORY    https://github.com/google/googletest.git
-  GIT_TAG           release-1.8.1
-  SOURCE_DIR        &quot;${CMAKE_BINARY_DIR}/googletest-src&quot;
-  BINARY_DIR        &quot;${CMAKE_BINARY_DIR}/googletest-build&quot;
-  CONFIGURE_COMMAND &quot;&quot;
-  BUILD_COMMAND     &quot;&quot;
-  INSTALL_COMMAND   &quot;&quot;
-  TEST_COMMAND      &quot;&quot;
-)
-</code></pre>
+<span class="nb">include</span><span class="p">(</span><span class="s">ExternalProject</span><span class="p">)</span>
+<span class="nb">ExternalProject_Add</span><span class="p">(</span><span class="s">googletest</span>
+<span class="w">  </span><span class="s">GIT_REPOSITORY</span><span class="w">    </span><span class="s">https://github.com/google/googletest.git</span>
+<span class="w">  </span><span class="s">GIT_TAG</span><span class="w">           </span><span class="s">release-1.8.1</span>
+<span class="w">  </span><span class="s">SOURCE_DIR</span><span class="w">        </span><span class="s2">&quot;${CMAKE_BINARY_DIR}/googletest-src&quot;</span>
+<span class="w">  </span><span class="s">BINARY_DIR</span><span class="w">        </span><span class="s2">&quot;${CMAKE_BINARY_DIR}/googletest-build&quot;</span>
+<span class="w">  </span><span class="s">CONFIGURE_COMMAND</span><span class="w"> </span><span class="s2">&quot;&quot;</span>
+<span class="w">  </span><span class="s">BUILD_COMMAND</span><span class="w">     </span><span class="s2">&quot;&quot;</span>
+<span class="w">  </span><span class="s">INSTALL_COMMAND</span><span class="w">   </span><span class="s2">&quot;&quot;</span>
+<span class="w">  </span><span class="s">TEST_COMMAND</span><span class="w">      </span><span class="s2">&quot;&quot;</span>
+<span class="p">)</span>
+</pre></div>
 <p>Now we can tell CMake about it and how to build, within the top-level
 CMakeLists.txt file.</p>
-<pre><code class="hljs cmake">cmake_minimum_required(VERSION 3.1)
+<div class="highlight"><pre><span></span><span class="nb">cmake_minimum_required</span><span class="p">(</span><span class="s">VERSION</span><span class="w"> </span><span class="s">3.1</span><span class="p">)</span>
 
-project(testy)
+<span class="nb">project</span><span class="p">(</span><span class="s">testy</span><span class="p">)</span>
 
-##
-### Test definitions ###
-##
+<span class="c">##</span>
+<span class="c">### Test definitions ###</span>
+<span class="c">##</span>
 
-configure_file(CMakeLists.txt.in
-        googletest-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G &quot;${CMAKE_GENERATOR}&quot; .
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
+<span class="nb">configure_file</span><span class="p">(</span><span class="s">CMakeLists.txt.in</span>
+<span class="w">        </span><span class="s">googletest-download/CMakeLists.txt</span><span class="p">)</span>
+<span class="nb">execute_process</span><span class="p">(</span><span class="s">COMMAND</span><span class="w"> </span><span class="o">${</span><span class="nv">CMAKE_COMMAND</span><span class="o">}</span><span class="w"> </span><span class="s">-G</span><span class="w"> </span><span class="s2">&quot;${CMAKE_GENERATOR}&quot;</span><span class="w"> </span><span class="s">.</span>
+<span class="w">        </span><span class="s">WORKING_DIRECTORY</span><span class="w"> </span><span class="o">${</span><span class="nv">CMAKE_BINARY_DIR</span><span class="o">}</span><span class="s">/googletest-download</span><span class="w"> </span><span class="p">)</span>
+<span class="nb">execute_process</span><span class="p">(</span><span class="s">COMMAND</span><span class="w"> </span><span class="o">${</span><span class="nv">CMAKE_COMMAND</span><span class="o">}</span><span class="w"> </span><span class="s">--build</span><span class="w"> </span><span class="s">.</span>
+<span class="w">        </span><span class="s">WORKING_DIRECTORY</span><span class="w"> </span><span class="o">${</span><span class="nv">CMAKE_BINARY_DIR</span><span class="o">}</span><span class="s">/googletest-download</span><span class="w"> </span><span class="p">)</span>
 
-add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
-        ${CMAKE_BINARY_DIR}/googletest-build)
+<span class="nb">add_subdirectory</span><span class="p">(</span><span class="o">${</span><span class="nv">CMAKE_BINARY_DIR</span><span class="o">}</span><span class="s">/googletest-src</span>
+<span class="w">        </span><span class="o">${</span><span class="nv">CMAKE_BINARY_DIR</span><span class="o">}</span><span class="s">/googletest-build</span><span class="p">)</span>
 
-enable_testing()
-add_subdirectory(test)
+<span class="nb">enable_testing</span><span class="p">()</span>
+<span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">test</span><span class="p">)</span>
 
-##
-### Source definitions ###
-##
+<span class="c">##</span>
+<span class="c">### Source definitions ###</span>
+<span class="c">##</span>
 
-include_directories(&quot;${PROJECT_SOURCE_DIR}/include&quot;)
+<span class="nb">include_directories</span><span class="p">(</span><span class="s2">&quot;${PROJECT_SOURCE_DIR}/include&quot;</span><span class="p">)</span>
 
-file(GLOB sources
-  &quot;${PROJECT_SOURCE_DIR}/include/testy/*.h&quot;
-  &quot;${PROJECT_SOURCE_DIR}/src/*.c&quot;)
+<span class="nb">file</span><span class="p">(</span><span class="s">GLOB</span><span class="w"> </span><span class="s">sources</span>
+<span class="w">  </span><span class="s2">&quot;${PROJECT_SOURCE_DIR}/include/testy/*.h&quot;</span>
+<span class="w">  </span><span class="s2">&quot;${PROJECT_SOURCE_DIR}/src/*.c&quot;</span><span class="p">)</span>
 
-add_executable(testy ${sources})
-</code></pre>
+<span class="nb">add_executable</span><span class="p">(</span><span class="s">testy</span><span class="w"> </span><span class="o">${</span><span class="nv">sources</span><span class="o">}</span><span class="p">)</span>
+</pre></div>
 <p>The <code>add_subdirectory</code> calls register a directory that contains its
 own CMakeLists.txt. It would fail now without a <code>CMakeLists.txt</code> file
 in the <code>test/</code> directory.</p>
 <h3 id="test/cmakelists.txt">test/CMakeLists.txt</h3><p>This final file registers a <code>unit_test</code> executable compiling against
 the source and test code, and includes the project header files.</p>
-<pre><code class="hljs cmake">include_directories(&quot;${PROJECT_SOURCE_DIR}/include&quot;)
+<div class="highlight"><pre><span></span><span class="nb">include_directories</span><span class="p">(</span><span class="s2">&quot;${PROJECT_SOURCE_DIR}/include&quot;</span><span class="p">)</span>
 
-file(GLOB sources &quot;${PROJECT_SOURCE_DIR}/src/*.c&quot;)
-list(REMOVE_ITEM sources &quot;${PROJECT_SOURCE_DIR}/src/main.c&quot;)
+<span class="nb">file</span><span class="p">(</span><span class="s">GLOB</span><span class="w"> </span><span class="s">sources</span><span class="w"> </span><span class="s2">&quot;${PROJECT_SOURCE_DIR}/src/*.c&quot;</span><span class="p">)</span>
+<span class="nb">list</span><span class="p">(</span><span class="s">REMOVE_ITEM</span><span class="w"> </span><span class="s">sources</span><span class="w"> </span><span class="s2">&quot;${PROJECT_SOURCE_DIR}/src/main.c&quot;</span><span class="p">)</span>
 
-file(GLOB tests &quot;${PROJECT_SOURCE_DIR}/test/*.cpp&quot;)
-list(REMOVE_ITEM tests &quot;${PROJECT_SOURCE_DIR}/test/main.cpp&quot;)
+<span class="nb">file</span><span class="p">(</span><span class="s">GLOB</span><span class="w"> </span><span class="s">tests</span><span class="w"> </span><span class="s2">&quot;${PROJECT_SOURCE_DIR}/test/*.cpp&quot;</span><span class="p">)</span>
+<span class="nb">list</span><span class="p">(</span><span class="s">REMOVE_ITEM</span><span class="w"> </span><span class="s">tests</span><span class="w"> </span><span class="s2">&quot;${PROJECT_SOURCE_DIR}/test/main.cpp&quot;</span><span class="p">)</span>
 
-foreach(file ${tests})
-  set(name)
-  get_filename_component(name ${file} NAME_WE)
-  add_executable(&quot;${name}_tests&quot;
-    ${sources}
-    ${file}
-    &quot;${PROJECT_SOURCE_DIR}/test/main.cpp&quot;)
-  target_link_libraries(&quot;${name}_tests&quot; gtest_main)
-  add_test(NAME ${name} COMMAND &quot;${name}_tests&quot;)
-endforeach()
-</code></pre>
+<span class="nb">foreach</span><span class="p">(</span><span class="s">file</span><span class="w"> </span><span class="o">${</span><span class="nv">tests</span><span class="o">}</span><span class="p">)</span>
+<span class="w">  </span><span class="nb">set</span><span class="p">(</span><span class="s">name</span><span class="p">)</span>
+<span class="w">  </span><span class="nb">get_filename_component</span><span class="p">(</span><span class="s">name</span><span class="w"> </span><span class="o">${</span><span class="nv">file</span><span class="o">}</span><span class="w"> </span><span class="s">NAME_WE</span><span class="p">)</span>
+<span class="w">  </span><span class="nb">add_executable</span><span class="p">(</span><span class="s2">&quot;${name}_tests&quot;</span>
+<span class="w">    </span><span class="o">${</span><span class="nv">sources</span><span class="o">}</span>
+<span class="w">    </span><span class="o">${</span><span class="nv">file</span><span class="o">}</span>
+<span class="w">    </span><span class="s2">&quot;${PROJECT_SOURCE_DIR}/test/main.cpp&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="nb">target_link_libraries</span><span class="p">(</span><span class="s2">&quot;${name}_tests&quot;</span><span class="w"> </span><span class="s">gtest_main</span><span class="p">)</span>
+<span class="w">  </span><span class="nb">add_test</span><span class="p">(</span><span class="s">NAME</span><span class="w"> </span><span class="o">${</span><span class="nv">name</span><span class="o">}</span><span class="w"> </span><span class="s">COMMAND</span><span class="w"> </span><span class="s2">&quot;${name}_tests&quot;</span><span class="p">)</span>
+<span class="nb">endforeach</span><span class="p">()</span>
+</pre></div>
 <p>We have to register a test for each file otherwise each file's tests
 won't show up by default (i.e. without a <code>--verbose</code> flag).</p>
 <h4 id="building-and-running-tests">Building and running tests</h4><p>Similar to building and running the source, we run CMake in a
 subdirectory but run <code>make test</code> or <code>ctest</code> after building all sources
 and tests with <code>make</code>.</p>
-<pre><code class="hljs bash">$ cd build
-$ cmake ..
--- Configuring done
--- Generating done
--- Build files have been written to: /Users/philipeaton/tmp/testy/build/googletest-download
-Scanning dependencies of target googletest
-[ 11%] Creating directories for &#39;googletest&#39;
-[ 22%] Performing download step (git clone) for &#39;googletest&#39;
-Cloning into &#39;googletest-src&#39;...
-Note: checking out &#39;release-1.8.1&#39;.
+<div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+$<span class="w"> </span>cmake<span class="w"> </span>..
+--<span class="w"> </span>Configuring<span class="w"> </span><span class="k">done</span>
+--<span class="w"> </span>Generating<span class="w"> </span><span class="k">done</span>
+--<span class="w"> </span>Build<span class="w"> </span>files<span class="w"> </span>have<span class="w"> </span>been<span class="w"> </span>written<span class="w"> </span>to:<span class="w"> </span>/Users/philipeaton/tmp/testy/build/googletest-download
+Scanning<span class="w"> </span>dependencies<span class="w"> </span>of<span class="w"> </span>target<span class="w"> </span>googletest
+<span class="o">[</span><span class="w"> </span><span class="m">11</span>%<span class="o">]</span><span class="w"> </span>Creating<span class="w"> </span>directories<span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="s1">&#39;googletest&#39;</span>
+<span class="o">[</span><span class="w"> </span><span class="m">22</span>%<span class="o">]</span><span class="w"> </span>Performing<span class="w"> </span>download<span class="w"> </span>step<span class="w"> </span><span class="o">(</span>git<span class="w"> </span>clone<span class="o">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="s1">&#39;googletest&#39;</span>
+Cloning<span class="w"> </span>into<span class="w"> </span><span class="s1">&#39;googletest-src&#39;</span>...
+Note:<span class="w"> </span>checking<span class="w"> </span>out<span class="w"> </span><span class="s1">&#39;release-1.8.1&#39;</span>.
 
-You are in &#39;detached HEAD&#39; state. You can look around, make experimental
-changes and commit them, and you can discard any commits you make in this
-state without impacting any branches by performing another checkout.
+You<span class="w"> </span>are<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="s1">&#39;detached HEAD&#39;</span><span class="w"> </span>state.<span class="w"> </span>You<span class="w"> </span>can<span class="w"> </span>look<span class="w"> </span>around,<span class="w"> </span>make<span class="w"> </span>experimental
+changes<span class="w"> </span>and<span class="w"> </span>commit<span class="w"> </span>them,<span class="w"> </span>and<span class="w"> </span>you<span class="w"> </span>can<span class="w"> </span>discard<span class="w"> </span>any<span class="w"> </span>commits<span class="w"> </span>you<span class="w"> </span>make<span class="w"> </span><span class="k">in</span><span class="w"> </span>this
+state<span class="w"> </span>without<span class="w"> </span>impacting<span class="w"> </span>any<span class="w"> </span>branches<span class="w"> </span>by<span class="w"> </span>performing<span class="w"> </span>another<span class="w"> </span>checkout.
 
-If you want to create a new branch to retain commits you create, you may
-do so (now or later) by using -b with the checkout command again. Example:
+If<span class="w"> </span>you<span class="w"> </span>want<span class="w"> </span>to<span class="w"> </span>create<span class="w"> </span>a<span class="w"> </span>new<span class="w"> </span>branch<span class="w"> </span>to<span class="w"> </span>retain<span class="w"> </span>commits<span class="w"> </span>you<span class="w"> </span>create,<span class="w"> </span>you<span class="w"> </span>may
+<span class="k">do</span><span class="w"> </span>so<span class="w"> </span><span class="o">(</span>now<span class="w"> </span>or<span class="w"> </span>later<span class="o">)</span><span class="w"> </span>by<span class="w"> </span>using<span class="w"> </span>-b<span class="w"> </span>with<span class="w"> </span>the<span class="w"> </span>checkout<span class="w"> </span><span class="nb">command</span><span class="w"> </span>again.<span class="w"> </span>Example:
 
-  git checkout -b &lt;new-branch-name&gt;
+<span class="w">  </span>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>&lt;new-branch-name&gt;
 
-HEAD is now at 2fe3bd99 Merge pull request #1433 from dsacre/fix-clang-warnings
-[ 33%] No patch step for &#39;googletest&#39;
-[ 44%] Performing update step for &#39;googletest&#39;
-[ 55%] No configure step for &#39;googletest&#39;
-[ 66%] No build step for &#39;googletest&#39;
-[ 77%] No install step for &#39;googletest&#39;
-[ 88%] No test step for &#39;googletest&#39;
-[100%] Completed &#39;googletest&#39;
-[100%] Built target googletest
--- Found PythonInterp: /usr/local/bin/python (found version &quot;2.7.16&quot;)
--- Looking for pthread.h
--- Looking for pthread.h - found
--- Performing Test CMAKE_HAVE_LIBC_PTHREAD
--- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
--- Found Threads: TRUE
--- Configuring done
--- Generating done
--- Build files have been written to: /Users/philipeaton/tmp/testy/build
-$ make
-[  4%] Building C object CMakeFiles/testy.dir/src/customer.c.o
-[  9%] Building C object CMakeFiles/testy.dir/src/widget.c.o
-[ 13%] Building C object CMakeFiles/testy.dir/src/main.c.o
-[ 18%] Linking C executable testy
-[ 18%] Built target testy
-[ 22%] Building CXX object googletest-build/googlemock/gtest/CMakeFiles/gtest.dir/src/gtest-all.cc.o
-[ 27%] Linking CXX static library libgtest.a
-[ 27%] Built target gtest
-[ 31%] Building CXX object googletest-build/googlemock/CMakeFiles/gmock.dir/src/gmock-all.cc.o
-[ 36%] Linking CXX static library libgmock.a
-[ 36%] Built target gmock
-[ 40%] Building CXX object googletest-build/googlemock/CMakeFiles/gmock_main.dir/src/gmock_main.cc.o
-[ 45%] Linking CXX static library libgmock_main.a
-[ 45%] Built target gmock_main
-[ 50%] Building CXX object googletest-build/googlemock/gtest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o
-[ 54%] Linking CXX static library libgtest_main.a
-[ 54%] Built target gtest_main
-[ 59%] Building C object test/CMakeFiles/customer_tests.dir/__/src/customer.c.o
-[ 63%] Building C object test/CMakeFiles/customer_tests.dir/__/src/widget.c.o
-[ 68%] Building CXX object test/CMakeFiles/customer_tests.dir/customer.cpp.o
-[ 72%] Building CXX object test/CMakeFiles/customer_tests.dir/main.cpp.o
-[ 77%] Linking CXX executable customer_tests
-[ 77%] Built target customer_tests
-Scanning dependencies of target widget_tests
-[ 81%] Building C object test/CMakeFiles/widget_tests.dir/__/src/customer.c.o
-[ 86%] Building C object test/CMakeFiles/widget_tests.dir/__/src/widget.c.o
-[ 90%] Building CXX object test/CMakeFiles/widget_tests.dir/widget.cpp.o
-[ 95%] Building CXX object test/CMakeFiles/widget_tests.dir/main.cpp.o
-[100%] Linking CXX executable widget_tests
-[100%] Built target widget_tests
-</code></pre>
+HEAD<span class="w"> </span>is<span class="w"> </span>now<span class="w"> </span>at<span class="w"> </span>2fe3bd99<span class="w"> </span>Merge<span class="w"> </span>pull<span class="w"> </span>request<span class="w"> </span><span class="c1">#1433 from dsacre/fix-clang-warnings</span>
+<span class="o">[</span><span class="w"> </span><span class="m">33</span>%<span class="o">]</span><span class="w"> </span>No<span class="w"> </span>patch<span class="w"> </span>step<span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="s1">&#39;googletest&#39;</span>
+<span class="o">[</span><span class="w"> </span><span class="m">44</span>%<span class="o">]</span><span class="w"> </span>Performing<span class="w"> </span>update<span class="w"> </span>step<span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="s1">&#39;googletest&#39;</span>
+<span class="o">[</span><span class="w"> </span><span class="m">55</span>%<span class="o">]</span><span class="w"> </span>No<span class="w"> </span>configure<span class="w"> </span>step<span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="s1">&#39;googletest&#39;</span>
+<span class="o">[</span><span class="w"> </span><span class="m">66</span>%<span class="o">]</span><span class="w"> </span>No<span class="w"> </span>build<span class="w"> </span>step<span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="s1">&#39;googletest&#39;</span>
+<span class="o">[</span><span class="w"> </span><span class="m">77</span>%<span class="o">]</span><span class="w"> </span>No<span class="w"> </span>install<span class="w"> </span>step<span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="s1">&#39;googletest&#39;</span>
+<span class="o">[</span><span class="w"> </span><span class="m">88</span>%<span class="o">]</span><span class="w"> </span>No<span class="w"> </span><span class="nb">test</span><span class="w"> </span>step<span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="s1">&#39;googletest&#39;</span>
+<span class="o">[</span><span class="m">100</span>%<span class="o">]</span><span class="w"> </span>Completed<span class="w"> </span><span class="s1">&#39;googletest&#39;</span>
+<span class="o">[</span><span class="m">100</span>%<span class="o">]</span><span class="w"> </span>Built<span class="w"> </span>target<span class="w"> </span>googletest
+--<span class="w"> </span>Found<span class="w"> </span>PythonInterp:<span class="w"> </span>/usr/local/bin/python<span class="w"> </span><span class="o">(</span>found<span class="w"> </span>version<span class="w"> </span><span class="s2">&quot;2.7.16&quot;</span><span class="o">)</span>
+--<span class="w"> </span>Looking<span class="w"> </span><span class="k">for</span><span class="w"> </span>pthread.h
+--<span class="w"> </span>Looking<span class="w"> </span><span class="k">for</span><span class="w"> </span>pthread.h<span class="w"> </span>-<span class="w"> </span>found
+--<span class="w"> </span>Performing<span class="w"> </span>Test<span class="w"> </span>CMAKE_HAVE_LIBC_PTHREAD
+--<span class="w"> </span>Performing<span class="w"> </span>Test<span class="w"> </span>CMAKE_HAVE_LIBC_PTHREAD<span class="w"> </span>-<span class="w"> </span>Success
+--<span class="w"> </span>Found<span class="w"> </span>Threads:<span class="w"> </span>TRUE
+--<span class="w"> </span>Configuring<span class="w"> </span><span class="k">done</span>
+--<span class="w"> </span>Generating<span class="w"> </span><span class="k">done</span>
+--<span class="w"> </span>Build<span class="w"> </span>files<span class="w"> </span>have<span class="w"> </span>been<span class="w"> </span>written<span class="w"> </span>to:<span class="w"> </span>/Users/philipeaton/tmp/testy/build
+$<span class="w"> </span>make
+<span class="o">[</span><span class="w">  </span><span class="m">4</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>C<span class="w"> </span>object<span class="w"> </span>CMakeFiles/testy.dir/src/customer.c.o
+<span class="o">[</span><span class="w">  </span><span class="m">9</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>C<span class="w"> </span>object<span class="w"> </span>CMakeFiles/testy.dir/src/widget.c.o
+<span class="o">[</span><span class="w"> </span><span class="m">13</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>C<span class="w"> </span>object<span class="w"> </span>CMakeFiles/testy.dir/src/main.c.o
+<span class="o">[</span><span class="w"> </span><span class="m">18</span>%<span class="o">]</span><span class="w"> </span>Linking<span class="w"> </span>C<span class="w"> </span>executable<span class="w"> </span>testy
+<span class="o">[</span><span class="w"> </span><span class="m">18</span>%<span class="o">]</span><span class="w"> </span>Built<span class="w"> </span>target<span class="w"> </span>testy
+<span class="o">[</span><span class="w"> </span><span class="m">22</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>CXX<span class="w"> </span>object<span class="w"> </span>googletest-build/googlemock/gtest/CMakeFiles/gtest.dir/src/gtest-all.cc.o
+<span class="o">[</span><span class="w"> </span><span class="m">27</span>%<span class="o">]</span><span class="w"> </span>Linking<span class="w"> </span>CXX<span class="w"> </span>static<span class="w"> </span>library<span class="w"> </span>libgtest.a
+<span class="o">[</span><span class="w"> </span><span class="m">27</span>%<span class="o">]</span><span class="w"> </span>Built<span class="w"> </span>target<span class="w"> </span>gtest
+<span class="o">[</span><span class="w"> </span><span class="m">31</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>CXX<span class="w"> </span>object<span class="w"> </span>googletest-build/googlemock/CMakeFiles/gmock.dir/src/gmock-all.cc.o
+<span class="o">[</span><span class="w"> </span><span class="m">36</span>%<span class="o">]</span><span class="w"> </span>Linking<span class="w"> </span>CXX<span class="w"> </span>static<span class="w"> </span>library<span class="w"> </span>libgmock.a
+<span class="o">[</span><span class="w"> </span><span class="m">36</span>%<span class="o">]</span><span class="w"> </span>Built<span class="w"> </span>target<span class="w"> </span>gmock
+<span class="o">[</span><span class="w"> </span><span class="m">40</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>CXX<span class="w"> </span>object<span class="w"> </span>googletest-build/googlemock/CMakeFiles/gmock_main.dir/src/gmock_main.cc.o
+<span class="o">[</span><span class="w"> </span><span class="m">45</span>%<span class="o">]</span><span class="w"> </span>Linking<span class="w"> </span>CXX<span class="w"> </span>static<span class="w"> </span>library<span class="w"> </span>libgmock_main.a
+<span class="o">[</span><span class="w"> </span><span class="m">45</span>%<span class="o">]</span><span class="w"> </span>Built<span class="w"> </span>target<span class="w"> </span>gmock_main
+<span class="o">[</span><span class="w"> </span><span class="m">50</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>CXX<span class="w"> </span>object<span class="w"> </span>googletest-build/googlemock/gtest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o
+<span class="o">[</span><span class="w"> </span><span class="m">54</span>%<span class="o">]</span><span class="w"> </span>Linking<span class="w"> </span>CXX<span class="w"> </span>static<span class="w"> </span>library<span class="w"> </span>libgtest_main.a
+<span class="o">[</span><span class="w"> </span><span class="m">54</span>%<span class="o">]</span><span class="w"> </span>Built<span class="w"> </span>target<span class="w"> </span>gtest_main
+<span class="o">[</span><span class="w"> </span><span class="m">59</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>C<span class="w"> </span>object<span class="w"> </span>test/CMakeFiles/customer_tests.dir/__/src/customer.c.o
+<span class="o">[</span><span class="w"> </span><span class="m">63</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>C<span class="w"> </span>object<span class="w"> </span>test/CMakeFiles/customer_tests.dir/__/src/widget.c.o
+<span class="o">[</span><span class="w"> </span><span class="m">68</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>CXX<span class="w"> </span>object<span class="w"> </span>test/CMakeFiles/customer_tests.dir/customer.cpp.o
+<span class="o">[</span><span class="w"> </span><span class="m">72</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>CXX<span class="w"> </span>object<span class="w"> </span>test/CMakeFiles/customer_tests.dir/main.cpp.o
+<span class="o">[</span><span class="w"> </span><span class="m">77</span>%<span class="o">]</span><span class="w"> </span>Linking<span class="w"> </span>CXX<span class="w"> </span>executable<span class="w"> </span>customer_tests
+<span class="o">[</span><span class="w"> </span><span class="m">77</span>%<span class="o">]</span><span class="w"> </span>Built<span class="w"> </span>target<span class="w"> </span>customer_tests
+Scanning<span class="w"> </span>dependencies<span class="w"> </span>of<span class="w"> </span>target<span class="w"> </span>widget_tests
+<span class="o">[</span><span class="w"> </span><span class="m">81</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>C<span class="w"> </span>object<span class="w"> </span>test/CMakeFiles/widget_tests.dir/__/src/customer.c.o
+<span class="o">[</span><span class="w"> </span><span class="m">86</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>C<span class="w"> </span>object<span class="w"> </span>test/CMakeFiles/widget_tests.dir/__/src/widget.c.o
+<span class="o">[</span><span class="w"> </span><span class="m">90</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>CXX<span class="w"> </span>object<span class="w"> </span>test/CMakeFiles/widget_tests.dir/widget.cpp.o
+<span class="o">[</span><span class="w"> </span><span class="m">95</span>%<span class="o">]</span><span class="w"> </span>Building<span class="w"> </span>CXX<span class="w"> </span>object<span class="w"> </span>test/CMakeFiles/widget_tests.dir/main.cpp.o
+<span class="o">[</span><span class="m">100</span>%<span class="o">]</span><span class="w"> </span>Linking<span class="w"> </span>CXX<span class="w"> </span>executable<span class="w"> </span>widget_tests
+<span class="o">[</span><span class="m">100</span>%<span class="o">]</span><span class="w"> </span>Built<span class="w"> </span>target<span class="w"> </span>widget_tests
+</pre></div>
 <p>After running <code>cmake</code> and <code>make</code>, we're finally ready to run <code>ctest</code>.</p>
-<pre><code class="hljs bash">$ ctest
-Test project /Users/philipeaton/tmp/testy/build
-    Start 1: customer
-1/2 Test #1: customer ..........................   Passed    0.01 sec
-    Start 2: widget
-2/2 Test #2: widget ............................   Passed    0.00 sec
+<div class="highlight"><pre><span></span>$<span class="w"> </span>ctest
+Test<span class="w"> </span>project<span class="w"> </span>/Users/philipeaton/tmp/testy/build
+<span class="w">    </span>Start<span class="w"> </span><span class="m">1</span>:<span class="w"> </span>customer
+<span class="m">1</span>/2<span class="w"> </span>Test<span class="w"> </span><span class="c1">#1: customer ..........................   Passed    0.01 sec</span>
+<span class="w">    </span>Start<span class="w"> </span><span class="m">2</span>:<span class="w"> </span>widget
+<span class="m">2</span>/2<span class="w"> </span>Test<span class="w"> </span><span class="c1">#2: widget ............................   Passed    0.00 sec</span>
 
-100% tests passed, 0 tests failed out of 2
+<span class="m">100</span>%<span class="w"> </span>tests<span class="w"> </span>passed,<span class="w"> </span><span class="m">0</span><span class="w"> </span>tests<span class="w"> </span>failed<span class="w"> </span>out<span class="w"> </span>of<span class="w"> </span><span class="m">2</span>
 
-Total Test time (real) =   0.01 sec
-</code></pre>
+Total<span class="w"> </span>Test<span class="w"> </span><span class="nb">time</span><span class="w"> </span><span class="o">(</span>real<span class="o">)</span><span class="w"> </span><span class="o">=</span><span class="w">   </span><span class="m">0</span>.01<span class="w"> </span>sec
+</pre></div>
 <p>Now we're in a good place with most of the challenges of unit testing
 C code (i.e. ignoring mocks) past us.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">In preparation for a couple new articles on some C projects, here&#39;s a foundational post on building C code and writing/running unit tests with gtest and cmake <a href="https://t.co/aMVyr7LO73">https://t.co/aMVyr7LO73</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1167826536298405894?ref_src=twsrc%5Etfw">August 31, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
@@ -1022,7 +1021,6 @@ C code (i.e. ignoring mocks) past us.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

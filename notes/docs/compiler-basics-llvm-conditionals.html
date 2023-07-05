@@ -6,7 +6,6 @@
     <title>Writing a lisp compiler from scratch in JavaScript: 4. LLVM conditionals and compiling fibonacci | notes.eatonphil.com</title>
     <meta name="description" content="Writing a lisp compiler from scratch in JavaScript: 4. LLVM conditionals and compiling fibonacci" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -67,19 +66,19 @@
 support compiling conditionals such that we can support an
 implementation of the fibonacci algorithm.</p>
 <p>Specifically we're aiming for the following:</p>
-<pre><code class="hljs bash">$ cat tests/fib.lisp
-(def fib (n)
-     (if (&lt; n 2)
-         n
-       (+ (fib (- n 1)) (fib (- n 2)))))
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>tests/fib.lisp
+<span class="o">(</span>def<span class="w"> </span>fib<span class="w"> </span><span class="o">(</span>n<span class="o">)</span>
+<span class="w">     </span><span class="o">(</span><span class="k">if</span><span class="w"> </span><span class="o">(</span>&lt;<span class="w"> </span>n<span class="w"> </span><span class="m">2</span><span class="o">)</span>
+<span class="w">         </span>n
+<span class="w">       </span><span class="o">(</span>+<span class="w"> </span><span class="o">(</span>fib<span class="w"> </span><span class="o">(</span>-<span class="w"> </span>n<span class="w"> </span><span class="m">1</span><span class="o">))</span><span class="w"> </span><span class="o">(</span>fib<span class="w"> </span><span class="o">(</span>-<span class="w"> </span>n<span class="w"> </span><span class="m">2</span><span class="o">)))))</span>
 
-(def main ()
-     (fib 8))
-$ node src/ulisp.js tests/fib.lisp
-$ ./build/prog
-$ echo $?
-21
-</code></pre>
+<span class="o">(</span>def<span class="w"> </span>main<span class="w"> </span><span class="o">()</span>
+<span class="w">     </span><span class="o">(</span>fib<span class="w"> </span><span class="m">8</span><span class="o">))</span>
+$<span class="w"> </span>node<span class="w"> </span>src/ulisp.js<span class="w"> </span>tests/fib.lisp
+$<span class="w"> </span>./build/prog
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">21</span>
+</pre></div>
 <p>To do this we'll have to add the <code><</code>, <code>-</code> and
 <code>if</code> built-ins.</p>
 <p><a href="https://github.com/eatonphil/ulisp">All source code is available on Github</a>.</p>
@@ -88,60 +87,60 @@ both arithmetic operations that produce an integer. We simply add a
 mapping of <code>-</code> to the LLVM instruction <code>sub</code> so
 our LLVM backend constructor (<code>src/backends/llvm.js</code>) looks
 like this:</p>
-<pre><code class="hljs javascript">...
+<div class="highlight"><pre><span></span><span class="p">...</span>
 
-class Compiler {
-  constructor() {
-    this.outBuffer = [];
-    this.primitiveFunctions = {
-      def: this.compileDefine.bind(this),
-      begin: this.compileBegin.bind(this),
-      &#39;if&#39;: this.compileIf.bind(this),
-      &#39;+&#39;: this.compileOp(&#39;add&#39;),
-      &#39;-&#39;: this.compileOp(&#39;sub&#39;),
+<span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">def</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileDefine</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="nx">begin</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileBegin</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;if&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileIf</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;+&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;add&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;-&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;sub&#39;</span><span class="p">),</span>
 
-...
-</code></pre>
+<span class="p">...</span>
+</pre></div>
 <h3 id="less-than">Less than</h3><p>The <code><</code> builtin is a logical operation. These are handled
 differently from arithmetic operations in LLVM IR. A logical operation
 looks like this:</p>
-<pre><code class="hljs llvm">%3 = icmp slt i32 %1, %2
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nv nv-Anonymous">%3</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">icmp</span><span class="w"> </span><span class="k">slt</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv nv-Anonymous">%1</span><span class="p">,</span><span class="w"> </span><span class="nv nv-Anonymous">%2</span>
+</pre></div>
 <p>This says that we're doing an integer comparison, <code>icmp</code>,
 (with signed less than, <code>slt</code>) on the <code>i32</code>
 integers in variables <code>%1</code> and <code>%2</code>.</p>
 <p>We can shim this into our existing <code>compileOp</code> helper like
 so:</p>
-<pre><code class="hljs javascript">...
+<div class="highlight"><pre><span></span><span class="p">...</span>
 
-class Compiler {
-  constructor() {
-    this.outBuffer = [];
-    this.primitiveFunctions = {
-      def: this.compileDefine.bind(this),
-      begin: this.compileBegin.bind(this),
-      &#39;if&#39;: this.compileIf.bind(this),
-      &#39;+&#39;: this.compileOp(&#39;add&#39;),
-      &#39;-&#39;: this.compileOp(&#39;sub&#39;),
-      &#39;&lt;&#39;: this.compileOp(&#39;icmp slt&#39;),
+<span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">def</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileDefine</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="nx">begin</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileBegin</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;if&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileIf</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;+&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;add&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;-&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;sub&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;&lt;&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;icmp slt&#39;</span><span class="p">),</span>
 
-...
-</code></pre>
+<span class="p">...</span>
+</pre></div>
 <h3 id="conditionals">Conditionals</h3><p>The last part we need to add is support for conditional execution of
 code at runtime. Assembly-like languages handle this with "jumps" and
 "labels". Jumping causes execution to continue at the address being
 jumped to (instead of just the line following the jump
 instruction). Labels give you a way of naming an address instead of
 having to calculate it yourself. Our code will look vaguely like this:</p>
-<pre><code class="hljs llvm">  %test = icmp slt i32 %n, %1
-  br i1 %test, label %iftrue, label %iffalse
-iftrue:
-  ; do true stuff
-iffalse:
-  ; do false stuff
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nv">%test</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">icmp</span><span class="w"> </span><span class="k">slt</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%n</span><span class="p">,</span><span class="w"> </span><span class="nv nv-Anonymous">%1</span>
+<span class="w">  </span><span class="k">br</span><span class="w"> </span><span class="kt">i1</span><span class="w"> </span><span class="nv">%test</span><span class="p">,</span><span class="w"> </span><span class="kt">label</span><span class="w"> </span><span class="nv">%iftrue</span><span class="p">,</span><span class="w"> </span><span class="kt">label</span><span class="w"> </span><span class="nv">%iffalse</span>
+<span class="nl">iftrue:</span>
+<span class="w">  </span><span class="c">; do true stuff</span>
+<span class="nl">iffalse:</span>
+<span class="w">  </span><span class="c">; do false stuff</span>
 
-  ; do next stuff
-</code></pre>
+<span class="w">  </span><span class="c">; do next stuff</span>
+</pre></div>
 <p>The <code>br</code> instruction can jump (or branch) conditionally or
 unconditionally. This snippet demonstrates a conditional jump.</p>
 <p>But there are a few things wrong with this pseudo-code. First off if
@@ -150,90 +149,90 @@ section once finished. Second, LLVM IR actually requires all labels to
 end with a branch instruction. So we'll add a new label after the true
 and false section called <code>ifresult</code> and jump to it
 unconditionally after both.</p>
-<pre><code class="hljs llvm">  %test = icmp slt i32 %n, %1
-  br i1 %test, label %iftrue, label %iffalse
-iftrue:
-  ; do true stuff
-  br label %ifresult
-iffalse:
-  ; do false stuff
-  br label %ifresult
-ifresult:
-  ; do next stuff
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nv">%test</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">icmp</span><span class="w"> </span><span class="k">slt</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%n</span><span class="p">,</span><span class="w"> </span><span class="nv nv-Anonymous">%1</span>
+<span class="w">  </span><span class="k">br</span><span class="w"> </span><span class="kt">i1</span><span class="w"> </span><span class="nv">%test</span><span class="p">,</span><span class="w"> </span><span class="kt">label</span><span class="w"> </span><span class="nv">%iftrue</span><span class="p">,</span><span class="w"> </span><span class="kt">label</span><span class="w"> </span><span class="nv">%iffalse</span>
+<span class="nl">iftrue:</span>
+<span class="w">  </span><span class="c">; do true stuff</span>
+<span class="w">  </span><span class="k">br</span><span class="w"> </span><span class="kt">label</span><span class="w"> </span><span class="nv">%ifresult</span>
+<span class="nl">iffalse:</span>
+<span class="w">  </span><span class="c">; do false stuff</span>
+<span class="w">  </span><span class="k">br</span><span class="w"> </span><span class="kt">label</span><span class="w"> </span><span class="nv">%ifresult</span>
+<span class="nl">ifresult:</span>
+<span class="w">  </span><span class="c">; do next stuff</span>
+</pre></div>
 <h3 id="scope">Scope</h3><p>One last thing we'll need to do before implementing the code
 generation for this is to update our <code>Scope</code> class to
 accept symbol prefixes so we can pass our labels through Scope to make
 sure they are unique but still have useful names.</p>
-<pre><code class="hljs javascript">...
+<div class="highlight"><pre><span></span><span class="p">...</span>
 
-class Scope {
+<span class="kd">class</span><span class="w"> </span><span class="nx">Scope</span><span class="w"> </span><span class="p">{</span>
 
-  ...
+<span class="w">  </span><span class="p">...</span>
 
-  symbol(prefix = &#39;sym&#39;) {
-    const nth = Object.keys(this.locals).length + 1;
-    return this.register(prefix + nth);
-  }
+<span class="w">  </span><span class="nx">symbol</span><span class="p">(</span><span class="nx">prefix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;sym&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">nth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">locals</span><span class="p">).</span><span class="nx">length</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">1</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">register</span><span class="p">(</span><span class="nx">prefix</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">nth</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-...
-</code></pre>
+<span class="p">...</span>
+</pre></div>
 <h3 id="compileif">compileIf</h3><p>Now we can add a primitive function mapping <code>if</code> to a new
 <code>compileIf</code> helper and implement the helper.</p>
-<pre><code class="hljs javascript">...
+<div class="highlight"><pre><span></span><span class="p">...</span>
 
-class Compiler {
-  constructor() {
-    this.outBuffer = [];
-    this.primitiveFunctions = {
-      def: this.compileDefine.bind(this),
-      begin: this.compileBegin.bind(this),
-      &#39;+&#39;: this.compileOp(&#39;add&#39;),
-      &#39;-&#39;: this.compileOp(&#39;sub&#39;),
-      &#39;&lt;&#39;: this.compileOp(&#39;icmp slt&#39;),
-      &#39;if&#39;: this.compileIf.bind(this),
+<span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">def</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileDefine</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="nx">begin</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileBegin</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;+&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;add&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;-&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;sub&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;&lt;&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;icmp slt&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;if&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileIf</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
 
-...
+<span class="p">...</span>
 
-  compileIf([test, thenBlock, elseBlock], destination, scope) {
-    const testVariable = scope.symbol();
+<span class="w">  </span><span class="nx">compileIf</span><span class="p">([</span><span class="nx">test</span><span class="p">,</span><span class="w"> </span><span class="nx">thenBlock</span><span class="p">,</span><span class="w"> </span><span class="nx">elseBlock</span><span class="p">],</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">testVariable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">();</span>
 
-    // Compile expression and branch
-    this.compileExpression(test, testVariable, scope);
-    const trueLabel = scope.symbol(&#39;iftrue&#39;);
-    const falseLabel = scope.symbol(&#39;iffalse&#39;);
-    this.emit(1, `br i1 %${testVariable}, label %${trueLabel}, label %${falseLabel}`);
+<span class="w">    </span><span class="c1">// Compile expression and branch</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">test</span><span class="p">,</span><span class="w"> </span><span class="nx">testVariable</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">trueLabel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">(</span><span class="s1">&#39;iftrue&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">falseLabel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">(</span><span class="s1">&#39;iffalse&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`br i1 %</span><span class="si">${</span><span class="nx">testVariable</span><span class="si">}</span><span class="sb">, label %</span><span class="si">${</span><span class="nx">trueLabel</span><span class="si">}</span><span class="sb">, label %</span><span class="si">${</span><span class="nx">falseLabel</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 
-    // Compile true section
-    this.emit(0, trueLabel + &#39;:&#39;);
-    this.compileExpression(thenBlock, destination, scope);
-    const endLabel = scope.symbol(&#39;ifend&#39;);
-    this.emit(1, &#39;br label %&#39; + endLabel);
-    this.emit(0, falseLabel + &#39;:&#39;);
+<span class="w">    </span><span class="c1">// Compile true section</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="nx">trueLabel</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39;:&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">thenBlock</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">endLabel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">(</span><span class="s1">&#39;ifend&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;br label %&#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">endLabel</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="nx">falseLabel</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39;:&#39;</span><span class="p">);</span>
 
-    // Compile false section
-    this.compileExpression(elseBlock, destination, scope);
-    this.emit(1, &#39;br label %&#39; + endLabel);
+<span class="w">    </span><span class="c1">// Compile false section</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">elseBlock</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;br label %&#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">endLabel</span><span class="p">);</span>
 
-    // Compile cleanup
-    this.emit(0, endLabel + &#39;:&#39;);
-  }
-...
-</code></pre>
+<span class="w">    </span><span class="c1">// Compile cleanup</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="nx">endLabel</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39;:&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">...</span>
+</pre></div>
 <p>Note that this code generation sends the <code>destination<code>
 variable into both the true and false sections. Let's try it out.</p>
-<pre><code class="hljs bash">$ node src/ulisp.js tests/fib.lisp
-llc: error: llc: build/prog.ll:19:3: error: multiple definition of local value named &#39;sym5&#39;
-  %sym5 = add i32 %sym15, %sym16
-  ^
+<div class="highlight"><pre><span></span>$<span class="w"> </span>node<span class="w"> </span>src/ulisp.js<span class="w"> </span>tests/fib.lisp
+llc:<span class="w"> </span>error:<span class="w"> </span>llc:<span class="w"> </span>build/prog.ll:19:3:<span class="w"> </span>error:<span class="w"> </span>multiple<span class="w"> </span>definition<span class="w"> </span>of<span class="w"> </span><span class="nb">local</span><span class="w"> </span>value<span class="w"> </span>named<span class="w"> </span><span class="s1">&#39;sym5&#39;</span>
+<span class="w">  </span>%sym5<span class="w"> </span><span class="o">=</span><span class="w"> </span>add<span class="w"> </span>i32<span class="w"> </span>%sym15,<span class="w"> </span>%sym16
+<span class="w">  </span>^
 child_process.js:665
-    throw err;
-    ^
+<span class="w">    </span>throw<span class="w"> </span>err<span class="p">;</span>
+<span class="w">    </span>^
 
-Error: Command failed: llc -o build/prog.s build/prog.ll
-llc: error: llc: build/prog.ll:19:3: error: multiple definition of local value named &#39;sym5&#39;
-  %sym5 = add i32 %sym15, %sym16
-</code></pre>
+Error:<span class="w"> </span>Command<span class="w"> </span>failed:<span class="w"> </span>llc<span class="w"> </span>-o<span class="w"> </span>build/prog.s<span class="w"> </span>build/prog.ll
+llc:<span class="w"> </span>error:<span class="w"> </span>llc:<span class="w"> </span>build/prog.ll:19:3:<span class="w"> </span>error:<span class="w"> </span>multiple<span class="w"> </span>definition<span class="w"> </span>of<span class="w"> </span><span class="nb">local</span><span class="w"> </span>value<span class="w"> </span>named<span class="w"> </span><span class="s1">&#39;sym5&#39;</span>
+<span class="w">  </span>%sym5<span class="w"> </span><span class="o">=</span><span class="w"> </span>add<span class="w"> </span>i32<span class="w"> </span>%sym15,<span class="w"> </span>%sym16
+</pre></div>
 <p>That's annoying. An unfortunate aspect of LLVM's required
 single-static assignment form is that you cannot reuse variable names
 within a function even if it is not possible for the variable to be
@@ -245,55 +244,55 @@ location afterward to store it in the destination variable.</p>
 <code>store</code> to store memory at a stack address, and
 <code>load</code> to read the value at a stack address into a
 variable. Here's a simple example:</p>
-<pre><code class="hljs llvm">%myvar = add i32 42, 0
-%stackaddress = alloca i32, align 4
-store i32 %myvar, i32* %stackaddress, align 4
-%newvar = load i32, i32* %stackaddress, align 4
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nv">%myvar</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">add</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="m">42</span><span class="p">,</span><span class="w"> </span><span class="m">0</span>
+<span class="nv">%stackaddress</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">alloca</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="k">align</span><span class="w"> </span><span class="m">4</span>
+<span class="k">store</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="nv">%myvar</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="p">*</span><span class="w"> </span><span class="nv">%stackaddress</span><span class="p">,</span><span class="w"> </span><span class="k">align</span><span class="w"> </span><span class="m">4</span>
+<span class="nv">%newvar</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">load</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="p">*</span><span class="w"> </span><span class="nv">%stackaddress</span><span class="p">,</span><span class="w"> </span><span class="k">align</span><span class="w"> </span><span class="m">4</span>
+</pre></div>
 <p>Such that <code>newvar</code> is now 42.</p>
 <h3 id="compileif-again">compileIf again</h3><p>Applying this back to our <code>compileIf</code> helper gives us:</p>
-<pre><code class="hljs javascript">...
+<div class="highlight"><pre><span></span><span class="p">...</span>
 
-  compileIf([test, thenBlock, elseBlock], destination, scope) {
-    const testVariable = scope.symbol();
-    const result = scope.symbol(&#39;ifresult&#39;);
-    // Space for result
-    this.emit(1, `%${result} = alloca i32, align 4`);
+<span class="w">  </span><span class="nx">compileIf</span><span class="p">([</span><span class="nx">test</span><span class="p">,</span><span class="w"> </span><span class="nx">thenBlock</span><span class="p">,</span><span class="w"> </span><span class="nx">elseBlock</span><span class="p">],</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">testVariable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">();</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">(</span><span class="s1">&#39;ifresult&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">// Space for result</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`%</span><span class="si">${</span><span class="nx">result</span><span class="si">}</span><span class="sb"> = alloca i32, align 4`</span><span class="p">);</span>
 
-    // Compile expression and branch
-    this.compileExpression(test, testVariable, scope);
-    const trueLabel = scope.symbol(&#39;iftrue&#39;);
-    const falseLabel = scope.symbol(&#39;iffalse&#39;);
-    this.emit(1, `br i1 %${testVariable}, label %${trueLabel}, label %${falseLabel}`);
+<span class="w">    </span><span class="c1">// Compile expression and branch</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">test</span><span class="p">,</span><span class="w"> </span><span class="nx">testVariable</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">trueLabel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">(</span><span class="s1">&#39;iftrue&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">falseLabel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">(</span><span class="s1">&#39;iffalse&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`br i1 %</span><span class="si">${</span><span class="nx">testVariable</span><span class="si">}</span><span class="sb">, label %</span><span class="si">${</span><span class="nx">trueLabel</span><span class="si">}</span><span class="sb">, label %</span><span class="si">${</span><span class="nx">falseLabel</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 
-    // Compile true section
-    this.emit(0, trueLabel + &#39;:&#39;);
-    const tmp1 = scope.symbol();
-    this.compileExpression(thenBlock, tmp1, scope);
-    this.emit(1, `store i32 %${tmp1}, i32* %${result}, align 4`);
-    const endLabel = scope.symbol(&#39;ifend&#39;);
-    this.emit(1, &#39;br label %&#39; + endLabel);
-    this.emit(0, falseLabel + &#39;:&#39;);
+<span class="w">    </span><span class="c1">// Compile true section</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="nx">trueLabel</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39;:&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">tmp1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">();</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">thenBlock</span><span class="p">,</span><span class="w"> </span><span class="nx">tmp1</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`store i32 %</span><span class="si">${</span><span class="nx">tmp1</span><span class="si">}</span><span class="sb">, i32* %</span><span class="si">${</span><span class="nx">result</span><span class="si">}</span><span class="sb">, align 4`</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">endLabel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">(</span><span class="s1">&#39;ifend&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;br label %&#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">endLabel</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="nx">falseLabel</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39;:&#39;</span><span class="p">);</span>
 
-    // Compile false section
-    const tmp2 = scope.symbol();
-    this.compileExpression(elseBlock, tmp2, scope);
-    this.emit(1, `store i32 %${tmp2}, i32* %${result}, align 4`);
-    this.emit(1, &#39;br label %&#39; + endLabel);
+<span class="w">    </span><span class="c1">// Compile false section</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">tmp2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">();</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">elseBlock</span><span class="p">,</span><span class="w"> </span><span class="nx">tmp2</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`store i32 %</span><span class="si">${</span><span class="nx">tmp2</span><span class="si">}</span><span class="sb">, i32* %</span><span class="si">${</span><span class="nx">result</span><span class="si">}</span><span class="sb">, align 4`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;br label %&#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">endLabel</span><span class="p">);</span>
 
-    // Compile cleanup
-    this.emit(0, endLabel + &#39;:&#39;);
-    this.emit(1, `%${destination} = load i32, i32* %${result}, align 4`);
-  }
+<span class="w">    </span><span class="c1">// Compile cleanup</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="nx">endLabel</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39;:&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`%</span><span class="si">${</span><span class="nx">destination</span><span class="si">}</span><span class="sb"> = load i32, i32* %</span><span class="si">${</span><span class="nx">result</span><span class="si">}</span><span class="sb">, align 4`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-...
-</code></pre>
+<span class="p">...</span>
+</pre></div>
 <h3 id="trying-it-out">Trying it out</h3><p>We run our compiler one more time:</p>
-<pre><code class="hljs bash">$ node src/ulisp.js tests/fib.lisp
-$ ./build/prog
-$ echo $?
-21
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>node<span class="w"> </span>src/ulisp.js<span class="w"> </span>tests/fib.lisp
+$<span class="w"> </span>./build/prog
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">21</span>
+</pre></div>
 <p>And get what we expect!</p>
 <h3 id="next-up">Next up</h3><ul>
 <li>Tail call optimization</li>
@@ -937,7 +936,6 @@ $ echo $?
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

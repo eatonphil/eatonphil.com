@@ -6,7 +6,6 @@
     <title>A minimal RocksDB example with Zig | notes.eatonphil.com</title>
     <meta name="description" content="A minimal RocksDB example with Zig" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -67,18 +66,18 @@ suggestions, <a href="mailto:phil@eatonphil.com">send me a note</a>!)</p>
 explanations. By the end we'll have a simple CLI over a durable store
 that is able to set keys, get keys, and list all key-value pairs
 (optionally filtered on a key prefix).</p>
-<pre><code class="hljs bash">$ ./kv set x 1
-$ ./kv get x
-1
-$ ./kv set y 22
-$ ./kv list x
-x = 1
-$ ./kv list y
-y = 22
-$ ./kv list
-x = 1
-y = 22
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>./kv<span class="w"> </span><span class="nb">set</span><span class="w"> </span>x<span class="w"> </span><span class="m">1</span>
+$<span class="w"> </span>./kv<span class="w"> </span>get<span class="w"> </span>x
+<span class="m">1</span>
+$<span class="w"> </span>./kv<span class="w"> </span><span class="nb">set</span><span class="w"> </span>y<span class="w"> </span><span class="m">22</span>
+$<span class="w"> </span>./kv<span class="w"> </span>list<span class="w"> </span>x
+<span class="nv">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span>
+$<span class="w"> </span>./kv<span class="w"> </span>list<span class="w"> </span>y
+<span class="nv">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">22</span>
+$<span class="w"> </span>./kv<span class="w"> </span>list
+<span class="nv">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span>
+<span class="nv">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">22</span>
+</pre></div>
 <p>Basic stuff!</p>
 <p>You can find the code for this post in the <a href="https://github.com/eatonphil/zigrocks">rocksdb.zig file on
 Github</a>. To simplify things,
@@ -108,37 +107,37 @@ think.</p>
 verify the foreign functions we call. We'll also import the standard
 library that we'll use later.</p>
 <p>Aside from <code>build.zig</code> below, all code should be in <code>main.zig</code>.</p>
-<pre><code class="hljs zig">const std = @import(&quot;std&quot;);
+<div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">std</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@import</span><span class="p">(</span><span class="s">&quot;std&quot;</span><span class="p">);</span>
 
-const rdb = @cImport(@cInclude(&quot;rocksdb/c.h&quot;));
-</code></pre>
+<span class="kr">const</span><span class="w"> </span><span class="n">rdb</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@cImport</span><span class="p">(</span><span class="nb">@cInclude</span><span class="p">(</span><span class="s">&quot;rocksdb/c.h&quot;</span><span class="p">));</span>
+</pre></div>
 <p class="note">
   Don't read anything into the `@` other than that this is a compiler
   builtin. It's used for imports, casting, and other metaprogramming.
 </p><p>Now we can build our wrapper. It will be a Zig struct that contains a
 pointer to the RocksDB instance.</p>
-<pre><code class="hljs zig">const RocksDB = struct {
-    db: *rdb.rocksdb_t,
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">RocksDB</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">db</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_t</span><span class="p">,</span>
+</pre></div>
 <p>To open a database we'll call <code>rocksdb_open()</code> with a directory name
 for RocksDB to store data. And we'll tell RocksDB to create the
 database if it doesn't already exist.</p>
-<pre><code class="hljs zig">    fn open(dir: []const u8) struct { val: ?RocksDB, err: ?[]u8 } {
-        var options: ?*rdb.rocksdb_options_t = rdb.rocksdb_options_create();
-        rdb.rocksdb_options_set_create_if_missing(options, 1);
-        var err: ?[*:0]u8 = null;
-        var db: ?*rdb.rocksdb_t = rdb.rocksdb_open(options, dir.ptr, &amp;err);
-        if (err != null) {
-            return .{ .val = null, .err = std.mem.span(err) };
-        }
-        return .{ .val = RocksDB{ .db = db.? }, .err = null };
-    }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">open</span><span class="p">(</span><span class="n">dir</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">val</span><span class="o">:</span><span class="w"> </span><span class="o">?</span><span class="n">RocksDB</span><span class="p">,</span><span class="w"> </span><span class="n">err</span><span class="o">:</span><span class="w"> </span><span class="o">?</span><span class="p">[]</span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">options</span><span class="o">:</span><span class="w"> </span><span class="o">?*</span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_options_t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_options_create</span><span class="p">();</span>
+<span class="w">        </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_options_set_create_if_missing</span><span class="p">(</span><span class="n">options</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">err</span><span class="o">:</span><span class="w"> </span><span class="o">?</span><span class="p">[</span><span class="o">*:</span><span class="mi">0</span><span class="p">]</span><span class="kt">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">db</span><span class="o">:</span><span class="w"> </span><span class="o">?*</span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_open</span><span class="p">(</span><span class="n">options</span><span class="p">,</span><span class="w"> </span><span class="n">dir</span><span class="p">.</span><span class="n">ptr</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">err</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="p">.{</span><span class="w"> </span><span class="p">.</span><span class="n">val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">span</span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="w"> </span><span class="p">};</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">.{</span><span class="w"> </span><span class="p">.</span><span class="n">val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RocksDB</span><span class="p">{</span><span class="w"> </span><span class="p">.</span><span class="n">db</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">db</span><span class="p">.</span><span class="o">?</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">.</span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
 <p>Finally, we close with <code>rocksdb_close()</code>:</p>
-<pre><code class="hljs zig">    fn close(self: RocksDB) void {
-        rdb.rocksdb_close(self.db);
-    }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">close</span><span class="p">(</span><span class="n">self</span><span class="o">:</span><span class="w"> </span><span class="n">RocksDB</span><span class="p">)</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_close</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">db</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
 <p>The RocksDB aspect of this is easy. But there's a bunch of
 Zig-specific details I should (try to) explain.</p>
 <h4 id="return-types">Return types</h4><p>Zig has a cool
@@ -196,50 +195,50 @@ instances of the anonymous <em>type</em> are created per function and two
 anonymous structs that are structurally identical but referenced in
 different functions are not actually type-equal.</p>
 <p>So this doesn't compile:</p>
-<pre><code class="hljs zig">$ cat test.zig
-fn doA() struct { y: u8 } {
-  return .{.y = 1};
-}
+<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="n">cat</span><span class="w"> </span><span class="k">test</span><span class="p">.</span><span class="n">zig</span>
+<span class="k">fn</span><span class="w"> </span><span class="n">doA</span><span class="p">()</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">y</span><span class="o">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">.{.</span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">};</span>
+<span class="p">}</span>
 
-fn doB() struct { y: u8 } {
-  return doA();
-}
+<span class="k">fn</span><span class="w"> </span><span class="n">doB</span><span class="p">()</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">y</span><span class="o">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">doA</span><span class="p">();</span>
+<span class="p">}</span>
 
-pub fn main() !void {
-  _ = doB();
-}
-$ zig build-exe test.zig
-test.zig:5:15: error: expected type &#39;test.doB__struct_2890&#39;, found &#39;test.doA__struct_3878&#39;
-    return doA();
-           ~~~^~
-test.zig:1:10: note: struct declared here
-fn doA() struct { y: u8 } {
-         ^~~~~~~~~~~~~~~~
-test.zig:4:10: note: struct declared here
-fn doB() struct { y: u8 } {
-         ^~~~~~~~~~~~~~~~
-test.zig:4:10: note: function return type declared here
-fn doB() struct { y: u8 } {
-         ^~~~~~~~~~~~~~~~
-referenced by:
-    main: test.zig:8:9
-    callMain: /whatever/lib/std/start.zig:606:32
-    remaining reference traces hidden; use &#39;-freference-trace&#39; to see all reference traces
-</code></pre>
+<span class="kr">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="n">main</span><span class="p">()</span><span class="w"> </span><span class="o">!</span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">doB</span><span class="p">();</span>
+<span class="p">}</span>
+<span class="err">$</span><span class="w"> </span><span class="n">zig</span><span class="w"> </span><span class="n">build</span><span class="o">-</span><span class="n">exe</span><span class="w"> </span><span class="k">test</span><span class="p">.</span><span class="n">zig</span>
+<span class="k">test</span><span class="p">.</span><span class="n">zig</span><span class="o">:</span><span class="mi">5</span><span class="o">:</span><span class="mi">15</span><span class="o">:</span><span class="w"> </span><span class="k">error</span><span class="o">:</span><span class="w"> </span><span class="n">expected</span><span class="w"> </span><span class="kt">type</span><span class="w"> </span><span class="err">&#39;</span><span class="k">test</span><span class="p">.</span><span class="n">doB__struct_2890</span><span class="err">&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">found</span><span class="w"> </span><span class="err">&#39;</span><span class="k">test</span><span class="p">.</span><span class="n">doA__struct_3878</span><span class="err">&#39;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">doA</span><span class="p">();</span>
+<span class="w">           </span><span class="o">~~~^~</span>
+<span class="k">test</span><span class="p">.</span><span class="n">zig</span><span class="o">:</span><span class="mi">1</span><span class="o">:</span><span class="mi">10</span><span class="o">:</span><span class="w"> </span><span class="n">note</span><span class="o">:</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="n">declared</span><span class="w"> </span><span class="n">here</span>
+<span class="k">fn</span><span class="w"> </span><span class="n">doA</span><span class="p">()</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">y</span><span class="o">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">{</span>
+<span class="w">         </span><span class="o">^~~~~~~~~~~~~~~~</span>
+<span class="k">test</span><span class="p">.</span><span class="n">zig</span><span class="o">:</span><span class="mi">4</span><span class="o">:</span><span class="mi">10</span><span class="o">:</span><span class="w"> </span><span class="n">note</span><span class="o">:</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="n">declared</span><span class="w"> </span><span class="n">here</span>
+<span class="k">fn</span><span class="w"> </span><span class="n">doB</span><span class="p">()</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">y</span><span class="o">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">{</span>
+<span class="w">         </span><span class="o">^~~~~~~~~~~~~~~~</span>
+<span class="k">test</span><span class="p">.</span><span class="n">zig</span><span class="o">:</span><span class="mi">4</span><span class="o">:</span><span class="mi">10</span><span class="o">:</span><span class="w"> </span><span class="n">note</span><span class="o">:</span><span class="w"> </span><span class="n">function</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kt">type</span><span class="w"> </span><span class="n">declared</span><span class="w"> </span><span class="n">here</span>
+<span class="k">fn</span><span class="w"> </span><span class="n">doB</span><span class="p">()</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">y</span><span class="o">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">{</span>
+<span class="w">         </span><span class="o">^~~~~~~~~~~~~~~~</span>
+<span class="n">referenced</span><span class="w"> </span><span class="n">by</span><span class="o">:</span>
+<span class="w">    </span><span class="n">main</span><span class="o">:</span><span class="w"> </span><span class="k">test</span><span class="p">.</span><span class="n">zig</span><span class="o">:</span><span class="mi">8</span><span class="o">:</span><span class="mi">9</span>
+<span class="w">    </span><span class="n">callMain</span><span class="o">:</span><span class="w"> </span><span class="o">/</span><span class="n">whatever</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">std</span><span class="o">/</span><span class="n">start</span><span class="p">.</span><span class="n">zig</span><span class="o">:</span><span class="mi">606</span><span class="o">:</span><span class="mi">32</span>
+<span class="w">    </span><span class="n">remaining</span><span class="w"> </span><span class="n">reference</span><span class="w"> </span><span class="n">traces</span><span class="w"> </span><span class="n">hidden</span><span class="p">;</span><span class="w"> </span><span class="n">use</span><span class="w"> </span><span class="err">&#39;</span><span class="o">-</span><span class="n">freference</span><span class="o">-</span><span class="n">trace</span><span class="err">&#39;</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">see</span><span class="w"> </span><span class="n">all</span><span class="w"> </span><span class="n">reference</span><span class="w"> </span><span class="n">traces</span>
+</pre></div>
 <p>You would need to instantiate a new anonymous struct in the second function.</p>
-<pre><code class="hljs zig">$ cat test.zig
-fn doA() struct { y: u8 } {
-  return .{.y = 1};
-}
+<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="n">cat</span><span class="w"> </span><span class="k">test</span><span class="p">.</span><span class="n">zig</span>
+<span class="k">fn</span><span class="w"> </span><span class="n">doA</span><span class="p">()</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">y</span><span class="o">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">.{.</span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">};</span>
+<span class="p">}</span>
 
-fn doB() struct { y: u8 } {
-  return .{ .y = doA().y };
-}
+<span class="k">fn</span><span class="w"> </span><span class="n">doB</span><span class="p">()</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">y</span><span class="o">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">.{</span><span class="w"> </span><span class="p">.</span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">doA</span><span class="p">().</span><span class="n">y</span><span class="w"> </span><span class="p">};</span>
+<span class="p">}</span>
 
-pub fn main() !void {
-  _ = doB();
-}
-</code></pre>
+<span class="kr">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="n">main</span><span class="p">()</span><span class="w"> </span><span class="o">!</span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">doB</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="uniform-function-call-syntax">Uniform function call syntax</h4><p>Zig seems to support something like <a href="https://en.wikipedia.org/wiki/Uniform_Function_Call_Syntax">uniform function call
 syntax</a>
 where you can either call a function with arguments or you can omit
@@ -255,25 +254,25 @@ a struct's methods is purely convention. You can call it whatever.</p>
 <h3 id="setting-a-key-value-pair">Setting a key-value pair</h3><p>We set a pair by calling <code>rocksdb_put</code> with the database instance,
 some options (we'll leave to defaults), and the key and value strings
 as C strings.</p>
-<pre><code class="hljs zig">    fn set(self: RocksDB, key: [:0]const u8, value: [:0]const u8) ?[]u8 {
-        var writeOptions = rdb.rocksdb_writeoptions_create();
-        var err: ?[*:0]u8 = null;
-        rdb.rocksdb_put(
-            self.db,
-            writeOptions,
-            key.ptr,
-            key.len,
-            value.ptr,
-            value.len,
-            &amp;err,
-        );
-        if (err) |errStr| {
-            return std.mem.span(errStr);
-        }
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">set</span><span class="p">(</span><span class="n">self</span><span class="o">:</span><span class="w"> </span><span class="n">RocksDB</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="o">:</span><span class="mi">0</span><span class="p">]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="o">:</span><span class="mi">0</span><span class="p">]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="p">[]</span><span class="kt">u8</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">writeOptions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_writeoptions_create</span><span class="p">();</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">err</span><span class="o">:</span><span class="w"> </span><span class="o">?</span><span class="p">[</span><span class="o">*:</span><span class="mi">0</span><span class="p">]</span><span class="kt">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">        </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_put</span><span class="p">(</span>
+<span class="w">            </span><span class="n">self</span><span class="p">.</span><span class="n">db</span><span class="p">,</span>
+<span class="w">            </span><span class="n">writeOptions</span><span class="p">,</span>
+<span class="w">            </span><span class="n">key</span><span class="p">.</span><span class="n">ptr</span><span class="p">,</span>
+<span class="w">            </span><span class="n">key</span><span class="p">.</span><span class="n">len</span><span class="p">,</span>
+<span class="w">            </span><span class="n">value</span><span class="p">.</span><span class="n">ptr</span><span class="p">,</span>
+<span class="w">            </span><span class="n">value</span><span class="p">.</span><span class="n">len</span><span class="p">,</span>
+<span class="w">            </span><span class="o">&amp;</span><span class="n">err</span><span class="p">,</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">errStr</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">span</span><span class="p">(</span><span class="n">errStr</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
 
-        return null;
-    }
-</code></pre>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
 <p>The only special Zig thing is there is <code>key.ptr</code> to satisfy the Zig /
 C type system. The type signature <code>key: [:0]const u8</code> and <code>value:
 [:0]const u8</code> makes sure that the user passes in a null-delimited
@@ -281,28 +280,28 @@ byte slice, which is what the RocksDB API expects.</p>
 <h3 id="getting-a-value-from-a-key">Getting a value from a key</h3><p>We set a pair by calling <code>rocksdb_get</code> with the database instance,
 some options (we'll again leave to defaults), and the key as a C
 string.</p>
-<pre><code class="hljs zig">    fn get(self: RocksDB, key: [:0]const u8) struct { val: ?[]u8, err: ?[]u8 } {
-        var readOptions = rdb.rocksdb_readoptions_create();
-        var valueLength: usize = 0;
-        var err: ?[*:0]u8 = null;
-        var v = rdb.rocksdb_get(
-            self.db,
-            readOptions,
-            key.ptr,
-            key.len,
-            &amp;valueLength,
-            &amp;err,
-        );
-        if (err) |errStr| {
-            return .{ .val = null, .err = std.mem.span(errStr) };
-        }
-        if (v == 0) {
-            return .{ .val = null, .err = null };
-        }
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">get</span><span class="p">(</span><span class="n">self</span><span class="o">:</span><span class="w"> </span><span class="n">RocksDB</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="o">:</span><span class="mi">0</span><span class="p">]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">val</span><span class="o">:</span><span class="w"> </span><span class="o">?</span><span class="p">[]</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">err</span><span class="o">:</span><span class="w"> </span><span class="o">?</span><span class="p">[]</span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">readOptions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_readoptions_create</span><span class="p">();</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">valueLength</span><span class="o">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">err</span><span class="o">:</span><span class="w"> </span><span class="o">?</span><span class="p">[</span><span class="o">*:</span><span class="mi">0</span><span class="p">]</span><span class="kt">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_get</span><span class="p">(</span>
+<span class="w">            </span><span class="n">self</span><span class="p">.</span><span class="n">db</span><span class="p">,</span>
+<span class="w">            </span><span class="n">readOptions</span><span class="p">,</span>
+<span class="w">            </span><span class="n">key</span><span class="p">.</span><span class="n">ptr</span><span class="p">,</span>
+<span class="w">            </span><span class="n">key</span><span class="p">.</span><span class="n">len</span><span class="p">,</span>
+<span class="w">            </span><span class="o">&amp;</span><span class="n">valueLength</span><span class="p">,</span>
+<span class="w">            </span><span class="o">&amp;</span><span class="n">err</span><span class="p">,</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">errStr</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="p">.{</span><span class="w"> </span><span class="p">.</span><span class="n">val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">span</span><span class="p">(</span><span class="n">errStr</span><span class="p">)</span><span class="w"> </span><span class="p">};</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="p">.{</span><span class="w"> </span><span class="p">.</span><span class="n">val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">};</span>
+<span class="w">        </span><span class="p">}</span>
 
-        return .{ .val = v[0..valueLength], .err = null };
-    }
-</code></pre>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">.{</span><span class="w"> </span><span class="p">.</span><span class="n">val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">..</span><span class="n">valueLength</span><span class="p">],</span><span class="w"> </span><span class="p">.</span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
 <p>One thing in there to call out is that we can go from a null-delimited
 value <code>v</code> to a standard Zig slice <code>[]u8</code> by slicing from <code>0</code> to the
 length of the value returned by the C API.</p>
@@ -327,152 +326,152 @@ will return an optional <code>RocksDB.IterEntry</code>.</p>
 instance. It will store the prefix requested (which is allowed to be
 an empty string). If the prefix is set though, we'll only iterate
 while the iterator key has the requested prefix.</p>
-<pre><code>    const IterEntry = struct {
-        key: []const u8,
-        value: []const u8,
-    };
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">IterEntry</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">key</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="k">const</span><span class="w"> </span><span class="n">u8</span><span class="p">,</span>
+<span class="w">        </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="k">const</span><span class="w"> </span><span class="n">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
 
-    const Iter = struct {
-        iter: *rdb.rocksdb_iterator_t,
-        first: bool,
-        prefix: []const u8,
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">Iter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">iter</span><span class="p">:</span><span class="w"> </span><span class="o">*</span><span class="n">rdb</span><span class="o">.</span><span class="n">rocksdb_iterator_t</span><span class="p">,</span>
+<span class="w">        </span><span class="n">first</span><span class="p">:</span><span class="w"> </span><span class="nb nb-Type">bool</span><span class="p">,</span>
+<span class="w">        </span><span class="n">prefix</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="k">const</span><span class="w"> </span><span class="n">u8</span><span class="p">,</span>
 
-        fn next(self: *Iter) ?IterEntry {
-            if (!self.first) {
-                rdb.rocksdb_iter_next(self.iter);
-            }
+<span class="w">        </span><span class="n">fn</span><span class="w"> </span><span class="n">next</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span><span class="w"> </span><span class="o">*</span><span class="n">Iter</span><span class="p">)</span><span class="w"> </span><span class="err">?</span><span class="n">IterEntry</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="bp">self</span><span class="o">.</span><span class="n">first</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">rdb</span><span class="o">.</span><span class="n">rocksdb_iter_next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">iter</span><span class="p">);</span>
+<span class="w">            </span><span class="p">}</span>
 
-            self.first = false;
-            if (rdb.rocksdb_iter_valid(self.iter) != 1) {
-                return null;
-            }
+<span class="w">            </span><span class="bp">self</span><span class="o">.</span><span class="n">first</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">false</span><span class="p">;</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rdb</span><span class="o">.</span><span class="n">rocksdb_iter_valid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">iter</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nb nb-Type">null</span><span class="p">;</span>
+<span class="w">            </span><span class="p">}</span>
 
-            var keySize: usize = 0;
-            var key = rdb.rocksdb_iter_key(self.iter, &amp;keySize);
+<span class="w">            </span><span class="k">var</span><span class="w"> </span><span class="n">keySize</span><span class="p">:</span><span class="w"> </span><span class="n">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">            </span><span class="k">var</span><span class="w"> </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdb</span><span class="o">.</span><span class="n">rocksdb_iter_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">iter</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">keySize</span><span class="p">);</span>
 
-            // Make sure key is still within the prefix
-            if (self.prefix.len &gt; 0) {
-                if (self.prefix.len &gt; keySize or
-                    !std.mem.eql(u8, key[0..self.prefix.len], self.prefix))
-                {
-                    return null;
-                }
-            }
+<span class="w">            </span><span class="o">//</span><span class="w"> </span><span class="n">Make</span><span class="w"> </span><span class="n">sure</span><span class="w"> </span><span class="n">key</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">still</span><span class="w"> </span><span class="n">within</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">prefix</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prefix</span><span class="o">.</span><span class="n">len</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prefix</span><span class="o">.</span><span class="n">len</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">keySize</span><span class="w"> </span><span class="ow">or</span>
+<span class="w">                    </span><span class="o">!</span><span class="n">std</span><span class="o">.</span><span class="n">mem</span><span class="o">.</span><span class="n">eql</span><span class="p">(</span><span class="n">u8</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="p">[</span><span class="mf">0.</span><span class="o">.</span><span class="n">self</span><span class="o">.</span><span class="n">prefix</span><span class="o">.</span><span class="n">len</span><span class="p">],</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">prefix</span><span class="p">))</span>
+<span class="w">                </span><span class="p">{</span>
+<span class="w">                    </span><span class="k">return</span><span class="w"> </span><span class="nb nb-Type">null</span><span class="p">;</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
 
-            var valueSize: usize = 0;
-            var value = rdb.rocksdb_iter_value(self.iter, &amp;valueSize);
+<span class="w">            </span><span class="k">var</span><span class="w"> </span><span class="n">valueSize</span><span class="p">:</span><span class="w"> </span><span class="n">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">            </span><span class="k">var</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdb</span><span class="o">.</span><span class="n">rocksdb_iter_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">iter</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">valueSize</span><span class="p">);</span>
 
-            return IterEntry{
-                .key = key[0..keySize],
-                .value = value[0..valueSize],
-            };
-        }
-</code></pre>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">IterEntry</span><span class="p">{</span>
+<span class="w">                </span><span class="o">.</span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">key</span><span class="p">[</span><span class="mf">0.</span><span class="o">.</span><span class="n">keySize</span><span class="p">],</span>
+<span class="w">                </span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value</span><span class="p">[</span><span class="mf">0.</span><span class="o">.</span><span class="n">valueSize</span><span class="p">],</span>
+<span class="w">            </span><span class="p">};</span>
+<span class="w">        </span><span class="p">}</span>
+</pre></div>
 <p>Finally we'll wrap the <code>rocksdb_iter_destroy()</code> method:</p>
-<pre><code class="hljs zig">        fn close(self: Iter) void {
-            rdb.rocksdb_iter_destroy(self.iter);
-        }
-    };
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">        </span><span class="k">fn</span><span class="w"> </span><span class="n">close</span><span class="p">(</span><span class="n">self</span><span class="o">:</span><span class="w"> </span><span class="n">Iter</span><span class="p">)</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_iter_destroy</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">iter</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">};</span>
+</pre></div>
 <h4 id="<code>rocksdb.iter()</code>"><code>RocksDB.iter()</code></h4><p>Now we can write the function that creates the <code>RocksDB.Iter</code>. As
 previously mentioned we must first instantiate the RocksDB iterator
 and then <code>seek</code> to either the first entry if the user doesn't request
 a prefix. Or if the user requests a prefix, we <code>seek</code> until that
 prefix.</p>
-<pre><code class="hljs zig">fn iter(self: RocksDB, prefix: [:0]const u8) struct { val: ?Iter, err: ?[]const u8 } {
-        var readOptions = rdb.rocksdb_readoptions_create();
-        var it = Iter{
-            .iter = undefined,
-            .first = true,
-            .prefix = prefix,
-        };
-        if (rdb.rocksdb_create_iterator(self.db, readOptions)) |i| {
-            it.iter = i;
-        } else {
-            return .{ .val = null, .err = &quot;Could not create iterator&quot; };
-        }
+<div class="highlight"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="n">iter</span><span class="p">(</span><span class="n">self</span><span class="o">:</span><span class="w"> </span><span class="n">RocksDB</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="o">:</span><span class="mi">0</span><span class="p">]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">val</span><span class="o">:</span><span class="w"> </span><span class="o">?</span><span class="n">Iter</span><span class="p">,</span><span class="w"> </span><span class="n">err</span><span class="o">:</span><span class="w"> </span><span class="o">?</span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">readOptions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_readoptions_create</span><span class="p">();</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">it</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Iter</span><span class="p">{</span>
+<span class="w">            </span><span class="p">.</span><span class="n">iter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">undefined</span><span class="p">,</span>
+<span class="w">            </span><span class="p">.</span><span class="n">first</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">            </span><span class="p">.</span><span class="n">prefix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prefix</span><span class="p">,</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_create_iterator</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">db</span><span class="p">,</span><span class="w"> </span><span class="n">readOptions</span><span class="p">))</span><span class="w"> </span><span class="o">|</span><span class="n">i</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">it</span><span class="p">.</span><span class="n">iter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="p">.{</span><span class="w"> </span><span class="p">.</span><span class="n">val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Could not create iterator&quot;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if (prefix.len &gt; 0) {
-            rdb.rocksdb_iter_seek(
-                it.iter,
-                prefix.ptr,
-                prefix.len,
-            );
-        } else {
-            rdb.rocksdb_iter_seek_to_first(it.iter);
-        }
-        return .{ .val = it, .err = null };
-    }
-};
-</code></pre>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">prefix</span><span class="p">.</span><span class="n">len</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_iter_seek</span><span class="p">(</span>
+<span class="w">                </span><span class="n">it</span><span class="p">.</span><span class="n">iter</span><span class="p">,</span>
+<span class="w">                </span><span class="n">prefix</span><span class="p">.</span><span class="n">ptr</span><span class="p">,</span>
+<span class="w">                </span><span class="n">prefix</span><span class="p">.</span><span class="n">len</span><span class="p">,</span>
+<span class="w">            </span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">rdb</span><span class="p">.</span><span class="n">rocksdb_iter_seek_to_first</span><span class="p">(</span><span class="n">it</span><span class="p">.</span><span class="n">iter</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">.{</span><span class="w"> </span><span class="p">.</span><span class="n">val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">it</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">};</span>
+</pre></div>
 <p>And now we're done a basic Zig wrapper for the RocksDB API!</p>
 <h3 id="<code>main</code>"><code>main</code></h3><p>Next we write a simple command-line entrypoint that uses the RocksDB
 wrapper we built. This is not the prettiest code but it gets the job
 done.</p>
-<pre><code class="hljs zig">pub fn main() !void {
-    var openRes = RocksDB.open(&quot;/tmp/db&quot;);
-    if (openRes.err) |err| {
-        std.debug.print(&quot;Failed to open: {s}.\n&quot;, .{err});
-    }
-    var db = openRes.val.?;
-    defer db.close();
+<div class="highlight"><pre><span></span><span class="kr">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="n">main</span><span class="p">()</span><span class="w"> </span><span class="o">!</span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">openRes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RocksDB</span><span class="p">.</span><span class="n">open</span><span class="p">(</span><span class="s">&quot;/tmp/db&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">openRes</span><span class="p">.</span><span class="n">err</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">err</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Failed to open: {s}.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">err</span><span class="p">});</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">db</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">openRes</span><span class="p">.</span><span class="n">val</span><span class="p">.</span><span class="o">?</span><span class="p">;</span>
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="n">db</span><span class="p">.</span><span class="n">close</span><span class="p">();</span>
 
-    var args = std.process.args();
-    _ = args.next();
-    var key: [:0]const u8 = &quot;&quot;;
-    var value: [:0]const u8 = &quot;&quot;;
-    var command = &quot;get&quot;;
-    while (args.next()) |arg| {
-        if (std.mem.eql(u8, arg, &quot;set&quot;)) {
-            command = &quot;set&quot;;
-            key = args.next().?;
-            value = args.next().?;
-        } else if (std.mem.eql(u8, arg, &quot;get&quot;)) {
-            command = &quot;get&quot;;
-            key = args.next().?;
-        } else if (std.mem.eql(u8, arg, &quot;list&quot;)) {
-            command = &quot;lst&quot;;
-            if (args.next()) |argNext| {
-                key = argNext;
-            }
-        } else {
-            std.debug.print(&quot;Must specify command (get, set, or list). Got: &#39;{s}&#39;.\n&quot;, .{arg});
-            return;
-        }
-    }
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">args</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="n">args</span><span class="p">();</span>
+<span class="w">    </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">();</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">key</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="o">:</span><span class="mi">0</span><span class="p">]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">value</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="o">:</span><span class="mi">0</span><span class="p">]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">var</span><span class="w"> </span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;get&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">())</span><span class="w"> </span><span class="o">|</span><span class="n">arg</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">arg</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;set&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;set&quot;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">().</span><span class="o">?</span><span class="p">;</span>
+<span class="w">            </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">().</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">arg</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;get&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;get&quot;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">().</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">arg</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;list&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;lst&quot;</span><span class="p">;</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">())</span><span class="w"> </span><span class="o">|</span><span class="n">argNext</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">argNext</span><span class="p">;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Must specify command (get, set, or list). Got: &#39;{s}&#39;.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">arg</span><span class="p">});</span>
+<span class="w">            </span><span class="k">return</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (std.mem.eql(u8, command, &quot;set&quot;)) {
-        var setErr = db.set(key, value);
-        if (setErr) |err| {
-            std.debug.print(&quot;Error setting key: {s}.\n&quot;, .{err});
-            return;
-        }
-    } else if (std.mem.eql(u8, command, &quot;get&quot;)) {
-        var getRes = db.get(key);
-        if (getRes.err) |err| {
-            std.debug.print(&quot;Error getting key: {s}.\n&quot;, .{err});
-            return;
-        }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">command</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;set&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">setErr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">db</span><span class="p">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">setErr</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">err</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Error setting key: {s}.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">err</span><span class="p">});</span>
+<span class="w">            </span><span class="k">return</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">eql</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">command</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;get&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">getRes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">db</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">getRes</span><span class="p">.</span><span class="n">err</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">err</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Error getting key: {s}.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">err</span><span class="p">});</span>
+<span class="w">            </span><span class="k">return</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if (getRes.val) |v| {
-            std.debug.print(&quot;{s}\n&quot;, .{v});
-        } else {
-            std.debug.print(&quot;Key not found.\n&quot;, .{});
-        }
-    } else {
-        var prefix = key;
-        var iterRes = db.iter(prefix);
-        if (iterRes.err) |err| {
-            std.debug.print(&quot;Error getting iterator: {s}.\n&quot;, .{err});
-        }
-        var iter = iterRes.val.?;
-        defer iter.close();
-        while (iter.next()) |entry| {
-            std.debug.print(&quot;{s} = {s}\n&quot;, .{ entry.key, entry.value });
-        }
-    }
-}
-</code></pre>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">getRes</span><span class="p">.</span><span class="n">val</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">v</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;{s}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">v</span><span class="p">});</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Key not found.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{});</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">prefix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">key</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">iterRes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">db</span><span class="p">.</span><span class="n">iter</span><span class="p">(</span><span class="n">prefix</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">iterRes</span><span class="p">.</span><span class="n">err</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="n">err</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Error getting iterator: {s}.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="n">err</span><span class="p">});</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">iter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">iterRes</span><span class="p">.</span><span class="n">val</span><span class="p">.</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="k">defer</span><span class="w"> </span><span class="n">iter</span><span class="p">.</span><span class="n">close</span><span class="p">();</span>
+<span class="w">        </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">iter</span><span class="p">.</span><span class="n">next</span><span class="p">())</span><span class="w"> </span><span class="o">|</span><span class="n">entry</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;{s} = {s}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="w"> </span><span class="n">entry</span><span class="p">.</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">entry</span><span class="p">.</span><span class="n">value</span><span class="w"> </span><span class="p">});</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>Notably, the <code>main</code> function must be marked <code>pub</code>. The struct and
 struct methods we wrote would need to be marked <code>pub</code> if we wanted
 them accessible from other files. But since this is a single file,
@@ -480,47 +479,47 @@ them accessible from other files. But since this is a single file,
 <p>Now we can get into building.</p>
 <h3 id="building">Building</h3><p>First we need to compile the RocksDB library. To do this we simply
 <code>git clone</code> RocksDB and run <code>make shared_libs</code>.</p>
-<h4 id="compiling-rocksdb">Compiling RocksDB</h4><pre><code class="hljs bash">$ git clone https://github.com/facebook/rocksdb
-$ ( cd rocksdb &amp;&amp; make shared_lib -j8 )
-</code></pre>
+<h4 id="compiling-rocksdb">Compiling RocksDB</h4><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/facebook/rocksdb
+$<span class="w"> </span><span class="o">(</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>rocksdb<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>shared_lib<span class="w"> </span>-j8<span class="w"> </span><span class="o">)</span>
+</pre></div>
 <p>This may take a while, sorry.</p>
 <h4 id="<code>build.zig</code>"><code>build.zig</code></h4><p>Next we need to write a <code>build.zig</code> script that tells Zig about this
 external library. This was one of the harder parts of the process, but
 building and linking against foreign libraries is almost always hard.</p>
-<pre><code class="hljs zig">$ cat build.zig
-const version = @import(&quot;builtin&quot;).zig_version;
-const std = @import(&quot;std&quot;);
+<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="n">cat</span><span class="w"> </span><span class="n">build</span><span class="p">.</span><span class="n">zig</span>
+<span class="kr">const</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@import</span><span class="p">(</span><span class="s">&quot;builtin&quot;</span><span class="p">).</span><span class="n">zig_version</span><span class="p">;</span>
+<span class="kr">const</span><span class="w"> </span><span class="n">std</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@import</span><span class="p">(</span><span class="s">&quot;std&quot;</span><span class="p">);</span>
 
-pub fn build(b: *std.build.Builder) void {
-    const exe = b.addExecutable(&quot;main&quot;, &quot;main.zig&quot;);
-    exe.linkLibC();
-    exe.linkSystemLibraryName(&quot;rocksdb&quot;);
+<span class="kr">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="n">build</span><span class="p">(</span><span class="n">b</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">std</span><span class="p">.</span><span class="n">build</span><span class="p">.</span><span class="n">Builder</span><span class="p">)</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">const</span><span class="w"> </span><span class="n">exe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">addExecutable</span><span class="p">(</span><span class="s">&quot;main&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;main.zig&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">exe</span><span class="p">.</span><span class="n">linkLibC</span><span class="p">();</span>
+<span class="w">    </span><span class="n">exe</span><span class="p">.</span><span class="n">linkSystemLibraryName</span><span class="p">(</span><span class="s">&quot;rocksdb&quot;</span><span class="p">);</span>
 
-    exe.addLibraryPath(&quot;./rocksdb&quot;);
-    exe.addIncludePath(&quot;./rocksdb/include&quot;);
+<span class="w">    </span><span class="n">exe</span><span class="p">.</span><span class="n">addLibraryPath</span><span class="p">(</span><span class="s">&quot;./rocksdb&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">exe</span><span class="p">.</span><span class="n">addIncludePath</span><span class="p">(</span><span class="s">&quot;./rocksdb/include&quot;</span><span class="p">);</span>
 
-    exe.setOutputDir(&quot;.&quot;);
-    exe.install();
-}
-</code></pre>
+<span class="w">    </span><span class="n">exe</span><span class="p">.</span><span class="n">setOutputDir</span><span class="p">(</span><span class="s">&quot;.&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">exe</span><span class="p">.</span><span class="n">install</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
 <p>Felix Queißner's <a href="https://zig.news/xq/zig-build-explained-part-3-1ima">zig build
 explained</a> series
 was quite helpful.</p>
 <p>Now we just:</p>
-<pre><code class="hljs bash">$ zig build
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>zig<span class="w"> </span>build
+</pre></div>
 <p>And run!</p>
-<pre><code class="hljs bash">$ ./main list
-$ ./main set x 12
-$ ./main set xy 300
-$ ./main list
-x = 12
-xy = 300
-$ ./main get xy
-300
-$ ./main list xy
-xy = 300
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>./main<span class="w"> </span>list
+$<span class="w"> </span>./main<span class="w"> </span><span class="nb">set</span><span class="w"> </span>x<span class="w"> </span><span class="m">12</span>
+$<span class="w"> </span>./main<span class="w"> </span><span class="nb">set</span><span class="w"> </span>xy<span class="w"> </span><span class="m">300</span>
+$<span class="w"> </span>./main<span class="w"> </span>list
+<span class="nv">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">12</span>
+<span class="nv">xy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">300</span>
+$<span class="w"> </span>./main<span class="w"> </span>get<span class="w"> </span>xy
+<span class="m">300</span>
+$<span class="w"> </span>./main<span class="w"> </span>list<span class="w"> </span>xy
+<span class="nv">xy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">300</span>
+</pre></div>
 <p>Not bad!</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">I wrote a new post on using RocksDB with Zig! There weren&#39;t a lot of good examples of the C API and it was good practice for learning Zig.<br><br>Also sets me up for integrating it in a (WIP) port of my toy SQL database from Go to Zig. (This time with storage!)<a href="https://t.co/zquojV974G">https://t.co/zquojV974G</a> <a href="https://t.co/gtAsB6Wrhi">pic.twitter.com/gtAsB6Wrhi</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1586908890960117760?ref_src=twsrc%5Etfw">October 31, 2022</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
@@ -1157,7 +1156,6 @@ xy = 300
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

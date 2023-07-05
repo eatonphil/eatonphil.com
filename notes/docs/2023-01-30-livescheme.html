@@ -6,7 +6,6 @@
     <title>Lessons learned streaming building a Scheme-like interpreter in Go | notes.eatonphil.com</title>
     <meta name="description" content="Lessons learned streaming building a Scheme-like interpreter in Go" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -54,17 +53,17 @@ tons of stuff).</p>
 <p>I picked this simple topic because I wanted a low-stakes way to learn
 what I did not know about making videos.</p>
 <p>Here was the end result (nothing crazy):</p>
-<pre><code class="hljs scheme">$ go build
-$ cat examples/fib.scm
-(func fib (a)
-      (if (&lt; a 2)
-          a
-          (+ (fib (- a 1)) (fib (- a 2)))))
+<div class="highlight"><pre><span></span><span class="nv">$</span><span class="w"> </span><span class="nv">go</span><span class="w"> </span><span class="nv">build</span>
+<span class="nv">$</span><span class="w"> </span><span class="nv">cat</span><span class="w"> </span><span class="nv">examples/fib</span><span class="o">.</span><span class="nv">scm</span>
+<span class="p">(</span><span class="nf">func</span><span class="w"> </span><span class="nv">fib</span><span class="w"> </span><span class="p">(</span><span class="nf">a</span><span class="p">)</span>
+<span class="w">      </span><span class="p">(</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">&lt;</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span>
+<span class="w">          </span><span class="nv">a</span>
+<span class="w">          </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="p">(</span><span class="nf">fib</span><span class="w"> </span><span class="p">(</span><span class="nb">-</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="p">(</span><span class="nf">fib</span><span class="w"> </span><span class="p">(</span><span class="nb">-</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="mi">2</span><span class="p">)))))</span>
 
-(fib 11)
-$ ./livescheme examples/fib.scm
-89
-</code></pre>
+<span class="p">(</span><span class="nf">fib</span><span class="w"> </span><span class="mi">11</span><span class="p">)</span>
+<span class="nv">$</span><span class="w"> </span><span class="o">.</span><span class="nv">/livescheme</span><span class="w"> </span><span class="nv">examples/fib</span><span class="o">.</span><span class="nv">scm</span>
+<span class="mi">89</span>
+</pre></div>
 <p>The code for the project is
 <a href="https://github.com/eatonphil/livescheme">here</a>.</p>
 <h3 id="video-archives">Video archives</h3><p>Here are the four episodes! Each about an hour long. One per week for
@@ -769,7 +768,6 @@ SQL database. Dunno.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 
 import mistune
 from feedgen.feed import FeedGenerator
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import guess_lexer, get_lexer_by_name
 
 STATIC = [
     'style.css',
@@ -68,11 +71,10 @@ class Renderer(mistune.Renderer):
 
     def block_code(self, code, lang=""):
         code = code.rstrip('\n')
-        if not lang:
-            code = mistune.escape(code, smart_amp=False)
-            return '<pre><code>%s\n</code></pre>\n' % code
-        code = mistune.escape(code, quote=True, smart_amp=False)
-        return '<pre><code class="hljs %s">%s\n</code></pre>\n' % (lang, code)
+        if lang == "assembly":
+            lang = "nasm"
+        l = get_lexer_by_name(lang) if lang else guess_lexer(code)
+        return highlight(code, l, HtmlFormatter())
 
 
 def get_posts():

@@ -6,7 +6,6 @@
     <title>Writing a simple JSON parser | notes.eatonphil.com</title>
     <meta name="description" content="Writing a simple JSON parser" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -74,9 +73,9 @@ declared a second time in some scope.</p>
 </p><h4 id="the-json-library's-interface">The JSON library's interface</h4><p>Ultimately, there should be a <code>from_string</code> method that accepts a
 JSON-encoded string and returns the equivalent Python dictionary.</p>
 <p>For example:</p>
-<pre><code>assert_equal(from_string('{"foo": 1}'),
-             {"foo": 1})
-</code></pre>
+<div class="highlight"><pre><span></span>assert_equal(from_string(&#39;{&quot;foo&quot;: 1}&#39;),
+             {&quot;foo&quot;: 1})
+</pre></div>
 <h3 id="lexical-analysis">Lexical analysis</h3><p>Lexical analysis breaks down an input string into tokens. Comments and
 whitespace are often discarded during lexical analysis so you are left
 with a simpler input you can search for grammatical matches during the
@@ -101,31 +100,31 @@ and try to find patterns of strings, numbers, booleans, nulls, or JSON
 syntax like left brackets and left braces, ultimately returning
 each of these elements as a list.</p>
 <p>Here is what the lexer should return for an example input:</p>
-<pre><code class="hljs python">assert_equal(lex(&#39;{&quot;foo&quot;: [1, 2, {&quot;bar&quot;: 2}]}&#39;),
-             [&#39;{&#39;, &#39;foo&#39;, &#39;:&#39;, &#39;[&#39;, 1, &#39;,&#39;, 2, &#39;,&#39;, &#39;{&#39;, &#39;bar&#39;, &#39;:&#39;, 2, &#39;}&#39;, &#39;]&#39;, &#39;}&#39;])
-</code></pre>
+<div class="highlight"><pre><span></span><span class="n">assert_equal</span><span class="p">(</span><span class="n">lex</span><span class="p">(</span><span class="s1">&#39;{&quot;foo&quot;: [1, 2, {&quot;bar&quot;: 2}]}&#39;</span><span class="p">),</span>
+             <span class="p">[</span><span class="s1">&#39;{&#39;</span><span class="p">,</span> <span class="s1">&#39;foo&#39;</span><span class="p">,</span> <span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="s1">&#39;[&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="s1">&#39;{&#39;</span><span class="p">,</span> <span class="s1">&#39;bar&#39;</span><span class="p">,</span> <span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;}&#39;</span><span class="p">,</span> <span class="s1">&#39;]&#39;</span><span class="p">,</span> <span class="s1">&#39;}&#39;</span><span class="p">])</span>
+</pre></div>
 <p>Here is what this logic might begin to look like:</p>
-<pre><code class="hljs python">def lex(string):
-    tokens = []
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">lex</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="n">tokens</span> <span class="o">=</span> <span class="p">[]</span>
 
-    while len(string):
-        json_string, string = lex_string(string)
-        if json_string is not None:
-            tokens.append(json_string)
-            continue
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+        <span class="n">json_string</span><span class="p">,</span> <span class="n">string</span> <span class="o">=</span> <span class="n">lex_string</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">json_string</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">json_string</span><span class="p">)</span>
+            <span class="k">continue</span>
 
-        # TODO: lex booleans, nulls, numbers
+        <span class="c1"># TODO: lex booleans, nulls, numbers</span>
 
-        if string[0] in JSON_WHITESPACE:
-            string = string[1:]
-        elif string[0] in JSON_SYNTAX:
-            tokens.append(string[0])
-            string = string[1:]
-        else:
-            raise Exception(&#39;Unexpected character: {}&#39;.format(string[0]))
+        <span class="k">if</span> <span class="n">string</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">JSON_WHITESPACE</span><span class="p">:</span>
+            <span class="n">string</span> <span class="o">=</span> <span class="n">string</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">elif</span> <span class="n">string</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">JSON_SYNTAX</span><span class="p">:</span>
+            <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">string</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">string</span> <span class="o">=</span> <span class="n">string</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Unexpected character: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">string</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
 
-    return tokens
-</code></pre>
+    <span class="k">return</span> <span class="n">tokens</span>
+</pre></div>
 <p>The goal here is to try to match strings, numbers, booleans, and nulls
 and add them to the list of tokens. If none of these match, check if
 the character is whitespace and throw it away if so. Otherwise store
@@ -134,78 +133,78 @@ brackets). Finally throw an exception if the character/string didn't
 match any of these patterns.</p>
 <p>Let's extend the core logic here a little bit to support all the types
 and add the function stubs.</p>
-<pre><code class="hljs python">def lex_string(string):
-    return None, string
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">lex_string</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">string</span>
 
 
-def lex_number(string):
-    return None, string
+<span class="k">def</span> <span class="nf">lex_number</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">string</span>
 
 
-def lex_bool(string):
-    return None, string
+<span class="k">def</span> <span class="nf">lex_bool</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">string</span>
 
 
-def lex_null(string):
-    return None, string
+<span class="k">def</span> <span class="nf">lex_null</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">string</span>
 
 
-def lex(string):
-    tokens = []
+<span class="k">def</span> <span class="nf">lex</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="n">tokens</span> <span class="o">=</span> <span class="p">[]</span>
 
-    while len(string):
-        json_string, string = lex_string(string)
-        if json_string is not None:
-            tokens.append(json_string)
-            continue
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+        <span class="n">json_string</span><span class="p">,</span> <span class="n">string</span> <span class="o">=</span> <span class="n">lex_string</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">json_string</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">json_string</span><span class="p">)</span>
+            <span class="k">continue</span>
 
-        json_number, string = lex_number(string)
-        if json_number is not None:
-            tokens.append(json_number)
-            continue
+        <span class="n">json_number</span><span class="p">,</span> <span class="n">string</span> <span class="o">=</span> <span class="n">lex_number</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">json_number</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">json_number</span><span class="p">)</span>
+            <span class="k">continue</span>
 
-        json_bool, string = lex_bool(string)
-        if json_bool is not None:
-            tokens.append(json_bool)
-            continue
+        <span class="n">json_bool</span><span class="p">,</span> <span class="n">string</span> <span class="o">=</span> <span class="n">lex_bool</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">json_bool</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">json_bool</span><span class="p">)</span>
+            <span class="k">continue</span>
 
-        json_null, string = lex_null(string)
-        if json_null is not None:
-            tokens.append(None)
-            continue
+        <span class="n">json_null</span><span class="p">,</span> <span class="n">string</span> <span class="o">=</span> <span class="n">lex_null</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">json_null</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+            <span class="k">continue</span>
 
-        if string[0] in JSON_WHITESPACE:
-            string = string[1:]
-        elif string[0] in JSON_SYNTAX:
-            tokens.append(string[0])
-            string = string[1:]
-        else:
-            raise Exception(&#39;Unexpected character: {}&#39;.format(string[0]))
+        <span class="k">if</span> <span class="n">string</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">JSON_WHITESPACE</span><span class="p">:</span>
+            <span class="n">string</span> <span class="o">=</span> <span class="n">string</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">elif</span> <span class="n">string</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">JSON_SYNTAX</span><span class="p">:</span>
+            <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">string</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">string</span> <span class="o">=</span> <span class="n">string</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Unexpected character: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">string</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
 
-    return tokens
-</code></pre>
+    <span class="k">return</span> <span class="n">tokens</span>
+</pre></div>
 <h4 id="lexing-strings">Lexing strings</h4><p>For the <code>lex_string</code> function, the gist will be to check if the first
 character is a quote. If it is, iterate over the input string until
 you find an ending quote. If you don't find an initial quote, return
 None and the original list. If you find an initial quote and an ending
 quote, return the string within the quotes and the rest of the
 unchecked input string.</p>
-<pre><code class="hljs python">def lex_string(string):
-    json_string = &#39;&#39;
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">lex_string</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="n">json_string</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
 
-    if string[0] == JSON_QUOTE:
-        string = string[1:]
-    else:
-        return None, string
+    <span class="k">if</span> <span class="n">string</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">JSON_QUOTE</span><span class="p">:</span>
+        <span class="n">string</span> <span class="o">=</span> <span class="n">string</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">string</span>
 
-    for c in string:
-        if c == JSON_QUOTE:
-            return json_string, string[len(json_string)+1:]
-        else:
-            json_string += c
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">string</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="n">JSON_QUOTE</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">json_string</span><span class="p">,</span> <span class="n">string</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">json_string</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">json_string</span> <span class="o">+=</span> <span class="n">c</span>
 
-    raise Exception(&#39;Expected end-of-string quote&#39;)
-</code></pre>
+    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Expected end-of-string quote&#39;</span><span class="p">)</span>
+</pre></div>
 <h4 id="lexing-numbers">Lexing numbers</h4><p>For the <code>lex_number</code> function, the gist will be to iterate over the
 input until you find a character that cannot be part of a number.
 (This is, of course, a gross simplification, but being more accurate
@@ -213,50 +212,50 @@ will be left as an exercise to the reader.) After finding a character
 that cannot be part of a number, either return a float or int if the
 characters you've accumulated number more than 0. Otherwise return
 None and the original string input.</p>
-<pre><code class="hljs python">def lex_number(string):
-    json_number = &#39;&#39;
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">lex_number</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="n">json_number</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
 
-    number_characters = [str(d) for d in range(0, 10)] + [&#39;-&#39;, &#39;e&#39;, &#39;.&#39;]
+    <span class="n">number_characters</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">,</span> <span class="s1">&#39;.&#39;</span><span class="p">]</span>
 
-    for c in string:
-        if c in number_characters:
-            json_number += c
-        else:
-            break
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">string</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">number_characters</span><span class="p">:</span>
+            <span class="n">json_number</span> <span class="o">+=</span> <span class="n">c</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">break</span>
 
-    rest = string[len(json_number):]
+    <span class="n">rest</span> <span class="o">=</span> <span class="n">string</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">json_number</span><span class="p">):]</span>
 
-    if not len(json_number):
-        return None, string
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">json_number</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">string</span>
 
-    if &#39;.&#39; in json_number:
-        return float(json_number), rest
+    <span class="k">if</span> <span class="s1">&#39;.&#39;</span> <span class="ow">in</span> <span class="n">json_number</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">json_number</span><span class="p">),</span> <span class="n">rest</span>
 
-    return int(json_number), rest
-</code></pre>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">json_number</span><span class="p">),</span> <span class="n">rest</span>
+</pre></div>
 <h4 id="lexing-booleans-and-nulls">Lexing booleans and nulls</h4><p>Finding boolean and null values is a very simple string match.</p>
-<pre><code class="hljs python">def lex_bool(string):
-    string_len = len(string)
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">lex_bool</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="n">string_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
 
-    if string_len &gt;= TRUE_LEN and \
-       string[:TRUE_LEN] == &#39;true&#39;:
-        return True, string[TRUE_LEN:]
-    elif string_len &gt;= FALSE_LEN and \
-         string[:FALSE_LEN] == &#39;false&#39;:
-        return False, string[FALSE_LEN:]
+    <span class="k">if</span> <span class="n">string_len</span> <span class="o">&gt;=</span> <span class="n">TRUE_LEN</span> <span class="ow">and</span> \
+       <span class="n">string</span><span class="p">[:</span><span class="n">TRUE_LEN</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;true&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">string</span><span class="p">[</span><span class="n">TRUE_LEN</span><span class="p">:]</span>
+    <span class="k">elif</span> <span class="n">string_len</span> <span class="o">&gt;=</span> <span class="n">FALSE_LEN</span> <span class="ow">and</span> \
+         <span class="n">string</span><span class="p">[:</span><span class="n">FALSE_LEN</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;false&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">string</span><span class="p">[</span><span class="n">FALSE_LEN</span><span class="p">:]</span>
 
-    return None, string
+    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">string</span>
 
 
-def lex_null(string):
-    string_len = len(string)
+<span class="k">def</span> <span class="nf">lex_null</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="n">string_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
 
-    if string_len &gt;= NULL_LEN and \
-       string[:NULL_LEN] == &#39;null&#39;:
-        return True, string[NULL_LEN:]
+    <span class="k">if</span> <span class="n">string_len</span> <span class="o">&gt;=</span> <span class="n">NULL_LEN</span> <span class="ow">and</span> \
+       <span class="n">string</span><span class="p">[:</span><span class="n">NULL_LEN</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;null&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">string</span><span class="p">[</span><span class="n">NULL_LEN</span><span class="p">:]</span>
 
-    return None, string
-</code></pre>
+    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">string</span>
+</pre></div>
 <p>And now the lexer code is done! See the
 <a href="https://github.com/eatonphil/pj/blob/master/pj/lexer.py">pj/lexer.py</a>
 for the code as a whole.</p>
@@ -271,29 +270,29 @@ expected from you.</p>
 received after a call to <code>lex</code> and try to match the tokens to objects,
 lists, or plain values.</p>
 <p>Here is what the parser should return for an example input:</p>
-<pre><code class="hljs python">tokens = lex(&#39;{&quot;foo&quot;: [1, 2, {&quot;bar&quot;: 2}]}&#39;)
-assert_equal(tokens,
-             [&#39;{&#39;, &#39;foo&#39;, &#39;:&#39;, &#39;[&#39;, 1, &#39;,&#39;, 2, &#39;{&#39;, &#39;bar&#39;, &#39;:&#39;, 2, &#39;}&#39;, &#39;]&#39;, &#39;}&#39;])
-assert_equal(parse(tokens),
-             {&#39;foo&#39;: [1, 2, {&#39;bar&#39;: 2}]})
-</code></pre>
+<div class="highlight"><pre><span></span><span class="n">tokens</span> <span class="o">=</span> <span class="n">lex</span><span class="p">(</span><span class="s1">&#39;{&quot;foo&quot;: [1, 2, {&quot;bar&quot;: 2}]}&#39;</span><span class="p">)</span>
+<span class="n">assert_equal</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span>
+             <span class="p">[</span><span class="s1">&#39;{&#39;</span><span class="p">,</span> <span class="s1">&#39;foo&#39;</span><span class="p">,</span> <span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="s1">&#39;[&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;{&#39;</span><span class="p">,</span> <span class="s1">&#39;bar&#39;</span><span class="p">,</span> <span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;}&#39;</span><span class="p">,</span> <span class="s1">&#39;]&#39;</span><span class="p">,</span> <span class="s1">&#39;}&#39;</span><span class="p">])</span>
+<span class="n">assert_equal</span><span class="p">(</span><span class="n">parse</span><span class="p">(</span><span class="n">tokens</span><span class="p">),</span>
+             <span class="p">{</span><span class="s1">&#39;foo&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;bar&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}]})</span>
+</pre></div>
 <p>Here is what this logic might begin to look like:</p>
-<pre><code class="hljs python">def parse_array(tokens):
-    return [], tokens
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">parse_array</span><span class="p">(</span><span class="n">tokens</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[],</span> <span class="n">tokens</span>
 
-def parse_object(tokens):
-    return {}, tokens
+<span class="k">def</span> <span class="nf">parse_object</span><span class="p">(</span><span class="n">tokens</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">{},</span> <span class="n">tokens</span>
 
-def parse(tokens):
-    t = tokens[0]
+<span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="n">tokens</span><span class="p">):</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
-    if t == JSON_LEFTBRACKET:
-        return parse_array(tokens[1:])
-    elif t == JSON_LEFTBRACE:
-        return parse_object(tokens[1:])
-    else:
-        return t, tokens[1:]
-</code></pre>
+    <span class="k">if</span> <span class="n">t</span> <span class="o">==</span> <span class="n">JSON_LEFTBRACKET</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">parse_array</span><span class="p">(</span><span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="k">elif</span> <span class="n">t</span> <span class="o">==</span> <span class="n">JSON_LEFTBRACE</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">parse_object</span><span class="p">(</span><span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">t</span><span class="p">,</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+</pre></div>
 <p>A key structural difference between this lexer and parser is that the
 lexer returns a one-dimensional array of tokens. Parsers are often
 defined recursively and returns a recursive, tree-like object. Since
@@ -307,70 +306,70 @@ and concerned with only specific elements.</p>
 <h4 id="parsing-arrays">Parsing arrays</h4><p>Parsing arrays is a matter of parsing array members and expecting a
 comma token between them or a right bracket indicating the end
 of the array.</p>
-<pre><code class="hljs python">def parse_array(tokens):
-    json_array = []
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">parse_array</span><span class="p">(</span><span class="n">tokens</span><span class="p">):</span>
+    <span class="n">json_array</span> <span class="o">=</span> <span class="p">[]</span>
 
-    t = tokens[0]
-    if t == JSON_RIGHTBRACKET:
-        return json_array, tokens[1:]
+    <span class="n">t</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">t</span> <span class="o">==</span> <span class="n">JSON_RIGHTBRACKET</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">json_array</span><span class="p">,</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
 
-    while True:
-        json, tokens = parse(tokens)
-        json_array.append(json)
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">json</span><span class="p">,</span> <span class="n">tokens</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
+        <span class="n">json_array</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">json</span><span class="p">)</span>
 
-        t = tokens[0]
-        if t == JSON_RIGHTBRACKET:
-            return json_array, tokens[1:]
-        elif t != JSON_COMMA:
-            raise Exception(&#39;Expected comma after object in array&#39;)
-        else:
-            tokens = tokens[1:]
+        <span class="n">t</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="o">==</span> <span class="n">JSON_RIGHTBRACKET</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">json_array</span><span class="p">,</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">elif</span> <span class="n">t</span> <span class="o">!=</span> <span class="n">JSON_COMMA</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Expected comma after object in array&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tokens</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
 
-    raise Exception(&#39;Expected end-of-array bracket&#39;)
-</code></pre>
+    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Expected end-of-array bracket&#39;</span><span class="p">)</span>
+</pre></div>
 <h4 id="parsing-objects">Parsing objects</h4><p>Parsing objects is a matter of parsing a key-value pair internally
 separated by a colon and externally separated by a comma until you
 reach the end of the object.</p>
-<pre><code class="hljs python">def parse_object(tokens):
-    json_object = {}
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">parse_object</span><span class="p">(</span><span class="n">tokens</span><span class="p">):</span>
+    <span class="n">json_object</span> <span class="o">=</span> <span class="p">{}</span>
 
-    t = tokens[0]
-    if t == JSON_RIGHTBRACE:
-        return json_object, tokens[1:]
+    <span class="n">t</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">t</span> <span class="o">==</span> <span class="n">JSON_RIGHTBRACE</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">json_object</span><span class="p">,</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
 
-    while True:
-        json_key = tokens[0]
-        if type(json_key) is str:
-            tokens = tokens[1:]
-        else:
-            raise Exception(&#39;Expected string key, got: {}&#39;.format(json_key))
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">json_key</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">json_key</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="n">tokens</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Expected string key, got: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">json_key</span><span class="p">))</span>
 
-        if tokens[0] != JSON_COLON:
-            raise Exception(&#39;Expected colon after key in object, got: {}&#39;.format(t))
+        <span class="k">if</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">JSON_COLON</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Expected colon after key in object, got: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
 
-        json_value, tokens = parse(tokens[1:])
+        <span class="n">json_value</span><span class="p">,</span> <span class="n">tokens</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
 
-        json_object[json_key] = json_value
+        <span class="n">json_object</span><span class="p">[</span><span class="n">json_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">json_value</span>
 
-        t = tokens[0]
-        if t == JSON_RIGHTBRACE:
-            return json_object, tokens[1:]
-        elif t != JSON_COMMA:
-            raise Exception(&#39;Expected comma after pair in object, got: {}&#39;.format(t))
+        <span class="n">t</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="o">==</span> <span class="n">JSON_RIGHTBRACE</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">json_object</span><span class="p">,</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">elif</span> <span class="n">t</span> <span class="o">!=</span> <span class="n">JSON_COMMA</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Expected comma after pair in object, got: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
 
-        tokens = tokens[1:]
+        <span class="n">tokens</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
 
-    raise Exception(&#39;Expected end-of-object brace&#39;)
-</code></pre>
+    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Expected end-of-object brace&#39;</span><span class="p">)</span>
+</pre></div>
 <p>And now the parser code is done! See the
 <a href="https://github.com/eatonphil/pj/blob/master/pj/parser.py">pj/parser.py</a>
 for the code as a whole.</p>
 <h3 id="unifying-the-library">Unifying the library</h3><p>To provide the ideal interface, create the <code>from_string</code> function
 wrapping the <code>lex</code> and <code>parse</code> functions.</p>
-<pre><code class="hljs python">def from_string(string):
-    tokens = lex(string)
-    return parse(tokens)[0]
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">from_string</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="n">tokens</span> <span class="o">=</span> <span class="n">lex</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">parse</span><span class="p">(</span><span class="n">tokens</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</pre></div>
 <p>And the library is complete! (ish). Check out the <a href="https://github.com/eatonphil/pj">project on
 Github</a> for the full implementation
 including basic testing setup.</p>
@@ -1022,7 +1021,6 @@ allow you to dynamically extend the lexer and parser in one step with
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

@@ -6,7 +6,6 @@
     <title>A single-node Kubernetes cluster without virtualization or a container registry | notes.eatonphil.com</title>
     <meta name="description" content="A single-node Kubernetes cluster without virtualization or a container registry" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -60,83 +59,83 @@ distribution that allows us to run on a single node without
 virtualization.</p>
 <p>But first off, <a href="https://docs.docker.com/engine/install/fedora/">install Docker</a>.</p>
 <p>Then install K3s:</p>
-<pre><code class="hljs bash">$ curl -sfL https://get.k3s.io | sh -
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>-sfL<span class="w"> </span>https://get.k3s.io<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh<span class="w"> </span>-
+</pre></div>
 <p>It may prompt you to adjust some SELinux policies like so:</p>
-<pre><code class="hljs bash">$ sudo dnf install -y container-selinux selinux-policy-base
-$ sudo rpm -i https://rpm.rancher.io/k3s-selinux-0.1.1-rc1.el7.noarch.rpm
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>sudo<span class="w"> </span>dnf<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>container-selinux<span class="w"> </span>selinux-policy-base
+$<span class="w"> </span>sudo<span class="w"> </span>rpm<span class="w"> </span>-i<span class="w"> </span>https://rpm.rancher.io/k3s-selinux-0.1.1-rc1.el7.noarch.rpm
+</pre></div>
 <p>Swap these out with whatever it prompts and retry the K3s install.</p>
 <p>Finally, <a href="https://kubernetes.io/docs/tasks/tools/install-kubectl/">install
 kubectl</a>:</p>
-<pre><code class="hljs bash">$ curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>-LO<span class="w"> </span>https://storage.googleapis.com/kubernetes-release/release/<span class="sb">`</span>curl<span class="w"> </span>-s<span class="w"> </span>https://storage.googleapis.com/kubernetes-release/release/stable.txt<span class="sb">`</span>/bin/linux/amd64/kubectl
+</pre></div>
 <p>Now copy the global K3s kubeconfig into <code>~/.kube/config</code>:</p>
-<pre><code class="hljs bash">$ sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-$ sudo chown $USER:$GROUP ~/.kube/config
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>sudo<span class="w"> </span>cp<span class="w"> </span>/etc/rancher/k3s/k3s.yaml<span class="w"> </span>~/.kube/config
+$<span class="w"> </span>sudo<span class="w"> </span>chown<span class="w"> </span><span class="nv">$USER</span>:<span class="nv">$GROUP</span><span class="w"> </span>~/.kube/config
+</pre></div>
 <p>And enable K3s:</p>
-<pre><code class="hljs bash">$ sudo systemctl enable k3s
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>k3s
+</pre></div>
 <p>If you're on Fedora 31+ you'll need to disable cgroups v2 and reboot:</p>
-<pre><code class="hljs bash">$ sudo grubby --args=&quot;systemd.unified_cgroup_hierarchy=0&quot; --update-kernel=ALL
-$ sudo reboot
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>sudo<span class="w"> </span>grubby<span class="w"> </span>--args<span class="o">=</span><span class="s2">&quot;systemd.unified_cgroup_hierarchy=0&quot;</span><span class="w"> </span>--update-kernel<span class="o">=</span>ALL
+$<span class="w"> </span>sudo<span class="w"> </span>reboot
+</pre></div>
 <p>Finally, you can run <code>kubectl</code>:</p>
-<pre><code class="hljs bash">$ kubectl get pods
-No resources found in default namespace.
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pods
+No<span class="w"> </span>resources<span class="w"> </span>found<span class="w"> </span><span class="k">in</span><span class="w"> </span>default<span class="w"> </span>namespace.
+</pre></div>
 <h3 id="a-simple-application">A simple application</h3><p>We'll create a small Flask app, containerize it, and write a
 Kubernetes deployment and service config for it.</p>
 <p>We begin with <code>app.py</code>:</p>
-<pre><code class="hljs python">from flask import Flask
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Flask</span>
 
-app = Flask(__name__)
-
-
-@app.route(&#39;/&#39;)
-def index():
-    return &#39;Hello World, Flask!&#39;
+<span class="n">app</span> <span class="o">=</span> <span class="n">Flask</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-if __name__ == &#39;__main__&#39;:
-    app.run(debug=True)
-</code></pre>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">index</span><span class="p">():</span>
+    <span class="k">return</span> <span class="s1">&#39;Hello World, Flask!&#39;</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
 <p>Then a <code>Dockerfile</code>:</p>
-<pre><code class="hljs dockerfile">FROM python:3-slim
+<div class="highlight"><pre><span></span><span class="k">FROM</span><span class="w"> </span><span class="s">python:3-slim</span>
 
-RUN pip install flask
-COPY . /app
+<span class="k">RUN</span><span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>flask
+<span class="k">COPY</span><span class="w"> </span>.<span class="w"> </span>/app
 
-CMD python3 /app/app.py
-</code></pre>
+<span class="k">CMD</span><span class="w"> </span>python3<span class="w"> </span>/app/app.py
+</pre></div>
 <p>Then the deployment in <code>manifest.yaml</code>:</p>
-<pre><code class="hljs yaml">apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: helloworld
-spec:
-  selector:
-    matchLabels:
-      name: helloworld
-  template:
-    metadata:
-      labels:
-        name: helloworld
-    spec:
-      containers:
-        - image: helloworld
-          name: helloworld
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">helloworld</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">matchLabels</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">helloworld</span>
+<span class="w">  </span><span class="nt">template</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">labels</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">helloworld</span>
+<span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">helloworld</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">helloworld</span>
+</pre></div>
 <h3 id="running-in-kubernetes">Running in Kubernetes</h3><p>First we build, save, and import the image into <code>k3s</code>:</p>
-<pre><code>$ docker build . -t helloworld
-$ docker save helloworld &gt; helloworld.tar
-$ sudo k3s ctr image import helloworld.tar
-$ kubectl apply -f ./manifest.yaml
-$ kubectl port-forward $(kubectl get pods | grep helloworld | cut -d ' ' -f 1) 5000 &gt; log 2&gt;&amp;1 &amp;
-$ curl localhost:5000
-Hello World, Flask
-</code></pre>
+<div class="highlight"><pre><span></span><span class="err">$</span> <span class="n">docker</span> <span class="n">build</span> <span class="o">.</span> <span class="o">-</span><span class="n">t</span> <span class="n">helloworld</span>
+<span class="err">$</span> <span class="n">docker</span> <span class="n">save</span> <span class="n">helloworld</span> <span class="o">&gt;</span> <span class="n">helloworld</span><span class="o">.</span><span class="n">tar</span>
+<span class="err">$</span> <span class="n">sudo</span> <span class="n">k3s</span> <span class="n">ctr</span> <span class="n">image</span> <span class="kn">import</span> <span class="nn">helloworld.tar</span>
+<span class="err">$</span> <span class="n">kubectl</span> <span class="n">apply</span> <span class="o">-</span><span class="n">f</span> <span class="o">./</span><span class="n">manifest</span><span class="o">.</span><span class="n">yaml</span>
+<span class="err">$</span> <span class="n">kubectl</span> <span class="n">port</span><span class="o">-</span><span class="n">forward</span> <span class="err">$</span><span class="p">(</span><span class="n">kubectl</span> <span class="n">get</span> <span class="n">pods</span> <span class="o">|</span> <span class="n">grep</span> <span class="n">helloworld</span> <span class="o">|</span> <span class="n">cut</span> <span class="o">-</span><span class="n">d</span> <span class="s1">&#39; &#39;</span> <span class="o">-</span><span class="n">f</span> <span class="mi">1</span><span class="p">)</span> <span class="mi">5000</span> <span class="o">&gt;</span> <span class="n">log</span> <span class="mi">2</span><span class="o">&gt;&amp;</span><span class="mi">1</span> <span class="o">&amp;</span>
+<span class="err">$</span> <span class="n">curl</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">5000</span>
+<span class="n">Hello</span> <span class="n">World</span><span class="p">,</span> <span class="n">Flask</span>
+</pre></div>
 <p>And that's it!</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Latest post is a recipe for creating a self-contained, single-node Kubernetes cluster for CI environments using a basic Flask app.<a href="https://t.co/fegAZFEQzO">https://t.co/fegAZFEQzO</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1287163839306444800?ref_src=twsrc%5Etfw">July 25, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
@@ -773,7 +772,6 @@ Hello World, Flask
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

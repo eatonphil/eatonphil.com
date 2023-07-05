@@ -6,7 +6,6 @@
     <title>First few hurdles writing a Scheme interpreter | notes.eatonphil.com</title>
     <meta name="description" content="First few hurdles writing a Scheme interpreter" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -61,17 +60,17 @@ also integers being upgraded to D's <a href="https://dlang.org/phobos/std_bigint
 operation produces an integer unable to fit in 64 bits. (See the
 <a href="https://github.com/eatonphil/bsdscheme/blob/b202e8b5a24fe4281a06e39241f2be3cd51720fc/src/runtime.d#L99">times</a> and <a href="https://github.com/eatonphil/bsdscheme/blob/b202e8b5a24fe4281a06e39241f2be3cd51720fc/src/runtime.d#L63">plus</a> guards for details; see the <a href="https://github.com/eatonphil/bsdscheme/tree/master/examples">examples</a>
 directory for other examples.)</p>
-<pre><code class="hljs shell">$ cat examples/recursion.scm
-(define (exp base pow)
-  (if (= pow 0)
-      1
-      (* base (exp base (- pow 1)))))
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>examples/recursion.scm
+<span class="o">(</span>define<span class="w"> </span><span class="o">(</span>exp<span class="w"> </span>base<span class="w"> </span>pow<span class="o">)</span>
+<span class="w">  </span><span class="o">(</span><span class="k">if</span><span class="w"> </span><span class="o">(=</span><span class="w"> </span>pow<span class="w"> </span><span class="m">0</span><span class="o">)</span>
+<span class="w">      </span><span class="m">1</span>
+<span class="w">      </span><span class="o">(</span>*<span class="w"> </span>base<span class="w"> </span><span class="o">(</span>exp<span class="w"> </span>base<span class="w"> </span><span class="o">(</span>-<span class="w"> </span>pow<span class="w"> </span><span class="m">1</span><span class="o">)))))</span>
 
-(display (exp 2 64))
-(newline)
-$ ./bin/bsdscheme examples/exp.scm
-18446744073709551616
-</code></pre>
+<span class="o">(</span>display<span class="w"> </span><span class="o">(</span>exp<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="m">64</span><span class="o">))</span>
+<span class="o">(</span>newline<span class="o">)</span>
+$<span class="w"> </span>./bin/bsdscheme<span class="w"> </span>examples/exp.scm
+<span class="m">18446744073709551616</span>
+</pre></div>
 <p>The first big correction I made was to the way values are represented
 in memory. I originally implemented BSDScheme's value representation
 as a <a href="https://github.com/eatonphil/bsdscheme/pull/3/files#diff-653d5ccdaa287f13a3b2d964da52ab4aL284">struct</a> with a pointer to each possible value type. This
@@ -758,7 +757,6 @@ backend.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

@@ -6,7 +6,6 @@
     <title>Writing a SQL database from scratch in Go: 4. a database/sql driver | notes.eatonphil.com</title>
     <meta name="description" content="Writing a SQL database from scratch in Go: 4. a database/sql driver" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -62,59 +61,59 @@ allow us to interact with gosql the same way we would interact with
 any other database.</p>
 <p>Here is an example familiar program (stored in
 <code>cmd/sqlexample/main.go</code>) we'll be able to run:</p>
-<pre><code class="hljs go">package main
+<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 
-import (
-    &quot;database/sql&quot;
-    &quot;fmt&quot;
+<span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="s">&quot;database/sql&quot;</span>
+<span class="w">    </span><span class="s">&quot;fmt&quot;</span>
 
-    _ &quot;github.com/eatonphil/gosql&quot;
-)
+<span class="w">    </span><span class="nx">_</span><span class="w"> </span><span class="s">&quot;github.com/eatonphil/gosql&quot;</span>
+<span class="p">)</span>
 
-func main() {
-    db, err := sql.Open(&quot;postgres&quot;, &quot;&quot;)
-    if err != nil {
-        panic(err)
-    }
-    defer db.Close()
+<span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">db</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">sql</span><span class="p">.</span><span class="nx">Open</span><span class="p">(</span><span class="s">&quot;postgres&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">db</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
 
-    _, err = db.Query(&quot;CREATE TABLE users (name TEXT, age INT);&quot;)
-    if err != nil {
-        panic(err)
-    }
+<span class="w">    </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">db</span><span class="p">.</span><span class="nx">Query</span><span class="p">(</span><span class="s">&quot;CREATE TABLE users (name TEXT, age INT);&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    _, err = db.Query(&quot;INSERT INTO users VALUES (&#39;Terry&#39;, 45);&quot;)
-    if err != nil {
-        panic(err)
-    }
+<span class="w">    </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">db</span><span class="p">.</span><span class="nx">Query</span><span class="p">(</span><span class="s">&quot;INSERT INTO users VALUES (&#39;Terry&#39;, 45);&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    _, err = db.Query(&quot;INSERT INTO users VALUES (&#39;Anette&#39;, 57);&quot;)
-    if err != nil {
-        panic(err)
-    }
+<span class="w">    </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">db</span><span class="p">.</span><span class="nx">Query</span><span class="p">(</span><span class="s">&quot;INSERT INTO users VALUES (&#39;Anette&#39;, 57);&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    rows, err := db.Query(&quot;SELECT name, age FROM users;&quot;)
-    if err != nil {
-        panic(err)
-    }
+<span class="w">    </span><span class="nx">rows</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">db</span><span class="p">.</span><span class="nx">Query</span><span class="p">(</span><span class="s">&quot;SELECT name, age FROM users;&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    var name string
-    var age uint64
-    defer rows.Close()
-    for rows.Next() {
-        err := rows.Scan(&amp;name, &amp;age)
-        if err != nil {
-            panic(err)
-        }
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">name</span><span class="w"> </span><span class="kt">string</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">age</span><span class="w"> </span><span class="kt">uint64</span>
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">rows</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">rows</span><span class="p">.</span><span class="nx">Next</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">rows</span><span class="p">.</span><span class="nx">Scan</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">age</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
-        fmt.Printf(&quot;Name: %s, Age: %d\n&quot;, name, age)
-    }
+<span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Name: %s, Age: %d\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">age</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if err = rows.Err(); err != nil {
-        panic(err)
-    }
-}
-</code></pre>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">rows</span><span class="p">.</span><span class="nx">Err</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>Our gosql driver will use a single instance of the
 <code>Backend</code> for all connections.</p>
 <p>Aside from that, it is a simple matter of wrapping our existing APIs
@@ -126,30 +125,30 @@ commit</a>.</p>
 driver instance.</p>
 <p>We'll add the registration code to an <code>init</code> function in a
 new file, <code>driver.go</code>:</p>
-<pre><code class="hljs go">struct Driver {
-    bkd Backend
-}
+<div class="highlight"><pre><span></span><span class="kd">struct</span><span class="w"> </span><span class="nx">Driver</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">bkd</span><span class="w"> </span><span class="nx">Backend</span>
+<span class="p">}</span>
 
-func init() {
-    sql.Register(&quot;postgres&quot;, &amp;Driver{NewMemoryBackend()})
-}
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="nx">init</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">sql</span><span class="p">.</span><span class="nx">Register</span><span class="p">(</span><span class="s">&quot;postgres&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">Driver</span><span class="p">{</span><span class="nx">NewMemoryBackend</span><span class="p">()})</span>
+<span class="p">}</span>
+</pre></div>
 <p>According to the <a href="https://pkg.go.dev/database/sql/driver?tab=doc#Driver">Driver
 interface</a>, we
 need only implement <code>Open</code> to return an connection instance
 that implements the <code>database/sql/driver.Conn</code> interface.</p>
-<pre><code class="hljs go">type Driver struct {
-    bkd Backend
-}
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">Driver</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">bkd</span><span class="w"> </span><span class="nx">Backend</span>
+<span class="p">}</span>
 
-func (d *Driver) Open(name string) (driver.Conn, error) {
-    return &amp;Conn{d.bkd}, nil
-}
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">Driver</span><span class="p">)</span><span class="w"> </span><span class="nx">Open</span><span class="p">(</span><span class="nx">name</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">driver</span><span class="p">.</span><span class="nx">Conn</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">Conn</span><span class="p">{</span><span class="nx">d</span><span class="p">.</span><span class="nx">bkd</span><span class="p">},</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
 
-func init() {
-    sql.Register(&quot;postgres&quot;, &amp;Driver{NewMemoryBackend()})
-}
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="nx">init</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">sql</span><span class="p">.</span><span class="nx">Register</span><span class="p">(</span><span class="s">&quot;postgres&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">Driver</span><span class="p">{</span><span class="nx">NewMemoryBackend</span><span class="p">()})</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="implementing-the-connection">Implementing the connection</h3><p>According to the <a href="https://pkg.go.dev/database/sql/driver?tab=doc#Conn">Conn
 interface</a>, we
 must implement:</p>
@@ -163,22 +162,22 @@ must implement:</p>
 <p>To simplify things we'll panic on <code>Prepare</code> and on
 <code>Begin</code> (we don't have transactions yet). There's no
 cleanup required so we'll do nothing in <code>Close</code>.</p>
-<pre><code class="hljs go">type Conn struct {
-    bkd Backend
-}
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">Conn</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">bkd</span><span class="w"> </span><span class="nx">Backend</span>
+<span class="p">}</span>
 
-func (dc *Conn) Prepare(query string) (driver.Stmt, error) {
-    panic(&quot;Prepare not implemented&quot;)
-}
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">dc</span><span class="w"> </span><span class="o">*</span><span class="nx">Conn</span><span class="p">)</span><span class="w"> </span><span class="nx">Prepare</span><span class="p">(</span><span class="nx">query</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">driver</span><span class="p">.</span><span class="nx">Stmt</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nb">panic</span><span class="p">(</span><span class="s">&quot;Prepare not implemented&quot;</span><span class="p">)</span>
+<span class="p">}</span>
 
-func (dc *Conn) Begin() (driver.Tx, error) {
-    panic(&quot;Begin not implemented&quot;)
-}
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">dc</span><span class="w"> </span><span class="o">*</span><span class="nx">Conn</span><span class="p">)</span><span class="w"> </span><span class="nx">Begin</span><span class="p">()</span><span class="w"> </span><span class="p">(</span><span class="nx">driver</span><span class="p">.</span><span class="nx">Tx</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nb">panic</span><span class="p">(</span><span class="s">&quot;Begin not implemented&quot;</span><span class="p">)</span>
+<span class="p">}</span>
 
-func (dc *Conn) Close() error {
-    return nil
-}
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">dc</span><span class="w"> </span><span class="o">*</span><span class="nx">Conn</span><span class="p">)</span><span class="w"> </span><span class="nx">Close</span><span class="p">()</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>The only method we actually need, <code>Query</code>, is not required
 by the interface. It takes a query string and array of query
 parameters, returning an instance implementing
@@ -196,57 +195,57 @@ interface.</p>
 </p><p>If we receive parameterized query arguments, we'll ignore them for
 now. And if the query involves multiple statements, we'll process only
 the first statement.</p>
-<pre><code class="hljs go">func (dc *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
-    if len(args) &gt; 0 {
-        // TODO: support parameterization
-        panic(&quot;Parameterization not supported&quot;)
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">dc</span><span class="w"> </span><span class="o">*</span><span class="nx">Conn</span><span class="p">)</span><span class="w"> </span><span class="nx">Query</span><span class="p">(</span><span class="nx">query</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="w"> </span><span class="p">[]</span><span class="nx">driver</span><span class="p">.</span><span class="nx">Value</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">driver</span><span class="p">.</span><span class="nx">Rows</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">args</span><span class="p">)</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// TODO: support parameterization</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="s">&quot;Parameterization not supported&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    parser := Parser{}
-    ast, err := parser.Parse(query)
-    if err != nil {
-        return nil, fmt.Errorf(&quot;Error while parsing: %s&quot;, err)
-    }
+<span class="w">    </span><span class="nx">parser</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">Parser</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">ast</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parser</span><span class="p">.</span><span class="nx">Parse</span><span class="p">(</span><span class="nx">query</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Error while parsing: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // NOTE: ignorning all but the first statement
-    stmt := ast.Statements[0]
-    switch stmt.Kind {
-    case CreateIndexKind:
-        err = dc.bkd.CreateIndex(stmt.CreateIndexStatement)
-        if err != nil {
-            return nil, fmt.Errorf(&quot;Error adding index on table: %s&quot;, err)
-        }
-    case CreateTableKind:
-        err = dc.bkd.CreateTable(stmt.CreateTableStatement)
-        if err != nil {
-            return nil, fmt.Errorf(&quot;Error creating table: %s&quot;, err)
-        }
-    case DropTableKind:
-        err = dc.bkd.DropTable(stmt.DropTableStatement)
-        if err != nil {
-            return nil, fmt.Errorf(&quot;Error dropping table: %s&quot;, err)
-        }
-    case InsertKind:
-        err = dc.bkd.Insert(stmt.InsertStatement)
-        if err != nil {
-            return nil, fmt.Errorf(&quot;Error inserting values: %s&quot;, err)
-        }
-    case SelectKind:
-        results, err := dc.bkd.Select(stmt.SelectStatement)
-        if err != nil {
-            return nil, err
-        }
+<span class="w">    </span><span class="c1">// NOTE: ignorning all but the first statement</span>
+<span class="w">    </span><span class="nx">stmt</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ast</span><span class="p">.</span><span class="nx">Statements</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="nx">stmt</span><span class="p">.</span><span class="nx">Kind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">CreateIndexKind</span><span class="p">:</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">dc</span><span class="p">.</span><span class="nx">bkd</span><span class="p">.</span><span class="nx">CreateIndex</span><span class="p">(</span><span class="nx">stmt</span><span class="p">.</span><span class="nx">CreateIndexStatement</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Error adding index on table: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">CreateTableKind</span><span class="p">:</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">dc</span><span class="p">.</span><span class="nx">bkd</span><span class="p">.</span><span class="nx">CreateTable</span><span class="p">(</span><span class="nx">stmt</span><span class="p">.</span><span class="nx">CreateTableStatement</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Error creating table: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">DropTableKind</span><span class="p">:</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">dc</span><span class="p">.</span><span class="nx">bkd</span><span class="p">.</span><span class="nx">DropTable</span><span class="p">(</span><span class="nx">stmt</span><span class="p">.</span><span class="nx">DropTableStatement</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Error dropping table: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">InsertKind</span><span class="p">:</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">dc</span><span class="p">.</span><span class="nx">bkd</span><span class="p">.</span><span class="nx">Insert</span><span class="p">(</span><span class="nx">stmt</span><span class="p">.</span><span class="nx">InsertStatement</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Error inserting values: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">SelectKind</span><span class="p">:</span>
+<span class="w">        </span><span class="nx">results</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dc</span><span class="p">.</span><span class="nx">bkd</span><span class="p">.</span><span class="nx">Select</span><span class="p">(</span><span class="nx">stmt</span><span class="p">.</span><span class="nx">SelectStatement</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
 
-        return &amp;Rows{
-            rows:    results.Rows,
-            columns: results.Columns,
-            index:   0,
-        }, nil
-    }
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">Rows</span><span class="p">{</span>
+<span class="w">            </span><span class="nx">rows</span><span class="p">:</span><span class="w">    </span><span class="nx">results</span><span class="p">.</span><span class="nx">Rows</span><span class="p">,</span>
+<span class="w">            </span><span class="nx">columns</span><span class="p">:</span><span class="w"> </span><span class="nx">results</span><span class="p">.</span><span class="nx">Columns</span><span class="p">,</span>
+<span class="w">            </span><span class="nx">index</span><span class="p">:</span><span class="w">   </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="p">},</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return nil, nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="implementing-results">Implementing results</h3><p>According to the <a href="https://pkg.go.dev/database/sql/driver?tab=doc#Rows">Rows
 interface</a> we
 must implement:</p>
@@ -259,91 +258,91 @@ must implement:</p>
 returned from <code>Backend</code>, and will also contain an
 <code>index</code> field we can use in <code>Next</code> to populate
 the next row of cells.</p>
-<pre><code class="hljs go">type Rows struct {
-    columns []ResultColumn
-    index   uint64
-    rows    [][]Cell
-}
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">Rows</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">columns</span><span class="w"> </span><span class="p">[]</span><span class="nx">ResultColumn</span>
+<span class="w">    </span><span class="nx">index</span><span class="w">   </span><span class="kt">uint64</span>
+<span class="w">    </span><span class="nx">rows</span><span class="w">    </span><span class="p">[][]</span><span class="nx">Cell</span>
+<span class="p">}</span>
 
-func (r *Rows) Columns() []string {}
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">Rows</span><span class="p">)</span><span class="w"> </span><span class="nx">Columns</span><span class="p">()</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="w"> </span><span class="p">{}</span>
 
-func (r *Rows) Close() error {}
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">Rows</span><span class="p">)</span><span class="w"> </span><span class="nx">Close</span><span class="p">()</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{}</span>
 
-func (r *Rows) Next(dest []driver.Value) error {}
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">Rows</span><span class="p">)</span><span class="w"> </span><span class="nx">Next</span><span class="p">(</span><span class="nx">dest</span><span class="w"> </span><span class="p">[]</span><span class="nx">driver</span><span class="p">.</span><span class="nx">Value</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{}</span>
+</pre></div>
 <p>For <code>Columns</code> we simply need to extract and
 return the column names from <code>ResultColumn</code>.</p>
-<pre><code class="hljs go">func (r *Rows) Columns() []string {
-    columns := []string{}
-    for _, c := range r.columns {
-        columns = append(columns, c.Name)
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">Rows</span><span class="p">)</span><span class="w"> </span><span class="nx">Columns</span><span class="p">()</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">columns</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{}</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">columns</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">columns</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">columns</span><span class="p">,</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">Name</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return columns
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">columns</span>
+<span class="p">}</span>
+</pre></div>
 <p>For <code>Next</code> we need to iterate over each cell in the current
 row and retrieve its Go value, storing it in <code>dest</code>. The
 <code>dest</code> argument is simply a fixed-length array of
 <code>interface{}</code>, so we'll need no manual conversion.</p>
 <p>Once we've reached the last row, the <code>Next</code> contract is to
 return an <code>io.EOF</code>.</p>
-<pre><code class="hljs go">func (r *Rows) Next(dest []driver.Value) error {
-    if r.index &gt;= uint64(len(r.rows)) {
-        return io.EOF
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">Rows</span><span class="p">)</span><span class="w"> </span><span class="nx">Next</span><span class="p">(</span><span class="nx">dest</span><span class="w"> </span><span class="p">[]</span><span class="nx">driver</span><span class="p">.</span><span class="nx">Value</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">index</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="nb">uint64</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">rows</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">io</span><span class="p">.</span><span class="nx">EOF</span>
+<span class="w">    </span><span class="p">}</span>
 
-    row := r.rows[r.index]
+<span class="w">    </span><span class="nx">row</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">rows</span><span class="p">[</span><span class="nx">r</span><span class="p">.</span><span class="nx">index</span><span class="p">]</span>
 
-    for idx, cell := range row {
-        typ := r.columns[idx].Type
-        switch typ {
-        case IntType:
-            i := cell.AsInt()
-            if i == nil {
-                dest[idx] = i
-            } else {
-                dest[idx] = *i
-            }
-        case TextType:
-            s := cell.AsText()
-            if s == nil {
-                dest[idx] = s
-            } else {
-                dest[idx] = *s
-            }
-        case BoolType:
-            b := cell.AsBool()
-            if b == nil {
-                dest[idx] = b
-            } else {
-                dest[idx] = b
-            }
-        }
-    }
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">idx</span><span class="p">,</span><span class="w"> </span><span class="nx">cell</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">row</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">typ</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">columns</span><span class="p">[</span><span class="nx">idx</span><span class="p">].</span><span class="nx">Type</span>
+<span class="w">        </span><span class="k">switch</span><span class="w"> </span><span class="nx">typ</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">IntType</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">i</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">cell</span><span class="p">.</span><span class="nx">AsInt</span><span class="p">()</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">dest</span><span class="p">[</span><span class="nx">idx</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">i</span>
+<span class="w">            </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">dest</span><span class="p">[</span><span class="nx">idx</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="o">*</span><span class="nx">i</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">TextType</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">s</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">cell</span><span class="p">.</span><span class="nx">AsText</span><span class="p">()</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">s</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">dest</span><span class="p">[</span><span class="nx">idx</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">s</span>
+<span class="w">            </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">dest</span><span class="p">[</span><span class="nx">idx</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="o">*</span><span class="nx">s</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="nx">BoolType</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">cell</span><span class="p">.</span><span class="nx">AsBool</span><span class="p">()</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">dest</span><span class="p">[</span><span class="nx">idx</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">b</span>
+<span class="w">            </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">dest</span><span class="p">[</span><span class="nx">idx</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">b</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    r.index++
-    return nil
-}
-</code></pre>
+<span class="w">    </span><span class="nx">r</span><span class="p">.</span><span class="nx">index</span><span class="o">++</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>Finally in <code>Close</code> we'll set <code>index</code> higher than
 the number of rows to force <code>Next</code> to only ever
 return <code>io.EOF</code>.</p>
-<pre><code class="hljs go">func (r *Rows) Close() error {
-    r.index = uint64(len(r.rows))
-    return nil
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">Rows</span><span class="p">)</span><span class="w"> </span><span class="nx">Close</span><span class="p">()</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">r</span><span class="p">.</span><span class="nx">index</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">uint64</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">rows</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>And that's all the changes needed to implement a
 <code>database/sql</code> driver! See
 <a href="https://github.com/eatonphil/gosql/commit/0d0aa61a74580a6aef11296741abfba4e1d4ae5c#diff-749da71b40f8ff06fc9e78ce917b0cce">here</a>
 for <code>driver.go</code> in full.</p>
 <h3 id="running-the-example">Running the example</h3><p>With the driver in place we can try out the example:</p>
-<pre><code class="hljs bash">$ go build ./cmd/sqlexample/main.go
-$ ./main
-Name: Terry, Age: 45
-Name: Anette, Age: 57
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./cmd/sqlexample/main.go
+$<span class="w"> </span>./main
+Name:<span class="w"> </span>Terry,<span class="w"> </span>Age:<span class="w"> </span><span class="m">45</span>
+Name:<span class="w"> </span>Anette,<span class="w"> </span>Age:<span class="w"> </span><span class="m">57</span>
+</pre></div>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Next post in the database basics series, implementing a database/sql driver for more seamless interactions in Go.<a href="https://t.co/AUZfUByNGE">https://t.co/AUZfUByNGE</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1259594720315047942?ref_src=twsrc%5Etfw">May 10, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
 	<div class="feedback">
@@ -979,7 +978,6 @@ Name: Anette, Age: 57
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

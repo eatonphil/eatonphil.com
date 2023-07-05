@@ -6,7 +6,6 @@
     <title>How to get better at recursion | notes.eatonphil.com</title>
     <meta name="description" content="How to get better at recursion" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -71,43 +70,43 @@ without loops. (Obviously, start simple and just pick one. But
 don't stop there.)</p>
 <h3 id="some-examples">Some examples</h3><p>Here's an example reimplementation of <code>indexOf</code> in
 JavaScript:</p>
-<pre><code class="hljs javascript">function indexOf(input, toMatch) {
-  function helper(index, offset, test) {
-    if (index === input.length) {
-      return -1;
-    }
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">indexOf</span><span class="p">(</span><span class="nx">input</span><span class="p">,</span><span class="w"> </span><span class="nx">toMatch</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">function</span><span class="w"> </span><span class="nx">helper</span><span class="p">(</span><span class="nx">index</span><span class="p">,</span><span class="w"> </span><span class="nx">offset</span><span class="p">,</span><span class="w"> </span><span class="nx">test</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">index</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="nx">input</span><span class="p">.</span><span class="nx">length</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="mf">1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (toMatch === test) {
-      return index;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">toMatch</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="nx">test</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">index</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (input[index+offset] !== toMatch[offset] || test.length &gt; toMatch.length) {
-      return helper(index+1, 0, &quot;&quot;);
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">input</span><span class="p">[</span><span class="nx">index</span><span class="o">+</span><span class="nx">offset</span><span class="p">]</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="nx">toMatch</span><span class="p">[</span><span class="nx">offset</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">test</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nx">toMatch</span><span class="p">.</span><span class="nx">length</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">helper</span><span class="p">(</span><span class="nx">index</span><span class="o">+</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return helper(index, offset+1, test+input[index+offset]);
-  }
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">helper</span><span class="p">(</span><span class="nx">index</span><span class="p">,</span><span class="w"> </span><span class="nx">offset</span><span class="o">+</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="nx">test</span><span class="o">+</span><span class="nx">input</span><span class="p">[</span><span class="nx">index</span><span class="o">+</span><span class="nx">offset</span><span class="p">]);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  return helper(0, 0, &quot;&quot;);
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">helper</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>Or here's an example immutable reimplementation of <code>insert</code>
 in Python:</p>
-<pre><code class="hljs python">def insert(arr, index, item):
-  def helper(currentIndex, accum):
-    if currentIndex == len(arr):
-      return accum
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">insert</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+  <span class="k">def</span> <span class="nf">helper</span><span class="p">(</span><span class="n">currentIndex</span><span class="p">,</span> <span class="n">accum</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">currentIndex</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">accum</span>
 
-    if currentIndex &lt; index:
-      return helper(currentIndex+1, accum + [arr[currentIndex]])
+    <span class="k">if</span> <span class="n">currentIndex</span> <span class="o">&lt;</span> <span class="n">index</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">helper</span><span class="p">(</span><span class="n">currentIndex</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">accum</span> <span class="o">+</span> <span class="p">[</span><span class="n">arr</span><span class="p">[</span><span class="n">currentIndex</span><span class="p">]])</span>
 
-    if currentIndex == index:
-      return helper(currentIndex+1, accum + [item, arr[currentIndex]])
+    <span class="k">if</span> <span class="n">currentIndex</span> <span class="o">==</span> <span class="n">index</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">helper</span><span class="p">(</span><span class="n">currentIndex</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">accum</span> <span class="o">+</span> <span class="p">[</span><span class="n">item</span><span class="p">,</span> <span class="n">arr</span><span class="p">[</span><span class="n">currentIndex</span><span class="p">]])</span>
 
-    return helper(currentIndex+1, accum + [arr[currentIndex]])
+    <span class="k">return</span> <span class="n">helper</span><span class="p">(</span><span class="n">currentIndex</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">accum</span> <span class="o">+</span> <span class="p">[</span><span class="n">arr</span><span class="p">[</span><span class="n">currentIndex</span><span class="p">]])</span>
 
-  return helper(0, [])
-</code></pre>
+  <span class="k">return</span> <span class="n">helper</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="p">[])</span>
+</pre></div>
 <p class="note">
   You're going to find an edge case and that's alright. The
   important part at the moment is practicing recursion.
@@ -749,7 +748,6 @@ only tail recursion.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

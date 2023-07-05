@@ -6,7 +6,6 @@
     <title>Starting a minimal Common Lisp project | notes.eatonphil.com</title>
     <meta name="description" content="Starting a minimal Common Lisp project" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -72,34 +71,34 @@ come bundled.</p>
 <h3 id="getting-quicklisp">Getting Quicklisp</h3><p>You can follow the notes on the Quicklisp
 <a href="https://www.quicklisp.org/beta/">site</a> for installation, but the
 basic gist is:</p>
-<pre><code class="hljs shell">$ curl -O https://beta.quicklisp.org/quicklisp.lisp
-$ sbcl --load quicklisp.lisp
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>-O<span class="w"> </span>https://beta.quicklisp.org/quicklisp.lisp
+$<span class="w"> </span>sbcl<span class="w"> </span>--load<span class="w"> </span>quicklisp.lisp
 ...
-* (quicklisp-quickstart:install)
+*<span class="w"> </span><span class="o">(</span>quicklisp-quickstart:install<span class="o">)</span>
 ...
-* ^D
-$ sbcl --load &quot;~/quicklisp/setup.lisp&quot;
+*<span class="w"> </span>^D
+$<span class="w"> </span>sbcl<span class="w"> </span>--load<span class="w"> </span><span class="s2">&quot;~/quicklisp/setup.lisp&quot;</span>
 ...
-* (ql:add-to-init-file)
-</code></pre>
+*<span class="w"> </span><span class="o">(</span>ql:add-to-init-file<span class="o">)</span>
+</pre></div>
 <h3 id="a-minimal-package">A minimal package</h3><p>Now we're ready to get started. Create a directory using the name of
 the library you'd like to package. For instance, I'll create a
 "cl-docker" directory for my Docker wrapper library. Then create a
 file using the same name in the directory with the ".asd" suffix:</p>
-<pre><code class="hljs shell">$ cd ~/projects
-$ mkdir cl-docker
-$ touch cl-docker/cl-docker.asd
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>~/projects
+$<span class="w"> </span>mkdir<span class="w"> </span>cl-docker
+$<span class="w"> </span>touch<span class="w"> </span>cl-docker/cl-docker.asd
+</pre></div>
 <p>It is important for the ".asd" file to share the same name as the
 directory because ASDF will look for it in that location (by default).</p>
 <p>Before we get too far into packaging, let's write a function we'd like
 to export from this library. Edit "cl-docker/docker.lisp" (this name does
 not matter) and add the following:</p>
-<pre><code class="hljs lisp">(defun ps ()
-  (let ((output (uiop:run-program &#39;(&quot;docker&quot; &quot;ps&quot;) :output :string)))
-    (loop for line in (rest (cl-ppcre:split &quot;(\\n+)&quot; output))
-      collect (cl-ppcre:split &quot;(\\s\\s+)&quot; line))))
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nb">defun</span><span class="w"> </span><span class="nv">ps</span><span class="w"> </span><span class="p">()</span>
+<span class="w">  </span><span class="p">(</span><span class="k">let</span><span class="w"> </span><span class="p">((</span><span class="nv">output</span><span class="w"> </span><span class="p">(</span><span class="nv">uiop:run-program</span><span class="w"> </span><span class="o">&#39;</span><span class="p">(</span><span class="s">&quot;docker&quot;</span><span class="w"> </span><span class="s">&quot;ps&quot;</span><span class="p">)</span><span class="w"> </span><span class="ss">:output</span><span class="w"> </span><span class="ss">:string</span><span class="p">)))</span>
+<span class="w">    </span><span class="p">(</span><span class="nb">loop</span><span class="w"> </span><span class="nv">for</span><span class="w"> </span><span class="nv">line</span><span class="w"> </span><span class="nv">in</span><span class="w"> </span><span class="p">(</span><span class="nb">rest</span><span class="w"> </span><span class="p">(</span><span class="nv">cl-ppcre:split</span><span class="w"> </span><span class="s">&quot;(\\n+)&quot;</span><span class="w"> </span><span class="nv">output</span><span class="p">))</span>
+<span class="w">      </span><span class="nv">collect</span><span class="w"> </span><span class="p">(</span><span class="nv">cl-ppcre:split</span><span class="w"> </span><span class="s">&quot;(\\s\\s+)&quot;</span><span class="w"> </span><span class="nv">line</span><span class="p">))))</span>
+</pre></div>
 <p>This uses a portable library, "uiop", that ASDF exposes by default (we
 won't need to explicitly import this anywhere because the package is
 managed by ASDF). It will run the command "docker ps" in a subprocess
@@ -109,32 +108,32 @@ lines, take all but the first line, and split the lines up based one
 two or more whitespace characters.</p>
 <p>Next let's define the package (think module in Python) by editing
 "cl-docker/package.lisp" (this name also does not matter):</p>
-<pre><code class="hljs lisp">(defpackage cl-docker
-  (:use cl)
-  (:import-from :cl-ppcre :split)
-  (:export :ps))
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nb">defpackage</span><span class="w"> </span><span class="nv">cl-docker</span>
+<span class="w">  </span><span class="p">(</span><span class="ss">:use</span><span class="w"> </span><span class="nv">cl</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="ss">:import-from</span><span class="w"> </span><span class="ss">:cl-ppcre</span><span class="w"> </span><span class="ss">:split</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="ss">:export</span><span class="w"> </span><span class="ss">:ps</span><span class="p">))</span>
+</pre></div>
 <p>Here we state the package's name, say that we want to import all
 Common Lisp base symbols into the package, say we want to import the
 "split" symbol from the "cl-ppcre" package, and say we only want to
 export our "ps" function.</p>
 <p>At this point we must also declare within the "cl-docker/docker.lisp"
 file that it is a part of this package:</p>
-<pre><code class="hljs lisp">(in-package :cl-docker)
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nb">in-package</span><span class="w"> </span><span class="ss">:cl-docker</span><span class="p">)</span>
 
-(defun ps ()
-  (let ((output (uiop:run-program &#39;(&quot;docker&quot; &quot;ps&quot;) :output :string)))
-    (loop for line in (rest (cl-ppcre:split &quot;(\\n+)&quot; output))
-      collect (cl-ppcre:split &quot;(\\s\\s+)&quot; line))))
-</code></pre>
+<span class="p">(</span><span class="nb">defun</span><span class="w"> </span><span class="nv">ps</span><span class="w"> </span><span class="p">()</span>
+<span class="w">  </span><span class="p">(</span><span class="k">let</span><span class="w"> </span><span class="p">((</span><span class="nv">output</span><span class="w"> </span><span class="p">(</span><span class="nv">uiop:run-program</span><span class="w"> </span><span class="o">&#39;</span><span class="p">(</span><span class="s">&quot;docker&quot;</span><span class="w"> </span><span class="s">&quot;ps&quot;</span><span class="p">)</span><span class="w"> </span><span class="ss">:output</span><span class="w"> </span><span class="ss">:string</span><span class="p">)))</span>
+<span class="w">    </span><span class="p">(</span><span class="nb">loop</span><span class="w"> </span><span class="nv">for</span><span class="w"> </span><span class="nv">line</span><span class="w"> </span><span class="nv">in</span><span class="w"> </span><span class="p">(</span><span class="nb">rest</span><span class="w"> </span><span class="p">(</span><span class="nv">cl-ppcre:split</span><span class="w"> </span><span class="s">&quot;(\\n+)&quot;</span><span class="w"> </span><span class="nv">output</span><span class="p">))</span>
+<span class="w">      </span><span class="nv">collect</span><span class="w"> </span><span class="p">(</span><span class="nv">cl-ppcre:split</span><span class="w"> </span><span class="s">&quot;(\\s\\s+)&quot;</span><span class="w"> </span><span class="nv">line</span><span class="p">))))</span>
+</pre></div>
 <p>Next let's define the system (ASDF-level, similar to a package in Python)
 in "cl-docker/cl-docker.asd":</p>
-<pre><code class="hljs lisp">(defsystem :cl-docker
-    :depends-on (:cl-ppcre)
-    :serial t
-    :components ((:file &quot;package&quot;)
-                 (:file &quot;docker&quot;)))
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nv">defsystem</span><span class="w"> </span><span class="ss">:cl-docker</span>
+<span class="w">    </span><span class="ss">:depends-on</span><span class="w"> </span><span class="p">(</span><span class="ss">:cl-ppcre</span><span class="p">)</span>
+<span class="w">    </span><span class="ss">:serial</span><span class="w"> </span><span class="no">t</span>
+<span class="w">    </span><span class="ss">:components</span><span class="w"> </span><span class="p">((</span><span class="ss">:file</span><span class="w"> </span><span class="s">&quot;package&quot;</span><span class="p">)</span>
+<span class="w">                 </span><span class="p">(</span><span class="ss">:file</span><span class="w"> </span><span class="s">&quot;docker&quot;</span><span class="p">)))</span>
+</pre></div>
 <p>This defines all the pieces of the system for ASDF: the system name,
 the package definition and the component of the package
 ("cl-docker/docker.lisp"), and tells ASDF to make the "cl-ppcre"
@@ -151,31 +150,31 @@ system definitions so ASDF (and Quicklisp) know where to look if you
 ask to load this system.</p>
 <p>To do this, add a ".conf" file to
 "~/.config/common-lisp/source-registry.conf.d/" and add the following:</p>
-<pre><code class="hljs lisp">(:tree &quot;~/path/to/dir/containing/system/dir&quot;)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="ss">:tree</span><span class="w"> </span><span class="s">&quot;~/path/to/dir/containing/system/dir&quot;</span><span class="p">)</span>
+</pre></div>
 <p>So if you had a repo called "cl-docker" in your "~/projects" directory
 that contained the "cl-docker" directory we previously created (that,
 in turn, contains the "cl-docker.asd", "package.lisp", and
 "docker.lisp" files) then you might create
 "~/.config/common-lisp/source-registry.conf.d/1-cl-docker.conf" and
 add:</p>
-<pre><code class="hljs lisp">(:tree &quot;~/projects/cl-docker&quot;)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="ss">:tree</span><span class="w"> </span><span class="s">&quot;~/projects/cl-docker&quot;</span><span class="p">)</span>
+</pre></div>
 <h4 id="using-the-system">Using the system</h4><p>Now you can use the library from anywhere on your computer. Enter a
 Common Lisp REPL and tell Quicklisp to load the system (and download
 any non-local dependencies):</p>
-<pre><code class="hljs shell">$ sbcl
+<div class="highlight"><pre><span></span>$<span class="w"> </span>sbcl
 ...
-* (ql:quickload &quot;cl-docker&quot;)
-To load &quot;cl-docker&quot;:
-  Load 1 ASDF system:
-    cl-docker
-; Loading &quot;cl-docker&quot;
+*<span class="w"> </span><span class="o">(</span>ql:quickload<span class="w"> </span><span class="s2">&quot;cl-docker&quot;</span><span class="o">)</span>
+To<span class="w"> </span>load<span class="w"> </span><span class="s2">&quot;cl-docker&quot;</span>:
+<span class="w">  </span>Load<span class="w"> </span><span class="m">1</span><span class="w"> </span>ASDF<span class="w"> </span>system:
+<span class="w">    </span>cl-docker
+<span class="p">;</span><span class="w"> </span>Loading<span class="w"> </span><span class="s2">&quot;cl-docker&quot;</span>
 ..................................................
-[package cl-docker]
-(&quot;cl-docker&quot;)
-* (cl-docker:ps)
-</code></pre>
+<span class="o">[</span>package<span class="w"> </span>cl-docker<span class="o">]</span>
+<span class="o">(</span><span class="s2">&quot;cl-docker&quot;</span><span class="o">)</span>
+*<span class="w"> </span><span class="o">(</span>cl-docker:ps<span class="o">)</span>
+</pre></div>
 <p>And that's it!</p>
 <p>For the complete source of this example package, check out this
 <a href="https://gist.github.com/eatonphil/59cdfeb4826c7a12a07d7055f6817a56">Gist</a>.</p>
@@ -893,7 +892,6 @@ support, is a promising candidate for backend web development.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

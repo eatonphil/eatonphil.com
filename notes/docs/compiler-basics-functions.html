@@ -6,7 +6,6 @@
     <title>Writing a lisp compiler from scratch in JavaScript: 2. user-defined functions and variables | notes.eatonphil.com</title>
     <meta name="description" content="Writing a lisp compiler from scratch in JavaScript: 2. user-defined functions and variables" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -70,23 +69,23 @@ be within a <code>main</code> function.</p>
 <a href="https://github.com/eatonphil/ulisp">here</a>.</p>
 <h3 id="function-definition">Function definition</h3><p>The simplest function definition we need to support is for our <code>main</code>
 function. This will look like this:</p>
-<pre><code class="hljs lisp">$ cat basic.lisp
-(def main ()
-     (+ 1 2))
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nv">$</span><span class="w"> </span><span class="nv">cat</span><span class="w"> </span><span class="nv">basic.lisp</span>
+<span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">main</span><span class="w"> </span><span class="p">()</span>
+<span class="w">     </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mi">2</span><span class="p">))</span>
+</pre></div>
 <p>Where compiling and running it should produce a return code of 3:</p>
-<pre><code class="hljs bash">$ node ulisp.js basic.lisp
-$ ./build/a.out
-$ echo $?
-3
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>node<span class="w"> </span>ulisp.js<span class="w"> </span>basic.lisp
+$<span class="w"> </span>./build/a.out
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">3</span>
+</pre></div>
 <h3 id="parsing-function-definitions">Parsing function definitions</h3><p>The entire language is defined in S-expressions and we already parse
 S-expressions.</p>
-<pre><code class="hljs javascript">$ node
-&gt; const { parse } = require(&#39;./parser&#39;);
-&gt; JSON.stringify(parse(&#39;(def main () (+ 1 2))&#39;));
-&#39;[[[&quot;def&quot;,&quot;main&quot;,[],[&quot;+&quot;,1,2]]],&quot;&quot;]&#39;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nx">$</span><span class="w"> </span><span class="nx">node</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">parse</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./parser&#39;</span><span class="p">);</span>
+<span class="o">&gt;</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">(</span><span class="nx">parse</span><span class="p">(</span><span class="s1">&#39;(def main () (+ 1 2))&#39;</span><span class="p">));</span>
+<span class="s1">&#39;[[[&quot;def&quot;,&quot;main&quot;,[],[&quot;+&quot;,1,2]]],&quot;&quot;]&#39;</span>
+</pre></div>
 <p>So we're done!</p>
 <h3 id="code-generation">Code generation</h3><p>There are two tricky parts to code generation once function
 definitions are introduced:</p>
@@ -98,39 +97,39 @@ definitions are introduced:</p>
 <h4 id="function-definitions">Function definitions</h4><p>A function definition looks like a function call. So we'll need to
 keep a list of "primitive" functions that handle what looks like
 function calls differently.</p>
-<pre><code class="hljs javascript">function compile_define() {
-  // TODO
-}
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">compile_define</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// TODO</span>
+<span class="p">}</span>
 
-const primitive_functions = {
-  def: compile_define,
-};
-</code></pre>
+<span class="kd">const</span><span class="w"> </span><span class="nx">primitive_functions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">def</span><span class="o">:</span><span class="w"> </span><span class="nx">compile_define</span><span class="p">,</span>
+<span class="p">};</span>
+</pre></div>
 <p>Then in our <code>compile_call</code> function we need to see if the function
 being "called" is in this list. If so, we allow the associated
 callback to handle compilation.</p>
-<pre><code class="hljs javascript">function compile_call(fun, args, destination) {
-  if (primitive_functions[fun]) {
-    primitive_functions[fun](args, destination);
-    return;
-  }
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">compile_call</span><span class="p">(</span><span class="nx">fun</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">primitive_functions</span><span class="p">[</span><span class="nx">fun</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">primitive_functions</span><span class="p">[</span><span class="nx">fun</span><span class="p">](</span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  // Save param registers
-  args.map((_, i) =&gt; emit(1, `PUSH ${PARAM_REGISTERS[i]}`));
+<span class="w">  </span><span class="c1">// Save param registers</span>
+<span class="w">  </span><span class="nx">args</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH </span><span class="si">${</span><span class="nx">PARAM_REGISTERS</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">));</span>
 
-  // Compile registers and store as params
-  args.map((arg, i) =&gt; compile_expression(arg, PARAM_REGISTERS[i], scope));
+<span class="w">  </span><span class="c1">// Compile registers and store as params</span>
+<span class="w">  </span><span class="nx">args</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">compile_expression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">PARAM_REGISTERS</span><span class="p">[</span><span class="nx">i</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">));</span>
 
-  emit(1, `CALL ${BUILTIN_FUNCTIONS[fun] || scope[fun]}`);
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`CALL </span><span class="si">${</span><span class="nx">BUILTIN_FUNCTIONS</span><span class="p">[</span><span class="nx">fun</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">scope</span><span class="p">[</span><span class="nx">fun</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 
-  // Restore param registers
-  args.map((_, i) =&gt; emit(1, `POP ${PARAM_REGISTERS[args.length - i - 1]}`));
+<span class="w">  </span><span class="c1">// Restore param registers</span>
+<span class="w">  </span><span class="nx">args</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP </span><span class="si">${</span><span class="nx">PARAM_REGISTERS</span><span class="p">[</span><span class="nx">args</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">));</span>
 
-  if (destination &amp;&amp; destination !== &#39;RAX&#39;) {
-    emit(1, `MOV ${destination}, RAX`);
-  }
-}
-</code></pre>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">destination</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">destination</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV </span><span class="si">${</span><span class="nx">destination</span><span class="si">}</span><span class="sb">, RAX`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>Now we can begin thinking about <code>compile_define</code>. It takes <code>args</code>
 which will be a list of three elements containing the function's:</p>
 <ul>
@@ -150,42 +149,42 @@ which will be a list of three elements containing the function's:</p>
 hard-coded <code>add</code> function, we know what a function definition in
 assembly generally looks like. And we know the arguments to the
 function when called will be in RDI, RSI, and RDX.</p>
-<pre><code class="hljs javascript">function compile_define([name, parameters, body]) {
-  // Function name becomes a label we can CALL
-  emit(0, `${name}:`);
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">compile_define</span><span class="p">([</span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">parameters</span><span class="p">,</span><span class="w"> </span><span class="nx">body</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Function name becomes a label we can CALL</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">name</span><span class="si">}</span><span class="sb">:`</span><span class="p">);</span>
 
-  // Something to do with RDI, RSI, RDX and the parameters variable?
+<span class="w">  </span><span class="c1">// Something to do with RDI, RSI, RDX and the parameters variable?</span>
 
-  // We renamed compile_argument to compile_expression to be more general
-  compile_expression(body[0], &#39;RAX&#39;);
+<span class="w">  </span><span class="c1">// We renamed compile_argument to compile_expression to be more general</span>
+<span class="w">  </span><span class="nx">compile_expression</span><span class="p">(</span><span class="nx">body</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">);</span>
 
-  // Maybe some cleanup to do with RDI, RSI, RDX?
+<span class="w">  </span><span class="c1">// Maybe some cleanup to do with RDI, RSI, RDX?</span>
 
-  emit(1, &#39;RET\n&#39;);
-}
-</code></pre>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RET\n&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>Not a bad first sketch. But how do we match up <code>RDI</code>, <code>RSI</code>, <code>RDX</code> and
 the user-defined <code>parameters</code> variable names? For example in the
 following:</p>
-<pre><code class="hljs lisp">(def plus-two (a)
-     (+ a 2))
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">plus-two</span><span class="w"> </span><span class="p">(</span><span class="nv">a</span><span class="p">)</span>
+<span class="w">     </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="mi">2</span><span class="p">))</span>
+</pre></div>
 <p>It's clear to us that <code>a</code> must match up to <code>RDI</code>. In order to do this
 we need to track all variables in a <code>scope</code> dictionary mapping the
 variable name to the register where it's stored.</p>
 <p>Additionally, keeping track of scope can help us fail quickly in the
 following scenario:</p>
-<pre><code class="hljs lisp">(def plus-two (a)
-     (+ b 2))
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">plus-two</span><span class="w"> </span><span class="p">(</span><span class="nv">a</span><span class="p">)</span>
+<span class="w">     </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="nv">b</span><span class="w"> </span><span class="mi">2</span><span class="p">))</span>
+</pre></div>
 <p>The variable <code>b</code> is used but never defined. It has not been added to
 the scope dictionary. So our compiler can fail quickly saying there is
 an undefined variable being referenced.</p>
 <p>Taking this a step further, what if we want to catch the following
 too:</p>
-<pre><code class="hljs lisp">(def plus-two (a)
-     (plus a 2))
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">plus-two</span><span class="w"> </span><span class="p">(</span><span class="nv">a</span><span class="p">)</span>
+<span class="w">     </span><span class="p">(</span><span class="nv">plus</span><span class="w"> </span><span class="nv">a</span><span class="w"> </span><span class="mi">2</span><span class="p">))</span>
+</pre></div>
 <p>We're trying to call <code>plus</code> but it has not been defined. We should be
 able to fail quickly here too. But that means we're need to track the
 scope of function <strong>names</strong> in addition to variables. We'll choose to
@@ -202,78 +201,78 @@ it's location in the scope dictionary. If a variable is defined
 (e.g. a function name or a function parameter) we need to add a
 mapping to the scope dictionary.</p>
 <p>Modifying <code>compile_expression</code> is easiest:</p>
-<pre><code class="hljs javascript">function compile_expression(arg, destination, scope) {
-  // Is a nested function call, compile it
-  if (Array.isArray(arg)) {
-    compile_call(arg[0], arg.slice(1), destination, scope);
-    return;
-  }
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">compile_expression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Is a nested function call, compile it</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Array</span><span class="p">.</span><span class="nx">isArray</span><span class="p">(</span><span class="nx">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">compile_call</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">arg</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  if (scope[arg] || Number.isInteger(arg)) {
-    emit(1, `MOV ${destination}, ${scope[arg] || arg}`);
-  } else {
-    throw new Error(&#39;Attempt to reference undefined variable or unsupported literal: &#39; + arg);
-  }
-}
-</code></pre>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">scope</span><span class="p">[</span><span class="nx">arg</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">Number</span><span class="p">.</span><span class="nx">isInteger</span><span class="p">(</span><span class="nx">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV </span><span class="si">${</span><span class="nx">destination</span><span class="si">}</span><span class="sb">, </span><span class="si">${</span><span class="nx">scope</span><span class="p">[</span><span class="nx">arg</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">arg</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Attempt to reference undefined variable or unsupported literal: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">arg</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>Next we modify <code>compile_call</code>:</p>
-<pre><code class="hljs javascript">function compile_call(fun, args, destination, scope) {
-  if (primitive_functions[fun]) {
-    primitive_functions[fun](args, destination, scope);
-    return;
-  }
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">compile_call</span><span class="p">(</span><span class="nx">fun</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">primitive_functions</span><span class="p">[</span><span class="nx">fun</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">primitive_functions</span><span class="p">[</span><span class="nx">fun</span><span class="p">](</span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  // Save param registers
-  args.map((_, i) =&gt; emit(1, `PUSH ${PARAM_REGISTERS[i]}`));
+<span class="w">  </span><span class="c1">// Save param registers</span>
+<span class="w">  </span><span class="nx">args</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH </span><span class="si">${</span><span class="nx">PARAM_REGISTERS</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">));</span>
 
-  // Compile registers and store as params
-  args.map((arg, i) =&gt; compile_expression(arg, PARAM_REGISTERS[i], scope));
+<span class="w">  </span><span class="c1">// Compile registers and store as params</span>
+<span class="w">  </span><span class="nx">args</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">compile_expression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">PARAM_REGISTERS</span><span class="p">[</span><span class="nx">i</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">));</span>
 
-  const validFunction = BUILTIN_FUNCTIONS[fun] || scope[fun];
-  if (validFunction) {
-    emit(1, `CALL ${validFunction}`);
-  } else {
-    throw new Error(&#39;Attempt to call undefined function: &#39; + fun);
-  }
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">validFunction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">BUILTIN_FUNCTIONS</span><span class="p">[</span><span class="nx">fun</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">scope</span><span class="p">[</span><span class="nx">fun</span><span class="p">];</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">validFunction</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`CALL </span><span class="si">${</span><span class="nx">validFunction</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Attempt to call undefined function: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">fun</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  // Restore param registers
-  args.map((_, i) =&gt; emit(1, `POP ${PARAM_REGISTERS[args.length - i - 1]}`));
+<span class="w">  </span><span class="c1">// Restore param registers</span>
+<span class="w">  </span><span class="nx">args</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP </span><span class="si">${</span><span class="nx">PARAM_REGISTERS</span><span class="p">[</span><span class="nx">args</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">));</span>
 
-  if (destination &amp;&amp; destination !== &#39;RAX&#39;) {
-    emit(1, `MOV ${destination}, RAX`);
-  }
-}
-</code></pre>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">destination</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">destination</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV </span><span class="si">${</span><span class="nx">destination</span><span class="si">}</span><span class="sb">, RAX`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>And then <code>compile_define</code> where we modify scope for the first time:</p>
-<pre><code class="hljs javascript">function compile_define([name, params, ...body], destination, scope) {
-  // Add this function to outer scope
-  scope[name] = name.replace(&#39;-&#39;, &#39;_&#39;);
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">compile_define</span><span class="p">([</span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">params</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nx">body</span><span class="p">],</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Add this function to outer scope</span>
+<span class="w">  </span><span class="nx">scope</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">name</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">);</span>
 
-  // Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.
-  const childScope = { ...scope };
+<span class="w">  </span><span class="c1">// Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">childScope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="nx">scope</span><span class="w"> </span><span class="p">};</span>
 
-  emit(0, `${scope[name]}:`);
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">scope</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span><span class="si">}</span><span class="sb">:`</span><span class="p">);</span>
 
-  params.forEach(function (param, i) {
-    const register = PARAM_REGISTERS[i];
-    // Store parameter mapped to associated register
-    childScope[param] = register;
-  });
+<span class="w">  </span><span class="nx">params</span><span class="p">.</span><span class="nx">forEach</span><span class="p">(</span><span class="kd">function</span><span class="w"> </span><span class="p">(</span><span class="nx">param</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">register</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">PARAM_REGISTERS</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+<span class="w">    </span><span class="c1">// Store parameter mapped to associated register</span>
+<span class="w">    </span><span class="nx">childScope</span><span class="p">[</span><span class="nx">param</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">register</span><span class="p">;</span>
+<span class="w">  </span><span class="p">});</span>
 
-  // Pass childScope in for reference when body is compiled.
-  compile_expression(body[0], &#39;RAX&#39;, childScope);
+<span class="w">  </span><span class="c1">// Pass childScope in for reference when body is compiled.</span>
+<span class="w">  </span><span class="nx">compile_expression</span><span class="p">(</span><span class="nx">body</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">childScope</span><span class="p">);</span>
 
-  emit(1, &#39;RET\n&#39;);
-}
-</code></pre>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RET\n&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>And finally we need to modify the entrypoint <code>compile</code>:</p>
-<pre><code class="hljs javascript">module.exports.compile = function (ast) {
-  emit_prefix();
-  // Pass in new, empty scope mapping
-  compile_call(ast[0], ast.slice(1), &#39;RAX&#39;, {});
-  emit_postfix();
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">compile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="p">(</span><span class="nx">ast</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">emit_prefix</span><span class="p">();</span>
+<span class="w">  </span><span class="c1">// Pass in new, empty scope mapping</span>
+<span class="w">  </span><span class="nx">compile_call</span><span class="p">(</span><span class="nx">ast</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">ast</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{});</span>
+<span class="w">  </span><span class="nx">emit_postfix</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
 <p>And scope-wise we're pretty good!</p>
 <h3 id="function-calling-convention:-callee">Function calling convention: callee</h3><p>We currently have a problem that we're using parameters registers to
 store local variables that messes up with how we are storing
@@ -287,42 +286,42 @@ given a set of registers that are callee-preserved. Of them we'll use
 long as we store them and restore them within the function.</p>
 <p>Applying the same storing/restoring strategy to local variables as we
 did for parameters, we get:</p>
-<pre><code class="hljs javascript">const LOCAL_REGISTERS = [
-  &#39;RBX&#39;,
-  &#39;RBP&#39;,
-  &#39;R12&#39;,
-];
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">LOCAL_REGISTERS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="s1">&#39;RBX&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="s1">&#39;RBP&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="s1">&#39;R12&#39;</span><span class="p">,</span>
+<span class="p">];</span>
 
-function compile_define([name, params, ...body], destination, scope) {
-  // Add this function to outer scope
-  scope[name] = name.replace(&#39;-&#39;, &#39;_&#39;);
+<span class="kd">function</span><span class="w"> </span><span class="nx">compile_define</span><span class="p">([</span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">params</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nx">body</span><span class="p">],</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Add this function to outer scope</span>
+<span class="w">  </span><span class="nx">scope</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">name</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">);</span>
 
-  // Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.
-  const childScope = { ...scope };
+<span class="w">  </span><span class="c1">// Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">childScope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="nx">scope</span><span class="w"> </span><span class="p">};</span>
 
-  emit(0, `${scope[name]}:`);
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">scope</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span><span class="si">}</span><span class="sb">:`</span><span class="p">);</span>
 
-  params.forEach(function (param, i) {
-    const register = PARAM_REGISTERS[i];
-    const local = LOCAL_REGISTERS[i];
-    emit(1, `PUSH ${local}`);
-    emit(1, `MOV ${local}, ${register}`);
-    // Store parameter mapped to associated local
-    childScope[param] = local;
-  });
+<span class="w">  </span><span class="nx">params</span><span class="p">.</span><span class="nx">forEach</span><span class="p">(</span><span class="kd">function</span><span class="w"> </span><span class="p">(</span><span class="nx">param</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">register</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">PARAM_REGISTERS</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">local</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">LOCAL_REGISTERS</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+<span class="w">    </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH </span><span class="si">${</span><span class="nx">local</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV </span><span class="si">${</span><span class="nx">local</span><span class="si">}</span><span class="sb">, </span><span class="si">${</span><span class="nx">register</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">// Store parameter mapped to associated local</span>
+<span class="w">    </span><span class="nx">childScope</span><span class="p">[</span><span class="nx">param</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">local</span><span class="p">;</span>
+<span class="w">  </span><span class="p">});</span>
 
-  // Pass childScope in for reference when body is compiled.
-  compile_expression(body[0], &#39;RAX&#39;, childScope);
+<span class="w">  </span><span class="c1">// Pass childScope in for reference when body is compiled.</span>
+<span class="w">  </span><span class="nx">compile_expression</span><span class="p">(</span><span class="nx">body</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">childScope</span><span class="p">);</span>
 
-  params.forEach(function (param, i) {
-    // Backwards first
-    const local = LOCAL_REGISTERS[params.length - i - 1];
-    emit(1, `POP ${local}`);
-  });
+<span class="w">  </span><span class="nx">params</span><span class="p">.</span><span class="nx">forEach</span><span class="p">(</span><span class="kd">function</span><span class="w"> </span><span class="p">(</span><span class="nx">param</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Backwards first</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">local</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">LOCAL_REGISTERS</span><span class="p">[</span><span class="nx">params</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="p">];</span>
+<span class="w">    </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP </span><span class="si">${</span><span class="nx">local</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">});</span>
 
-  emit(1, &#39;RET\n&#39;);
-}
-</code></pre>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RET\n&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>And we're set.</p>
 <h3 id="cleanup">Cleanup</h3><p>We've still got a few messes going on:</p>
 <ul>
@@ -332,137 +331,137 @@ function compile_define([name, params, ...body], destination, scope) {
 </ul>
 <p>Starting first, we rewrite <code>emit_prefix</code> and <code>emit_postfix</code> so that
 our <code>_main</code> just calls <code>main</code>.</p>
-<pre><code class="hljs javascript">function emit_prefix() {
-  emit(1, &#39;.global _main\n&#39;);
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">emit_prefix</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;.global _main\n&#39;</span><span class="p">);</span>
 
-  emit(1, &#39;.text\n&#39;);
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;.text\n&#39;</span><span class="p">);</span>
 
-  emit(0, &#39;plus:&#39;);
-  emit(1, &#39;ADD RDI, RSI&#39;);
-  emit(1, &#39;MOV RAX, RDI&#39;);
-  emit(1, &#39;RET\n&#39;);
-}
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;plus:&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;ADD RDI, RSI&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;MOV RAX, RDI&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RET\n&#39;</span><span class="p">);</span>
+<span class="p">}</span>
 
-function emit_postfix() {
-  emit(0, &#39;_main:&#39;);
-  emit(1, &#39;CALL main&#39;);
-  emit(1, &#39;MOV RDI, RAX&#39;); // Set exit arg
-  emit(1, `MOV RAX, ${SYSCALL_MAP[&#39;exit&#39;]}`);
-  emit(1, &#39;SYSCALL&#39;);
-}
-</code></pre>
+<span class="kd">function</span><span class="w"> </span><span class="nx">emit_postfix</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_main:&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;CALL main&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;MOV RDI, RAX&#39;</span><span class="p">);</span><span class="w"> </span><span class="c1">// Set exit arg</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV RAX, </span><span class="si">${</span><span class="nx">SYSCALL_MAP</span><span class="p">[</span><span class="s1">&#39;exit&#39;</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;SYSCALL&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>Next to deal with writing to a file instead of stdout, we need our
 <code>emit</code> function to write to a buffer. We'll let <code>ulisp.js</code> write that
 buffer to a file. Because we're incredibly lazy, we'll do this all
 globally.</p>
-<pre><code class="hljs javascript">let OUT = &#39;&#39;;
+<div class="highlight"><pre><span></span><span class="kd">let</span><span class="w"> </span><span class="nx">OUT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
 
-function emit(depth, args) {
-  const indent = new Array(depth + 1).join(&#39;  &#39;);
-  OUT += `${indent}${args}\n`;
-}
+<span class="kd">function</span><span class="w"> </span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">indent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Array</span><span class="p">(</span><span class="nx">depth</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">1</span><span class="p">).</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;  &#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">OUT</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">indent</span><span class="si">}${</span><span class="nx">args</span><span class="si">}</span><span class="sb">\n`</span><span class="p">;</span>
+<span class="p">}</span>
 
-...
+<span class="p">...</span>
 
-module.exports.compile = function (ast) {
-  OUT = &#39;&#39;;
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">compile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="p">(</span><span class="nx">ast</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">OUT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
 
-  emit_prefix();
-  compile_call(ast[0], ast.slice(1), &#39;RAX&#39;, {});
-  emit_postfix();
+<span class="w">  </span><span class="nx">emit_prefix</span><span class="p">();</span>
+<span class="w">  </span><span class="nx">compile_call</span><span class="p">(</span><span class="nx">ast</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">ast</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{});</span>
+<span class="w">  </span><span class="nx">emit_postfix</span><span class="p">();</span>
 
-  return OUT;
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">OUT</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>And modify <code>ulisp.js</code>:</p>
-<pre><code class="hljs javascript">const cp = require(&#39;child_process&#39;);
-const fs = require(&#39;fs&#39;);
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">cp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;child_process&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">fs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;fs&#39;</span><span class="p">);</span>
 
-const { parse } = require(&#39;./parser&#39;);
-const { compile } = require(&#39;./compiler&#39;);
+<span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">parse</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./parser&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">compile</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./compiler&#39;</span><span class="p">);</span>
 
-function main (args) {
-  const input = fs.readFileSync(args[2]).toString();
-  const [ast] = parse(input);
-  const program = compile(ast);
+<span class="kd">function</span><span class="w"> </span><span class="nx">main</span><span class="w"> </span><span class="p">(</span><span class="nx">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">input</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">fs</span><span class="p">.</span><span class="nx">readFileSync</span><span class="p">(</span><span class="nx">args</span><span class="p">[</span><span class="mf">2</span><span class="p">]).</span><span class="nx">toString</span><span class="p">();</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">ast</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parse</span><span class="p">(</span><span class="nx">input</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">program</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">compile</span><span class="p">(</span><span class="nx">ast</span><span class="p">);</span>
 
-  try {
-    fs.mkdirSync(&#39;build&#39;);
-  } catch (e) {}
-  fs.writeFileSync(&#39;build/prog.s&#39;, program);
-  cp.execSync(&#39;gcc -mstackrealign -masm=intel -o build/a.out build/prog.s&#39;);
-}
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">fs</span><span class="p">.</span><span class="nx">mkdirSync</span><span class="p">(</span><span class="s1">&#39;build&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">e</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">  </span><span class="nx">fs</span><span class="p">.</span><span class="nx">writeFileSync</span><span class="p">(</span><span class="s1">&#39;build/prog.s&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">program</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">cp</span><span class="p">.</span><span class="nx">execSync</span><span class="p">(</span><span class="s1">&#39;gcc -mstackrealign -masm=intel -o build/a.out build/prog.s&#39;</span><span class="p">);</span>
+<span class="p">}</span>
 
-main(process.argv);
-</code></pre>
+<span class="nx">main</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">argv</span><span class="p">);</span>
+</pre></div>
 <p>And we're finally ready to run a simple program.</p>
-<h3 id="a-program!">A program!</h3><pre><code class="hljs bash">$ cat test.lisp
-(def main () (+ 1 2))
-$ node ulisp.js test.lisp
-$ ./build/a.out
-$ echo $?
-3
-</code></pre>
+<h3 id="a-program!">A program!</h3><div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>test.lisp
+<span class="o">(</span>def<span class="w"> </span>main<span class="w"> </span><span class="o">()</span><span class="w"> </span><span class="o">(</span>+<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">2</span><span class="o">))</span>
+$<span class="w"> </span>node<span class="w"> </span>ulisp.js<span class="w"> </span>test.lisp
+$<span class="w"> </span>./build/a.out
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">3</span>
+</pre></div>
 <p>Hurray! Now let's try defining and calling a second function
 to validate parameter behavior.</p>
-<pre><code class="hljs bash">$ cat test.lisp
-(def plus-two (a)
-     (+ a 2))
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>test.lisp
+<span class="o">(</span>def<span class="w"> </span>plus-two<span class="w"> </span><span class="o">(</span>a<span class="o">)</span>
+<span class="w">     </span><span class="o">(</span>+<span class="w"> </span>a<span class="w"> </span><span class="m">2</span><span class="o">))</span>
 
-(def main ()
-     (plus-two 3))
-$ node ulisp.js test.lisp
-$ ./build/a.out
+<span class="o">(</span>def<span class="w"> </span>main<span class="w"> </span><span class="o">()</span>
+<span class="w">     </span><span class="o">(</span>plus-two<span class="w"> </span><span class="m">3</span><span class="o">))</span>
+$<span class="w"> </span>node<span class="w"> </span>ulisp.js<span class="w"> </span>test.lisp
+$<span class="w"> </span>./build/a.out
 ./compiler.js:106
-    throw new Error(&#39;Attempt to call undefined function: &#39; + fun);
-    ^
+<span class="w">    </span>throw<span class="w"> </span>new<span class="w"> </span>Error<span class="o">(</span><span class="s1">&#39;Attempt to call undefined function: &#39;</span><span class="w"> </span>+<span class="w"> </span>fun<span class="o">)</span><span class="p">;</span>
+<span class="w">    </span>^
 
-Error: Attempt to call undefined function: p2
+Error:<span class="w"> </span>Attempt<span class="w"> </span>to<span class="w"> </span>call<span class="w"> </span>undefined<span class="w"> </span><span class="k">function</span>:<span class="w"> </span>p2
 
 ...
-</code></pre>
+</pre></div>
 <p>We start getting some really weird errors. And the reason is because
 our compiler doesn't know how to deal with sibling S-expressions.</p>
 <p>So we'll introduce a new primitive function called <code>begin</code> that calls
 all it's sibling functions and returns the value of the last
 call. Then we'll wrap the program in an implicit <code>begin</code> so we don't
 need to.</p>
-<pre><code class="hljs javascript">function compile_begin(body, destination, scope) {
-  body.forEach((expression) =&gt; compile_expression(expression, &#39;RAX&#39;, scope));
-  if (destination &amp;&amp; destination !== &#39;RAX&#39;) {
-    emit(1, `MOV ${destination}, RAX`);
-  }
-}
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">compile_begin</span><span class="p">(</span><span class="nx">body</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">body</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">expression</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">compile_expression</span><span class="p">(</span><span class="nx">expression</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">));</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">destination</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">destination</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV </span><span class="si">${</span><span class="nx">destination</span><span class="si">}</span><span class="sb">, RAX`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
 
-const primitive_functions = {
-  def: compile_define,
-  begin: compile_begin,
-};
+<span class="kd">const</span><span class="w"> </span><span class="nx">primitive_functions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">def</span><span class="o">:</span><span class="w"> </span><span class="nx">compile_define</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">begin</span><span class="o">:</span><span class="w"> </span><span class="nx">compile_begin</span><span class="p">,</span>
+<span class="p">};</span>
 
-...
+<span class="p">...</span>
 
-module.exports.compile = function (ast) {
-  OUT = &#39;&#39;;
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">compile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="p">(</span><span class="nx">ast</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">OUT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
 
-  emit_prefix();
-  compile_call(&#39;begin&#39;, ast, &#39;RAX&#39;, {});
-  emit_postfix();
+<span class="w">  </span><span class="nx">emit_prefix</span><span class="p">();</span>
+<span class="w">  </span><span class="nx">compile_call</span><span class="p">(</span><span class="s1">&#39;begin&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">ast</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{});</span>
+<span class="w">  </span><span class="nx">emit_postfix</span><span class="p">();</span>
 
-  return OUT;
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">OUT</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>And we try our test program again. :)</p>
-<pre><code class="hljs bash">$ cat test.lisp
-(def plus-two (a)
-     (+ a 2))
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>test.lisp
+<span class="o">(</span>def<span class="w"> </span>plus-two<span class="w"> </span><span class="o">(</span>a<span class="o">)</span>
+<span class="w">     </span><span class="o">(</span>+<span class="w"> </span>a<span class="w"> </span><span class="m">2</span><span class="o">))</span>
 
-(def main ()
-     (plus-two 3))
-$ node ulisp.js test.lisp
-$ ./build/a.out
-$ echo $?
-5
-</code></pre>
+<span class="o">(</span>def<span class="w"> </span>main<span class="w"> </span><span class="o">()</span>
+<span class="w">     </span><span class="o">(</span>plus-two<span class="w"> </span><span class="m">3</span><span class="o">))</span>
+$<span class="w"> </span>node<span class="w"> </span>ulisp.js<span class="w"> </span>test.lisp
+$<span class="w"> </span>./build/a.out
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">5</span>
+</pre></div>
 <p>And that's all there is to it! Stay tuned for the next post on
 conditionals and tail-call optimization.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Part two on compiler basics using JavaScript: user-defined functions and variables <a href="https://t.co/XOam67HO8h">https://t.co/XOam67HO8h</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1087103061590446083?ref_src=twsrc%5Etfw">January 20, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
@@ -1100,7 +1099,6 @@ conditionals and tail-call optimization.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

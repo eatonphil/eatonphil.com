@@ -6,7 +6,6 @@
     <title>Writing a SQL database from scratch in Go: 3. indexes | notes.eatonphil.com</title>
     <meta name="description" content="Writing a SQL database from scratch in Go: 3. indexes" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -63,20 +62,20 @@
 to support indexes. We focus on the addition of <code>PRIMARY
 KEY</code> constraints on table creation and some easy optimizations
 during <code>SELECT</code> statements.</p>
-<pre><code class="hljs sql">$ go run cmd/main.go
-Welcome to gosql.
-# CREATE TABLE users (id INT PRIMARY KEY, name TEXT, age INT);
-ok
-# \d users
-Table &quot;users&quot;
-Column |  Type   | Nullable
----------+---------+-----------
-id     | integer | not null
-name   | text    |
-age    | integer |
-Indexes:
-        &quot;users_pkey&quot; PRIMARY KEY, rbtree (&quot;id&quot;)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="k">go</span><span class="w"> </span><span class="n">run</span><span class="w"> </span><span class="n">cmd</span><span class="o">/</span><span class="n">main</span><span class="p">.</span><span class="k">go</span>
+<span class="n">Welcome</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">gosql</span><span class="p">.</span>
+<span class="o">#</span><span class="w"> </span><span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="p">(</span><span class="n">id</span><span class="w"> </span><span class="nb">INT</span><span class="w"> </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="nb">TEXT</span><span class="p">,</span><span class="w"> </span><span class="n">age</span><span class="w"> </span><span class="nb">INT</span><span class="p">);</span>
+<span class="n">ok</span>
+<span class="o">#</span><span class="w"> </span><span class="err">\</span><span class="n">d</span><span class="w"> </span><span class="n">users</span>
+<span class="k">Table</span><span class="w"> </span><span class="ss">&quot;users&quot;</span>
+<span class="k">Column</span><span class="w"> </span><span class="o">|</span><span class="w">  </span><span class="k">Type</span><span class="w">   </span><span class="o">|</span><span class="w"> </span><span class="k">Nullable</span>
+<span class="c1">---------+---------+-----------</span>
+<span class="n">id</span><span class="w">     </span><span class="o">|</span><span class="w"> </span><span class="nb">integer</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="k">not</span><span class="w"> </span><span class="k">null</span>
+<span class="n">name</span><span class="w">   </span><span class="o">|</span><span class="w"> </span><span class="nb">text</span><span class="w">    </span><span class="o">|</span>
+<span class="n">age</span><span class="w">    </span><span class="o">|</span><span class="w"> </span><span class="nb">integer</span><span class="w"> </span><span class="o">|</span>
+<span class="n">Indexes</span><span class="p">:</span>
+<span class="w">        </span><span class="ss">&quot;users_pkey&quot;</span><span class="w"> </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="p">,</span><span class="w"> </span><span class="n">rbtree</span><span class="w"> </span><span class="p">(</span><span class="ss">&quot;id&quot;</span><span class="p">)</span>
+</pre></div>
 <p>This post will broadly be a discussion of <a href="https://github.com/eatonphil/gosql/commit/9608511d9888ce3842ec7d1bfa8f77499e8123b2">this
 commit</a>.</p>
 <h3 id="what-is-an-index?">What is an index?</h3><p>An index is a mapping of a value to a row in a table. The value is
@@ -137,106 +136,106 @@ column)</li>
 <li>A primary key flag (so we know to apply null checks among other things)</li>
 <li>And the actual tree itself</li>
 </ul>
-<pre><code class="hljs go">type index struct {
-    name       string
-    exp        expression
-    unique     bool
-    primaryKey bool
-    tree       *llrb.LLRB
-    typ        string
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">index</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">name</span><span class="w">       </span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">exp</span><span class="w">        </span><span class="nx">expression</span>
+<span class="w">    </span><span class="nx">unique</span><span class="w">     </span><span class="kt">bool</span>
+<span class="w">    </span><span class="nx">primaryKey</span><span class="w"> </span><span class="kt">bool</span>
+<span class="w">    </span><span class="nx">tree</span><span class="w">       </span><span class="o">*</span><span class="nx">llrb</span><span class="p">.</span><span class="nx">LLRB</span>
+<span class="w">    </span><span class="nx">typ</span><span class="w">        </span><span class="kt">string</span>
+<span class="p">}</span>
+</pre></div>
 <p>When we create a table, we add an index if one of the columns is a
 primary key. We call out to a new public
 method, <code>CreateIndex</code>, that will handle actually setting
 things up.</p>
-<pre><code class="hljs go">func (mb *MemoryBackend) CreateTable(crt *CreateTableStatement) error {
-    if _, ok := mb.tables[crt.name.value]; ok {
-        return ErrTableAlreadyExists
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mb</span><span class="w"> </span><span class="o">*</span><span class="nx">MemoryBackend</span><span class="p">)</span><span class="w"> </span><span class="nx">CreateTable</span><span class="p">(</span><span class="nx">crt</span><span class="w"> </span><span class="o">*</span><span class="nx">CreateTableStatement</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">mb</span><span class="p">.</span><span class="nx">tables</span><span class="p">[</span><span class="nx">crt</span><span class="p">.</span><span class="nx">name</span><span class="p">.</span><span class="nx">value</span><span class="p">];</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">ErrTableAlreadyExists</span>
+<span class="w">    </span><span class="p">}</span>
 
-    t := createTable()
-    t.name = crt.name.value
-    mb.tables[t.name] = t
-    if crt.cols == nil {
-        return nil
-    }
+<span class="w">    </span><span class="nx">t</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">createTable</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">t</span><span class="p">.</span><span class="nx">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">crt</span><span class="p">.</span><span class="nx">name</span><span class="p">.</span><span class="nx">value</span>
+<span class="w">    </span><span class="nx">mb</span><span class="p">.</span><span class="nx">tables</span><span class="p">[</span><span class="nx">t</span><span class="p">.</span><span class="nx">name</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">t</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">crt</span><span class="p">.</span><span class="nx">cols</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    var primaryKey *expression = nil
-    for _, col := range *crt.cols {
-        t.columns = append(t.columns, col.name.value)
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">primaryKey</span><span class="w"> </span><span class="o">*</span><span class="nx">expression</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">col</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="o">*</span><span class="nx">crt</span><span class="p">.</span><span class="nx">cols</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">columns</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">columns</span><span class="p">,</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">name</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span>
 
-        var dt ColumnType
-        switch col.datatype.value {
-        case &quot;int&quot;:
-            dt = IntType
-        case &quot;text&quot;:
-            dt = TextType
-        case &quot;boolean&quot;:
-            dt = BoolType
-        default:
-            delete(mb.tables, t.name)
-            return ErrInvalidDatatype
-        }
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">dt</span><span class="w"> </span><span class="nx">ColumnType</span>
+<span class="w">        </span><span class="k">switch</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">datatype</span><span class="p">.</span><span class="nx">value</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="s">&quot;int&quot;</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">dt</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">IntType</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="s">&quot;text&quot;</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">dt</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">TextType</span>
+<span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="s">&quot;boolean&quot;</span><span class="p">:</span>
+<span class="w">            </span><span class="nx">dt</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">BoolType</span>
+<span class="w">        </span><span class="k">default</span><span class="p">:</span>
+<span class="w">            </span><span class="nb">delete</span><span class="p">(</span><span class="nx">mb</span><span class="p">.</span><span class="nx">tables</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">name</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">ErrInvalidDatatype</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if col.primaryKey {
-            if primaryKey != nil {
-                delete(mb.tables, t.name)
-                return ErrPrimaryKeyAlreadyExists
-            }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">primaryKey</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">primaryKey</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nb">delete</span><span class="p">(</span><span class="nx">mb</span><span class="p">.</span><span class="nx">tables</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">name</span><span class="p">)</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nx">ErrPrimaryKeyAlreadyExists</span>
+<span class="w">            </span><span class="p">}</span>
 
-            primaryKey = &amp;expression{
-                literal: &amp;col.name,
-                kind:    literalKind,
-            }
-        }
+<span class="w">            </span><span class="nx">primaryKey</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">expression</span><span class="p">{</span>
+<span class="w">                </span><span class="nx">literal</span><span class="p">:</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">col</span><span class="p">.</span><span class="nx">name</span><span class="p">,</span>
+<span class="w">                </span><span class="nx">kind</span><span class="p">:</span><span class="w">    </span><span class="nx">literalKind</span><span class="p">,</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        t.columnTypes = append(t.columnTypes, dt)
-    }
+<span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">columnTypes</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">columnTypes</span><span class="p">,</span><span class="w"> </span><span class="nx">dt</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if primaryKey != nil {
-        err := mb.CreateIndex(&amp;CreateIndexStatement{
-            table:      crt.name,
-            name:       token{value: t.name + &quot;_pkey&quot;},
-            unique:     true,
-            primaryKey: true,
-            exp:        *primaryKey,
-        })
-        if err != nil {
-            delete(mb.tables, t.name)
-            return err
-        }
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">primaryKey</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">mb</span><span class="p">.</span><span class="nx">CreateIndex</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">CreateIndexStatement</span><span class="p">{</span>
+<span class="w">            </span><span class="nx">table</span><span class="p">:</span><span class="w">      </span><span class="nx">crt</span><span class="p">.</span><span class="nx">name</span><span class="p">,</span>
+<span class="w">            </span><span class="nx">name</span><span class="p">:</span><span class="w">       </span><span class="nx">token</span><span class="p">{</span><span class="nx">value</span><span class="p">:</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">name</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;_pkey&quot;</span><span class="p">},</span>
+<span class="w">            </span><span class="nx">unique</span><span class="p">:</span><span class="w">     </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">            </span><span class="nx">primaryKey</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">            </span><span class="nx">exp</span><span class="p">:</span><span class="w">        </span><span class="o">*</span><span class="nx">primaryKey</span><span class="p">,</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nb">delete</span><span class="p">(</span><span class="nx">mb</span><span class="p">.</span><span class="nx">tables</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">name</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>Implementing <code>CreateIndex</code> is just a matter of adding a new
 index to the table.</p>
-<pre><code class="hljs go">func (mb *MemoryBackend) CreateIndex(ci *CreateIndexStatement) error {
-    table, ok := mb.tables[ci.table.value]
-    if !ok {
-        return ErrTableDoesNotExist
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mb</span><span class="w"> </span><span class="o">*</span><span class="nx">MemoryBackend</span><span class="p">)</span><span class="w"> </span><span class="nx">CreateIndex</span><span class="p">(</span><span class="nx">ci</span><span class="w"> </span><span class="o">*</span><span class="nx">CreateIndexStatement</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">table</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">mb</span><span class="p">.</span><span class="nx">tables</span><span class="p">[</span><span class="nx">ci</span><span class="p">.</span><span class="nx">table</span><span class="p">.</span><span class="nx">value</span><span class="p">]</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">ErrTableDoesNotExist</span>
+<span class="w">    </span><span class="p">}</span>
 
-    for _, index := range table.indexes {
-        if index.name == ci.name.value {
-            return ErrIndexAlreadyExists
-        }
-    }
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">index</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">table</span><span class="p">.</span><span class="nx">indexes</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">index</span><span class="p">.</span><span class="nx">name</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">ci</span><span class="p">.</span><span class="nx">name</span><span class="p">.</span><span class="nx">value</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">ErrIndexAlreadyExists</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    index := &amp;index{
-        exp:        ci.exp,
-        unique:     ci.unique,
-        primaryKey: ci.primaryKey,
-        name:       ci.name.value,
-        tree:       llrb.New(),
-        typ:        &quot;rbtree&quot;,
-    }
-    table.indexes = append(table.indexes, index)
-    return nil
-}
-</code></pre>
+<span class="w">    </span><span class="nx">index</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">index</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">exp</span><span class="p">:</span><span class="w">        </span><span class="nx">ci</span><span class="p">.</span><span class="nx">exp</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">unique</span><span class="p">:</span><span class="w">     </span><span class="nx">ci</span><span class="p">.</span><span class="nx">unique</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">primaryKey</span><span class="p">:</span><span class="w"> </span><span class="nx">ci</span><span class="p">.</span><span class="nx">primaryKey</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">name</span><span class="p">:</span><span class="w">       </span><span class="nx">ci</span><span class="p">.</span><span class="nx">name</span><span class="p">.</span><span class="nx">value</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">tree</span><span class="p">:</span><span class="w">       </span><span class="nx">llrb</span><span class="p">.</span><span class="nx">New</span><span class="p">(),</span>
+<span class="w">        </span><span class="nx">typ</span><span class="p">:</span><span class="w">        </span><span class="s">&quot;rbtree&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nx">table</span><span class="p">.</span><span class="nx">indexes</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">table</span><span class="p">.</span><span class="nx">indexes</span><span class="p">,</span><span class="w"> </span><span class="nx">index</span><span class="p">)</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>And that's it for creation of tables and indexes! Table creation is
 also the last time we need to make changes to the gosql
 frontend. The rest of the changes simply wrap existing insertion and
@@ -255,27 +254,27 @@ with the value, we store the integer index of the row in the
 table.</p>
 <p>If the index is required to be unique, we first check that the value
 does not yet exist.</p>
-<pre><code class="hljs go">func (i *index) addRow(t *table, rowIndex uint) error {
-    indexValue, _, _, err := t.evaluateCell(rowIndex, i.exp)
-    if err != nil {
-        return err
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="o">*</span><span class="nx">index</span><span class="p">)</span><span class="w"> </span><span class="nx">addRow</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">table</span><span class="p">,</span><span class="w"> </span><span class="nx">rowIndex</span><span class="w"> </span><span class="kt">uint</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">indexValue</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="nx">rowIndex</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">.</span><span class="nx">exp</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if indexValue == nil {
-        return ErrViolatesNotNullConstraint
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">indexValue</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">ErrViolatesNotNullConstraint</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if i.unique &amp;&amp; i.tree.Has(treeItem{value: indexValue}) {
-        return ErrViolatesUniqueConstraint
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">i</span><span class="p">.</span><span class="nx">unique</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">i</span><span class="p">.</span><span class="nx">tree</span><span class="p">.</span><span class="nx">Has</span><span class="p">(</span><span class="nx">treeItem</span><span class="p">{</span><span class="nx">value</span><span class="p">:</span><span class="w"> </span><span class="nx">indexValue</span><span class="p">})</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">ErrViolatesUniqueConstraint</span>
+<span class="w">    </span><span class="p">}</span>
 
-    i.tree.InsertNoReplace(treeItem{
-        value: indexValue,
-        index: rowIndex,
-    })
-    return nil
-}
-</code></pre>
+<span class="w">    </span><span class="nx">i</span><span class="p">.</span><span class="nx">tree</span><span class="p">.</span><span class="nx">InsertNoReplace</span><span class="p">(</span><span class="nx">treeItem</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">value</span><span class="p">:</span><span class="w"> </span><span class="nx">indexValue</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">index</span><span class="p">:</span><span class="w"> </span><span class="nx">rowIndex</span><span class="p">,</span>
+<span class="w">    </span><span class="p">})</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>And that's it for insertion!</p>
 <h3 id="upgrading-select">Upgrading SELECT</h3><p>Until now, the logic for selecting rows from a table is to pick the
 table and iterate over all rows. If the row does not match
@@ -292,121 +291,121 @@ pattern shows up.</p>
   further reading, SQLite has
   an <a href="https://www.sqlite.org/queryplanner.html#_lookup_by_index">excellent
   document</a> on their query planner for index usage.
-</p><pre><code class="hljs go">func (mb *MemoryBackend) Select(slct *SelectStatement) (*Results, error) {
-    t := createTable()
+</p><div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mb</span><span class="w"> </span><span class="o">*</span><span class="nx">MemoryBackend</span><span class="p">)</span><span class="w"> </span><span class="nx">Select</span><span class="p">(</span><span class="nx">slct</span><span class="w"> </span><span class="o">*</span><span class="nx">SelectStatement</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">Results</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">t</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">createTable</span><span class="p">()</span>
 
-    if slct.from != nil {
-        var ok bool
-        t, ok = mb.tables[slct.from.value]
-        if !ok {
-            return nil, ErrTableDoesNotExist
-        }
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">slct</span><span class="p">.</span><span class="nx">from</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="kt">bool</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">mb</span><span class="p">.</span><span class="nx">tables</span><span class="p">[</span><span class="nx">slct</span><span class="p">.</span><span class="nx">from</span><span class="p">.</span><span class="nx">value</span><span class="p">]</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">ErrTableDoesNotExist</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if slct.item == nil || len(*slct.item) == 0 {
-        return &amp;Results{}, nil
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">slct</span><span class="p">.</span><span class="nx">item</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="o">*</span><span class="nx">slct</span><span class="p">.</span><span class="nx">item</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">Results</span><span class="p">{},</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    results := [][]Cell{}
-    columns := []ResultColumn{}
+<span class="w">    </span><span class="nx">results</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[][]</span><span class="nx">Cell</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">columns</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">ResultColumn</span><span class="p">{}</span>
 
-    if slct.from == nil {
-        t = createTable()
-        t.rows = [][]memoryCell{{}}
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">slct</span><span class="p">.</span><span class="nx">from</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">t</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">createTable</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">rows</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[][]</span><span class="nx">memoryCell</span><span class="p">{{}}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    for _, iAndE := range t.getApplicableIndexes(slct.where) {
-        index := iAndE.i
-        exp := iAndE.e
-        t = index.newTableFromSubset(t, exp)
-    }
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">iAndE</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">getApplicableIndexes</span><span class="p">(</span><span class="nx">slct</span><span class="p">.</span><span class="nx">where</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">index</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">iAndE</span><span class="p">.</span><span class="nx">i</span>
+<span class="w">        </span><span class="nx">exp</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">iAndE</span><span class="p">.</span><span class="nx">e</span>
+<span class="w">        </span><span class="nx">t</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">index</span><span class="p">.</span><span class="nx">newTableFromSubset</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">exp</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    for i := range t.rows {
-        result := []Cell{}
-        isFirstRow := len(results) == 0
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">rows</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">result</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">Cell</span><span class="p">{}</span>
+<span class="w">        </span><span class="nx">isFirstRow</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">results</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span>
 
-        if slct.where != nil {
-            val, _, _, err := t.evaluateCell(uint(i), *slct.where)
-            if err != nil {
-                return nil, err
-            }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">slct</span><span class="p">.</span><span class="nx">where</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">val</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="nb">uint</span><span class="p">(</span><span class="nx">i</span><span class="p">),</span><span class="w"> </span><span class="o">*</span><span class="nx">slct</span><span class="p">.</span><span class="nx">where</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">            </span><span class="p">}</span>
 
-            if !*val.AsBool() {
-                continue
-            }
-        }
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="o">*</span><span class="nx">val</span><span class="p">.</span><span class="nx">AsBool</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">continue</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        for _, col := range finalItems {
-            value, columnName, columnType, err := t.evaluateCell(uint(i), *col.exp)
-            if err != nil {
-                return nil, err
-            }
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">col</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">finalItems</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">columnName</span><span class="p">,</span><span class="w"> </span><span class="nx">columnType</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="nb">uint</span><span class="p">(</span><span class="nx">i</span><span class="p">),</span><span class="w"> </span><span class="o">*</span><span class="nx">col</span><span class="p">.</span><span class="nx">exp</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">            </span><span class="p">}</span>
 
-            if isFirstRow {
-                columns = append(columns, ResultColumn{
-                    Type: columnType,
-                    Name: columnName,
-                })
-            }
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">isFirstRow</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">columns</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">columns</span><span class="p">,</span><span class="w"> </span><span class="nx">ResultColumn</span><span class="p">{</span>
+<span class="w">                    </span><span class="nx">Type</span><span class="p">:</span><span class="w"> </span><span class="nx">columnType</span><span class="p">,</span>
+<span class="w">                    </span><span class="nx">Name</span><span class="p">:</span><span class="w"> </span><span class="nx">columnName</span><span class="p">,</span>
+<span class="w">                </span><span class="p">})</span>
+<span class="w">            </span><span class="p">}</span>
 
-            result = append(result, value)
-        }
+<span class="w">            </span><span class="nx">result</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
-        results = append(results, result)
-    }
+<span class="w">        </span><span class="nx">results</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">results</span><span class="p">,</span><span class="w"> </span><span class="nx">result</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return &amp;Results{
-        Columns: columns,
-        Rows:    results,
-    }, nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">Results</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">Columns</span><span class="p">:</span><span class="w"> </span><span class="nx">columns</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">Rows</span><span class="p">:</span><span class="w">    </span><span class="nx">results</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>It's very simple and easy to miss, here is the change called out:</p>
-<pre><code class="hljs go">    for _, iAndE := range t.getApplicableIndexes(slct.where) {
-        index := iAndE.i
-        exp := iAndE.e
-        t = index.newTableFromSubset(t, exp)
-    }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">iAndE</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">getApplicableIndexes</span><span class="p">(</span><span class="nx">slct</span><span class="p">.</span><span class="nx">where</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">index</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">iAndE</span><span class="p">.</span><span class="nx">i</span>
+<span class="w">        </span><span class="nx">exp</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">iAndE</span><span class="p">.</span><span class="nx">e</span>
+<span class="w">        </span><span class="nx">t</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">index</span><span class="p">.</span><span class="nx">newTableFromSubset</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">exp</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
 <h4 id="getapplicableindexes">getApplicableIndexes</h4><p>There are probably a few very simple patterns we could look for, but
 for now we look for boolean expressions joined by <code>AND</code>
 that contain an index expression.</p>
-<pre><code class="hljs go">func (t *table) getApplicableIndexes(where *expression) []indexAndExpression {
-    var linearizeExpressions func(where *expression, exps []expression) []expression
-    linearizeExpressions = func(where *expression, exps []expression) []expression {
-        if where == nil || where.kind != binaryKind {
-            return exps
-        }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">table</span><span class="p">)</span><span class="w"> </span><span class="nx">getApplicableIndexes</span><span class="p">(</span><span class="nx">where</span><span class="w"> </span><span class="o">*</span><span class="nx">expression</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="nx">indexAndExpression</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">linearizeExpressions</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">where</span><span class="w"> </span><span class="o">*</span><span class="nx">expression</span><span class="p">,</span><span class="w"> </span><span class="nx">exps</span><span class="w"> </span><span class="p">[]</span><span class="nx">expression</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="nx">expression</span>
+<span class="w">    </span><span class="nx">linearizeExpressions</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">where</span><span class="w"> </span><span class="o">*</span><span class="nx">expression</span><span class="p">,</span><span class="w"> </span><span class="nx">exps</span><span class="w"> </span><span class="p">[]</span><span class="nx">expression</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="nx">expression</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">where</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">where</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">binaryKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">exps</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if where.binary.op.value == string(orKeyword) {
-            return exps
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">where</span><span class="p">.</span><span class="nx">binary</span><span class="p">.</span><span class="nx">op</span><span class="p">.</span><span class="nx">value</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">orKeyword</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">exps</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if where.binary.op.value == string(andKeyword) {
-            exps := linearizeExpressions(&amp;where.binary.a, exps)
-            return linearizeExpressions(&amp;where.binary.b, exps)
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">where</span><span class="p">.</span><span class="nx">binary</span><span class="p">.</span><span class="nx">op</span><span class="p">.</span><span class="nx">value</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">andKeyword</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">exps</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">linearizeExpressions</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">where</span><span class="p">.</span><span class="nx">binary</span><span class="p">.</span><span class="nx">a</span><span class="p">,</span><span class="w"> </span><span class="nx">exps</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">linearizeExpressions</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">where</span><span class="p">.</span><span class="nx">binary</span><span class="p">.</span><span class="nx">b</span><span class="p">,</span><span class="w"> </span><span class="nx">exps</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
-        return append(exps, *where)
-    }
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">exps</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="nx">where</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    exps := linearizeExpressions(where, []expression{})
+<span class="w">    </span><span class="nx">exps</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">linearizeExpressions</span><span class="p">(</span><span class="nx">where</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="nx">expression</span><span class="p">{})</span>
 
-    iAndE := []indexAndExpression{}
-    for _, exp := range exps {
-        for _, index := range t.indexes {
-            if index.applicableValue(exp) != nil {
-                iAndE = append(iAndE, indexAndExpression{
-                    i: index,
-                    e: exp,
-                })
-            }
-        }
-    }
+<span class="w">    </span><span class="nx">iAndE</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">indexAndExpression</span><span class="p">{}</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">exp</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">exps</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">index</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">indexes</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">index</span><span class="p">.</span><span class="nx">applicableValue</span><span class="p">(</span><span class="nx">exp</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">iAndE</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">iAndE</span><span class="p">,</span><span class="w"> </span><span class="nx">indexAndExpression</span><span class="p">{</span>
+<span class="w">                    </span><span class="nx">i</span><span class="p">:</span><span class="w"> </span><span class="nx">index</span><span class="p">,</span>
+<span class="w">                    </span><span class="nx">e</span><span class="p">:</span><span class="w"> </span><span class="nx">exp</span><span class="p">,</span>
+<span class="w">                </span><span class="p">})</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return iAndE
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">iAndE</span>
+<span class="p">}</span>
+</pre></div>
 <p>More specifically though, within binary operations we only support
 matching on an index if the following three conditions are met:</p>
 <ul>
@@ -420,45 +419,45 @@ matching on an index if the following three conditions are met:</p>
   This is a simpler, stricter matching of an index than PostgreSQL
   where you can index expressions more generally, not just identifer
   literals.
-</p><pre><code class="hljs go">func (i *index) applicableValue(exp expression) *expression {
-    if exp.kind != binaryKind {
-        return nil
-    }
+</p><div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="o">*</span><span class="nx">index</span><span class="p">)</span><span class="w"> </span><span class="nx">applicableValue</span><span class="p">(</span><span class="nx">exp</span><span class="w"> </span><span class="nx">expression</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="nx">expression</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">exp</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">binaryKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    be := exp.binary
-    // Find the column and the value in the boolean expression
-    columnExp := be.a
-    valueExp := be.b
-    if columnExp.generateCode() != i.exp.generateCode() {
-        columnExp = be.b
-        valueExp = be.a
-    }
+<span class="w">    </span><span class="nx">be</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">exp</span><span class="p">.</span><span class="nx">binary</span>
+<span class="w">    </span><span class="c1">// Find the column and the value in the boolean expression</span>
+<span class="w">    </span><span class="nx">columnExp</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">be</span><span class="p">.</span><span class="nx">a</span>
+<span class="w">    </span><span class="nx">valueExp</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">be</span><span class="p">.</span><span class="nx">b</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">columnExp</span><span class="p">.</span><span class="nx">generateCode</span><span class="p">()</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">i</span><span class="p">.</span><span class="nx">exp</span><span class="p">.</span><span class="nx">generateCode</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">columnExp</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">be</span><span class="p">.</span><span class="nx">b</span>
+<span class="w">        </span><span class="nx">valueExp</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">be</span><span class="p">.</span><span class="nx">a</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // Neither side is applicable, return nil
-    if columnExp.generateCode() != i.exp.generateCode() {
-        return nil
-    }
+<span class="w">    </span><span class="c1">// Neither side is applicable, return nil</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">columnExp</span><span class="p">.</span><span class="nx">generateCode</span><span class="p">()</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">i</span><span class="p">.</span><span class="nx">exp</span><span class="p">.</span><span class="nx">generateCode</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    supportedChecks := []symbol{eqSymbol, neqSymbol, gtSymbol, gteSymbol, ltSymbol, lteSymbol}
-    supported := false
-    for _, sym := range supportedChecks {
-        if string(sym) == be.op.value {
-            supported = true
-            break
-        }
-    }
-    if !supported {
-        return nil
-    }
+<span class="w">    </span><span class="nx">supportedChecks</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">symbol</span><span class="p">{</span><span class="nx">eqSymbol</span><span class="p">,</span><span class="w"> </span><span class="nx">neqSymbol</span><span class="p">,</span><span class="w"> </span><span class="nx">gtSymbol</span><span class="p">,</span><span class="w"> </span><span class="nx">gteSymbol</span><span class="p">,</span><span class="w"> </span><span class="nx">ltSymbol</span><span class="p">,</span><span class="w"> </span><span class="nx">lteSymbol</span><span class="p">}</span>
+<span class="w">    </span><span class="nx">supported</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">sym</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">supportedChecks</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">sym</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">be</span><span class="p">.</span><span class="nx">op</span><span class="p">.</span><span class="nx">value</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">supported</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">supported</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if valueExp.kind != literalKind {
-        fmt.Println(&quot;Only index checks on literals supported&quot;)
-        return nil
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">valueExp</span><span class="p">.</span><span class="nx">kind</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">literalKind</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Only index checks on literals supported&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return &amp;valueExp
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">valueExp</span>
+<span class="p">}</span>
+</pre></div>
 <p>And that's it for finding applicable indexes.</p>
 <h4 id="newtablefromsubset">newTableFromSubset</h4><p>The last remaining piece is to go from a boolean expression in
 a <code>WHERE</code> clause (where an index is applicable) to a subset
@@ -469,93 +468,93 @@ using the previous <code>applicableValue</code> helper. Then we
 look up that literal value in the index and return a new table with
 every row in the index that meets the condition of the operator for the
 literal value.</p>
-<pre><code class="hljs go">func (i *index) newTableFromSubset(t *table, exp expression) *table {
-    valueExp := i.applicableValue(exp)
-    if valueExp == nil {
-        return t
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="o">*</span><span class="nx">index</span><span class="p">)</span><span class="w"> </span><span class="nx">newTableFromSubset</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">table</span><span class="p">,</span><span class="w"> </span><span class="nx">exp</span><span class="w"> </span><span class="nx">expression</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="nx">table</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">valueExp</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">i</span><span class="p">.</span><span class="nx">applicableValue</span><span class="p">(</span><span class="nx">exp</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">valueExp</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">t</span>
+<span class="w">    </span><span class="p">}</span>
 
-    value, _, _, err := createTable().evaluateCell(0, *valueExp)
-    if err != nil {
-        fmt.Println(err)
-        return t
-    }
+<span class="w">    </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">createTable</span><span class="p">().</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="nx">valueExp</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">t</span>
+<span class="w">    </span><span class="p">}</span>
 
-    tiValue := treeItem{value: value}
+<span class="w">    </span><span class="nx">tiValue</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">treeItem</span><span class="p">{</span><span class="nx">value</span><span class="p">:</span><span class="w"> </span><span class="nx">value</span><span class="p">}</span>
 
-    indexes := []uint{}
-    switch symbol(exp.binary.op.value) {
-    case eqSymbol:
-        i.tree.AscendGreaterOrEqual(tiValue, func(i llrb.Item) bool {
-            ti := i.(treeItem)
+<span class="w">    </span><span class="nx">indexes</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="kt">uint</span><span class="p">{}</span>
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="nx">symbol</span><span class="p">(</span><span class="nx">exp</span><span class="p">.</span><span class="nx">binary</span><span class="p">.</span><span class="nx">op</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">eqSymbol</span><span class="p">:</span>
+<span class="w">        </span><span class="nx">i</span><span class="p">.</span><span class="nx">tree</span><span class="p">.</span><span class="nx">AscendGreaterOrEqual</span><span class="p">(</span><span class="nx">tiValue</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="nx">llrb</span><span class="p">.</span><span class="nx">Item</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">ti</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">i</span><span class="p">.(</span><span class="nx">treeItem</span><span class="p">)</span>
 
-            if !bytes.Equal(ti.value, value) {
-                return false
-            }
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">bytes</span><span class="p">.</span><span class="nx">Equal</span><span class="p">(</span><span class="nx">ti</span><span class="p">.</span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">            </span><span class="p">}</span>
 
-            indexes = append(indexes, ti.index)
-            return true
-        })
-    case neqSymbol:
-        i.tree.AscendGreaterOrEqual(llrb.Inf(-1), func(i llrb.Item) bool {
-            ti := i.(treeItem)
-            if bytes.Equal(ti.value, value) {
-                indexes = append(indexes, ti.index)
-            }
+<span class="w">            </span><span class="nx">indexes</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">indexes</span><span class="p">,</span><span class="w"> </span><span class="nx">ti</span><span class="p">.</span><span class="nx">index</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">neqSymbol</span><span class="p">:</span>
+<span class="w">        </span><span class="nx">i</span><span class="p">.</span><span class="nx">tree</span><span class="p">.</span><span class="nx">AscendGreaterOrEqual</span><span class="p">(</span><span class="nx">llrb</span><span class="p">.</span><span class="nx">Inf</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="nx">llrb</span><span class="p">.</span><span class="nx">Item</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">ti</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">i</span><span class="p">.(</span><span class="nx">treeItem</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">bytes</span><span class="p">.</span><span class="nx">Equal</span><span class="p">(</span><span class="nx">ti</span><span class="p">.</span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">indexes</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">indexes</span><span class="p">,</span><span class="w"> </span><span class="nx">ti</span><span class="p">.</span><span class="nx">index</span><span class="p">)</span>
+<span class="w">            </span><span class="p">}</span>
 
-            return true
-        })
-    case ltSymbol:
-        i.tree.DescendLessOrEqual(tiValue, func(i llrb.Item) bool {
-            ti := i.(treeItem)
-            if bytes.Compare(ti.value, value) &lt; 0 {
-                indexes = append(indexes, ti.index)
-            }
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">ltSymbol</span><span class="p">:</span>
+<span class="w">        </span><span class="nx">i</span><span class="p">.</span><span class="nx">tree</span><span class="p">.</span><span class="nx">DescendLessOrEqual</span><span class="p">(</span><span class="nx">tiValue</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="nx">llrb</span><span class="p">.</span><span class="nx">Item</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">ti</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">i</span><span class="p">.(</span><span class="nx">treeItem</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">bytes</span><span class="p">.</span><span class="nx">Compare</span><span class="p">(</span><span class="nx">ti</span><span class="p">.</span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">indexes</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">indexes</span><span class="p">,</span><span class="w"> </span><span class="nx">ti</span><span class="p">.</span><span class="nx">index</span><span class="p">)</span>
+<span class="w">            </span><span class="p">}</span>
 
-            return true
-        })
-    case lteSymbol:
-        i.tree.DescendLessOrEqual(tiValue, func(i llrb.Item) bool {
-            ti := i.(treeItem)
-            if bytes.Compare(ti.value, value) &lt;= 0 {
-                indexes = append(indexes, ti.index)
-            }
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">lteSymbol</span><span class="p">:</span>
+<span class="w">        </span><span class="nx">i</span><span class="p">.</span><span class="nx">tree</span><span class="p">.</span><span class="nx">DescendLessOrEqual</span><span class="p">(</span><span class="nx">tiValue</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="nx">llrb</span><span class="p">.</span><span class="nx">Item</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">ti</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">i</span><span class="p">.(</span><span class="nx">treeItem</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">bytes</span><span class="p">.</span><span class="nx">Compare</span><span class="p">(</span><span class="nx">ti</span><span class="p">.</span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">indexes</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">indexes</span><span class="p">,</span><span class="w"> </span><span class="nx">ti</span><span class="p">.</span><span class="nx">index</span><span class="p">)</span>
+<span class="w">            </span><span class="p">}</span>
 
-            return true
-        })
-    case gtSymbol:
-        i.tree.AscendGreaterOrEqual(tiValue, func(i llrb.Item) bool {
-            ti := i.(treeItem)
-            if bytes.Compare(ti.value, value) &gt; 0 {
-                indexes = append(indexes, ti.index)
-            }
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">gtSymbol</span><span class="p">:</span>
+<span class="w">        </span><span class="nx">i</span><span class="p">.</span><span class="nx">tree</span><span class="p">.</span><span class="nx">AscendGreaterOrEqual</span><span class="p">(</span><span class="nx">tiValue</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="nx">llrb</span><span class="p">.</span><span class="nx">Item</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">ti</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">i</span><span class="p">.(</span><span class="nx">treeItem</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">bytes</span><span class="p">.</span><span class="nx">Compare</span><span class="p">(</span><span class="nx">ti</span><span class="p">.</span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">indexes</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">indexes</span><span class="p">,</span><span class="w"> </span><span class="nx">ti</span><span class="p">.</span><span class="nx">index</span><span class="p">)</span>
+<span class="w">            </span><span class="p">}</span>
 
-            return true
-        })
-    case gteSymbol:
-        i.tree.AscendGreaterOrEqual(tiValue, func(i llrb.Item) bool {
-            ti := i.(treeItem)
-            if bytes.Compare(ti.value, value) &gt;= 0 {
-                indexes = append(indexes, ti.index)
-            }
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">gteSymbol</span><span class="p">:</span>
+<span class="w">        </span><span class="nx">i</span><span class="p">.</span><span class="nx">tree</span><span class="p">.</span><span class="nx">AscendGreaterOrEqual</span><span class="p">(</span><span class="nx">tiValue</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="nx">llrb</span><span class="p">.</span><span class="nx">Item</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">ti</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">i</span><span class="p">.(</span><span class="nx">treeItem</span><span class="p">)</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">bytes</span><span class="p">.</span><span class="nx">Compare</span><span class="p">(</span><span class="nx">ti</span><span class="p">.</span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">indexes</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">indexes</span><span class="p">,</span><span class="w"> </span><span class="nx">ti</span><span class="p">.</span><span class="nx">index</span><span class="p">)</span>
+<span class="w">            </span><span class="p">}</span>
 
-            return true
-        })
-    }
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">    </span><span class="p">}</span>
 
-    newT := createTable()
-    newT.columns = t.columns
-    newT.columnTypes = t.columnTypes
-    newT.indexes = t.indexes
-    newT.rows = [][]memoryCell{}
+<span class="w">    </span><span class="nx">newT</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">createTable</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">newT</span><span class="p">.</span><span class="nx">columns</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">columns</span>
+<span class="w">    </span><span class="nx">newT</span><span class="p">.</span><span class="nx">columnTypes</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">columnTypes</span>
+<span class="w">    </span><span class="nx">newT</span><span class="p">.</span><span class="nx">indexes</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">indexes</span>
+<span class="w">    </span><span class="nx">newT</span><span class="p">.</span><span class="nx">rows</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[][]</span><span class="nx">memoryCell</span><span class="p">{}</span>
 
-    for _, index := range indexes {
-        newT.rows = append(newT.rows, t.rows[index])
-    }
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">index</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">indexes</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">newT</span><span class="p">.</span><span class="nx">rows</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">newT</span><span class="p">.</span><span class="nx">rows</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">rows</span><span class="p">[</span><span class="nx">index</span><span class="p">])</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return newT
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">newT</span>
+<span class="p">}</span>
+</pre></div>
 <p>As you can see, an index may not necessarily improve on a linear
 search in some conditions. Imagine a table of 1 million rows indexed
 on an autoincrementing column. Imagine filtering on <code>col >
@@ -581,155 +580,155 @@ without trial that the index is effective. So we write a simple
 program that inserts N rows with and without an index. Finally it will
 query for the first and last items inserted. We show time and
 memory used during both insertion and selection.</p>
-<pre><code class="hljs go">package main
+<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 
-import (
-    &quot;fmt&quot;
-    &quot;os&quot;
-    &quot;runtime&quot;
-    &quot;strconv&quot;
-    &quot;time&quot;
+<span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+<span class="w">    </span><span class="s">&quot;os&quot;</span>
+<span class="w">    </span><span class="s">&quot;runtime&quot;</span>
+<span class="w">    </span><span class="s">&quot;strconv&quot;</span>
+<span class="w">    </span><span class="s">&quot;time&quot;</span>
 
-    &quot;github.com/eatonphil/gosql&quot;
-)
+<span class="w">    </span><span class="s">&quot;github.com/eatonphil/gosql&quot;</span>
+<span class="p">)</span>
 
-var inserts = 0
-var lastId = 0
-var firstId = 0
+<span class="kd">var</span><span class="w"> </span><span class="nx">inserts</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="kd">var</span><span class="w"> </span><span class="nx">lastId</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="kd">var</span><span class="w"> </span><span class="nx">firstId</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">0</span>
 
-func doInsert(mb gosql.Backend) {
-    parser := gosql.Parser{}
-    for i := 0; i &lt; inserts; i++ {
-        lastId = i
-        if i == 0 {
-            firstId = lastId
-        }
-        ast, err := parser.Parse(fmt.Sprintf(&quot;INSERT INTO users VALUES (%d)&quot;, lastId))
-        if err != nil {
-            panic(err)
-        }
+<span class="kd">func</span><span class="w"> </span><span class="nx">doInsert</span><span class="p">(</span><span class="nx">mb</span><span class="w"> </span><span class="nx">gosql</span><span class="p">.</span><span class="nx">Backend</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">parser</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">gosql</span><span class="p">.</span><span class="nx">Parser</span><span class="p">{}</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nx">inserts</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">lastId</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">i</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">firstId</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">lastId</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nx">ast</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parser</span><span class="p">.</span><span class="nx">Parse</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;INSERT INTO users VALUES (%d)&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">lastId</span><span class="p">))</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
-        err = mb.Insert(ast.Statements[0].InsertStatement)
-        if err != nil {
-            panic(err)
-        }
-    }
-}
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">mb</span><span class="p">.</span><span class="nx">Insert</span><span class="p">(</span><span class="nx">ast</span><span class="p">.</span><span class="nx">Statements</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">InsertStatement</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
 
-func doSelect(mb gosql.Backend) {
-    parser := gosql.Parser{}
-    ast, err := parser.Parse(fmt.Sprintf(&quot;SELECT id FROM users WHERE id = %d&quot;, lastId))
-    if err != nil {
-        panic(err)
-    }
+<span class="kd">func</span><span class="w"> </span><span class="nx">doSelect</span><span class="p">(</span><span class="nx">mb</span><span class="w"> </span><span class="nx">gosql</span><span class="p">.</span><span class="nx">Backend</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">parser</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">gosql</span><span class="p">.</span><span class="nx">Parser</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">ast</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parser</span><span class="p">.</span><span class="nx">Parse</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;SELECT id FROM users WHERE id = %d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">lastId</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    r, err := mb.Select(ast.Statements[0].SelectStatement)
-    if err != nil {
-        panic(err)
-    }
+<span class="w">    </span><span class="nx">r</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">mb</span><span class="p">.</span><span class="nx">Select</span><span class="p">(</span><span class="nx">ast</span><span class="p">.</span><span class="nx">Statements</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">SelectStatement</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if len(r.Rows) != 1 {
-        panic(&quot;Expected 1 row&quot;)
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">Rows</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="s">&quot;Expected 1 row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if int(*r.Rows[0][1].AsInt()) != inserts-1 {
-        panic(fmt.Sprintf(&quot;Bad row, got: %d&quot;, r.Rows[0][1].AsInt()))
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nb">int</span><span class="p">(</span><span class="o">*</span><span class="nx">r</span><span class="p">.</span><span class="nx">Rows</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">].</span><span class="nx">AsInt</span><span class="p">())</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">inserts</span><span class="o">-</span><span class="mi">1</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;Bad row, got: %d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">Rows</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">].</span><span class="nx">AsInt</span><span class="p">()))</span>
+<span class="w">    </span><span class="p">}</span>
 
-    ast, err = parser.Parse(fmt.Sprintf(&quot;SELECT id FROM users WHERE id = %d&quot;, firstId))
-    if err != nil {
-        panic(err)
-    }
+<span class="w">    </span><span class="nx">ast</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">parser</span><span class="p">.</span><span class="nx">Parse</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;SELECT id FROM users WHERE id = %d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">firstId</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    r, err = mb.Select(ast.Statements[0].SelectStatement)
-    if err != nil {
-        panic(err)
-    }
+<span class="w">    </span><span class="nx">r</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">mb</span><span class="p">.</span><span class="nx">Select</span><span class="p">(</span><span class="nx">ast</span><span class="p">.</span><span class="nx">Statements</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">SelectStatement</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if len(r.Rows) != 1 {
-        panic(&quot;Expected 1 row&quot;)
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">Rows</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="s">&quot;Expected 1 row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if int(*r.Rows[0][1].AsInt()) != 0 {
-        panic(fmt.Sprintf(&quot;Bad row, got: %d&quot;, r.Rows[0][1].AsInt()))
-    }
-}
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nb">int</span><span class="p">(</span><span class="o">*</span><span class="nx">r</span><span class="p">.</span><span class="nx">Rows</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">].</span><span class="nx">AsInt</span><span class="p">())</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;Bad row, got: %d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">Rows</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">].</span><span class="nx">AsInt</span><span class="p">()))</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
 
-func perf(name string, b gosql.Backend, cb func(b gosql.Backend)) {
-    start := time.Now()
-    fmt.Println(&quot;Starting&quot;, name)
-    cb(b)
-    fmt.Printf(&quot;Finished %s: %f seconds\n&quot;, name, time.Since(start).Seconds())
+<span class="kd">func</span><span class="w"> </span><span class="nx">perf</span><span class="p">(</span><span class="nx">name</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="nx">gosql</span><span class="p">.</span><span class="nx">Backend</span><span class="p">,</span><span class="w"> </span><span class="nx">cb</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">b</span><span class="w"> </span><span class="nx">gosql</span><span class="p">.</span><span class="nx">Backend</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">start</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Now</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Starting&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">cb</span><span class="p">(</span><span class="nx">b</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Finished %s: %f seconds\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Since</span><span class="p">(</span><span class="nx">start</span><span class="p">).</span><span class="nx">Seconds</span><span class="p">())</span>
 
-    var m runtime.MemStats
-    runtime.ReadMemStats(&amp;m)
-    fmt.Printf(&quot;Alloc = %d MiB\n\n&quot;, m.Alloc/1024/1024)
-}
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">m</span><span class="w"> </span><span class="nx">runtime</span><span class="p">.</span><span class="nx">MemStats</span>
+<span class="w">    </span><span class="nx">runtime</span><span class="p">.</span><span class="nx">ReadMemStats</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">m</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Alloc = %d MiB\n\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">m</span><span class="p">.</span><span class="nx">Alloc</span><span class="o">/</span><span class="mi">1024</span><span class="o">/</span><span class="mi">1024</span><span class="p">)</span>
+<span class="p">}</span>
 
-func main() {
-    mb := gosql.NewMemoryBackend()
+<span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">mb</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">gosql</span><span class="p">.</span><span class="nx">NewMemoryBackend</span><span class="p">()</span>
 
-    index := false
-    for i, arg := range os.Args {
-        if arg == &quot;--with-index&quot; {
-            index = true
-        }
+<span class="w">    </span><span class="nx">index</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">arg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;--with-index&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">index</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if arg == &quot;--inserts&quot; {
-            inserts, _ = strconv.Atoi(os.Args[i+1])
-        }
-    }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;--inserts&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">inserts</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">strconv</span><span class="p">.</span><span class="nx">Atoi</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="nx">i</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    primaryKey := &quot;&quot;
-    if index {
-        primaryKey = &quot; PRIMARY KEY&quot;
-    }
+<span class="w">    </span><span class="nx">primaryKey</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">index</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">primaryKey</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot; PRIMARY KEY&quot;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    parser := gosql.Parser{}
-    ast, err := parser.Parse(fmt.Sprintf(&quot;CREATE TABLE users (id INT%s)&quot;, primaryKey))
-    if err != nil {
-        panic(err)
-    }
+<span class="w">    </span><span class="nx">parser</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">gosql</span><span class="p">.</span><span class="nx">Parser</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">ast</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parser</span><span class="p">.</span><span class="nx">Parse</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;CREATE TABLE users (id INT%s)&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">primaryKey</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    err = mb.CreateTable(ast.Statements[0].CreateTableStatement)
-    if err != nil {
-        panic(err)
-    }
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">mb</span><span class="p">.</span><span class="nx">CreateTable</span><span class="p">(</span><span class="nx">ast</span><span class="p">.</span><span class="nx">Statements</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">CreateTableStatement</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    indexingString := &quot; with indexing enabled&quot;
-    if !index {
-        indexingString = &quot;&quot;
-    }
-    fmt.Printf(&quot;Inserting %d rows%s\n&quot;, inserts, indexingString)
+<span class="w">    </span><span class="nx">indexingString</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot; with indexing enabled&quot;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">index</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">indexingString</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Inserting %d rows%s\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">inserts</span><span class="p">,</span><span class="w"> </span><span class="nx">indexingString</span><span class="p">)</span>
 
-    perf(&quot;INSERT&quot;, mb, doInsert)
+<span class="w">    </span><span class="nx">perf</span><span class="p">(</span><span class="s">&quot;INSERT&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">mb</span><span class="p">,</span><span class="w"> </span><span class="nx">doInsert</span><span class="p">)</span>
 
-    perf(&quot;SELECT&quot;, mb, doSelect)
-}
-</code></pre>
+<span class="w">    </span><span class="nx">perf</span><span class="p">(</span><span class="s">&quot;SELECT&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">mb</span><span class="p">,</span><span class="w"> </span><span class="nx">doSelect</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <p>Build and run once without an index:</p>
-<pre><code class="hljs bash">$ go build cmd/indextest/main.go
-./main --inserts 1000000
-Inserting 1000000 rows
-Starting INSERT
-Finished INSERT: 76.175133 seconds
-Alloc = 239 MiB
+<div class="highlight"><pre><span></span>$<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>cmd/indextest/main.go
+./main<span class="w"> </span>--inserts<span class="w"> </span><span class="m">1000000</span>
+Inserting<span class="w"> </span><span class="m">1000000</span><span class="w"> </span>rows
+Starting<span class="w"> </span>INSERT
+Finished<span class="w"> </span>INSERT:<span class="w"> </span><span class="m">76</span>.175133<span class="w"> </span>seconds
+<span class="nv">Alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">239</span><span class="w"> </span>MiB
 
-Starting SELECT
-Finished SELECT: 1.301556 seconds
-Alloc = 238 MiB
-</code></pre>
+Starting<span class="w"> </span>SELECT
+Finished<span class="w"> </span>SELECT:<span class="w"> </span><span class="m">1</span>.301556<span class="w"> </span>seconds
+<span class="nv">Alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">238</span><span class="w"> </span>MiB
+</pre></div>
 <p>And run again with an index:</p>
-<pre><code class="hljs bash">./main --inserts 1000000 --with-index
-Inserting 1000000 rows with indexing enabled
-Starting INSERT
-Finished INSERT: 89.108121 seconds
-Alloc = 341 MiB
+<div class="highlight"><pre><span></span>./main<span class="w"> </span>--inserts<span class="w"> </span><span class="m">1000000</span><span class="w"> </span>--with-index
+Inserting<span class="w"> </span><span class="m">1000000</span><span class="w"> </span>rows<span class="w"> </span>with<span class="w"> </span>indexing<span class="w"> </span>enabled
+Starting<span class="w"> </span>INSERT
+Finished<span class="w"> </span>INSERT:<span class="w"> </span><span class="m">89</span>.108121<span class="w"> </span>seconds
+<span class="nv">Alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">341</span><span class="w"> </span>MiB
 
-Starting SELECT
-Finished SELECT: 0.000137 seconds
-Alloc = 341 MiB
-</code></pre>
+Starting<span class="w"> </span>SELECT
+Finished<span class="w"> </span>SELECT:<span class="w"> </span><span class="m">0</span>.000137<span class="w"> </span>seconds
+<span class="nv">Alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">341</span><span class="w"> </span>MiB
+</pre></div>
 <p>The basic tradeoff that you can see is that for more memory and longer
 insertion times, you get a significantly faster lookup.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Very excited to share the latest database basics post on implementing indexes in gosql.<a href="https://t.co/QHfjCe1XsC">https://t.co/QHfjCe1XsC</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1256209468133650433?ref_src=twsrc%5Etfw">May 1, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
@@ -1367,7 +1366,6 @@ insertion times, you get a significantly faster lookup.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

@@ -6,7 +6,6 @@
     <title>Writing a lisp compiler from scratch in JavaScript: 6. an x86 upgrade | notes.eatonphil.com</title>
     <meta name="description" content="Writing a lisp compiler from scratch in JavaScript: 6. an x86 upgrade" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -95,102 +94,102 @@ to keep two commitments in mind:</p>
 more than enough.</p>
 <h3 id="boilerplate">Boilerplate</h3><p>We'll start with the existing x86 backend code and strip all the
 implementation code:</p>
-<pre><code class="hljs javascript">const cp = require(&#39;child_process&#39;);
-const fs = require(&#39;fs&#39;);
-const os = require(&#39;os&#39;);
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">cp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;child_process&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">fs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;fs&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">os</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">require</span><span class="p">(</span><span class="s1">&#39;os&#39;</span><span class="p">);</span>
 
-let GLOBAL_COUNTER = 0;
+<span class="kd">let</span><span class="w"> </span><span class="nx">GLOBAL_COUNTER</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span>
 
-const SYSCALL_MAP = {
-  darwin: {
-    exit: &#39;0x2000001&#39;,
-    write: &#39;0x2000004&#39;,
-  },
-  linux: {
-    exit: 60,
-    write: 1,
-  },
-}[os.platform()];
+<span class="kd">const</span><span class="w"> </span><span class="nx">SYSCALL_MAP</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">darwin</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">exit</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;0x2000001&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">write</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;0x2000004&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">linux</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">exit</span><span class="o">:</span><span class="w"> </span><span class="mf">60</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">write</span><span class="o">:</span><span class="w"> </span><span class="mf">1</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="p">}[</span><span class="nx">os</span><span class="p">.</span><span class="nx">platform</span><span class="p">()];</span>
 
-class Scope {}
+<span class="kd">class</span><span class="w"> </span><span class="nx">Scope</span><span class="w"> </span><span class="p">{}</span>
 
-class Compiler {
-  constructor() {
-    this.outBuffer = [];
-    this.primitiveFunctions = {
-      def: this.compileDefine.bind(this),
-      begin: this.compileBegin.bind(this),
-      if: this.compileIf.bind(this),
-      ...this.prepareArithmeticWrappers(),
-      ...this.prepareLogicalWrappers(),
-      ...this.prepareSyscallWrappers(),
-    };
-  }
+<span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">def</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileDefine</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="nx">begin</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileBegin</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="k">if</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileIf</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="p">...</span><span class="k">this</span><span class="p">.</span><span class="nx">prepareArithmeticWrappers</span><span class="p">(),</span>
+<span class="w">      </span><span class="p">...</span><span class="k">this</span><span class="p">.</span><span class="nx">prepareLogicalWrappers</span><span class="p">(),</span>
+<span class="w">      </span><span class="p">...</span><span class="k">this</span><span class="p">.</span><span class="nx">prepareSyscallWrappers</span><span class="p">(),</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
 
-  prepareArithmeticWrappers() {}
+<span class="w">  </span><span class="nx">prepareArithmeticWrappers</span><span class="p">()</span><span class="w"> </span><span class="p">{}</span>
 
-  prepareLogicalWrappers() {}
+<span class="w">  </span><span class="nx">prepareLogicalWrappers</span><span class="p">()</span><span class="w"> </span><span class="p">{}</span>
 
-  prepareSyscallWrappers() {}
+<span class="w">  </span><span class="nx">prepareSyscallWrappers</span><span class="p">()</span><span class="w"> </span><span class="p">{}</span>
 
-  emit(depth, args) {
-    if (depth === undefined || args === undefined) {
-      throw new Error(&#39;Invalid call to emit&#39;);
-    }
+<span class="w">  </span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">depth</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">undefined</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">args</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">undefined</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Invalid call to emit&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
-    const indent = new Array(depth + 1).join(&#39;  &#39;);
-    this.outBuffer.push(indent + args);
-  }
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">indent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Array</span><span class="p">(</span><span class="nx">depth</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">1</span><span class="p">).</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;  &#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">indent</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">args</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  compileExpression(arg, scope, depth) {}
+<span class="w">  </span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
 
-  compileIf([test, then, els], scope, depth) {}
+<span class="w">  </span><span class="nx">compileIf</span><span class="p">([</span><span class="nx">test</span><span class="p">,</span><span class="w"> </span><span class="nx">then</span><span class="p">,</span><span class="w"> </span><span class="nx">els</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
 
-  compileBegin(body, scope, depth, topLevel = false) {}
+<span class="w">  </span><span class="nx">compileBegin</span><span class="p">(</span><span class="nx">body</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="nx">topLevel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
 
-  compileDefine([name, params, ...body], scope, depth) {}
+<span class="w">  </span><span class="nx">compileDefine</span><span class="p">([</span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">params</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nx">body</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
 
-  compileCall(fun, args, scope, depth) {}
+<span class="w">  </span><span class="nx">compileCall</span><span class="p">(</span><span class="nx">fun</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
 
-  emitPrefix() {
-    this.emit(1, &#39;.global _main\n&#39;);
+<span class="w">  </span><span class="nx">emitPrefix</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;.global _main\n&#39;</span><span class="p">);</span>
 
-    this.emit(1, &#39;.text\n&#39;);
-  }
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;.text\n&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  emitPostfix() {
-    this.emit(0, &#39;_main:&#39;);
-    this.emit(1, &#39;CALL main&#39;);
-    this.emit(1, &#39;MOV RDI, RAX&#39;); // Set exit arg
-    this.emit(1, `MOV RAX, ${SYSCALL_MAP[&#39;exit&#39;]}`);
-    this.emit(1, &#39;SYSCALL&#39;);
-  }
+<span class="w">  </span><span class="nx">emitPostfix</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_main:&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;CALL main&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;MOV RDI, RAX&#39;</span><span class="p">);</span><span class="w"> </span><span class="c1">// Set exit arg</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV RAX, </span><span class="si">${</span><span class="nx">SYSCALL_MAP</span><span class="p">[</span><span class="s1">&#39;exit&#39;</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;SYSCALL&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  getOutput() {
-    const output = this.outBuffer.join(&#39;\n&#39;);
+<span class="w">  </span><span class="nx">getOutput</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;\n&#39;</span><span class="p">);</span>
 
-    // Leave at most one empty line
-    return output.replace(/\n\n\n+/g, &#39;\n\n&#39;);
-  }
-}
+<span class="w">    </span><span class="c1">// Leave at most one empty line</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">output</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/\n\n\n+/g</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;\n\n&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
 
-module.exports.compile = function(ast) {
-  const c = new Compiler();
-  c.emitPrefix();
-  const s = new Scope();
-  c.compileBegin(ast, s, 1, true);
-  c.emitPostfix();
-  return c.getOutput();
-};
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">compile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="p">(</span><span class="nx">ast</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Compiler</span><span class="p">();</span>
+<span class="w">  </span><span class="nx">c</span><span class="p">.</span><span class="nx">emitPrefix</span><span class="p">();</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Scope</span><span class="p">();</span>
+<span class="w">  </span><span class="nx">c</span><span class="p">.</span><span class="nx">compileBegin</span><span class="p">(</span><span class="nx">ast</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">c</span><span class="p">.</span><span class="nx">emitPostfix</span><span class="p">();</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">getOutput</span><span class="p">();</span>
+<span class="p">};</span>
 
-module.exports.build = function(buildDir, program) {
-  const prog = &#39;prog&#39;;
-  fs.writeFileSync(`${buildDir}/${prog}.s`, program);
-  cp.execSync(
-    `gcc -mstackrealign -masm=intel -o ${buildDir}/${prog} ${buildDir}/${prog}.s`,
-  );
-};
-</code></pre>
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">.</span><span class="nx">build</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kd">function</span><span class="p">(</span><span class="nx">buildDir</span><span class="p">,</span><span class="w"> </span><span class="nx">program</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">prog</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;prog&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">fs</span><span class="p">.</span><span class="nx">writeFileSync</span><span class="p">(</span><span class="sb">`</span><span class="si">${</span><span class="nx">buildDir</span><span class="si">}</span><span class="sb">/</span><span class="si">${</span><span class="nx">prog</span><span class="si">}</span><span class="sb">.s`</span><span class="p">,</span><span class="w"> </span><span class="nx">program</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">cp</span><span class="p">.</span><span class="nx">execSync</span><span class="p">(</span>
+<span class="w">    </span><span class="sb">`gcc -mstackrealign -masm=intel -o </span><span class="si">${</span><span class="nx">buildDir</span><span class="si">}</span><span class="sb">/</span><span class="si">${</span><span class="nx">prog</span><span class="si">}</span><span class="sb"> </span><span class="si">${</span><span class="nx">buildDir</span><span class="si">}</span><span class="sb">/</span><span class="si">${</span><span class="nx">prog</span><span class="si">}</span><span class="sb">.s`</span><span class="p">,</span>
+<span class="w">  </span><span class="p">);</span>
+<span class="p">};</span>
+</pre></div>
 <p>The prefix and postfix stays mostly the same as the original
 implementation. But we'll assume a couple of new helpers to get us in
 parity with the LLVM backend:</p>
@@ -216,40 +215,40 @@ stack, the two most important things Scope will do for us are:</p>
 <li>Store and increment the location of the local on the stack</li>
 </ul>
 <p>Here's what it will look like:</p>
-<pre><code class="hljs javascript">class Scope {
-  constructor() {
-    this.localOffset = 1;
-    this.map = {};
-  }
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Scope</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">localOffset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1</span><span class="p">;</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">map</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{};</span>
+<span class="w">  </span><span class="p">}</span>
 
-  assign(name) {
-    const safe = name.replace(&#39;-&#39;, &#39;_&#39;);
-    this.map[safe] = this.localOffset++;
-    return safe;
-  }
+<span class="w">  </span><span class="nx">assign</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">safe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">name</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">safe</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">localOffset</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">safe</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  symbol() {
-    return this.localOffset++;
-  }
+<span class="w">  </span><span class="nx">symbol</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">localOffset</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  lookup(name) {
-    const safe = name.replace(&#39;-&#39;, &#39;_&#39;);
-    if (this.map[safe]) {
-      return { name: safe, offset: this.map[safe] };
-    }
+<span class="w">  </span><span class="nx">lookup</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">safe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">name</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">safe</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="nx">safe</span><span class="p">,</span><span class="w"> </span><span class="nx">offset</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">safe</span><span class="p">]</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return null;
-  }
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  copy() {
-    const s = new Scope();
-    // In the future we may need to store s.scopeOffset = this.scopeOffset + 1
-    // so we can read outer-scoped values at runtime.
-    s.map = { ...this.map };
-    return s;
-  }
-}
-</code></pre>
+<span class="w">  </span><span class="nx">copy</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Scope</span><span class="p">();</span>
+<span class="w">    </span><span class="c1">// In the future we may need to store s.scopeOffset = this.scopeOffset + 1</span>
+<span class="w">    </span><span class="c1">// so we can read outer-scoped values at runtime.</span>
+<span class="w">    </span><span class="nx">s</span><span class="p">.</span><span class="nx">map</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="k">this</span><span class="p">.</span><span class="nx">map</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">s</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="compileexpression">compileExpression</h3><p>An expression will be one of:</p>
 <ul>
 <li>A function call (possibly a builtin like <code>def</code> or <code>+</code>)</li>
@@ -260,29 +259,29 @@ stack, the two most important things Scope will do for us are:</p>
 <p>We'll handle compiling an expression in that order. If the AST
 argument passed to <code>compileExpression</code> is an array, we will
 call <code>compileCall</code> and return.</p>
-<pre><code class="hljs javascript">  compileExpression(arg, scope, depth) {
-    // Is a nested function call, compile it
-    if (Array.isArray(arg)) {
-      this.compileCall(arg[0], arg.slice(1), scope, depth);
-      return;
-    }
-  }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Is a nested function call, compile it</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Array</span><span class="p">.</span><span class="nx">isArray</span><span class="p">(</span><span class="nx">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileCall</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">arg</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>If the AST is a number, we will push the number onto the stack and
 return.</p>
-<pre><code class="hljs javascript">  compileExpression(arg, scope, depth) {
-    // Is a nested function call, compile it
-    if (Array.isArray(arg)) {
-      this.compileCall(arg[0], arg.slice(1), scope, depth);
-      return;
-    }
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Is a nested function call, compile it</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Array</span><span class="p">.</span><span class="nx">isArray</span><span class="p">(</span><span class="nx">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileCall</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">arg</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (Number.isInteger(arg)) {
-      this.emit(depth, `PUSH ${arg}`);
-      return;
-    }
-  }
-</code></pre>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Number</span><span class="p">.</span><span class="nx">isInteger</span><span class="p">(</span><span class="nx">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH </span><span class="si">${</span><span class="nx">arg</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>If the AST is a string that starts with <code>&</code> we will look up
 the location of the identifier after the <code>&</code>, push its
 <em>location</em> onto the stack and return.</p>
@@ -291,143 +290,143 @@ which we will later set up to be stored in <code>RBP</code>.</p>
 <p>Locals will be stored after the frame pointer and parameters will be
 stored before it. So we'll need to add or subtract from the frame
 pointer depending on if we need a positive or negative offset from it.</p>
-<pre><code class="hljs javascript">  compileExpression(arg, scope, depth) {
-    // Is a nested function call, compile it
-    if (Array.isArray(arg)) {
-      this.compileCall(arg[0], arg.slice(1), scope, depth);
-      return;
-    }
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Is a nested function call, compile it</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Array</span><span class="p">.</span><span class="nx">isArray</span><span class="p">(</span><span class="nx">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileCall</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">arg</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (Number.isInteger(arg)) {
-      this.emit(depth, `PUSH ${arg}`);
-      return;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Number</span><span class="p">.</span><span class="nx">isInteger</span><span class="p">(</span><span class="nx">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH </span><span class="si">${</span><span class="nx">arg</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (arg.startsWith(&#39;&amp;&#39;)) {
-      const { offset } = scope.lookup(arg.substring(1));
-      // Copy the frame pointer so we can return an offset from it
-      this.emit(depth, `MOV RAX, RBP`);
-      const operation = offset &lt; 0 ? &#39;ADD&#39; : &#39;SUB&#39;;
-      this.emit(depth, `${operation} RAX, ${Math.abs(offset * 8)} # ${arg}`);
-      this.emit(depth, `PUSH RAX`);
-      return;
-    }
-  }
-</code></pre>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">arg</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;&amp;&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">lookup</span><span class="p">(</span><span class="nx">arg</span><span class="p">.</span><span class="nx">substring</span><span class="p">(</span><span class="mf">1</span><span class="p">));</span>
+<span class="w">      </span><span class="c1">// Copy the frame pointer so we can return an offset from it</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV RAX, RBP`</span><span class="p">);</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">operation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;ADD&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;SUB&#39;</span><span class="p">;</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">operation</span><span class="si">}</span><span class="sb"> RAX, </span><span class="si">${</span><span class="nb">Math</span><span class="p">.</span><span class="nx">abs</span><span class="p">(</span><span class="nx">offset</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mf">8</span><span class="p">)</span><span class="si">}</span><span class="sb"> # </span><span class="si">${</span><span class="nx">arg</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH RAX`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>Finally, we'll look up the identifier and copy the value (in its
 offset on the stack) to the top of the stack.</p>
-<pre><code class="hljs javascript">  compileExpression(arg, scope, depth) {
-    // Is a nested function call, compile it
-    if (Array.isArray(arg)) {
-      this.compileCall(arg[0], arg.slice(1), scope, depth);
-      return;
-    }
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Is a nested function call, compile it</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Array</span><span class="p">.</span><span class="nx">isArray</span><span class="p">(</span><span class="nx">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileCall</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">arg</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (Number.isInteger(arg)) {
-      this.emit(depth, `PUSH ${arg}`);
-      return;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Number</span><span class="p">.</span><span class="nx">isInteger</span><span class="p">(</span><span class="nx">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH </span><span class="si">${</span><span class="nx">arg</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (arg.startsWith(&#39;&amp;&#39;)) {
-      const { offset } = scope.lookup(arg.substring(1));
-      // Copy the frame pointer so we can return an offset from it
-      this.emit(depth, `MOV RAX, RBP`);
-      const operation = offset &lt; 0 ? &#39;ADD&#39; : &#39;SUB&#39;;
-      this.emit(depth, `${operation} RAX, ${Math.abs(offset * 8)} # ${arg}`);
-      this.emit(depth, `PUSH RAX`);
-      return;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">arg</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;&amp;&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">lookup</span><span class="p">(</span><span class="nx">arg</span><span class="p">.</span><span class="nx">substring</span><span class="p">(</span><span class="mf">1</span><span class="p">));</span>
+<span class="w">      </span><span class="c1">// Copy the frame pointer so we can return an offset from it</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV RAX, RBP`</span><span class="p">);</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">operation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;ADD&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;SUB&#39;</span><span class="p">;</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">operation</span><span class="si">}</span><span class="sb"> RAX, </span><span class="si">${</span><span class="nb">Math</span><span class="p">.</span><span class="nx">abs</span><span class="p">(</span><span class="nx">offset</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mf">8</span><span class="p">)</span><span class="si">}</span><span class="sb"> # </span><span class="si">${</span><span class="nx">arg</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH RAX`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // Variable lookup
-    const { offset } = scope.lookup(arg);
-    if (offset) {
-      const operation = offset &lt; 0 ? &#39;+&#39; : &#39;-&#39;;
-      this.emit(
-        depth,
-        `PUSH [RBP ${operation} ${Math.abs(offset * 8)}] # ${arg}`,
-      );
-    } else {
-      throw new Error(
-        &#39;Attempt to reference undefined variable or unsupported literal: &#39; +
-          arg,
-      );
-    }
-  }
-</code></pre>
+<span class="w">    </span><span class="c1">// Variable lookup</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">lookup</span><span class="p">(</span><span class="nx">arg</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">offset</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">operation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;+&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;-&#39;</span><span class="p">;</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span>
+<span class="w">        </span><span class="nx">depth</span><span class="p">,</span>
+<span class="w">        </span><span class="sb">`PUSH [RBP </span><span class="si">${</span><span class="nx">operation</span><span class="si">}</span><span class="sb"> </span><span class="si">${</span><span class="nb">Math</span><span class="p">.</span><span class="nx">abs</span><span class="p">(</span><span class="nx">offset</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mf">8</span><span class="p">)</span><span class="si">}</span><span class="sb">] # </span><span class="si">${</span><span class="nx">arg</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
+<span class="w">      </span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span>
+<span class="w">        </span><span class="s1">&#39;Attempt to reference undefined variable or unsupported literal: &#39;</span><span class="w"> </span><span class="o">+</span>
+<span class="w">          </span><span class="nx">arg</span><span class="p">,</span>
+<span class="w">      </span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>And that's it for handling expression! Let's add
 <code>compileCall</code> support now that we referenced it.</p>
 <h3 id="compilecall">compileCall</h3><p>A call will first check if the call is a builtin. If so, it will
 immediately pass control to the builtin.</p>
-<pre><code class="hljs javascript">  compileCall(fun, args, scope, depth) {
-    if (this.primitiveFunctions[fun]) {
-      this.primitiveFunctions[fun](args, scope, depth);
-      return;
-    }
-  }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileCall</span><span class="p">(</span><span class="nx">fun</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="p">[</span><span class="nx">fun</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="p">[</span><span class="nx">fun</span><span class="p">](</span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>Otherwise it will compile every argument to the call (which will leave
 all the resulting values on the stack.)</p>
-<pre><code class="hljs javascript">  compileCall(fun, args, scope, depth) {
-    if (this.primitiveFunctions[fun]) {
-      this.primitiveFunctions[fun](args, scope, depth);
-      return;
-    }
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileCall</span><span class="p">(</span><span class="nx">fun</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="p">[</span><span class="nx">fun</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="p">[</span><span class="nx">fun</span><span class="p">](</span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // Compile registers and store on the stack
-    args.map((arg, i) =&gt; this.compileExpression(arg, scope, depth));
-  }
-</code></pre>
+<span class="w">    </span><span class="c1">// Compile registers and store on the stack</span>
+<span class="w">    </span><span class="nx">args</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">));</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>Then we will check that function is defined and call it.</p>
-<pre><code class="hljs javascript">  compileCall(fun, args, scope, depth) {
-    if (this.primitiveFunctions[fun]) {
-      this.primitiveFunctions[fun](args, scope, depth);
-      return;
-    }
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileCall</span><span class="p">(</span><span class="nx">fun</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="p">[</span><span class="nx">fun</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="p">[</span><span class="nx">fun</span><span class="p">](</span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // Compile registers and store on the stack
-    args.map((arg, i) =&gt; this.compileExpression(arg, scope, depth));
+<span class="w">    </span><span class="c1">// Compile registers and store on the stack</span>
+<span class="w">    </span><span class="nx">args</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">));</span>
 
-    const fn = scope.lookup(fun);
-    if (fn) {
-      this.emit(depth, `CALL ${fn.name}`);
-    } else {
-      throw new Error(&#39;Attempt to call undefined function: &#39; + fun);
-    }
-  }
-</code></pre>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">fn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">lookup</span><span class="p">(</span><span class="nx">fun</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">fn</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`CALL </span><span class="si">${</span><span class="nx">fn</span><span class="p">.</span><span class="nx">name</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Attempt to call undefined function: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">fun</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>Then we'll reset the stack pointer (to maintain our commitment) based
 on the number of arguments and push <code>RAX</code> (where the return
 result of the function call will be stored) onto the stack. We'll make
 two minor optimizations for when there is exactly zero or one argument
 to the function.</p>
-<pre><code class="hljs javascript">  compileCall(fun, args, scope, depth) {
-    if (this.primitiveFunctions[fun]) {
-      this.primitiveFunctions[fun](args, scope, depth);
-      return;
-    }
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileCall</span><span class="p">(</span><span class="nx">fun</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="p">[</span><span class="nx">fun</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="p">[</span><span class="nx">fun</span><span class="p">](</span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // Compile registers and store on the stack
-    args.map((arg, i) =&gt; this.compileExpression(arg, scope, depth));
+<span class="w">    </span><span class="c1">// Compile registers and store on the stack</span>
+<span class="w">    </span><span class="nx">args</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">));</span>
 
-    const fn = scope.lookup(fun);
-    if (fn) {
-      this.emit(depth, `CALL ${fn.name}`);
-    } else {
-      throw new Error(&#39;Attempt to call undefined function: &#39; + fun);
-    }
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">fn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">lookup</span><span class="p">(</span><span class="nx">fun</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">fn</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`CALL </span><span class="si">${</span><span class="nx">fn</span><span class="p">.</span><span class="nx">name</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;Attempt to call undefined function: &#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">fun</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (args.length &gt; 1) {
-      // Drop the args
-      this.emit(depth, `ADD RSP, ${args.length * 8}`);
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">args</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="c1">// Drop the args</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`ADD RSP, </span><span class="si">${</span><span class="nx">args</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mf">8</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (args.length === 1) {
-      this.emit(depth, `MOV [RSP], RAX\n`);
-    } else {
-      this.emit(depth, &#39;PUSH RAX\n&#39;);
-    }
-  }
-</code></pre>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">args</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV [RSP], RAX\n`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;PUSH RAX\n&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>When there is only one argument, we can just set the top value on the
 stack to be the return result of the call rather than resetting the
 stack pointer just to push onto it.</p>
@@ -449,147 +448,147 @@ a memory address.</p>
 <p>We'll use the stack address as the first argument so 1) that
 non-commutative operations are correct and 2) the result is stored
 right back onto the stack in the right location.</p>
-<pre><code class="hljs javascript">    const prepareGeneral = (instruction) =&gt; (arg, scope, depth) =&gt; {
-      depth++;
-      this.emit(depth, `# ${instruction.toUpperCase()}`);
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">prepareGeneral</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">instruction</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">depth</span><span class="o">++</span><span class="p">;</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# </span><span class="si">${</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 
-      // Compile first argument
-      this.compileExpression(arg[0], scope, depth);
+<span class="w">      </span><span class="c1">// Compile first argument</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
 
-      // Compile second argument
-      this.compileExpression(arg[1], scope, depth);
-      this.emit(depth, `POP RAX`);
+<span class="w">      </span><span class="c1">// Compile second argument</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">1</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP RAX`</span><span class="p">);</span>
 
-      // Compile operation
-      this.emit(depth, `${instruction.toUpperCase()} [RSP], RAX`);
+<span class="w">      </span><span class="c1">// Compile operation</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="si">}</span><span class="sb"> [RSP], RAX`</span><span class="p">);</span>
 
-      this.emit(depth, `# End ${instruction.toUpperCase()}`);
-    };
-</code></pre>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# End </span><span class="si">${</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">};</span>
+</pre></div>
 <h4 id="preparerax">prepareRax</h4><p>This helper will similarly compile its two arguments and pop
 the second argument into <code>RAX</code>. But the RAX-implicit
 instructions require the argument to be stored in a register
 so we'll use the <code>XCHG</code> instruction to swap <code>RAX</code>
 with the value on the top of the stack (the first argument).</p>
-<pre><code class="hljs javascript">    const prepareRax = (instruction, outRegister = &#39;RAX&#39;) =&gt; (
-      arg,
-      scope,
-      depth,
-    ) =&gt; {
-      depth++;
-      this.emit(depth, `# ${instruction.toUpperCase()}`);
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">prepareRax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">instruction</span><span class="p">,</span><span class="w"> </span><span class="nx">outRegister</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">(</span>
+<span class="w">      </span><span class="nx">arg</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">scope</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">depth</span><span class="p">,</span>
+<span class="w">    </span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">depth</span><span class="o">++</span><span class="p">;</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# </span><span class="si">${</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 
-      // Compile first argument, store in RAX
-      this.compileExpression(arg[0], scope, depth);
+<span class="w">      </span><span class="c1">// Compile first argument, store in RAX</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
 
-      // Compile second argument
-      this.compileExpression(arg[1], scope, depth);
+<span class="w">      </span><span class="c1">// Compile second argument</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">1</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
 
-      // POP second argument and swap with first
-      this.emit(depth, `POP RAX`);
-      this.emit(depth, `XCHG [RSP], RAX`);
-</code></pre>
+<span class="w">      </span><span class="c1">// POP second argument and swap with first</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP RAX`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`XCHG [RSP], RAX`</span><span class="p">);</span>
+</pre></div>
 <p>This may seem roundabout but remember that we <em>must</em> pop all
 arguments to the instruction to maintain our commitment.</p>
 <p>Next we'll zero out the <code>RDX</code> register if the operation is
 <code>DIV</code>, perform the operation, and store the result on the
 top of the stack.</p>
-<pre><code class="hljs javascript">    const prepareRax = (instruction, outRegister = &#39;RAX&#39;) =&gt; (
-      arg,
-      scope,
-      depth,
-    ) =&gt; {
-      depth++;
-      this.emit(depth, `# ${instruction.toUpperCase()}`);
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">prepareRax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">instruction</span><span class="p">,</span><span class="w"> </span><span class="nx">outRegister</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">(</span>
+<span class="w">      </span><span class="nx">arg</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">scope</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">depth</span><span class="p">,</span>
+<span class="w">    </span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">depth</span><span class="o">++</span><span class="p">;</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# </span><span class="si">${</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 
-      // Compile first argument, store in RAX
-      this.compileExpression(arg[0], scope, depth);
+<span class="w">      </span><span class="c1">// Compile first argument, store in RAX</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
 
-      // Compile second argument
-      this.compileExpression(arg[1], scope, depth);
+<span class="w">      </span><span class="c1">// Compile second argument</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">1</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
 
-      // POP second argument and swap with first
-      this.emit(depth, `POP RAX`);
-      this.emit(depth, `XCHG [RSP], RAX`);
+<span class="w">      </span><span class="c1">// POP second argument and swap with first</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP RAX`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`XCHG [RSP], RAX`</span><span class="p">);</span>
 
-      // Reset RDX for DIV
-      if (instruction.toUpperCase() === &#39;DIV&#39;) {
-        this.emit(depth, `XOR RDX, RDX`);
-      }
+<span class="w">      </span><span class="c1">// Reset RDX for DIV</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;DIV&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`XOR RDX, RDX`</span><span class="p">);</span>
+<span class="w">      </span><span class="p">}</span>
 
-      // Compiler operation
-      this.emit(depth, `${instruction.toUpperCase()} QWORD PTR [RSP]`);
+<span class="w">      </span><span class="c1">// Compiler operation</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="si">}</span><span class="sb"> QWORD PTR [RSP]`</span><span class="p">);</span>
 
-      // Swap the top of the stack
-      this.emit(depth, `MOV [RSP], ${outRegister}`);
-    };
-</code></pre>
+<span class="w">      </span><span class="c1">// Swap the top of the stack</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV [RSP], </span><span class="si">${</span><span class="nx">outRegister</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">};</span>
+</pre></div>
 <p>We parameterize the out register because the <code>%</code> wrapper
 will call <code>DIV</code> but need <code>RDX</code> rather than
 <code>RAX</code> after the operation.</p>
 <h4 id="preparearithmeticwrappers">prepareArithmeticWrappers</h4><p>Putting everything together we get:</p>
-<pre><code class="hljs javascript">  prepareArithmeticWrappers() {
-    // General operatations
-    const prepareGeneral = (instruction) =&gt; (arg, scope, depth) =&gt; {
-      depth++;
-      this.emit(depth, `# ${instruction.toUpperCase()}`);
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">prepareArithmeticWrappers</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// General operatations</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">prepareGeneral</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">instruction</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">depth</span><span class="o">++</span><span class="p">;</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# </span><span class="si">${</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 
-      // Compile first argument
-      this.compileExpression(arg[0], scope, depth);
+<span class="w">      </span><span class="c1">// Compile first argument</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
 
-      // Compile second argument
-      this.compileExpression(arg[1], scope, depth);
-      this.emit(depth, `POP RAX`);
+<span class="w">      </span><span class="c1">// Compile second argument</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">1</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP RAX`</span><span class="p">);</span>
 
-      // Compile operation
-      this.emit(depth, `${instruction.toUpperCase()} [RSP], RAX`);
+<span class="w">      </span><span class="c1">// Compile operation</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="si">}</span><span class="sb"> [RSP], RAX`</span><span class="p">);</span>
 
-      this.emit(depth, `# End ${instruction.toUpperCase()}`);
-    };
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# End </span><span class="si">${</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">};</span>
 
-    // Operations that use RAX implicitly
-    const prepareRax = (instruction, outRegister = &#39;RAX&#39;) =&gt; (
-      arg,
-      scope,
-      depth,
-    ) =&gt; {
-      depth++;
-      this.emit(depth, `# ${instruction.toUpperCase()}`);
+<span class="w">    </span><span class="c1">// Operations that use RAX implicitly</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">prepareRax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">instruction</span><span class="p">,</span><span class="w"> </span><span class="nx">outRegister</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;RAX&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">(</span>
+<span class="w">      </span><span class="nx">arg</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">scope</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">depth</span><span class="p">,</span>
+<span class="w">    </span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">depth</span><span class="o">++</span><span class="p">;</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# </span><span class="si">${</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 
-      // Compile first argument, store in RAX
-      this.compileExpression(arg[0], scope, depth);
+<span class="w">      </span><span class="c1">// Compile first argument, store in RAX</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
 
-      // Compile second argument
-      this.compileExpression(arg[1], scope, depth);
+<span class="w">      </span><span class="c1">// Compile second argument</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">1</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
 
-      // POP second argument and swap with first
-      this.emit(depth, `POP RAX`);
-      this.emit(depth, `XCHG [RSP], RAX`);
+<span class="w">      </span><span class="c1">// POP second argument and swap with first</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP RAX`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`XCHG [RSP], RAX`</span><span class="p">);</span>
 
-      // Reset RDX for DIV
-      if (instruction.toUpperCase() === &#39;DIV&#39;) {
-        this.emit(depth, `XOR RDX, RDX`);
-      }
+<span class="w">      </span><span class="c1">// Reset RDX for DIV</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;DIV&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`XOR RDX, RDX`</span><span class="p">);</span>
+<span class="w">      </span><span class="p">}</span>
 
-      // Compiler operation
-      this.emit(depth, `${instruction.toUpperCase()} QWORD PTR [RSP]`);
+<span class="w">      </span><span class="c1">// Compiler operation</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">instruction</span><span class="p">.</span><span class="nx">toUpperCase</span><span class="p">()</span><span class="si">}</span><span class="sb"> QWORD PTR [RSP]`</span><span class="p">);</span>
 
-      // Swap the top of the stack
-      this.emit(depth, `MOV [RSP], ${outRegister}`);
-    };
+<span class="w">      </span><span class="c1">// Swap the top of the stack</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV [RSP], </span><span class="si">${</span><span class="nx">outRegister</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">};</span>
 
-    return {
-      &#39;+&#39;: prepareGeneral(&#39;add&#39;),
-      &#39;-&#39;: prepareGeneral(&#39;sub&#39;),
-      &#39;&amp;&#39;: prepareGeneral(&#39;and&#39;),
-      &#39;|&#39;: prepareGeneral(&#39;or&#39;),
-      &#39;=&#39;: prepareGeneral(&#39;mov&#39;),
-      &#39;*&#39;: prepareRax(&#39;mul&#39;),
-      &#39;/&#39;: prepareRax(&#39;div&#39;),
-      &#39;%&#39;: prepareRax(&#39;div&#39;, &#39;RDX&#39;),
-    };
-  }
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="s1">&#39;+&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">prepareGeneral</span><span class="p">(</span><span class="s1">&#39;add&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;-&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">prepareGeneral</span><span class="p">(</span><span class="s1">&#39;sub&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;&amp;&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">prepareGeneral</span><span class="p">(</span><span class="s1">&#39;and&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;|&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">prepareGeneral</span><span class="p">(</span><span class="s1">&#39;or&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;=&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">prepareGeneral</span><span class="p">(</span><span class="s1">&#39;mov&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;*&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">prepareRax</span><span class="p">(</span><span class="s1">&#39;mul&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;/&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">prepareRax</span><span class="p">(</span><span class="s1">&#39;div&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;%&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">prepareRax</span><span class="p">(</span><span class="s1">&#39;div&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RDX&#39;</span><span class="p">),</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>Next we'll tackle <code>compileBegin</code> and
 <code>compileDefine</code>.</p>
 <h3 id="compilebegin">compileBegin</h3><p>A begin form is an expression made up of a series of expressions where
@@ -601,15 +600,15 @@ last in the list we will not pop since it is the result of the begin
 form.</p>
 <p>We will add one exception to this popping logic: if the begin is
 called from the top-level we will omit the popping.</p>
-<pre><code class="hljs javascript">  compileBegin(body, scope, depth, topLevel = false) {
-    body.forEach((expression, i) =&gt; {
-      this.compileExpression(expression, scope, depth);
-      if (!topLevel &amp;&amp; i &lt; body.length - 1) {
-        this.emit(depth, `POP RAX # Ignore non-final expression`);
-      }
-    });
-  }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileBegin</span><span class="p">(</span><span class="nx">body</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="nx">topLevel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">body</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">expression</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">expression</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">topLevel</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">body</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP RAX # Ignore non-final expression`</span><span class="p">);</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>That's it for <code>compileBegin</code>!</p>
 <h3 id="compiledefine">compileDefine</h3><p>The prelude for a function definition will add its name to scope, push
 the current frame pointer (<code>RBP</code>) onto the stack and store
@@ -618,104 +617,104 @@ the current stack pointer (<code>RSP</code>) as the new frame pointer
 <p>Remember that we use the frame pointer as a point of reference when
 setting and getting local and parameter values. It works out entirely
 by convention.</p>
-<pre><code class="hljs javascript">  compileDefine([name, params, ...body], scope, depth) {
-    // Add this function to outer scope
-    const safe = scope.assign(name);
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileDefine</span><span class="p">([</span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">params</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nx">body</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Add this function to outer scope</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">safe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">assign</span><span class="p">(</span><span class="nx">name</span><span class="p">);</span>
 
-    // Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.
-    const childScope = scope.copy();
+<span class="w">    </span><span class="c1">// Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">childScope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">copy</span><span class="p">();</span>
 
-    this.emit(0, `${safe}:`);
-    this.emit(depth, `PUSH RBP`);
-    this.emit(depth, `MOV RBP, RSP\n`);
-  }
-</code></pre>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">safe</span><span class="si">}</span><span class="sb">:`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH RBP`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV RBP, RSP\n`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>Next we copy the parameters into local scope at their negative (from
 the frame pointer) location. In the future we may decide to actually
 copy in the parameter <em>values</em> into the local stack but for now
 there's no benefit.</p>
-<pre><code class="hljs javascript">  compileDefine([name, params, ...body], scope, depth) {
-    // Add this function to outer scope
-    const safe = scope.assign(name);
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileDefine</span><span class="p">([</span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">params</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nx">body</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Add this function to outer scope</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">safe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">assign</span><span class="p">(</span><span class="nx">name</span><span class="p">);</span>
 
-    // Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.
-    const childScope = scope.copy();
+<span class="w">    </span><span class="c1">// Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">childScope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">copy</span><span class="p">();</span>
 
-    this.emit(0, `${safe}:`);
-    this.emit(depth, `PUSH RBP`);
-    this.emit(depth, `MOV RBP, RSP\n`);
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">safe</span><span class="si">}</span><span class="sb">:`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH RBP`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV RBP, RSP\n`</span><span class="p">);</span>
 
-    // Copy params into local scope
-    params.forEach((param, i) =&gt; {
-      childScope.map[param] = -1 * (params.length - i - 1 + 2);
-    });
-  }
-</code></pre>
+<span class="w">    </span><span class="c1">// Copy params into local scope</span>
+<span class="w">    </span><span class="nx">params</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">param</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">childScope</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">param</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mf">1</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="nx">params</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">2</span><span class="p">);</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>Next we'll compile the body of the function within a
 <code>begin</code> block.</p>
-<pre><code class="hljs javascript">  compileDefine([name, params, ...body], scope, depth) {
-    // Add this function to outer scope
-    const safe = scope.assign(name);
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileDefine</span><span class="p">([</span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">params</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nx">body</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Add this function to outer scope</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">safe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">assign</span><span class="p">(</span><span class="nx">name</span><span class="p">);</span>
 
-    // Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.
-    const childScope = scope.copy();
+<span class="w">    </span><span class="c1">// Copy outer scope so parameter mappings aren&#39;t exposed in outer scope.</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">childScope</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scope</span><span class="p">.</span><span class="nx">copy</span><span class="p">();</span>
 
-    this.emit(0, `${safe}:`);
-    this.emit(depth, `PUSH RBP`);
-    this.emit(depth, `MOV RBP, RSP\n`);
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">safe</span><span class="si">}</span><span class="sb">:`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH RBP`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV RBP, RSP\n`</span><span class="p">);</span>
 
-    // Copy params into local scope
-    params.forEach((param, i) =&gt; {
-      childScope.map[param] = -1 * (params.length - i - 1 + 2);
-    });
+<span class="w">    </span><span class="c1">// Copy params into local scope</span>
+<span class="w">    </span><span class="nx">params</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">param</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">childScope</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">param</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mf">1</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="nx">params</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">2</span><span class="p">);</span>
+<span class="w">    </span><span class="p">});</span>
 
-    // Pass childScope in for reference when body is compiled.
-    this.compileBegin(body, childScope, depth);
-  }
-</code></pre>
+<span class="w">    </span><span class="c1">// Pass childScope in for reference when body is compiled.</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileBegin</span><span class="p">(</span><span class="nx">body</span><span class="p">,</span><span class="w"> </span><span class="nx">childScope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>Then in the postlude we'll pop the stack (for the return result of the
 begin form), save it in RAX, pop the previous frame pointer back to
 restore the calling frame, and return.</p>
-<pre><code>  compileDefine([name, params, ...body], scope, depth) {
-    // Add this function to outer scope
-    const safe = scope.assign(name);
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="n">compileDefine</span><span class="p">(</span><span class="o">[</span><span class="n">name, params, ...body</span><span class="o">]</span><span class="p">,</span><span class="w"> </span><span class="k">scope</span><span class="p">,</span><span class="w"> </span><span class="k">depth</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">    </span><span class="o">//</span><span class="w"> </span><span class="k">Add</span><span class="w"> </span><span class="n">this</span><span class="w"> </span><span class="k">function</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="k">outer</span><span class="w"> </span><span class="k">scope</span>
+<span class="w">    </span><span class="n">const</span><span class="w"> </span><span class="n">safe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">scope</span><span class="p">.</span><span class="n">assign</span><span class="p">(</span><span class="n">name</span><span class="p">);</span>
 
-    // Copy outer scope so parameter mappings aren't exposed in outer scope.
-    const childScope = scope.copy();
+<span class="w">    </span><span class="o">//</span><span class="w"> </span><span class="n">Copy</span><span class="w"> </span><span class="k">outer</span><span class="w"> </span><span class="k">scope</span><span class="w"> </span><span class="n">so</span><span class="w"> </span><span class="k">parameter</span><span class="w"> </span><span class="n">mappings</span><span class="w"> </span><span class="n">aren</span><span class="s1">&#39;t exposed in outer scope.</span>
+<span class="s1">    const childScope = scope.copy();</span>
 
-    this.emit(0, `${safe}:`);
-    this.emit(depth, `PUSH RBP`);
-    this.emit(depth, `MOV RBP, RSP\n`);
+<span class="s1">    this.emit(0, `${safe}:`);</span>
+<span class="s1">    this.emit(depth, `PUSH RBP`);</span>
+<span class="s1">    this.emit(depth, `MOV RBP, RSP\n`);</span>
 
-    // Copy params into local scope
-    params.forEach((param, i) =&gt; {
-      childScope.map[param] = -1 * (params.length - i - 1 + 2);
-    });
+<span class="s1">    // Copy params into local scope</span>
+<span class="s1">    params.forEach((param, i) =&gt; {</span>
+<span class="s1">      childScope.map[param] = -1 * (params.length - i - 1 + 2);</span>
+<span class="s1">    });</span>
 
-    // Pass childScope in for reference when body is compiled.
-    this.compileBegin(body, childScope, depth);
+<span class="s1">    // Pass childScope in for reference when body is compiled.</span>
+<span class="s1">    this.compileBegin(body, childScope, depth);</span>
 
-    // Save the return value
-    this.emit(0, '');
-    this.emit(depth, `POP RAX`);
-    this.emit(depth, `POP RBP\n`);
+<span class="s1">    // Save the return value</span>
+<span class="s1">    this.emit(0, &#39;&#39;);</span>
+<span class="s1">    this.emit(depth, `POP RAX`);</span>
+<span class="s1">    this.emit(depth, `POP RBP\n`);</span>
 
-    this.emit(depth, 'RET\n');
-  }
-</code></pre>
+<span class="s1">    this.emit(depth, &#39;</span><span class="n">RET</span><span class="err">\</span><span class="n">n</span><span class="err">&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="err">}</span>
+</pre></div>
 <p>And now we're ready to compile a simple program!</p>
 <h3 id="our-first-program">Our first program</h3><p>Here's a simple one we can support:</p>
-<pre><code class="hljs lisp">$ cat tests/meaning-of-life.lisp
-(def main ()
-  (+ 8 (* 2 17)))
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nv">$</span><span class="w"> </span><span class="nv">cat</span><span class="w"> </span><span class="nv">tests/meaning-of-life.lisp</span>
+<span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">main</span><span class="w"> </span><span class="p">()</span>
+<span class="w">  </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="p">(</span><span class="nb">*</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="mi">17</span><span class="p">)))</span>
+</pre></div>
 <p>We'll compile this program without the ulisp kernel (which contains a
 lisp library we cannot currently compile):</p>
-<pre><code class="hljs bash">$ node src/ulisp.js tests/meaning-of-life.lisp --no-kernel --backend x86
-$ ./build/prog
-$ echo $?
-42
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>node<span class="w"> </span>src/ulisp.js<span class="w"> </span>tests/meaning-of-life.lisp<span class="w"> </span>--no-kernel<span class="w"> </span>--backend<span class="w"> </span>x86
+$<span class="w"> </span>./build/prog
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">42</span>
+</pre></div>
 <p>Not bad. Let's finish up with support for
 <code>prepareLogicalWrappers</code>,
 <code>prepareSyscallWrappers</code>, and <code>compileIf</code>.</p>
@@ -729,183 +728,183 @@ value based on flags, similar to how you can conditionally branch.</p>
 <p>Otherwise we'll follow a pattern similar to our arithmetic
 wrappers. At the end of the procedure we will have a 0 or a 1 on the
 top of the stack.</p>
-<pre><code class="hljs javascript">  prepareLogicalWrappers() {
-    const prepareComparison = (operator) =&gt; {
-      return {
-        [operator]: (arg, scope, depth) =&gt; {
-          depth++;
-          this.emit(depth, `# ${operator}`);
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">prepareLogicalWrappers</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">prepareComparison</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">operator</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">[</span><span class="nx">operator</span><span class="p">]</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="nx">depth</span><span class="o">++</span><span class="p">;</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# </span><span class="si">${</span><span class="nx">operator</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 
-          // Compile first argument, store in RAX
-          this.compileExpression(arg[0], scope, depth);
+<span class="w">          </span><span class="c1">// Compile first argument, store in RAX</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">0</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
 
-          // Compile second argument
-          this.compileExpression(arg[1], scope, depth);
-          this.emit(depth, `POP RAX`);
+<span class="w">          </span><span class="c1">// Compile second argument</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">[</span><span class="mf">1</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP RAX`</span><span class="p">);</span>
 
-          // Compile operation
-          this.emit(depth, `CMP [RSP], RAX`);
+<span class="w">          </span><span class="c1">// Compile operation</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`CMP [RSP], RAX`</span><span class="p">);</span>
 
-          // Reset RAX to serve as CMOV* dest, MOV to keep flags (vs. XOR)
-          this.emit(depth, `MOV RAX, 0`);
+<span class="w">          </span><span class="c1">// Reset RAX to serve as CMOV* dest, MOV to keep flags (vs. XOR)</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV RAX, 0`</span><span class="p">);</span>
 
-          // Conditional set [RSP]
-          const operation = {
-            &#39;&gt;&#39;: &#39;CMOVA&#39;,
-            &#39;&gt;=&#39;: &#39;CMOVAE&#39;,
-            &#39;&lt;&#39;: &#39;CMOVB&#39;,
-            &#39;&lt;=&#39;: &#39;CMOVBE&#39;,
-            &#39;==&#39;: &#39;CMOVE&#39;,
-            &#39;!=&#39;: &#39;CMOVNE&#39;,
-          }[operator];
-          // CMOV* requires the source to be memory or register
-          this.emit(depth, `MOV DWORD PTR [RSP], 1`);
-          // CMOV* requires the dest to be a register
-          this.emit(depth, `${operation} RAX, [RSP]`);
-          this.emit(depth, `MOV [RSP], RAX`);
-          this.emit(depth, `# End ${operator}`);
-        },
-      };
-    };
+<span class="w">          </span><span class="c1">// Conditional set [RSP]</span>
+<span class="w">          </span><span class="kd">const</span><span class="w"> </span><span class="nx">operation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="s1">&#39;&gt;&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;CMOVA&#39;</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;&gt;=&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;CMOVAE&#39;</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;&lt;&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;CMOVB&#39;</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;&lt;=&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;CMOVBE&#39;</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;==&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;CMOVE&#39;</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;!=&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;CMOVNE&#39;</span><span class="p">,</span>
+<span class="w">          </span><span class="p">}[</span><span class="nx">operator</span><span class="p">];</span>
+<span class="w">          </span><span class="c1">// CMOV* requires the source to be memory or register</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV DWORD PTR [RSP], 1`</span><span class="p">);</span>
+<span class="w">          </span><span class="c1">// CMOV* requires the dest to be a register</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">operation</span><span class="si">}</span><span class="sb"> RAX, [RSP]`</span><span class="p">);</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV [RSP], RAX`</span><span class="p">);</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# End </span><span class="si">${</span><span class="nx">operator</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">      </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
 
-    return {
-      ...prepareComparison(&#39;&gt;&#39;),
-      ...prepareComparison(&#39;&gt;=&#39;),
-      ...prepareComparison(&#39;&lt;&#39;),
-      ...prepareComparison(&#39;&lt;=&#39;),
-      ...prepareComparison(&#39;==&#39;),
-      ...prepareComparison(&#39;!=&#39;),
-    }
-  }
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="p">...</span><span class="nx">prepareComparison</span><span class="p">(</span><span class="s1">&#39;&gt;&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="p">...</span><span class="nx">prepareComparison</span><span class="p">(</span><span class="s1">&#39;&gt;=&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="p">...</span><span class="nx">prepareComparison</span><span class="p">(</span><span class="s1">&#39;&lt;&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="p">...</span><span class="nx">prepareComparison</span><span class="p">(</span><span class="s1">&#39;&lt;=&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="p">...</span><span class="nx">prepareComparison</span><span class="p">(</span><span class="s1">&#39;==&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="p">...</span><span class="nx">prepareComparison</span><span class="p">(</span><span class="s1">&#39;!=&#39;</span><span class="p">),</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <h3 id="preparesyscallwrappers">prepareSyscallWrappers</h3><p>This helper is similar to <code>compileCall</code> except for that it
 needs to follow the SYS V ABI and use the <code>SYSCALL</code>
 instruction rather than <code>CALL</code>.</p>
-<pre><code class="hljs javascript">  prepareSyscallWrappers() {
-    const registers = [&#39;RDI&#39;, &#39;RSI&#39;, &#39;RDX&#39;, &#39;R10&#39;, &#39;R8&#39;, &#39;R9&#39;];
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">prepareSyscallWrappers</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">registers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;RDI&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RSI&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;RDX&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;R10&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;R8&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;R9&#39;</span><span class="p">];</span>
 
-    const wrappers = {};
-    Object.keys(SYSCALL_MAP).forEach((key, obj) =&gt; {
-      wrappers[`syscall/${key}`] = (args, scope, depth) =&gt; {
-        if (args.length &gt; registers.length) {
-          throw new Error(`Too many arguments to syscall/${key}`);
-        }
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">wrappers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{};</span>
+<span class="w">    </span><span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">SYSCALL_MAP</span><span class="p">).</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">key</span><span class="p">,</span><span class="w"> </span><span class="nx">obj</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">wrappers</span><span class="p">[</span><span class="sb">`syscall/</span><span class="si">${</span><span class="nx">key</span><span class="si">}</span><span class="sb">`</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">args</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nx">registers</span><span class="p">.</span><span class="nx">length</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="sb">`Too many arguments to syscall/</span><span class="si">${</span><span class="nx">key</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
 
-        // Compile first
-        args.forEach((arg) =&gt; this.compileExpression(arg, scope, depth));
+<span class="w">        </span><span class="c1">// Compile first</span>
+<span class="w">        </span><span class="nx">args</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">arg</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">));</span>
 
-        // Then pop to avoid possible register contention
-        args.forEach((_, i) =&gt;
-          this.emit(depth, `POP ${registers[args.length - i - 1]}`),
-        );
+<span class="w">        </span><span class="c1">// Then pop to avoid possible register contention</span>
+<span class="w">        </span><span class="nx">args</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP </span><span class="si">${</span><span class="nx">registers</span><span class="p">[</span><span class="nx">args</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">),</span>
+<span class="w">        </span><span class="p">);</span>
 
-        this.emit(depth, `MOV RAX, ${SYSCALL_MAP[key]}`);
-        this.emit(depth, &#39;SYSCALL&#39;);
-        this.emit(depth, `PUSH RAX`);
-      };
-    });
+<span class="w">        </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`MOV RAX, </span><span class="si">${</span><span class="nx">SYSCALL_MAP</span><span class="p">[</span><span class="nx">key</span><span class="p">]</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">        </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;SYSCALL&#39;</span><span class="p">);</span>
+<span class="w">        </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`PUSH RAX`</span><span class="p">);</span>
+<span class="w">      </span><span class="p">};</span>
+<span class="w">    </span><span class="p">});</span>
 
-    return wrappers;
-  }
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">wrappers</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>And we're set! Last up is <code>compileIf</code>.</p>
 <h3 id="compileif">compileIf</h3><p>This is standard code generation but gets a little tricky due to our
 stack commitments. Testing must pop the test value off the stack. And
 then/else blocks must <em>push</em> a value onto the stack (even if
 there is no else block).</p>
 <p>Here is an example we'd like to support:</p>
-<pre><code class="hljs lisp">(if (foo)
-  (do-bar))
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nv">foo</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nv">do-bar</span><span class="p">))</span>
+</pre></div>
 <p>We compile the test and branch:</p>
-<pre><code class="hljs javascript">  compileIf([test, then, els], scope, depth) {
-    this.emit(depth, &#39;# If&#39;);
-    // Compile test
-    this.compileExpression(test, scope, depth);
-    const branch = `else_branch` + GLOBAL_COUNTER++;
-    // Must pop/use up argument in test
-    this.emit(0, &#39;&#39;);
-    this.emit(depth, `POP RAX`);
-    this.emit(depth, `TEST RAX, RAX`);
-    this.emit(depth, `JZ .${branch}\n`);
-  }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileIf</span><span class="p">([</span><span class="nx">test</span><span class="p">,</span><span class="w"> </span><span class="nx">then</span><span class="p">,</span><span class="w"> </span><span class="nx">els</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;# If&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">// Compile test</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">test</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">branch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sb">`else_branch`</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">GLOBAL_COUNTER</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// Must pop/use up argument in test</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP RAX`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`TEST RAX, RAX`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`JZ .</span><span class="si">${</span><span class="nx">branch</span><span class="si">}</span><span class="sb">\n`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>Then we compile the then block and jump to after the else block
 afterward.</p>
-<pre><code class="hljs javascript">  compileIf([test, then, els], scope, depth) {
-    this.emit(depth, &#39;# If&#39;);
-    // Compile test
-    this.compileExpression(test, scope, depth);
-    const branch = `else_branch` + GLOBAL_COUNTER++;
-    // Must pop/use up argument in test
-    this.emit(0, &#39;&#39;);
-    this.emit(depth, `POP RAX`);
-    this.emit(depth, `TEST RAX, RAX`);
-    this.emit(depth, `JZ .${branch}\n`);
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileIf</span><span class="p">([</span><span class="nx">test</span><span class="p">,</span><span class="w"> </span><span class="nx">then</span><span class="p">,</span><span class="w"> </span><span class="nx">els</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;# If&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">// Compile test</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">test</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">branch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sb">`else_branch`</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">GLOBAL_COUNTER</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// Must pop/use up argument in test</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP RAX`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`TEST RAX, RAX`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`JZ .</span><span class="si">${</span><span class="nx">branch</span><span class="si">}</span><span class="sb">\n`</span><span class="p">);</span>
 
-    // Compile then section
-    this.emit(depth, `# If then`);
-    this.compileExpression(then, scope, depth);
-    this.emit(depth, `JMP .after_${branch}\n`);
-  }
-</code></pre>
+<span class="w">    </span><span class="c1">// Compile then section</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# If then`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">then</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`JMP .after_</span><span class="si">${</span><span class="nx">branch</span><span class="si">}</span><span class="sb">\n`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>Finally we compile the else block if it exists, and otherwise we push
 a zero onto the stack (possibly to represent null).</p>
-<pre><code class="hljs javascript">  compileIf([test, then, els], scope, depth) {
-    this.emit(depth, &#39;# If&#39;);
-    // Compile test
-    this.compileExpression(test, scope, depth);
-    const branch = `else_branch` + GLOBAL_COUNTER++;
-    // Must pop/use up argument in test
-    this.emit(0, &#39;&#39;);
-    this.emit(depth, `POP RAX`);
-    this.emit(depth, `TEST RAX, RAX`);
-    this.emit(depth, `JZ .${branch}\n`);
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nx">compileIf</span><span class="p">([</span><span class="nx">test</span><span class="p">,</span><span class="w"> </span><span class="nx">then</span><span class="p">,</span><span class="w"> </span><span class="nx">els</span><span class="p">],</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;# If&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">// Compile test</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">test</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">branch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sb">`else_branch`</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">GLOBAL_COUNTER</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// Must pop/use up argument in test</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`POP RAX`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`TEST RAX, RAX`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`JZ .</span><span class="si">${</span><span class="nx">branch</span><span class="si">}</span><span class="sb">\n`</span><span class="p">);</span>
 
-    // Compile then section
-    this.emit(depth, `# If then`);
-    this.compileExpression(then, scope, depth);
-    this.emit(depth, `JMP .after_${branch}\n`);
+<span class="w">    </span><span class="c1">// Compile then section</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# If then`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">then</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`JMP .after_</span><span class="si">${</span><span class="nx">branch</span><span class="si">}</span><span class="sb">\n`</span><span class="p">);</span>
 
-    // Compile else section
-    this.emit(depth, `# If else`);
-    this.emit(0, `.${branch}:`);
-    if (els) {
-      this.compileExpression(els, scope, depth);
-    } else {
-      this.emit(1, &#39;PUSH 0 # Null else branch&#39;);
-    }
-    this.emit(0, `.after_${branch}:`);
-    this.emit(depth, &#39;# End if&#39;);
-  }
-</code></pre>
+<span class="w">    </span><span class="c1">// Compile else section</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="sb">`# If else`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="sb">`.</span><span class="si">${</span><span class="nx">branch</span><span class="si">}</span><span class="sb">:`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">els</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">els</span><span class="p">,</span><span class="w"> </span><span class="nx">scope</span><span class="p">,</span><span class="w"> </span><span class="nx">depth</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;PUSH 0 # Null else branch&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="sb">`.after_</span><span class="si">${</span><span class="nx">branch</span><span class="si">}</span><span class="sb">:`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="nx">depth</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;# End if&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
 <p>And we're ready for an interesting program! Let's print (to stdout)
 the result of <code>fib(20)</code>.</p>
-<h3 id="fibonacci">Fibonacci</h3><pre><code class="hljs lisp">$ cat ./tests/fib.lisp
-(def fib (n)
-     (if (&lt; n 2)
-       n
-       (+ (fib (- n 1)) (fib (- n 2)))))
+<h3 id="fibonacci">Fibonacci</h3><div class="highlight"><pre><span></span><span class="nv">$</span><span class="w"> </span><span class="nv">cat</span><span class="w"> </span><span class="o">.</span><span class="nv">/tests/fib.lisp</span>
+<span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">fib</span><span class="w"> </span><span class="p">(</span><span class="nv">n</span><span class="p">)</span>
+<span class="w">     </span><span class="p">(</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">&lt;</span><span class="w"> </span><span class="nv">n</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span>
+<span class="w">       </span><span class="nv">n</span>
+<span class="w">       </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="p">(</span><span class="nv">fib</span><span class="w"> </span><span class="p">(</span><span class="nb">-</span><span class="w"> </span><span class="nv">n</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="p">(</span><span class="nv">fib</span><span class="w"> </span><span class="p">(</span><span class="nb">-</span><span class="w"> </span><span class="nv">n</span><span class="w"> </span><span class="mi">2</span><span class="p">)))))</span>
 
-(def main ()
-     (print (fib 20)))
-</code></pre>
+<span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">main</span><span class="w"> </span><span class="p">()</span>
+<span class="w">     </span><span class="p">(</span><span class="nb">print</span><span class="w"> </span><span class="p">(</span><span class="nv">fib</span><span class="w"> </span><span class="mi">20</span><span class="p">)))</span>
+</pre></div>
 <p>And check out the kernel:</p>
-<pre><code class="hljs lisp">$ cat ./lib/kernel.lisp
-(def print-char (c)
-     (syscall/write 1 &amp;c 1))
+<div class="highlight"><pre><span></span><span class="nv">$</span><span class="w"> </span><span class="nv">cat</span><span class="w"> </span><span class="o">.</span><span class="nv">/lib/kernel.lisp</span>
+<span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">print-char</span><span class="w"> </span><span class="p">(</span><span class="nv">c</span><span class="p">)</span>
+<span class="w">     </span><span class="p">(</span><span class="nv">syscall/write</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="nv">&amp;c</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span>
 
-(def print (n)
-     (if (&gt; n 9)
-       (print (/ n 10)))
+<span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nb">print</span><span class="w"> </span><span class="p">(</span><span class="nv">n</span><span class="p">)</span>
+<span class="w">     </span><span class="p">(</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">&gt;</span><span class="w"> </span><span class="nv">n</span><span class="w"> </span><span class="mi">9</span><span class="p">)</span>
+<span class="w">       </span><span class="p">(</span><span class="nb">print</span><span class="w"> </span><span class="p">(</span><span class="nb">/</span><span class="w"> </span><span class="nv">n</span><span class="w"> </span><span class="mi">10</span><span class="p">)))</span>
 
-     (print-char (+ 48 (% n 10))))
-</code></pre>
+<span class="w">     </span><span class="p">(</span><span class="nv">print-char</span><span class="w"> </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="mi">48</span><span class="w"> </span><span class="p">(</span><span class="nv">%</span><span class="w"> </span><span class="nv">n</span><span class="w"> </span><span class="mi">10</span><span class="p">))))</span>
+</pre></div>
 <p>Compile and run it:</p>
-<pre><code class="hljs bash">$ node src/ulisp.js tests/fib.lisp --backend x86
-$ ./build/prog
-6765
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>node<span class="w"> </span>src/ulisp.js<span class="w"> </span>tests/fib.lisp<span class="w"> </span>--backend<span class="w"> </span>x86
+$<span class="w"> </span>./build/prog
+<span class="m">6765</span>
+</pre></div>
 <p>And we're in business!</p>
 <p><blockquote class="twitter-tweet" data-conversation="none"><p lang="en" dir="ltr">Latest post in the compiler basics series: an x86 upgrade. We&#39;ve got basic syscall support, &quot;infinite&quot; locals and parameters, and if/else. More than enough to handle printing integers to stdout and recursive fibonacci. <a href="https://t.co/B3OV0vEX1V">https://t.co/B3OV0vEX1V</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1203816831456284677?ref_src=twsrc%5Etfw">December 8, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
@@ -1542,7 +1541,6 @@ $ ./build/prog
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

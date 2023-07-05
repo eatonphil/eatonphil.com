@@ -6,7 +6,6 @@
     <title>SMTP protocol basics from scratch in Go: receiving email from Gmail | notes.eatonphil.com</title>
     <meta name="description" content="SMTP protocol basics from scratch in Go: receiving email from Gmail" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -72,10 +71,10 @@ both an MX record and an A or AAAA record.</p>
 <p><img src="/dnsrecords.png" alt="MX and A record settings"></p>
 <p>Done.</p>
 <h3 id="firewall">Firewall</h3><p>The firewall on Fedora is aggressive. Gotta open up port 25.</p>
-<pre><code class="hljs bash">$ sudo firewall-cmd --zone=dmz --add-port=25/tcp --permanent
-$ sudo firewall-cmd --zone=public --add-port=25/tcp --permanent
-$ sudo firewall-cmd --reload
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>sudo<span class="w"> </span>firewall-cmd<span class="w"> </span>--zone<span class="o">=</span>dmz<span class="w"> </span>--add-port<span class="o">=</span><span class="m">25</span>/tcp<span class="w"> </span>--permanent
+$<span class="w"> </span>sudo<span class="w"> </span>firewall-cmd<span class="w"> </span>--zone<span class="o">=</span>public<span class="w"> </span>--add-port<span class="o">=</span><span class="m">25</span>/tcp<span class="w"> </span>--permanent
+$<span class="w"> </span>sudo<span class="w"> </span>firewall-cmd<span class="w"> </span>--reload
+</pre></div>
 <p>I don't understand what zones are here.</p>
 <h3 id="what-protocols?">What protocols?</h3><p>I knew that you send email with SMTP and you read it with POP3 or
 IMAP. But it hadn't clicked before that the mail server has to speak
@@ -88,70 +87,70 @@ SMTP</a> (or one of them
 anyway) and <a href="https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol">the wikipedia page for
 it</a>.</p>
 <p>First off I'd need to run a TCP server on port 25.</p>
-<pre><code class="hljs go">package main
+<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 
-import (
-        &quot;errors&quot;
-        &quot;log&quot;
-        &quot;net&quot;
-        &quot;strconv&quot;
-        &quot;strings&quot;
-)
+<span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;errors&quot;</span>
+<span class="w">        </span><span class="s">&quot;log&quot;</span>
+<span class="w">        </span><span class="s">&quot;net&quot;</span>
+<span class="w">        </span><span class="s">&quot;strconv&quot;</span>
+<span class="w">        </span><span class="s">&quot;strings&quot;</span>
+<span class="p">)</span>
 
-func logError(err error) {
-        log.Printf(&quot;[ERROR] %s\n&quot;, err)
-}
+<span class="kd">func</span><span class="w"> </span><span class="nx">logError</span><span class="p">(</span><span class="nx">err</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;[ERROR] %s\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="p">}</span>
 
-func logInfo(msg string) {
-        log.Printf(&quot;[INFO] %s\n&quot;, msg)
-}
+<span class="kd">func</span><span class="w"> </span><span class="nx">logInfo</span><span class="p">(</span><span class="nx">msg</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;[INFO] %s\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">msg</span><span class="p">)</span>
+<span class="p">}</span>
 
-type message struct {
-        clientDomain string
-        smtpCommands  map[string]string
-        atmHeaders   map[string]string
-        body         string
-        from         string
-        date         string
-        subject      string
-        to           string
-}
+<span class="kd">type</span><span class="w"> </span><span class="nx">message</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">clientDomain</span><span class="w"> </span><span class="kt">string</span>
+<span class="w">        </span><span class="nx">smtpCommands</span><span class="w">  </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span>
+<span class="w">        </span><span class="nx">atmHeaders</span><span class="w">   </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span>
+<span class="w">        </span><span class="nx">body</span><span class="w">         </span><span class="kt">string</span>
+<span class="w">        </span><span class="nx">from</span><span class="w">         </span><span class="kt">string</span>
+<span class="w">        </span><span class="nx">date</span><span class="w">         </span><span class="kt">string</span>
+<span class="w">        </span><span class="nx">subject</span><span class="w">      </span><span class="kt">string</span>
+<span class="w">        </span><span class="nx">to</span><span class="w">           </span><span class="kt">string</span>
+<span class="p">}</span>
 
-type connection struct {
-        conn net.Conn
-        id   int
-        buf  []byte
-}
+<span class="kd">type</span><span class="w"> </span><span class="nx">connection</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">conn</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">Conn</span>
+<span class="w">        </span><span class="nx">id</span><span class="w">   </span><span class="kt">int</span>
+<span class="w">        </span><span class="nx">buf</span><span class="w">  </span><span class="p">[]</span><span class="kt">byte</span>
+<span class="p">}</span>
 
-// TODO
+<span class="c1">// TODO</span>
 
-func (c *connection) handle() {
-        // TODO
-}
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">c</span><span class="w"> </span><span class="o">*</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="nx">handle</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// TODO</span>
+<span class="p">}</span>
 
-func main() {
-        l, err := net.Listen(&quot;tcp&quot;, &quot;0.0.0.0:25&quot;)
-        if err != nil {
-                panic(err)
-        }
-        defer l.Close()
+<span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">l</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">Listen</span><span class="p">(</span><span class="s">&quot;tcp&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;0.0.0.0:25&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">defer</span><span class="w"> </span><span class="nx">l</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
 
-        logInfo(&quot;Listening&quot;)
+<span class="w">        </span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Listening&quot;</span><span class="p">)</span>
 
-        id := 0
-        for {
-                conn, err := l.Accept()
-                if err != nil {
-                        logError(err)
-                        continue
-                }
+<span class="w">        </span><span class="nx">id</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">conn</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">l</span><span class="p">.</span><span class="nx">Accept</span><span class="p">()</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">logError</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                        </span><span class="k">continue</span>
+<span class="w">                </span><span class="p">}</span>
 
-                id += 1
-                c := connection{conn, id, nil}
-                go c.handle()
-        }
-}
-</code></pre>
+<span class="w">                </span><span class="nx">id</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">                </span><span class="nx">c</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">connection</span><span class="p">{</span><span class="nx">conn</span><span class="p">,</span><span class="w"> </span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">}</span>
+<span class="w">                </span><span class="k">go</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">handle</span><span class="p">()</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>Just a basic TCP server that passes off connections inside a
 goroutine.</p>
 <h3 id="greeting">Greeting</h3><p>After starting a connection, the server must send a greeting. The
@@ -159,60 +158,60 @@ successful greeting response code is <code>220</code>. It can optionally be
 followed by additional text. Like most commands in SMTP it must be
 ended with CRLF (<code>\r\n</code>).</p>
 <p>So we'll add a helper function for writing lines that end in CRLF:</p>
-<pre><code class="hljs go">func (c *connection) writeLine(msg string) error {
-        msg += &quot;\r\n&quot;
-        for len(msg) &gt; 0 {
-                n, err := c.conn.Write([]byte(msg))
-                if err != nil {
-                        return err
-                }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">c</span><span class="w"> </span><span class="o">*</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="nx">writeLine</span><span class="p">(</span><span class="nx">msg</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">msg</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="s">&quot;\r\n&quot;</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">msg</span><span class="p">)</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">n</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">conn</span><span class="p">.</span><span class="nx">Write</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">msg</span><span class="p">))</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">                </span><span class="p">}</span>
 
-                msg = msg[n:]
-        }
+<span class="w">                </span><span class="nx">msg</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">msg</span><span class="p">[</span><span class="nx">n</span><span class="p">:]</span>
+<span class="w">        </span><span class="p">}</span>
 
-        return nil
-}
-</code></pre>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>And then we'll send that <code>220</code> in the <code>handle</code> function.</p>
-<pre><code class="hljs go">func (c *connection) handle() {
-        defer c.conn.Close()
-        c.logInfo(&quot;Connection accepted&quot;)
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">c</span><span class="w"> </span><span class="o">*</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="nx">handle</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">defer</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">conn</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Connection accepted&quot;</span><span class="p">)</span>
 
-        err := c.writeLine(&quot;220&quot;)
-        if err != nil {
-                c.logError(err)
-                return
-        }
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">writeLine</span><span class="p">(</span><span class="s">&quot;220&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">c</span><span class="p">.</span><span class="nx">logError</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                </span><span class="k">return</span>
+<span class="w">        </span><span class="p">}</span>
 
-        c.logInfo(&quot;Awaiting EHLO&quot;)
+<span class="w">        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Awaiting EHLO&quot;</span><span class="p">)</span>
 
-        // TODO
-</code></pre>
+<span class="w">        </span><span class="c1">// TODO</span>
+</pre></div>
 <h3 id="ehlo">EHLO</h3><p>Next we need to be able to read requests from the client. We'll write
 a helper that reads until the next CRLF. We'll keep a buffer of unread
 bytes in case we accidentally get bytes past the next CRLF. We'll
 store that buffer in the connection object.</p>
-<pre><code class="hljs go">func (c *connection) readLine() (string, error) {
-        for {
-                b := make([]byte, 1024)
-                n, err := c.conn.Read(b)
-                if err != nil {
-                        return &quot;&quot;, err
-                }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">c</span><span class="w"> </span><span class="o">*</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="nx">readLine</span><span class="p">()</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="mi">1024</span><span class="p">)</span>
+<span class="w">                </span><span class="nx">n</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">conn</span><span class="p">.</span><span class="nx">Read</span><span class="p">(</span><span class="nx">b</span><span class="p">)</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">                </span><span class="p">}</span>
 
-                c.buf = append(c.buf, b[:n]...)
-                for i, b := range c.buf {
-                        // If end of line
-                        if b == &#39;\n&#39; &amp;&amp; i &gt; 0 &amp;&amp; c.buf[i-1] == &#39;\r&#39; {
-                                // i-1 because drop the CRLF, no one cares after this
-                                line := string(c.buf[:i-1])
-                                c.buf = c.buf[i+1:]
-                                return line, nil
-                        }
-                }
-        }
-}
-</code></pre>
+<span class="w">                </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="p">[:</span><span class="nx">n</span><span class="p">]</span><span class="o">...</span><span class="p">)</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="c1">// If end of line</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;\n&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;\r&#39;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="c1">// i-1 because drop the CRLF, no one cares after this</span>
+<span class="w">                                </span><span class="nx">line</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[:</span><span class="nx">i</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<span class="w">                                </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="o">+</span><span class="mi">1</span><span class="p">:]</span>
+<span class="w">                                </span><span class="k">return</span><span class="w"> </span><span class="nx">line</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">                        </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>Now back in the <code>handle</code>-er we can read a line from the client. From
 the RFC we can see it should be <code>HELO</code> or <code>EHLO</code>. Both sendmail locally
 and Gmail only send <code>EHLO</code> though so we'll just check for that.</p>
@@ -221,39 +220,39 @@ and Gmail only send <code>EHLO</code> though so we'll just check for that.</p>
 back a <code>250</code> with a space after it. We can ignore the rest of that
 response grammar since we don't have additional keywords we want to
 send to the client.</p>
-<pre><code>        ...
+<div class="highlight"><pre><span></span><span class="w">        </span><span class="p">...</span>
 
-        c.logInfo("Awaiting EHLO")
+<span class="w">        </span><span class="n">c</span><span class="p">.</span><span class="n">logInfo</span><span class="p">(</span><span class="ss">&quot;Awaiting EHLO&quot;</span><span class="p">)</span>
 
-        line, err := c.readLine()
-        if err != nil {
-                c.logError(err)
-                return
-        }
+<span class="w">        </span><span class="n">line</span><span class="p">,</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="err">:</span><span class="o">=</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">readLine</span><span class="p">()</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">nil</span><span class="w"> </span><span class="err">{</span>
+<span class="w">                </span><span class="n">c</span><span class="p">.</span><span class="n">logError</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+<span class="w">                </span><span class="k">return</span>
+<span class="w">        </span><span class="err">}</span>
 
-        if !strings.HasPrefix(line, "EHLO") {
-                c.logError(errors.New("Expected EHLO got: " + line))
-                return
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="err">!</span><span class="n">strings</span><span class="p">.</span><span class="n">HasPrefix</span><span class="p">(</span><span class="n">line</span><span class="p">,</span><span class="w"> </span><span class="ss">&quot;EHLO&quot;</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">                </span><span class="n">c</span><span class="p">.</span><span class="n">logError</span><span class="p">(</span><span class="n">errors</span><span class="p">.</span><span class="k">New</span><span class="p">(</span><span class="ss">&quot;Expected EHLO got: &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">line</span><span class="p">))</span>
+<span class="w">                </span><span class="k">return</span>
+<span class="w">        </span><span class="err">}</span>
 
-        msg := message{
-                smtpCommands: map[string]string{},
-                atmHeaders:  map[string]string{},
-        }
-        msg.clientDomain = line[len("EHLO "):]
+<span class="w">        </span><span class="n">msg</span><span class="w"> </span><span class="err">:</span><span class="o">=</span><span class="w"> </span><span class="n">message</span><span class="err">{</span>
+<span class="w">                </span><span class="nl">smtpCommands</span><span class="p">:</span><span class="w"> </span><span class="k">map</span><span class="o">[</span><span class="n">string</span><span class="o">]</span><span class="n">string</span><span class="err">{}</span><span class="p">,</span>
+<span class="w">                </span><span class="nl">atmHeaders</span><span class="p">:</span><span class="w">  </span><span class="k">map</span><span class="o">[</span><span class="n">string</span><span class="o">]</span><span class="n">string</span><span class="err">{}</span><span class="p">,</span>
+<span class="w">        </span><span class="err">}</span>
+<span class="w">        </span><span class="n">msg</span><span class="p">.</span><span class="n">clientDomain</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">line</span><span class="o">[</span><span class="n">len(&quot;EHLO &quot;):</span><span class="o">]</span>
 
-        c.logInfo("Received EHLO")
+<span class="w">        </span><span class="n">c</span><span class="p">.</span><span class="n">logInfo</span><span class="p">(</span><span class="ss">&quot;Received EHLO&quot;</span><span class="p">)</span>
 
-        err = c.writeLine("250 ")
-        if err != nil {
-                c.logError(err)
-                return
-        }
+<span class="w">        </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">writeLine</span><span class="p">(</span><span class="ss">&quot;250 &quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">nil</span><span class="w"> </span><span class="err">{</span>
+<span class="w">                </span><span class="n">c</span><span class="p">.</span><span class="n">logError</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+<span class="w">                </span><span class="k">return</span>
+<span class="w">        </span><span class="err">}</span>
 
-        c.logInfo("Done EHLO")
+<span class="w">        </span><span class="n">c</span><span class="p">.</span><span class="n">logInfo</span><span class="p">(</span><span class="ss">&quot;Done EHLO&quot;</span><span class="p">)</span>
 
-        // TODO
-</code></pre>
+<span class="w">        </span><span class="o">//</span><span class="w"> </span><span class="n">TODO</span>
+</pre></div>
 <h3 id="additional-commands">Additional commands</h3><p>Next up there are a few commands we need to read before we get to the
 message body. These include the recipient and the sender
 address. These are formatted vaguely similar to HTTP headers. They
@@ -266,47 +265,47 @@ the <code>DATA</code> command. This indicates the body is to follow. And to this
 command we respond with a <code>354</code> instead of a <code>250 OK</code>.</p>
 <p><img src="/dataresponse.png" alt="DATA response"></p>
 <p>In code:</p>
-<pre><code class="hljs go">        ...
+<div class="highlight"><pre><span></span><span class="w">        </span><span class="o">...</span>
 
-        c.logInfo(&quot;Done EHLO&quot;)
+<span class="w">        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Done EHLO&quot;</span><span class="p">)</span>
 
-        for line != &quot;&quot; {
-                line, err = c.readLine()
-                if err != nil {
-                        c.logError(err)
-                        return
-                }
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">line</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">readLine</span><span class="p">()</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logError</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                        </span><span class="k">return</span>
+<span class="w">                </span><span class="p">}</span>
 
-                pieces := strings.SplitN(line, &quot;:&quot;, 2)
-                smtpCommand := strings.ToUpper(pieces[0])
+<span class="w">                </span><span class="nx">pieces</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">strings</span><span class="p">.</span><span class="nx">SplitN</span><span class="p">(</span><span class="nx">line</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;:&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span>
+<span class="w">                </span><span class="nx">smtpCommand</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">strings</span><span class="p">.</span><span class="nx">ToUpper</span><span class="p">(</span><span class="nx">pieces</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 
-                // Special command without a value
-                if smtpCommand == &quot;DATA&quot; {
-                        err = c.writeLine(&quot;354&quot;)
-                        if err != nil {
-                                c.logError(err)
-                                return
-                        }
+<span class="w">                </span><span class="c1">// Special command without a value</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">smtpCommand</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;DATA&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">writeLine</span><span class="p">(</span><span class="s">&quot;354&quot;</span><span class="p">)</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="nx">c</span><span class="p">.</span><span class="nx">logError</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                                </span><span class="k">return</span>
+<span class="w">                        </span><span class="p">}</span>
 
-                        break
-                }
+<span class="w">                        </span><span class="k">break</span>
+<span class="w">                </span><span class="p">}</span>
 
-                smtpValue := pieces[1]
-                msg.smtpCommands[smtpCommand] = smtpValue
+<span class="w">                </span><span class="nx">smtpValue</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">pieces</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="w">                </span><span class="nx">msg</span><span class="p">.</span><span class="nx">smtpCommands</span><span class="p">[</span><span class="nx">smtpCommand</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">smtpValue</span>
 
-                c.logInfo(&quot;Got command: &quot; + line)
+<span class="w">                </span><span class="nx">c</span><span class="p">.</span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Got command: &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">line</span><span class="p">)</span>
 
-                err = c.writeLine(&quot;250 OK&quot;)
-                if err != nil {
-                        c.logError(err)
-                        return
-                }
-        }
+<span class="w">                </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">writeLine</span><span class="p">(</span><span class="s">&quot;250 OK&quot;</span><span class="p">)</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logError</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                        </span><span class="k">return</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        c.logInfo(&quot;Done SMTP commands, reading ARPA text message headers&quot;)
+<span class="w">        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Done SMTP commands, reading ARPA text message headers&quot;</span><span class="p">)</span>
 
-        // TODO
-</code></pre>
+<span class="w">        </span><span class="c1">// TODO</span>
+</pre></div>
 <h3 id="message-body,-headers">Message body, headers</h3><p>Now that we've seen the <code>DATA</code> command we are within <em>a</em> message
 body. Within this body we still have to read some additional headers.</p>
 <p>Through trial-and-error I know to look for some headers like
@@ -321,165 +320,165 @@ lines. This stumped me for a bit.</p>
 <p>I decided to write a new <code>readLine</code> function that would specifically
 look for these possibly multi-line headers where a CRLF followed by
 whitespace isn't a line delimiter.</p>
-<pre><code class="hljs go">func (c *connection) readMultiLine() (string, error) {
-        for {
-                noMoreReads := false
-                for i, b := range c.buf {
-                        if i &gt; 1 &amp;&amp;
-                                b != &#39; &#39; &amp;&amp;
-                                b != &#39;\t&#39; &amp;&amp;
-                                c.buf[i-2] == &#39;\r&#39; &amp;&amp;
-                                c.buf[i-1] == &#39;\n&#39; {
-                                // i-2 because drop the CRLF, no one cares after this
-                                line := string(c.buf[:i-2])
-                                c.buf = c.buf[i:]
-                                return line, nil
-                        }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">c</span><span class="w"> </span><span class="o">*</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="nx">readMultiLine</span><span class="p">()</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">noMoreReads</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">                                </span><span class="nx">b</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="sc">&#39; &#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">                                </span><span class="nx">b</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="sc">&#39;\t&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">                                </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;\r&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">                                </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;\n&#39;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="c1">// i-2 because drop the CRLF, no one cares after this</span>
+<span class="w">                                </span><span class="nx">line</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[:</span><span class="nx">i</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
+<span class="w">                                </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="p">:]</span>
+<span class="w">                                </span><span class="k">return</span><span class="w"> </span><span class="nx">line</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">                        </span><span class="p">}</span>
 
-                        noMoreReads = c.isBodyClose(i)
-                }
+<span class="w">                        </span><span class="nx">noMoreReads</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">isBodyClose</span><span class="p">(</span><span class="nx">i</span><span class="p">)</span>
+<span class="w">                </span><span class="p">}</span>
 
-                if !noMoreReads {
-                        b := make([]byte, 1024)
-                        n, err := c.conn.Read(b)
-                        if err != nil {
-                                return &quot;&quot;, err
-                        }
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">noMoreReads</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="mi">1024</span><span class="p">)</span>
+<span class="w">                        </span><span class="nx">n</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">conn</span><span class="p">.</span><span class="nx">Read</span><span class="p">(</span><span class="nx">b</span><span class="p">)</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">                        </span><span class="p">}</span>
 
-                        c.buf = append(c.buf, b[:n]...)
+<span class="w">                        </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="p">[:</span><span class="nx">n</span><span class="p">]</span><span class="o">...</span><span class="p">)</span>
 
-                        // If this gets here more than once it&#39;s going to be an infinite loop
-                }
-        }
-}
+<span class="w">                        </span><span class="c1">// If this gets here more than once it&#39;s going to be an infinite loop</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
 
-func (c *connection) isBodyClose(i int) bool {
-        return i &gt; 4 &amp;&amp;
-                c.buf[i-4] == &#39;\r&#39; &amp;&amp;
-                c.buf[i-3] == &#39;\n&#39; &amp;&amp;
-                c.buf[i-2] == &#39;.&#39; &amp;&amp;
-                c.buf[i-1] == &#39;\r&#39; &amp;&amp;
-                c.buf[i-0] == &#39;\n&#39;
-}
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">c</span><span class="w"> </span><span class="o">*</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="nx">isBodyClose</span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="kt">int</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">                </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;\r&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">                </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;\n&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">                </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;.&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">                </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;\r&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">                </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="o">-</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;\n&#39;</span>
+<span class="p">}</span>
+</pre></div>
 <p>Now back in the <code>handle</code> function we can read through all of these
 headers. According to RFC 822, we're done when we see a double CRLF,
 which in our code will show up as an empty line.</p>
-<pre><code class="hljs go">        ...
+<div class="highlight"><pre><span></span><span class="w">        </span><span class="o">...</span>
 
-        c.logInfo(&quot;Done SMTP headers, reading ARPA text message headers&quot;)
+<span class="w">        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Done SMTP headers, reading ARPA text message headers&quot;</span><span class="p">)</span>
 
-        for {
-                line, err = c.readMultiLine()
-                if err != nil {
-                        c.logError(err)
-                        return
-                }
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">line</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">readMultiLine</span><span class="p">()</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logError</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                        </span><span class="k">return</span>
+<span class="w">                </span><span class="p">}</span>
 
-                if strings.TrimSpace(line) == &quot;&quot; {
-                        break
-                }
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">strings</span><span class="p">.</span><span class="nx">TrimSpace</span><span class="p">(</span><span class="nx">line</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="k">break</span>
+<span class="w">                </span><span class="p">}</span>
 
-                pieces := strings.SplitN(line, &quot;: &quot;, 2)
-                atmHeader := strings.ToUpper(pieces[0])
-                atmValue := pieces[1]
-                msg.atmHeaders[atmHeader] = atmValue
+<span class="w">                </span><span class="nx">pieces</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">strings</span><span class="p">.</span><span class="nx">SplitN</span><span class="p">(</span><span class="nx">line</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;: &quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span>
+<span class="w">                </span><span class="nx">atmHeader</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">strings</span><span class="p">.</span><span class="nx">ToUpper</span><span class="p">(</span><span class="nx">pieces</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="w">                </span><span class="nx">atmValue</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">pieces</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="w">                </span><span class="nx">msg</span><span class="p">.</span><span class="nx">atmHeaders</span><span class="p">[</span><span class="nx">atmHeader</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">atmValue</span>
 
-                if atmHeader == &quot;SUBJECT&quot; {
-                        msg.subject = atmValue
-                }
-                if atmHeader == &quot;TO&quot; {
-                        msg.to = atmValue
-                }
-                if atmHeader == &quot;FROM&quot; {
-                        msg.from = atmValue
-                }
-                if atmHeader == &quot;DATE&quot; {
-                        msg.date = atmValue
-                }
-        }
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">atmHeader</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;SUBJECT&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">msg</span><span class="p">.</span><span class="nx">subject</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">atmValue</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">atmHeader</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;TO&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">msg</span><span class="p">.</span><span class="nx">to</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">atmValue</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">atmHeader</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;FROM&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">msg</span><span class="p">.</span><span class="nx">from</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">atmValue</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">atmHeader</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;DATE&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">msg</span><span class="p">.</span><span class="nx">date</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">atmValue</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-        c.logInfo(&quot;Done ARPA text message headers, reading body&quot;)
+<span class="w">        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Done ARPA text message headers, reading body&quot;</span><span class="p">)</span>
 
-        // TODO
-</code></pre>
+<span class="w">        </span><span class="c1">// TODO</span>
+</pre></div>
 <h3 id="body,-for-real">Body, for real</h3><p>We're finally at the email body as the user typed it. According to the
 SMTP RFC the body ends with a CRLF followed by a dot (period) followed
 by a CRLF.</p>
 <p>So we'll write another helper to read until this marker.</p>
-<pre><code class="hljs go">func (c *connection) readToEndOfBody() (string, error) {
-        for {
-                for i := range c.buf {
-                        if c.isBodyClose(i) {
-                                return string(c.buf[:i-4]), nil
-                        }
-                }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">c</span><span class="w"> </span><span class="o">*</span><span class="nx">connection</span><span class="p">)</span><span class="w"> </span><span class="nx">readToEndOfBody</span><span class="p">()</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">isBodyClose</span><span class="p">(</span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                                </span><span class="k">return</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">[:</span><span class="nx">i</span><span class="o">-</span><span class="mi">4</span><span class="p">]),</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">                        </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
 
-                b := make([]byte, 1024)
-                n, err := c.conn.Read(b)
-                if err != nil {
-                        return &quot;&quot;, err
-                }
+<span class="w">                </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="mi">1024</span><span class="p">)</span>
+<span class="w">                </span><span class="nx">n</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">conn</span><span class="p">.</span><span class="nx">Read</span><span class="p">(</span><span class="nx">b</span><span class="p">)</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">                </span><span class="p">}</span>
 
-                c.buf = append(c.buf, b[:n]...)
-        }
-}
-</code></pre>
+<span class="w">                </span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">buf</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="p">[:</span><span class="nx">n</span><span class="p">]</span><span class="o">...</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>And we can finish up the <code>handle</code> function.</p>
-<pre><code class="hljs go">        c.logInfo(&quot;Done ARPA text message headers, reading body&quot;)
+<div class="highlight"><pre><span></span><span class="w">        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Done ARPA text message headers, reading body&quot;</span><span class="p">)</span>
 
-        msg.body, err = c.readToEndOfBody()
-        if err != nil {
-                c.logError(err)
-                return
-        }
+<span class="w">        </span><span class="nx">msg</span><span class="p">.</span><span class="nx">body</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">readToEndOfBody</span><span class="p">()</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">c</span><span class="p">.</span><span class="nx">logError</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                </span><span class="k">return</span>
+<span class="w">        </span><span class="p">}</span>
 
-        c.logInfo(&quot;Got body (%d bytes)&quot;, len(msg.body))
+<span class="w">        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Got body (%d bytes)&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">msg</span><span class="p">.</span><span class="nx">body</span><span class="p">))</span>
 
-        err = c.writeLine(&quot;250 OK&quot;)
-        if err != nil {
-                c.logError(err)
-                return
-        }
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">writeLine</span><span class="p">(</span><span class="s">&quot;250 OK&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">c</span><span class="p">.</span><span class="nx">logError</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">                </span><span class="k">return</span>
+<span class="w">        </span><span class="p">}</span>
 
-        c.logInfo(&quot;Message:\n%s\n&quot;, msg.body)
+<span class="w">        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Message:\n%s\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">msg</span><span class="p">.</span><span class="nx">body</span><span class="p">)</span>
 
-        c.logInfo(&quot;Connection closed&quot;)
-}
-</code></pre>
-<h3 id="compile,-setcap,-run,-and-send">Compile, setcap, run, and send</h3><pre><code class="hljs bash">$ go build
-$ sudo setcap &#39;cap_net_bind_service=+ep&#39; ./gomail
-$ ./gomail
-</code></pre>
+<span class="w">        </span><span class="nx">c</span><span class="p">.</span><span class="nx">logInfo</span><span class="p">(</span><span class="s">&quot;Connection closed&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<h3 id="compile,-setcap,-run,-and-send">Compile, setcap, run, and send</h3><div class="highlight"><pre><span></span>$<span class="w"> </span>go<span class="w"> </span>build
+$<span class="w"> </span>sudo<span class="w"> </span>setcap<span class="w"> </span><span class="s1">&#39;cap_net_bind_service=+ep&#39;</span><span class="w"> </span>./gomail
+$<span class="w"> </span>./gomail
+</pre></div>
 <p>And send an email in Gmail! It can be to any user since we haven't
 implemented anything regarding users. I'll send <code>What hath god
 wrought</code> as the subject and message to <code>morse@binutils.org</code>.</p>
 <p>And I see:</p>
-<pre><code class="hljs bash">2022/02/21 02:17:19 [INFO] Listening
-2022/02/21 02:19:13 [INFO] [1: 209.85.222.47:40695] Connection accepted
-2022/02/21 02:19:13 [INFO] [1: 209.85.222.47:40695] Awaiting EHLO
-2022/02/21 02:19:13 [INFO] [1: 209.85.222.47:40695] Received EHLO
-2022/02/21 02:19:13 [INFO] [1: 209.85.222.47:40695] Done EHLO
-2022/02/21 02:19:13 [INFO] [1: 209.85.222.47:40695] Got header: MAIL FROM:&lt;philneaton95@gmail.com&gt;
-2022/02/21 02:19:13 [INFO] [1: 209.85.222.47:40695] Got header: RCPT TO:&lt;morse@binutils.org&gt;
-2022/02/21 02:19:13 [INFO] [1: 209.85.222.47:40695] Done SMTP headers, reading ARPA text message headers
-2022/02/21 02:19:13 [INFO] [1: 209.85.222.47:40695] Done ARPA text message headers, reading body
-2022/02/21 02:19:13 [INFO] [1: 209.85.222.47:40695] Got body (256 bytes)
-2022/02/21 02:19:13 [INFO] [1: 209.85.222.47:40695] Message:
+<div class="highlight"><pre><span></span><span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:17:19<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span>Listening
+<span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:19:13<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1</span>:<span class="w"> </span><span class="m">209</span>.85.222.47:40695<span class="o">]</span><span class="w"> </span>Connection<span class="w"> </span>accepted
+<span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:19:13<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1</span>:<span class="w"> </span><span class="m">209</span>.85.222.47:40695<span class="o">]</span><span class="w"> </span>Awaiting<span class="w"> </span>EHLO
+<span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:19:13<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1</span>:<span class="w"> </span><span class="m">209</span>.85.222.47:40695<span class="o">]</span><span class="w"> </span>Received<span class="w"> </span>EHLO
+<span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:19:13<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1</span>:<span class="w"> </span><span class="m">209</span>.85.222.47:40695<span class="o">]</span><span class="w"> </span>Done<span class="w"> </span>EHLO
+<span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:19:13<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1</span>:<span class="w"> </span><span class="m">209</span>.85.222.47:40695<span class="o">]</span><span class="w"> </span>Got<span class="w"> </span>header:<span class="w"> </span>MAIL<span class="w"> </span>FROM:&lt;philneaton95@gmail.com&gt;
+<span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:19:13<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1</span>:<span class="w"> </span><span class="m">209</span>.85.222.47:40695<span class="o">]</span><span class="w"> </span>Got<span class="w"> </span>header:<span class="w"> </span>RCPT<span class="w"> </span>TO:&lt;morse@binutils.org&gt;
+<span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:19:13<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1</span>:<span class="w"> </span><span class="m">209</span>.85.222.47:40695<span class="o">]</span><span class="w"> </span>Done<span class="w"> </span>SMTP<span class="w"> </span>headers,<span class="w"> </span>reading<span class="w"> </span>ARPA<span class="w"> </span>text<span class="w"> </span>message<span class="w"> </span>headers
+<span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:19:13<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1</span>:<span class="w"> </span><span class="m">209</span>.85.222.47:40695<span class="o">]</span><span class="w"> </span>Done<span class="w"> </span>ARPA<span class="w"> </span>text<span class="w"> </span>message<span class="w"> </span>headers,<span class="w"> </span>reading<span class="w"> </span>body
+<span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:19:13<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1</span>:<span class="w"> </span><span class="m">209</span>.85.222.47:40695<span class="o">]</span><span class="w"> </span>Got<span class="w"> </span>body<span class="w"> </span><span class="o">(</span><span class="m">256</span><span class="w"> </span>bytes<span class="o">)</span>
+<span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:19:13<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1</span>:<span class="w"> </span><span class="m">209</span>.85.222.47:40695<span class="o">]</span><span class="w"> </span>Message:
 --000000000000c4758905d87ddb81
-Content-Type: text/plain; charset=&quot;UTF-8&quot;
+Content-Type:<span class="w"> </span>text/plain<span class="p">;</span><span class="w"> </span><span class="nv">charset</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span>
 
-What hath god wrought
+What<span class="w"> </span>hath<span class="w"> </span>god<span class="w"> </span>wrought
 
 --000000000000c4758905d87ddb81
-Content-Type: text/html; charset=&quot;UTF-8&quot;
+Content-Type:<span class="w"> </span>text/html<span class="p">;</span><span class="w"> </span><span class="nv">charset</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span>
 
-&lt;div dir=&quot;ltr&quot;&gt;What hath god wrought&lt;/div&gt;
+&lt;div<span class="w"> </span><span class="nv">dir</span><span class="o">=</span><span class="s2">&quot;ltr&quot;</span>&gt;What<span class="w"> </span>hath<span class="w"> </span>god<span class="w"> </span>wrought&lt;/div&gt;
 
 --000000000000c4758905d87ddb81--
 
-2022/02/21 02:19:13 [INFO] [1: 209.85.222.47:40695] Connection closed
-</code></pre>
+<span class="m">2022</span>/02/21<span class="w"> </span><span class="m">02</span>:19:13<span class="w"> </span><span class="o">[</span>INFO<span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="m">1</span>:<span class="w"> </span><span class="m">209</span>.85.222.47:40695<span class="o">]</span><span class="w"> </span>Connection<span class="w"> </span>closed
+</pre></div>
 <p>Which is pretty sweet!</p>
 <h3 id="multipart-wut">Multipart wut</h3><p>Ok this body still clearly has some format. And if we dump the ARPA
 text message headers we notice that Gmail 1) sets a Content-Type
@@ -492,29 +491,29 @@ deal with that so I'm just going to stop here.</p>
 <p>But I <em>am</em> curious about text-only email systems. So I <code>sudo dnf
 install php sendmail</code> and write a quick PHP script (thanks to @Josh on
 Discord for the suggestion):</p>
-<pre><code class="hljs php">&lt;?php
-  mail(&quot;morse@binutils.org&quot;, &quot;What hath god wrought&quot;, &quot;What hath god wrought&quot;, &quot;&quot;);
-?&gt;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="cp">&lt;?php</span>
+  <span class="nb">mail</span><span class="p">(</span><span class="s2">&quot;morse@binutils.org&quot;</span><span class="p">,</span> <span class="s2">&quot;What hath god wrought&quot;</span><span class="p">,</span> <span class="s2">&quot;What hath god wrought&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">);</span>
+<span class="cp">?&gt;</span>
+</pre></div>
 <p>And run it:</p>
-<pre><code>$ php test.php
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>php<span class="w"> </span>test.php
+</pre></div>
 <p>And in my <code>gomail</code> window I see:</p>
-<pre><code>2022/02/21 02:24:17 [INFO] Listening
-2022/02/21 02:24:18 [INFO] [1: 127.0.0.1:45102] Connection accepted
-2022/02/21 02:24:18 [INFO] [1: 127.0.0.1:45102] Awaiting EHLO
-2022/02/21 02:24:18 [INFO] [1: 127.0.0.1:45102] Received EHLO
-2022/02/21 02:24:18 [INFO] [1: 127.0.0.1:45102] Done EHLO
-2022/02/21 02:24:18 [INFO] [1: 127.0.0.1:45102] Got header: MAIL From:&lt;phil@dev1.eatonphil.com&gt;
-2022/02/21 02:24:18 [INFO] [1: 127.0.0.1:45102] Got header: RCPT To:&lt;morse@binutils.org&gt;
-2022/02/21 02:24:18 [INFO] [1: 127.0.0.1:45102] Done SMTP headers, reading ARPA text message headers
-2022/02/21 02:24:18 [INFO] [1: 127.0.0.1:45102] Done ARPA text message headers, reading body
-2022/02/21 02:24:18 [INFO] [1: 127.0.0.1:45102] Got body (21 bytes)
-2022/02/21 02:24:18 [INFO] [1: 127.0.0.1:45102] Message:
-What hath god wrought
+<div class="highlight"><pre><span></span><span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">17</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="n">Listening</span>
+<span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">18</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">1: 127.0.0.1:45102</span><span class="o">]</span><span class="w"> </span><span class="k">Connection</span><span class="w"> </span><span class="n">accepted</span>
+<span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">18</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">1: 127.0.0.1:45102</span><span class="o">]</span><span class="w"> </span><span class="n">Awaiting</span><span class="w"> </span><span class="n">EHLO</span>
+<span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">18</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">1: 127.0.0.1:45102</span><span class="o">]</span><span class="w"> </span><span class="n">Received</span><span class="w"> </span><span class="n">EHLO</span>
+<span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">18</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">1: 127.0.0.1:45102</span><span class="o">]</span><span class="w"> </span><span class="n">Done</span><span class="w"> </span><span class="n">EHLO</span>
+<span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">18</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">1: 127.0.0.1:45102</span><span class="o">]</span><span class="w"> </span><span class="n">Got</span><span class="w"> </span><span class="nl">header</span><span class="p">:</span><span class="w"> </span><span class="n">MAIL</span><span class="w"> </span><span class="k">From</span><span class="err">:</span><span class="o">&lt;</span><span class="n">phil</span><span class="nv">@dev1</span><span class="p">.</span><span class="n">eatonphil</span><span class="p">.</span><span class="n">com</span><span class="o">&gt;</span>
+<span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">18</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">1: 127.0.0.1:45102</span><span class="o">]</span><span class="w"> </span><span class="n">Got</span><span class="w"> </span><span class="nl">header</span><span class="p">:</span><span class="w"> </span><span class="n">RCPT</span><span class="w"> </span><span class="k">To</span><span class="err">:</span><span class="o">&lt;</span><span class="n">morse</span><span class="nv">@binutils</span><span class="p">.</span><span class="n">org</span><span class="o">&gt;</span>
+<span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">18</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">1: 127.0.0.1:45102</span><span class="o">]</span><span class="w"> </span><span class="n">Done</span><span class="w"> </span><span class="n">SMTP</span><span class="w"> </span><span class="n">headers</span><span class="p">,</span><span class="w"> </span><span class="n">reading</span><span class="w"> </span><span class="n">ARPA</span><span class="w"> </span><span class="nc">text</span><span class="w"> </span><span class="n">message</span><span class="w"> </span><span class="n">headers</span>
+<span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">18</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">1: 127.0.0.1:45102</span><span class="o">]</span><span class="w"> </span><span class="n">Done</span><span class="w"> </span><span class="n">ARPA</span><span class="w"> </span><span class="nc">text</span><span class="w"> </span><span class="n">message</span><span class="w"> </span><span class="n">headers</span><span class="p">,</span><span class="w"> </span><span class="n">reading</span><span class="w"> </span><span class="n">body</span>
+<span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">18</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">1: 127.0.0.1:45102</span><span class="o">]</span><span class="w"> </span><span class="n">Got</span><span class="w"> </span><span class="n">body</span><span class="w"> </span><span class="p">(</span><span class="mi">21</span><span class="w"> </span><span class="n">bytes</span><span class="p">)</span>
+<span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">18</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">1: 127.0.0.1:45102</span><span class="o">]</span><span class="w"> </span><span class="nl">Message</span><span class="p">:</span>
+<span class="n">What</span><span class="w"> </span><span class="n">hath</span><span class="w"> </span><span class="n">god</span><span class="w"> </span><span class="n">wrought</span>
 
-2022/02/21 02:24:18 [INFO] [1: 127.0.0.1:45102] Connection closed
-</code></pre>
+<span class="mi">2022</span><span class="o">/</span><span class="mi">02</span><span class="o">/</span><span class="mi">21</span><span class="w"> </span><span class="mi">02</span><span class="err">:</span><span class="mi">24</span><span class="err">:</span><span class="mi">18</span><span class="w"> </span><span class="o">[</span><span class="n">INFO</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">1: 127.0.0.1:45102</span><span class="o">]</span><span class="w"> </span><span class="k">Connection</span><span class="w"> </span><span class="n">closed</span>
+</pre></div>
 <p>And I'm happy to call it a night.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">I wrote a new blog post on building an SMTP server from scratch in Go that is correctly enough hooked up you can receive emails sent from Gmail to it!<br><br>Good fun and some learning too.<a href="https://t.co/8pYkkAbFnI">https://t.co/8pYkkAbFnI</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1495586245896028160?ref_src=twsrc%5Etfw">February 21, 2022</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <p>p.s. if you want to see more networking software/hardware internals
@@ -1154,7 +1153,6 @@ check out
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

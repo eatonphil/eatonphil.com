@@ -6,7 +6,6 @@
     <title>Writing a simple Python compiler: 1. hello, fibonacci | notes.eatonphil.com</title>
     <meta name="description" content="Writing a simple Python compiler: 1. hello, fibonacci" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -54,20 +53,20 @@ number of <a href="https://docs.python.org/3/c-api/">CPython internals are expos
 writers</a>.</p>
 <p>By the end of this post, in a few hundred lines of Python, we'll be able to
 compile and run the following program:</p>
-<pre><code class="hljs python">$ cat tests/recursive_fib.py
-def fib(n):
-    if n == 0 or n == 1:
-        return n
+<div class="highlight"><pre><span></span><span class="err">$</span> <span class="n">cat</span> <span class="n">tests</span><span class="o">/</span><span class="n">recursive_fib</span><span class="o">.</span><span class="n">py</span>
+<span class="k">def</span> <span class="nf">fib</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">n</span>
 
-    return fib(n - 1) + fib(n - 2)
+    <span class="k">return</span> <span class="n">fib</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
 
 
-def main():
-    print(fib(40))
-$ python3 pyc tests/recursive_fib.py
-$ ./bin/a.out
-102334155
-</code></pre>
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">fib</span><span class="p">(</span><span class="mi">40</span><span class="p">))</span>
+<span class="err">$</span> <span class="n">python3</span> <span class="n">pyc</span> <span class="n">tests</span><span class="o">/</span><span class="n">recursive_fib</span><span class="o">.</span><span class="n">py</span>
+<span class="err">$</span> <span class="o">./</span><span class="nb">bin</span><span class="o">/</span><span class="n">a</span><span class="o">.</span><span class="n">out</span>
+<span class="mi">102334155</span>
+</pre></div>
 <p>This post implements an extremely small subset of Python and
 <strong>completely gives up on even trying to manage memory</strong> because I
 cannot fathom manual reference counting. Maybe some day I'll find a
@@ -75,11 +74,11 @@ way to swap in an easy GC like Boehm.</p>
 <p><a href="https://github.com/eatonphil/pyc">Source code for this project is available on Github.</a></p>
 <h3 id="dependencies">Dependencies</h3><p>We'll need Python3, GCC, libpython3, and clang-format.</p>
 <p>On Fedora-based systems:</p>
-<pre><code class="hljs bash">$ sudo dnf install gcc python3-devel clang-format python3
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>sudo<span class="w"> </span>dnf<span class="w"> </span>install<span class="w"> </span>gcc<span class="w"> </span>python3-devel<span class="w"> </span>clang-format<span class="w"> </span>python3
+</pre></div>
 <p>And on Debian-based systems:</p>
-<pre><code class="hljs bash">$ sudo apt install gcc python3-dev clang-format python3
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>gcc<span class="w"> </span>python3-dev<span class="w"> </span>clang-format<span class="w"> </span>python3
+</pre></div>
 <p class="note">
   This program will likely work as well on Windows, Mac, FreeBSD,
   etc. but I haven't gone through the trouble of testing this (or
@@ -90,24 +89,24 @@ hand in C using libpython.</p>
 guide</a>
 we'll need to include libpython and initialize it in
 our <code>main.c</code>:</p>
-<pre><code class="hljs c">#define PY_SSIZE_T_CLEAN
-#include &lt;Python.h&gt;
+<div class="highlight"><pre><span></span><span class="cp">#define PY_SSIZE_T_CLEAN</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;Python.h&gt;</span>
 
-int main(int argc, char *argv[]) {
-  Py_Initialize();
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">argv</span><span class="p">[])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">Py_Initialize</span><span class="p">();</span>
 
-  return 0;
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>To compile against libpython, we'll use
 <a href="https://helpmanual.io/man1/python3-config/">python3-config</a> installed
 as part of <code>python3-devel</code> to tell us what should be linked
 at each step during compilation.</p>
-<pre><code class="hljs bash">$ gcc -c -o main.o $(python3-config --cflags) main.c
-$ gcc $(python3-config --ldflags) main.o
-$ ./a.out; echo $?
-0
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>gcc<span class="w"> </span>-c<span class="w"> </span>-o<span class="w"> </span>main.o<span class="w"> </span><span class="k">$(</span>python3-config<span class="w"> </span>--cflags<span class="k">)</span><span class="w"> </span>main.c
+$<span class="w"> </span>gcc<span class="w"> </span><span class="k">$(</span>python3-config<span class="w"> </span>--ldflags<span class="k">)</span><span class="w"> </span>main.o
+$<span class="w"> </span>./a.out<span class="p">;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">0</span>
+</pre></div>
 <p>Cool! Now as we think about translating the fibonacci implementation,
 we want to keep everything as Python objects for as long as
 possible. This means passing and receiving
@@ -137,38 +136,38 @@ and
 for basic arithmetic, and there are many similar helpers available to
 us for operations down the line.</p>
 <p>Now we can write a translation:</p>
-<pre><code class="hljs c">#define PY_SSIZE_T_CLEAN
-#include &lt;Python.h&gt;
+<div class="highlight"><pre><span></span><span class="cp">#define PY_SSIZE_T_CLEAN</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;Python.h&gt;</span>
 
-PyObject* fib(PyObject* n) {
-  PyObject* zero = PyLong_FromLong(0);
-  PyObject* one = PyLong_FromLong(1);
-  if (PyObject_RichCompareBool(n, zero, Py_EQ) || PyObject_RichCompareBool(n, one, Py_EQ)) {
-    return n;
-  }
+<span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="nf">fib</span><span class="p">(</span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">zero</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PyLong_FromLong</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">one</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PyLong_FromLong</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">PyObject_RichCompareBool</span><span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="n">Py_EQ</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">PyObject_RichCompareBool</span><span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="n">one</span><span class="p">,</span><span class="w"> </span><span class="n">Py_EQ</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">n</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  PyObject* left = fib(PyNumber_Subtract(n, one));
+<span class="w">  </span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">left</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fib</span><span class="p">(</span><span class="n">PyNumber_Subtract</span><span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="n">one</span><span class="p">));</span>
 
-  PyObject* two = PyLong_FromLong(2);
-  PyObject* right = fib(PyNumber_Subtract(n, two));
+<span class="w">  </span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">two</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PyLong_FromLong</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">  </span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">right</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fib</span><span class="p">(</span><span class="n">PyNumber_Subtract</span><span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="n">two</span><span class="p">));</span>
 
-  return PyNumber_Add(left, right);
-}
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">PyNumber_Add</span><span class="p">(</span><span class="n">left</span><span class="p">,</span><span class="w"> </span><span class="n">right</span><span class="p">);</span>
+<span class="p">}</span>
 
-int main(int argc, char *argv[]) {
-  Py_Initialize();
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">argv</span><span class="p">[])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">Py_Initialize</span><span class="p">();</span>
 
-  PyObject* res = fib(PyLong_FromLong(7)); // Should be 13
+<span class="w">  </span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fib</span><span class="p">(</span><span class="n">PyLong_FromLong</span><span class="p">(</span><span class="mi">7</span><span class="p">));</span><span class="w"> </span><span class="c1">// Should be 13</span>
 
-  return PyLong_AsLong(res);
-}
-</code></pre>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">PyLong_AsLong</span><span class="p">(</span><span class="n">res</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
 <p>Compile and run it:</p>
-<pre><code class="hljs bash">$ gcc -c -o main.o $(python3-config --cflags) main.c
-$ gcc $(python3-config --ldflags) main.o
-$ ./a.out; echo $?
-13
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>gcc<span class="w"> </span>-c<span class="w"> </span>-o<span class="w"> </span>main.o<span class="w"> </span><span class="k">$(</span>python3-config<span class="w"> </span>--cflags<span class="k">)</span><span class="w"> </span>main.c
+$<span class="w"> </span>gcc<span class="w"> </span><span class="k">$(</span>python3-config<span class="w"> </span>--ldflags<span class="k">)</span><span class="w"> </span>main.o
+$<span class="w"> </span>./a.out<span class="p">;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">13</span>
+</pre></div>
 <p>That's great! But we cheated in one place. We assumed that the input
 to the <code>fib</code> function was an integer, and we propagated
 that assumption everywhere we wrote <code>PyNumber_*</code>
@@ -196,43 +195,43 @@ structure sets us up for supporting more types later on.</p>
 <p>We'll use
 <a href="https://docs.python.org/3/c-api/long.html#c.PyLong_Check">PyLong_Check</a>
 before calling number-specific methods.</p>
-<pre><code class="hljs c">#define PY_SSIZE_T_CLEAN
-#include &lt;Python.h&gt;
+<div class="highlight"><pre><span></span><span class="cp">#define PY_SSIZE_T_CLEAN</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;Python.h&gt;</span>
 
-inline PyObject* PYC_Add(PyObject* l, PyObject* r) {
-  // TODO: allow __add__ override
+<span class="kr">inline</span><span class="w"> </span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="nf">PYC_Add</span><span class="p">(</span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">l</span><span class="p">,</span><span class="w"> </span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// TODO: allow __add__ override</span>
 
-  // Includes ints and bools
-  if (PyLong_Check(l) &amp;&amp; PyLong_Check(r)) {
-    return PyNumber_Add(l, r);
-  }
+<span class="w">  </span><span class="c1">// Includes ints and bools</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">PyLong_Check</span><span class="p">(</span><span class="n">l</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">PyLong_Check</span><span class="p">(</span><span class="n">r</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">PyNumber_Add</span><span class="p">(</span><span class="n">l</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  // TODO: handle str, etc.
+<span class="w">  </span><span class="c1">// TODO: handle str, etc.</span>
 
-  // TODO: throw exception
-  return NULL;
-}
+<span class="w">  </span><span class="c1">// TODO: throw exception</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span>
 
-inline PyObject* PYC_Sub(PyObject* l, PyObject* r) {
-  // TODO: allow __add__ override
+<span class="kr">inline</span><span class="w"> </span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="nf">PYC_Sub</span><span class="p">(</span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">l</span><span class="p">,</span><span class="w"> </span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// TODO: allow __add__ override</span>
 
-  // Includes ints and bools
-  if (PyLong_Check(l) &amp;&amp; PyLong_Check(r)) {
-    return PyNumber_Subtract(l, r);
-  }
+<span class="w">  </span><span class="c1">// Includes ints and bools</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">PyLong_Check</span><span class="p">(</span><span class="n">l</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">PyLong_Check</span><span class="p">(</span><span class="n">r</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">PyNumber_Subtract</span><span class="p">(</span><span class="n">l</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
 
-  // TODO: handle str, etc.
+<span class="w">  </span><span class="c1">// TODO: handle str, etc.</span>
 
-  // TODO: throw exception
-  return NULL;
-}
+<span class="w">  </span><span class="c1">// TODO: throw exception</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span>
 
-inline PyObject* PYC_Print(PyObject* o) {
-  PyObject_Print(o, stdout, Py_PRINT_RAW);
-  printf(&quot;\n&quot;);
-  return Py_None;
-}
-</code></pre>
+<span class="kr">inline</span><span class="w"> </span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="nf">PYC_Print</span><span class="p">(</span><span class="n">PyObject</span><span class="o">*</span><span class="w"> </span><span class="n">o</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">PyObject_Print</span><span class="p">(</span><span class="n">o</span><span class="p">,</span><span class="w"> </span><span class="n">stdout</span><span class="p">,</span><span class="w"> </span><span class="n">Py_PRINT_RAW</span><span class="p">);</span>
+<span class="w">  </span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">Py_None</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
 <p>That's it! We could generate these as strings in Python but it gets
 hairy to do so. By using a dedicated C file, we can take advantage of
 syntax highlighting since this file is only C code. And since we've
@@ -250,221 +249,220 @@ outside of a function since every <code>PyObject*</code> must be
 created after calling <code>Py_Initialize</code>. This section will be
 written into our C <code>main</code> function before we enter a
 compiled Python <code>main</code> function.</p>
-<pre><code class="hljs python">import copy
+<div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">copy</span>
 
 
-class Writer():
-    content = &quot;&quot;
+<span class="k">class</span> <span class="nc">Writer</span><span class="p">():</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 
-    def write(self, exp: str, indent: int = 0):
-        self.content += (&quot;  &quot; * indent) + exp
+    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exp</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">indent</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">+=</span> <span class="p">(</span><span class="s2">&quot;  &quot;</span> <span class="o">*</span> <span class="n">indent</span><span class="p">)</span> <span class="o">+</span> <span class="n">exp</span>
 
-    def writeln(self, stmt: str, indent: int = 0):
-        self.write(stmt + &quot;\n&quot;, indent)
+    <span class="k">def</span> <span class="nf">writeln</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stmt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">indent</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">stmt</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">indent</span><span class="p">)</span>
 
-    def write_statement(self, stmt: str, indent: int = 0):
-        self.writeln(stmt + &quot;;&quot;, indent)
+    <span class="k">def</span> <span class="nf">write_statement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stmt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">indent</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">writeln</span><span class="p">(</span><span class="n">stmt</span> <span class="o">+</span> <span class="s2">&quot;;&quot;</span><span class="p">,</span> <span class="n">indent</span><span class="p">)</span>
 
 
-class Context():
-    initializations = Writer()
-    body = Writer()
-    indentation = 0
+<span class="k">class</span> <span class="nc">Context</span><span class="p">():</span>
+    <span class="n">initializations</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">()</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">()</span>
+    <span class="n">indentation</span> <span class="o">=</span> <span class="mi">0</span>
 
-    scope = 0
-    ret = None
-    namings = {}
-    counter = -1
+    <span class="n">scope</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">namings</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">counter</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
 
-    def __getattr__(self, name: str) -&gt; object:
-        # Helpers to avoid passing in self.indentation every time
-        outputs = [initializations&quot;, &quot;body&quot;]
-        for output in outputs:
-            if name.startswith(output):
-                return lambda s, i=None: getattr(getattr(self, output), name[len(output)+1:])(s, i if i is not None else self.indentation)
+    <span class="k">def</span> <span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+        <span class="c1"># Helpers to avoid passing in self.indentation every time</span>
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">initializations</span><span class="s2">&quot;, &quot;</span><span class="n">body</span><span class="s2">&quot;]</span>
+        <span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">output</span><span class="p">):</span>
+                <span class="k">return</span> <span class="k">lambda</span> <span class="n">s</span><span class="p">,</span> <span class="n">i</span><span class="o">=</span><span class="kc">None</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">),</span> <span class="n">name</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">output</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">:])(</span><span class="n">s</span><span class="p">,</span> <span class="n">i</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">indentation</span><span class="p">)</span>
 
-        return object.__getattr__(self, name)
+        <span class="k">return</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 
-    def get_local(self, source_name: str) -&gt; dict:
-        return self.namings[source_name]
+    <span class="k">def</span> <span class="nf">get_local</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">namings</span><span class="p">[</span><span class="n">source_name</span><span class="p">]</span>
 
-    def register_global(self, name: str, loc: str):
-        self.namings[name] = {
-            &quot;name&quot;: loc,
-            &quot;scope&quot;: 0,
-        }
+    <span class="k">def</span> <span class="nf">register_global</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">loc</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">namings</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">loc</span><span class="p">,</span>
+            <span class="s2">&quot;scope&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="p">}</span>
 
-    def register_local(self, local: str = &quot;tmp&quot;) -&gt; str:
-        self.counter += 1
-        self.namings[local] = {
-            &quot;name&quot;: f&quot;{local}_{self.counter}&quot;,
-            # naming dictionary is copied, so we need to capture scope
-            # at declaration
-            &quot;scope&quot;: self.scope,
-        }
-        return self.namings[local][&quot;name&quot;]
+    <span class="k">def</span> <span class="nf">register_local</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;tmp&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">namings</span><span class="p">[</span><span class="n">local</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">local</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="c1"># naming dictionary is copied, so we need to capture scope</span>
+            <span class="c1"># at declaration</span>
+            <span class="s2">&quot;scope&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">scope</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">namings</span><span class="p">[</span><span class="n">local</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
 
-    def copy(self):
-        new = copy.copy(self)
-        # For some reason copy.deepcopy doesn&#39;t do this
-        new.namings = dict(new.namings)
-        return new
+    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">new</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># For some reason copy.deepcopy doesn&#39;t do this</span>
+        <span class="n">new</span><span class="o">.</span><span class="n">namings</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">new</span><span class="o">.</span><span class="n">namings</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new</span>
 
-    def at_toplevel(self):
-        return self.scope == 0
-</code></pre>
+    <span class="k">def</span> <span class="nf">at_toplevel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">==</span> <span class="mi">0</span>
+</pre></div>
 <p>This is all pretty boring boilerplate. Let's move on.</p>
 <h3 id="pyc/<strong>main</strong>.py">pyc/<strong>main</strong>.py</h3><p>The entrypoint is responsible for reading source code, parsing it,
 calling the code generator, writing the source code to a C file, and
 compiling it.</p>
 <p>First, we read and parse the source code:</p>
-<pre><code class="hljs python">import ast
-import os
-import subprocess
-import shutil
-import sys
+<div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">ast</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">sys</span>
 
-from context import Context
-from codegen import generate
+<span class="kn">from</span> <span class="nn">context</span> <span class="kn">import</span> <span class="n">Context</span>
+<span class="kn">from</span> <span class="nn">codegen</span> <span class="kn">import</span> <span class="n">generate</span>
 
-BUILTINS = {
-    &quot;print&quot;: &quot;PYC_Print&quot;,
-}
+<span class="n">BUILTINS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;print&quot;</span><span class="p">:</span> <span class="s2">&quot;PYC_Print&quot;</span><span class="p">,</span>
+<span class="p">}</span>
 
 
-def main():
-    target = sys.argv[1]
-    with open(target) as f:
-        source = f.read()
-    tree = ast.parse(source, target)
-</code></pre>
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">target</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+</pre></div>
 <p>Then we write <code>libpyc.c</code> into the body, register builtins,
 and run code generation:</p>
-<pre><code class="hljs python">
-...
+<div class="highlight"><pre><span></span><span class="o">...</span>
 
-def main()
-    ...
+<span class="k">def</span> <span class="nf">main</span><span class="p">()</span>
+    <span class="o">...</span>
 
-    ctx = Context()
-    with open(&quot;libpyc.c&quot;) as f:
-        ctx.body_write(f.read() + &quot;\n&quot;)
+    <span class="n">ctx</span> <span class="o">=</span> <span class="n">Context</span><span class="p">()</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;libpyc.c&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">body_write</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    for builtin, fn in BUILTINS.items():
-        ctx.register_global(builtin, fn)
+    <span class="k">for</span> <span class="n">builtin</span><span class="p">,</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">BUILTINS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">register_global</span><span class="p">(</span><span class="n">builtin</span><span class="p">,</span> <span class="n">fn</span><span class="p">)</span>
 
-    generate(ctx, tree)
-</code></pre>
+    <span class="n">generate</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">tree</span><span class="p">)</span>
+</pre></div>
 <p>Next, we create a clean output directory and write
 <code>main.c</code> with the generated code and a <code>main</code>
 function to initialization Python and any global variables:</p>
-<pre><code class="hljs python">...
+<div class="highlight"><pre><span></span><span class="o">...</span>
 
-def main():
-   ...
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+   <span class="o">...</span>
 
-    # Create and move to working directory
-    outdir = &quot;bin&quot;
-    shutil.rmtree(outdir, ignore_errors=True)
-    os.mkdir(outdir)
-    os.chdir(outdir)
+    <span class="c1"># Create and move to working directory</span>
+    <span class="n">outdir</span> <span class="o">=</span> <span class="s2">&quot;bin&quot;</span>
+    <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">outdir</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">outdir</span><span class="p">)</span>
 
-    with open(&quot;main.c&quot;, &quot;w&quot;) as f:
-        f.write(ctx.body.content)
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;main.c&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">body</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
 
-        main = ctx.namings.get(&quot;main&quot;)[&quot;name&quot;]
-        f.write(f&quot;&quot;&quot;int main(int argc, char *argv[]) {{
-  Py_Initialize();
+        <span class="n">main</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">namings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;&quot;int main(int argc, char *argv[]) </span><span class="se">{{</span>
+<span class="s2">  Py_Initialize();</span>
 
-  // Initialize globals, if any.
-{ctx.initializations.content}
-  PyObject* r = {main}();
-  return PyLong_AsLong(r);
-}}&quot;&quot;&quot;)
-</code></pre>
+<span class="s2">  // Initialize globals, if any.</span>
+<span class="si">{</span><span class="n">ctx</span><span class="o">.</span><span class="n">initializations</span><span class="o">.</span><span class="n">content</span><span class="si">}</span>
+<span class="s2">  PyObject* r = </span><span class="si">{</span><span class="n">main</span><span class="si">}</span><span class="s2">();</span>
+<span class="s2">  return PyLong_AsLong(r);</span>
+<span class="se">}}</span><span class="s2">&quot;&quot;&quot;</span><span class="p">)</span>
+</pre></div>
 <p>Finally, we run <code>clang-format</code> and <code>gcc</code> against
 the generated C code:</p>
-<pre><code class="hljs python">...
+<div class="highlight"><pre><span></span><span class="o">...</span>
 
-def main():
-    ...
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="o">...</span>
 
-    subprocess.run([&quot;clang-format&quot;, &quot;-i&quot;, &quot;main.c&quot;])
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;clang-format&quot;</span><span class="p">,</span> <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="s2">&quot;main.c&quot;</span><span class="p">])</span>
 
-    cflags_raw = subprocess.check_output([&quot;python3-config&quot;, &quot;--cflags&quot;])
-    cflags = [f.strip() for f in cflags_raw.decode().split(&quot; &quot;) if f.strip()]
-    cmd = [&quot;gcc&quot;, &quot;-c&quot;, &quot;-o&quot;, &quot;main.o&quot;] + cflags + [&quot;main.c&quot;]
-    subprocess.run(cmd)
+    <span class="n">cflags_raw</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">([</span><span class="s2">&quot;python3-config&quot;</span><span class="p">,</span> <span class="s2">&quot;--cflags&quot;</span><span class="p">])</span>
+    <span class="n">cflags</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">cflags_raw</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gcc&quot;</span><span class="p">,</span> <span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="s2">&quot;main.o&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">cflags</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;main.c&quot;</span><span class="p">]</span>
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
 
-    ldflags_raw = subprocess.check_output([&quot;python3-config&quot;, &quot;--ldflags&quot;])
-    ldflags = [f.strip() for f in ldflags_raw.decode().split(&quot; &quot;) if f.strip()]
-    cmd = [&quot;gcc&quot;] + ldflags + [&quot;main.o&quot;]
-    subprocess.run(cmd)
-</code></pre>
+    <span class="n">ldflags_raw</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">([</span><span class="s2">&quot;python3-config&quot;</span><span class="p">,</span> <span class="s2">&quot;--ldflags&quot;</span><span class="p">])</span>
+    <span class="n">ldflags</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">ldflags_raw</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gcc&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">ldflags</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;main.o&quot;</span><span class="p">]</span>
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+</pre></div>
 <p>All together:</p>
-<pre><code class="hljs python">import ast
-import os
-import subprocess
-import shutil
-import sys
+<div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">ast</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">sys</span>
 
-from context import Context
-from codegen import generate
+<span class="kn">from</span> <span class="nn">context</span> <span class="kn">import</span> <span class="n">Context</span>
+<span class="kn">from</span> <span class="nn">codegen</span> <span class="kn">import</span> <span class="n">generate</span>
 
-BUILTINS = {
-    &quot;print&quot;: &quot;PYC_Print&quot;,
-}
-
-
-def main():
-    target = sys.argv[1]
-    with open(target) as f:
-        source = f.read()
-    tree = ast.parse(source, target)
-
-    ctx = Context()
-    with open(&quot;libpyc.c&quot;) as f:
-        ctx.body_write(f.read() + &quot;\n&quot;)
-
-    for builtin, fn in BUILTINS.items():
-        ctx.register_global(builtin, fn)
-
-    generate(ctx, tree)
-
-    # Create and move to working directory
-    outdir = &quot;bin&quot;
-    shutil.rmtree(outdir, ignore_errors=True)
-    os.mkdir(outdir)
-    os.chdir(outdir)
-
-    with open(&quot;main.c&quot;, &quot;w&quot;) as f:
-        f.write(ctx.body.content)
-
-        main = ctx.namings.get(&quot;main&quot;)[&quot;name&quot;]
-        f.write(f&quot;&quot;&quot;int main(int argc, char *argv[]) {{
-  Py_Initialize();
-
-  // Initialize globals, if any.
-{ctx.initializations.content}
-  PyObject* r = {main}();
-  return PyLong_AsLong(r);
-}}&quot;&quot;&quot;)
-
-    subprocess.run([&quot;clang-format&quot;, &quot;-i&quot;, &quot;main.c&quot;])
-
-    cflags_raw = subprocess.check_output([&quot;python3-config&quot;, &quot;--cflags&quot;])
-    cflags = [f.strip() for f in cflags_raw.decode().split(&quot; &quot;) if f.strip()]
-    cmd = [&quot;gcc&quot;, &quot;-c&quot;, &quot;-o&quot;, &quot;main.o&quot;] + cflags + [&quot;main.c&quot;]
-    subprocess.run(cmd)
-
-    ldflags_raw = subprocess.check_output([&quot;python3-config&quot;, &quot;--ldflags&quot;])
-    ldflags = [f.strip() for f in ldflags_raw.decode().split(&quot; &quot;) if f.strip()]
-    cmd = [&quot;gcc&quot;] + ldflags + [&quot;main.o&quot;]
-    subprocess.run(cmd)
+<span class="n">BUILTINS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;print&quot;</span><span class="p">:</span> <span class="s2">&quot;PYC_Print&quot;</span><span class="p">,</span>
+<span class="p">}</span>
 
 
-main()
-</code></pre>
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">target</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+
+    <span class="n">ctx</span> <span class="o">=</span> <span class="n">Context</span><span class="p">()</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;libpyc.c&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">body_write</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">builtin</span><span class="p">,</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">BUILTINS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">register_global</span><span class="p">(</span><span class="n">builtin</span><span class="p">,</span> <span class="n">fn</span><span class="p">)</span>
+
+    <span class="n">generate</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">tree</span><span class="p">)</span>
+
+    <span class="c1"># Create and move to working directory</span>
+    <span class="n">outdir</span> <span class="o">=</span> <span class="s2">&quot;bin&quot;</span>
+    <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">outdir</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">outdir</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;main.c&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">body</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+
+        <span class="n">main</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">namings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;&quot;int main(int argc, char *argv[]) </span><span class="se">{{</span>
+<span class="s2">  Py_Initialize();</span>
+
+<span class="s2">  // Initialize globals, if any.</span>
+<span class="si">{</span><span class="n">ctx</span><span class="o">.</span><span class="n">initializations</span><span class="o">.</span><span class="n">content</span><span class="si">}</span>
+<span class="s2">  PyObject* r = </span><span class="si">{</span><span class="n">main</span><span class="si">}</span><span class="s2">();</span>
+<span class="s2">  return PyLong_AsLong(r);</span>
+<span class="se">}}</span><span class="s2">&quot;&quot;&quot;</span><span class="p">)</span>
+
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;clang-format&quot;</span><span class="p">,</span> <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="s2">&quot;main.c&quot;</span><span class="p">])</span>
+
+    <span class="n">cflags_raw</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">([</span><span class="s2">&quot;python3-config&quot;</span><span class="p">,</span> <span class="s2">&quot;--cflags&quot;</span><span class="p">])</span>
+    <span class="n">cflags</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">cflags_raw</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gcc&quot;</span><span class="p">,</span> <span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="s2">&quot;main.o&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">cflags</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;main.c&quot;</span><span class="p">]</span>
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+
+    <span class="n">ldflags_raw</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">([</span><span class="s2">&quot;python3-config&quot;</span><span class="p">,</span> <span class="s2">&quot;--ldflags&quot;</span><span class="p">])</span>
+    <span class="n">ldflags</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">ldflags_raw</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gcc&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">ldflags</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;main.o&quot;</span><span class="p">]</span>
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+
+
+<span class="n">main</span><span class="p">()</span>
+</pre></div>
 <p>Done!</p>
 <h3 id="pyc/codegen.py">pyc/codegen.py</h3><p>Lastly we write the translation layer from Python AST to C. We'll
 break this out into 10 helper functions. It is helpful to have the
@@ -487,23 +485,23 @@ code for objects like modules, function bodies, if bodies, etc.</p>
 helper function. In the case of expression generation though, we'll
 also add a noop operation on the result of the expression otherwise
 the compiler will complain about an unused variable.</p>
-<pre><code class="hljs python">def generate(ctx: Context, module):
-    for stmt in module.body:
-        if isinstance(stmt, ast.Assign):
-            generate_assign(ctx, stmt)
-        elif isinstance(stmt, ast.FunctionDef):
-            generate_function_def(ctx, stmt)
-        elif isinstance(stmt, ast.Return):
-            generate_return(ctx, stmt)
-        elif isinstance(stmt, ast.If):
-            generate_if(ctx, stmt)
-        elif isinstance(stmt, ast.Expr):
-            r = generate_expression(ctx, stmt.value)
-            ctx.body_writeln(&quot;// noop to hide unused warning&quot;)
-            ctx.body_write_statement(f&quot;{r} += 0&quot;)
-        else:
-            raise Exception(f&quot;Unsupported statement type: {type(stmt)}&quot;)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">module</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">stmt</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">body</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stmt</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Assign</span><span class="p">):</span>
+            <span class="n">generate_assign</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">stmt</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stmt</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">):</span>
+            <span class="n">generate_function_def</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">stmt</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stmt</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Return</span><span class="p">):</span>
+            <span class="n">generate_return</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">stmt</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stmt</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">If</span><span class="p">):</span>
+            <span class="n">generate_if</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">stmt</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stmt</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Expr</span><span class="p">):</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">stmt</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">ctx</span><span class="o">.</span><span class="n">body_writeln</span><span class="p">(</span><span class="s2">&quot;// noop to hide unused warning&quot;</span><span class="p">)</span>
+            <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2"> += 0&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported statement type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
 <p class="note">
   Remember to throw exceptions aggressively otherwise you'll have a
   bad time debugging programs using new syntax.
@@ -517,28 +515,28 @@ statement.</p>
 <p>Before doing either though, we register the variable name so we can
 get a safe local name to use in generated code. Then we compile the
 right-hand side so we can assign it to the left-hand side.</p>
-<pre><code class="hljs python">import ast
+<div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">ast</span>
 
-from context import Context
-
-
-def initialize_variable(ctx: Context, name: str, val: str):
-    if ctx.at_toplevel():
-        decl = f&quot;PyObject* {name}&quot;
-        ctx.body_write_statement(decl, 0)
-
-        init = f&quot;{name} = {val}&quot;
-        ctx.initializations_write_statement(init)
-    else:
-        ctx.body_write_statement(f&quot;PyObject* {name} = {val}&quot;)
+<span class="kn">from</span> <span class="nn">context</span> <span class="kn">import</span> <span class="n">Context</span>
 
 
-def generate_assign(ctx: Context, stmt: ast.Assign):
-    # TODO: support assigning to a tuple
-    local = ctx.register_local(stmt.targets[0].id)
-    val = generate_expression(ctx, stmt.value)
-    initialize_variable(ctx, local, val)
-</code></pre>
+<span class="k">def</span> <span class="nf">initialize_variable</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">ctx</span><span class="o">.</span><span class="n">at_toplevel</span><span class="p">():</span>
+        <span class="n">decl</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;PyObject* </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="n">decl</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="n">init</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">initializations_write_statement</span><span class="p">(</span><span class="n">init</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PyObject* </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">generate_assign</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">stmt</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">Assign</span><span class="p">):</span>
+    <span class="c1"># TODO: support assigning to a tuple</span>
+    <span class="n">local</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">register_local</span><span class="p">(</span><span class="n">stmt</span><span class="o">.</span><span class="n">targets</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+    <span class="n">val</span> <span class="o">=</span> <span class="n">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">stmt</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+    <span class="n">initialize_variable</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">local</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+</pre></div>
 <p>We're going to need to implement <code>generate_expression</code> to
 make this work.</p>
 <h4 id="3/10:-generate_expression">3/10: generate_expression</h4><p>Just like for statements in <code>generate</code>, there are a few
@@ -555,25 +553,25 @@ kinds of expressions we need to implement:</p>
 <code>PyLong*</code>. And for <code>ast.Name</code> we just need to
 look up the local name in context. Otherwise we delegate to more
 helper functions.</p>
-<pre><code class="hljs python">def generate_expression(ctx: Context, exp) -&gt; str:
-    if isinstance(exp, ast.Num):
-        # TODO: deal with non-integers
-        tmp = ctx.register_local(&quot;num&quot;)
-        initialize_variable(ctx, tmp, f&quot;PyLong_FromLong({exp.n})&quot;)
-        return tmp
-    elif isinstance(exp, ast.BinOp):
-        return generate_bin_op(ctx, exp)
-    elif isinstance(exp, ast.BoolOp):
-        return generate_bool_op(ctx, exp)
-    elif isinstance(exp, ast.Name):
-        return ctx.get_local(exp.id)[&quot;name&quot;]
-    elif isinstance(exp, ast.Compare):
-        return generate_compare(ctx, exp)
-    elif isinstance(exp, ast.Call):
-        return generate_call(ctx, exp)
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">exp</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Num</span><span class="p">):</span>
+        <span class="c1"># TODO: deal with non-integers</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">register_local</span><span class="p">(</span><span class="s2">&quot;num&quot;</span><span class="p">)</span>
+        <span class="n">initialize_variable</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">tmp</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;PyLong_FromLong(</span><span class="si">{</span><span class="n">exp</span><span class="o">.</span><span class="n">n</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">tmp</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">BinOp</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">generate_bin_op</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">exp</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">BoolOp</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">generate_bool_op</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">exp</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">get_local</span><span class="p">(</span><span class="n">exp</span><span class="o">.</span><span class="n">id</span><span class="p">)[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Compare</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">generate_compare</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">exp</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">generate_call</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">exp</span><span class="p">)</span>
 
-    raise Exception(f&quot;Unsupported expression: {type(exp)}&quot;)
-</code></pre>
+    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported expression: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">exp</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
 <p>For every code generation helper that is an expression, we store the
 expression in a local variable and return the variable's name so that
 parent nodes in the AST can refer to the child. This can result in
@@ -586,21 +584,21 @@ subtraction. Other binary operators like equality or and/or are
 represented in <code>ast.Compare</code> and <code>ast.BoolOp</code>.</p>
 <p>This is easy to write because we already prepared helpers in
 <code>libpyc.c</code>: <code>PYC_Sub</code> and <code>PYC_Add</code>.</p>
-<pre><code class="hljs python">def generate_bin_op(ctx: Context, binop: ast.BinOp) -&gt; str:
-    result = ctx.register_local(&quot;binop&quot;)
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_bin_op</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">binop</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">BinOp</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">register_local</span><span class="p">(</span><span class="s2">&quot;binop&quot;</span><span class="p">)</span>
 
-    l = generate_expression(ctx, binop.left)
-    r = generate_expression(ctx, binop.right)
+    <span class="n">l</span> <span class="o">=</span> <span class="n">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">binop</span><span class="o">.</span><span class="n">left</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">binop</span><span class="o">.</span><span class="n">right</span><span class="p">)</span>
 
-    if isinstance(binop.op, ast.Add):
-        ctx.body_write_statement(f&quot;PyObject* {result} = PYC_Add({l}, {r})&quot;)
-    elif isinstance(binop.op, ast.Sub):
-        ctx.body_write_statement(f&quot;PyObject* {result} = PYC_Sub({l}, {r})&quot;)
-    else:
-        raise Exception(f&quot;Unsupported binary operator: {type(binop.op)}&quot;)
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">binop</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Add</span><span class="p">):</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PyObject* </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2"> = PYC_Add(</span><span class="si">{</span><span class="n">l</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">binop</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Sub</span><span class="p">):</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PyObject* </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2"> = PYC_Sub(</span><span class="si">{</span><span class="n">l</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported binary operator: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">binop</span><span class="o">.</span><span class="n">op</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    return result
-</code></pre>
+    <span class="k">return</span> <span class="n">result</span>
+</pre></div>
 <p>Easy enough.</p>
 <h4 id="5/10:-generate_bool_op">5/10: generate_bool_op</h4><p>We only need to support <code>or</code> for the fibonacci program, but
 <code>or</code> in Python is more complicated than in C. In Python,
@@ -609,24 +607,24 @@ result is its value, not <code>True</code>.</p>
 <p>We'll use <code>goto</code> to short-circuit and we'll use
 <a href="https://docs.python.org/3/c-api/object.html#c.PyObject_IsTrue">PyObject_IsTrue</a>
 to do the truthy check:</p>
-<pre><code class="hljs python">def generate_bool_op(ctx: Context, boolop: ast.BoolOp) -&gt; str:
-    result = ctx.register_local(&quot;boolop&quot;)
-    ctx.body_write_statement(f&quot;PyObject* {result}&quot;)
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_bool_op</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">boolop</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">BoolOp</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">register_local</span><span class="p">(</span><span class="s2">&quot;boolop&quot;</span><span class="p">)</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PyObject* </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    if isinstance(boolop.op, ast.Or):
-        done_or = ctx.register_local(&quot;done_or&quot;)
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">boolop</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Or</span><span class="p">):</span>
+        <span class="n">done_or</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">register_local</span><span class="p">(</span><span class="s2">&quot;done_or&quot;</span><span class="p">)</span>
 
-        for exp in boolop.values:
-            v = generate_expression(ctx, exp)
-            ctx.body_write_statement(f&quot;{result} = {v}&quot;)
-            ctx.body_writeln(f&quot;if (PyObject_IsTrue({v})) {{&quot;)
-            ctx.body_write_statement(f&quot;goto {done_or}&quot;, ctx.indentation+1)
-            ctx.body_writeln(&quot;}&quot;)
+        <span class="k">for</span> <span class="n">exp</span> <span class="ow">in</span> <span class="n">boolop</span><span class="o">.</span><span class="n">values</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">exp</span><span class="p">)</span>
+            <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">ctx</span><span class="o">.</span><span class="n">body_writeln</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;if (PyObject_IsTrue(</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">)) </span><span class="se">{{</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;goto </span><span class="si">{</span><span class="n">done_or</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">indentation</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">ctx</span><span class="o">.</span><span class="n">body_writeln</span><span class="p">(</span><span class="s2">&quot;}&quot;</span><span class="p">)</span>
 
-        ctx.body_writeln(f&quot;{done_or}:\n&quot;, 0)
+        <span class="n">ctx</span><span class="o">.</span><span class="n">body_writeln</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">done_or</span><span class="si">}</span><span class="s2">:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
-    return result
-</code></pre>
+    <span class="k">return</span> <span class="n">result</span>
+</pre></div>
 <p class="note">
   Now that I write this down I see we could probably move this
   function into <code>libpyc.c</code> if we used a loop. Maybe in
@@ -638,61 +636,61 @@ hand-written translation.</p>
 <p>The only additional thing to keep in mind is that the right-hand side
 is passed as an array. So we have to iterate through it and apply the
 equality/inequality check on all objects in the list.</p>
-<pre><code class="hljs python">def generate_compare(ctx: Context, exp: ast.Compare) -&gt; str:
-    result = ctx.register_local(&quot;compare&quot;)
-    left = generate_expression(ctx, exp.left)
-    ctx.body_write_statement(f&quot;PyObject* {result} = {left}&quot;)
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_compare</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">exp</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">Compare</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">register_local</span><span class="p">(</span><span class="s2">&quot;compare&quot;</span><span class="p">)</span>
+    <span class="n">left</span> <span class="o">=</span> <span class="n">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">exp</span><span class="o">.</span><span class="n">left</span><span class="p">)</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PyObject* </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">left</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    for i, op in enumerate(exp.ops):
-        v = generate_expression(ctx, exp.comparators[i])
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">op</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">exp</span><span class="o">.</span><span class="n">ops</span><span class="p">):</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">exp</span><span class="o">.</span><span class="n">comparators</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
 
-        if isinstance(op, ast.Eq):
-            ctx.body_write_statement(f&quot;{result} = PyObject_RichCompare({result}, {v}, Py_EQ)&quot;)
-        elif isinstance(op, ast.NotEq):
-            ctx.body_write_statement(f&quot;{result} = PyObject_RichCompare({result}, {v}, Py_NE)&quot;)
-        else:
-            raise Exception(f&quot;Unsupported comparison: {type(op)}&quot;)
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Eq</span><span class="p">):</span>
+            <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2"> = PyObject_RichCompare(</span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">, Py_EQ)&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">NotEq</span><span class="p">):</span>
+            <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2"> = PyObject_RichCompare(</span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">, Py_NE)&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported comparison: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    return result
-</code></pre>
+    <span class="k">return</span> <span class="n">result</span>
+</pre></div>
 <h4 id="7/10:-generate_call">7/10: generate_call</h4><p>The last expression is simple enough. We compile the call's arguments
 first, then the function itself, then we call the function with the
 arguments like any C function. Calling the C function directly will
 have ramifications for interacting with Python libraries (basically,
 we won't be able to interact with any) but it's the easiest way to get
 started.</p>
-<pre><code class="hljs python">def generate_call(ctx: Context, exp: ast.Call) -&gt; str:
-    args = &#39;, &#39;.join([generate_expression(ctx, a) for a in exp.args])
-    fun = generate_expression(ctx, exp.func)
-    res = ctx.register_local(&quot;call_result&quot;)
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_call</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">exp</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">exp</span><span class="o">.</span><span class="n">args</span><span class="p">])</span>
+    <span class="n">fun</span> <span class="o">=</span> <span class="n">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">exp</span><span class="o">.</span><span class="n">func</span><span class="p">)</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">register_local</span><span class="p">(</span><span class="s2">&quot;call_result&quot;</span><span class="p">)</span>
 
-    # TODO: lambdas and closures need additional work
-    ctx.body_write_statement(
-        f&quot;PyObject* {res} = {fun}({args})&quot;)
-    return res
-</code></pre>
+    <span class="c1"># TODO: lambdas and closures need additional work</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;PyObject* </span><span class="si">{</span><span class="n">res</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">fun</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">args</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">res</span>
+</pre></div>
 <p>And that's it for expressions! Just a few more statement helpers to
 support.</p>
 <h4 id="8/10:-generate_function_def">8/10: generate_function_def</h4><p>This is a fun one. First we register the function name in scope. Then
 we copy the context so variables within the function body are
 contained within the function body. We increment <code>scope</code> so
 we know we've left the top-level. Finally, we compile the body.</p>
-<pre><code class="hljs python">def generate_function_def(ctx: Context, fd: ast.FunctionDef):
-    name = ctx.register_local(fd.name)
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_function_def</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">fd</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">register_local</span><span class="p">(</span><span class="n">fd</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
-    childCtx = ctx.copy()
-    args = &quot;, &quot;.join([f&quot;PyObject* {childCtx.register_local(a.arg)}&quot; for a in fd.args.args])
-    ctx.body_writeln(f&quot;PyObject* {name}({args}) {{&quot;, 0)
+    <span class="n">childCtx</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;PyObject* </span><span class="si">{</span><span class="n">childCtx</span><span class="o">.</span><span class="n">register_local</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">arg</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">fd</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">args</span><span class="p">])</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">body_writeln</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PyObject* </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">args</span><span class="si">}</span><span class="s2">) </span><span class="se">{{</span><span class="s2">&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
-    childCtx.scope += 1
-    childCtx.indentation += 1
-    generate(childCtx, fd)
+    <span class="n">childCtx</span><span class="o">.</span><span class="n">scope</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">childCtx</span><span class="o">.</span><span class="n">indentation</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">generate</span><span class="p">(</span><span class="n">childCtx</span><span class="p">,</span> <span class="n">fd</span><span class="p">)</span>
 
-    if not childCtx.ret:
-        childCtx.body_write_statement(&quot;return Py_None&quot;)
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">childCtx</span><span class="o">.</span><span class="n">ret</span><span class="p">:</span>
+        <span class="n">childCtx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="s2">&quot;return Py_None&quot;</span><span class="p">)</span>
 
-    ctx.body_writeln(&quot;}\n&quot;, 0)
-</code></pre>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">body_writeln</span><span class="p">(</span><span class="s2">&quot;}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+</pre></div>
 <p>The check for <code>childCtx.ret</code> isn't strictly necessary
 because we could just emit a return even if there already was
 one. Asking <code>generate_return</code> to set this attribute and
@@ -702,52 +700,52 @@ generate code a little prettier.</p>
 then we emit a <code>return</code> statement.</p>
 <p>We store the return value so that the function definition can know
 whether to add a <code>return PyNone</code> statement.</p>
-<pre><code class="hljs python">def generate_return(ctx: Context, r: ast.Return):
-    ctx.ret = generate_expression(ctx, r.value)
-    ctx.body_writeln(&quot;&quot;)
-    ctx.body_write_statement(f&quot;return {ctx.ret}&quot;)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_return</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">Return</span><span class="p">):</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">ret</span> <span class="o">=</span> <span class="n">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">body_writeln</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">body_write_statement</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;return </span><span class="si">{</span><span class="n">ctx</span><span class="o">.</span><span class="n">ret</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
 <p>And we've got one last statement to support!</p>
 <h4 id="10/10:-generate_if">10/10: generate_if</h4><p>You know the deal: compile the test and if the test is truthy, enter
 the compiled body. We'll deal with the else body another time.</p>
-<pre><code class="hljs python">def generate_if(ctx: Context, exp: ast.If):
-    test = generate_expression(ctx, exp.test)
-    ctx.body_writeln(f&quot;if (PyObject_IsTrue({test})) {{&quot;)
-    ctx.indentation += 1
-    generate(ctx, exp)
-    # TODO: handle exp.orelse
-    ctx.indentation -= 1
-    ctx.body_writeln(&quot;}\n&quot;)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_if</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="n">exp</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">If</span><span class="p">):</span>
+    <span class="n">test</span> <span class="o">=</span> <span class="n">generate_expression</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">exp</span><span class="o">.</span><span class="n">test</span><span class="p">)</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">body_writeln</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;if (PyObject_IsTrue(</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">)) </span><span class="se">{{</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">indentation</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">generate</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">exp</span><span class="p">)</span>
+    <span class="c1"># TODO: handle exp.orelse</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">indentation</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">body_writeln</span><span class="p">(</span><span class="s2">&quot;}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
 <p>And we're done the compiler!</p>
 <h3 id="trying-it-out">Trying it out</h3><p>As promised:</p>
-<pre><code class="hljs bash">$ cat tests/recursive_fib.py
-def fib(n):
-    if n == 0 or n == 1:
-        return n
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>tests/recursive_fib.py
+def<span class="w"> </span>fib<span class="o">(</span>n<span class="o">)</span>:
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nv">n</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>or<span class="w"> </span><span class="nv">n</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="m">1</span>:
+<span class="w">        </span><span class="k">return</span><span class="w"> </span>n
 
-    return fib(n - 1) + fib(n - 2)
+<span class="w">    </span><span class="k">return</span><span class="w"> </span>fib<span class="o">(</span>n<span class="w"> </span>-<span class="w"> </span><span class="m">1</span><span class="o">)</span><span class="w"> </span>+<span class="w"> </span>fib<span class="o">(</span>n<span class="w"> </span>-<span class="w"> </span><span class="m">2</span><span class="o">)</span>
 
 
-def main():
-    print(fib(40))
-$ python3 pyc tests/recursive_fib.py
-$ ./bin/a.out
-102334155
-</code></pre>
+def<span class="w"> </span>main<span class="o">()</span>:
+<span class="w">    </span>print<span class="o">(</span>fib<span class="o">(</span><span class="m">40</span><span class="o">))</span>
+$<span class="w"> </span>python3<span class="w"> </span>pyc<span class="w"> </span>tests/recursive_fib.py
+$<span class="w"> </span>./bin/a.out
+<span class="m">102334155</span>
+</pre></div>
 <h4 id="microbenchmarking,-or-making-compiler-twitter-unhappy">Microbenchmarking, or making compiler Twitter unhappy</h4><p>Keep in mind this implementation does a small fraction of what CPython
 is doing.</p>
 <p>If you time the generated code:</p>
-<pre><code class="hljs bash">$ python3 pyc tests/recursive_fib.py
-$ time ./bin/a.out
-102334155
-./bin/a.out  18.69s user 0.03s system 99% cpu 18.854 total
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>pyc<span class="w"> </span>tests/recursive_fib.py
+$<span class="w"> </span><span class="nb">time</span><span class="w"> </span>./bin/a.out
+<span class="m">102334155</span>
+./bin/a.out<span class="w">  </span><span class="m">18</span>.69s<span class="w"> </span>user<span class="w"> </span><span class="m">0</span>.03s<span class="w"> </span>system<span class="w"> </span><span class="m">99</span>%<span class="w"> </span>cpu<span class="w"> </span><span class="m">18</span>.854<span class="w"> </span>total
+</pre></div>
 <p>And CPython (with <code>main()</code> append to the source):</p>
-<pre><code class="hljs bash">time python3 tests/recursive_fib.py
-102334155
-python3 tests/recursive_fib.py  76.24s user 0.11s system 99% cpu 1:16.81 total
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nb">time</span><span class="w"> </span>python3<span class="w"> </span>tests/recursive_fib.py
+<span class="m">102334155</span>
+python3<span class="w"> </span>tests/recursive_fib.py<span class="w">  </span><span class="m">76</span>.24s<span class="w"> </span>user<span class="w"> </span><span class="m">0</span>.11s<span class="w"> </span>system<span class="w"> </span><span class="m">99</span>%<span class="w"> </span>cpu<span class="w"> </span><span class="m">1</span>:16.81<span class="w"> </span>total
+</pre></div>
 <p>The only reason I mention this is because when I did a <a href="/compiling-dynamic-programming-languages.html#next-steps-with-jsc">similar
 compiler project for JavaScript targeting
 C++/libV8</a>,
@@ -1388,7 +1386,6 @@ the generated code was about the same or a little slower in speed.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

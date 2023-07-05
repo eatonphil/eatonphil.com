@@ -6,7 +6,6 @@
     <title>Exploring PL/pgSQL: Strings, arrays, recursion, and parsing JSON | notes.eatonphil.com</title>
     <meta name="description" content="Exploring PL/pgSQL: Strings, arrays, recursion, and parsing JSON" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -65,44 +64,44 @@ the PL/pgSQL language.</p>
 <p>All code for this post is available on <a href="https://github.com/eatonphil/exploring-plpgsql">Github</a>.</p>
 <h3 id="creating-functions">Creating functions</h3><p>Functions are declared like tables. Here's a very simple one that
 returns the length of a string:</p>
-<pre><code class="hljs sql">CREATE OR REPLACE FUNCTION slength(s text) RETURNS int AS $$
-BEGIN
-  RETURN length(s);
-END;
-$$ LANGUAGE plpgsql;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">slength</span><span class="p">(</span><span class="n">s</span><span class="w"> </span><span class="nb">text</span><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="nb">int</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
+<span class="k">BEGIN</span>
+<span class="w">  </span><span class="k">RETURN</span><span class="w"> </span><span class="k">length</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+<span class="k">END</span><span class="p">;</span>
+<span class="err">$$</span><span class="w"> </span><span class="k">LANGUAGE</span><span class="w"> </span><span class="n">plpgsql</span><span class="p">;</span>
+</pre></div>
 <p>It's not a very useful function because <code>length</code> already exists but
 the point is to see a basic custom function.</p>
 <p>All statements in PL/pgSQL must end in a semicolon. Arguments do not
 have to be named. If they are not named they get default names of <code>$1</code>
 to <code>$N</code>.</p>
 <h4 id="named/unnamed-arguments">Named/unnamed arguments</h4><p>Here's how the function could be written without named arguments:</p>
-<pre><code class="hljs sql">CREATE OR REPLACE FUNCTION slength(text) RETURNS int AS $$
-BEGIN
-  RETURN length($1);
-END;
-$$ LANGUAGE plpgsql;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">slength</span><span class="p">(</span><span class="nb">text</span><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="nb">int</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
+<span class="k">BEGIN</span>
+<span class="w">  </span><span class="k">RETURN</span><span class="w"> </span><span class="k">length</span><span class="p">(</span><span class="err">$</span><span class="mi">1</span><span class="p">);</span>
+<span class="k">END</span><span class="p">;</span>
+<span class="err">$$</span><span class="w"> </span><span class="k">LANGUAGE</span><span class="w"> </span><span class="n">plpgsql</span><span class="p">;</span>
+</pre></div>
 <h4 id="out-declarations">Out declarations</h4><p>PL/pgSQL also allows you to declare which variables will be returned
 in the function argument list. They call it OUT parameters but as far
 as I can tell it is not like OUT parameters in C# where you are
 modifying the value of a variable in an external scope.</p>
-<pre><code class="hljs sql">CREATE OR REPLACE FUNCTION slength(s text, OUT i int) RETURNS int AS $$
-BEGIN
-  i = length(s);
-END;
-$$ LANGUAGE plpgsql;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">slength</span><span class="p">(</span><span class="n">s</span><span class="w"> </span><span class="nb">text</span><span class="p">,</span><span class="w"> </span><span class="k">OUT</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="nb">int</span><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="nb">int</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
+<span class="k">BEGIN</span>
+<span class="w">  </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">length</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+<span class="k">END</span><span class="p">;</span>
+<span class="err">$$</span><span class="w"> </span><span class="k">LANGUAGE</span><span class="w"> </span><span class="n">plpgsql</span><span class="p">;</span>
+</pre></div>
 <p>This is still equivalent to the first function and is basically a shortcut for:</p>
-<pre><code class="hljs sql">CREATE OR REPLACE FUNCTION slength(s text) RETURNS int AS $$
-DECLARE
-  i int;
-BEGIN
-  i = length(s);
-  RETURN i;
-END;
-$$ LANGUAGE plpgsql;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">slength</span><span class="p">(</span><span class="n">s</span><span class="w"> </span><span class="nb">text</span><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="nb">int</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
+<span class="k">DECLARE</span>
+<span class="w">  </span><span class="n">i</span><span class="w"> </span><span class="nb">int</span><span class="p">;</span>
+<span class="k">BEGIN</span>
+<span class="w">  </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">length</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+<span class="w">  </span><span class="k">RETURN</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+<span class="k">END</span><span class="p">;</span>
+<span class="err">$$</span><span class="w"> </span><span class="k">LANGUAGE</span><span class="w"> </span><span class="n">plpgsql</span><span class="p">;</span>
+</pre></div>
 <p>Whether you declare OUT or not you still must include <code>RETURNS &lt;type&gt;</code>
 in the function signature otherwise even if you call <code>RETURN</code> in the
 body, the result will just be ignored.</p>
@@ -113,87 +112,87 @@ focused on programming PL/pgSQL.</p>
 <h4 id="testing-it-out">Testing it out</h4><p>Once the function is created, you can call it like <code>SELECT
 slength('foo');</code>. So here's a helper script to load a SQL file and run
 a command:</p>
-<pre><code class="hljs bash">$ cat ./test.sh
-sudo -u postgres psql -c &quot;$(printf &quot;%s;\n%s&quot; &quot;$(cat $1)&quot; &quot;$2&quot;)&quot;
-$ chmod +x ./test.sh
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>./test.sh
+sudo<span class="w"> </span>-u<span class="w"> </span>postgres<span class="w"> </span>psql<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">printf</span><span class="w"> </span><span class="s2">&quot;%s;\n%s&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>cat<span class="w"> </span><span class="nv">$1</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$2</span><span class="s2">&quot;</span><span class="k">)</span><span class="s2">&quot;</span>
+$<span class="w"> </span>chmod<span class="w"> </span>+x<span class="w"> </span>./test.sh
+</pre></div>
 <p>After storing the above <code>slength</code> code in <code>slength.sql</code> we can run a test:</p>
-<pre><code class="hljs sql">$ ./test.sh ./slength.sql &quot;SELECT slength(&#39;foo&#39;)&quot;
- slength
----------
-       3
-(1 row)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="p">.</span><span class="o">/</span><span class="n">test</span><span class="p">.</span><span class="n">sh</span><span class="w"> </span><span class="p">.</span><span class="o">/</span><span class="n">slength</span><span class="p">.</span><span class="k">sql</span><span class="w"> </span><span class="ss">&quot;SELECT slength(&#39;foo&#39;)&quot;</span>
+<span class="w"> </span><span class="n">slength</span>
+<span class="c1">---------</span>
+<span class="w">       </span><span class="mi">3</span>
+<span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">row</span><span class="p">)</span>
+</pre></div>
 <p>Easy!</p>
 <h3 id="numbers-and-recursion">Numbers and recursion</h3><p>Ok now that we've got the basics of function definition down and a way
 to test the code, let's write a fibonacci program.</p>
-<pre><code>$ cat ./fib.sql
-CREATE OR REPLACE FUNCTION fib(i int) RETURNS int AS $$
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>./fib.sql
+CREATE<span class="w"> </span>OR<span class="w"> </span>REPLACE<span class="w"> </span>FUNCTION<span class="w"> </span>fib<span class="o">(</span>i<span class="w"> </span>int<span class="o">)</span><span class="w"> </span>RETURNS<span class="w"> </span>int<span class="w"> </span>AS<span class="w"> </span><span class="nv">$$</span>
 BEGIN
-  IF i = 0 OR i = 1 THEN
-    RETURN i;
-  END IF;
+<span class="w">  </span>IF<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>OR<span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>THEN
+<span class="w">    </span>RETURN<span class="w"> </span>i<span class="p">;</span>
+<span class="w">  </span>END<span class="w"> </span>IF<span class="p">;</span>
 
-  RETURN fib(i - 1) + fib(i - 2);
-END;
-$$ LANGUAGE plpgsql;
-</code></pre>
+<span class="w">  </span>RETURN<span class="w"> </span>fib<span class="o">(</span>i<span class="w"> </span>-<span class="w"> </span><span class="m">1</span><span class="o">)</span><span class="w"> </span>+<span class="w"> </span>fib<span class="o">(</span>i<span class="w"> </span>-<span class="w"> </span><span class="m">2</span><span class="o">)</span><span class="p">;</span>
+END<span class="p">;</span>
+<span class="nv">$$</span><span class="w"> </span>LANGUAGE<span class="w"> </span>plpgsql<span class="p">;</span>
+</pre></div>
 <p>Everything in the if test is normal SQL WHERE clause syntax. This
 makes it very easy for folks familiar with SQL to pick up conditionals
 in PL/pgSQL.</p>
 <p>And there's no special syntax to allow function recursion. Nice!</p>
 <p>Run and test this function:</p>
-<pre><code>$ ./test.sh ./fib.sql "SELECT fib(10)"
- fib
+<div class="highlight"><pre><span></span>$<span class="w"> </span>./test.sh<span class="w"> </span>./fib.sql<span class="w"> </span><span class="s2">&quot;SELECT fib(10)&quot;</span>
+<span class="w"> </span>fib
 -----
-  55
-(1 row)
-</code></pre>
+<span class="w">  </span><span class="m">55</span>
+<span class="o">(</span><span class="m">1</span><span class="w"> </span>row<span class="o">)</span>
+</pre></div>
 <p>Getting the hang of it?</p>
 <h3 id="strings-and-arrays">Strings and arrays</h3><p>You may have noticed that <code>length</code> used in <code>slength</code> is a builtin
 PostgreSQL function for dealing with strings. All builtin functions in
 PostgreSQL can be used in PL/pgSQL.</p>
 <p>In order to get familiar with using arrays in PL/pgSQL let's write a
 <code>string_to_array</code> function.</p>
-<pre><code class="hljs sql">$ cat ./string_to_array.sql
-CREATE OR REPLACE FUNCTION string_to_array(s text) RETURNS char[] AS $$
-DECLARE
-  a char[];
-BEGIN
-  WHILE COALESCE(array_length(a, 1), 0) &lt; length(s) LOOP
-    a[COALESCE(array_length(a, 1), 0) + 1] = substr(s, COALESCE(array_length(a, 1), 0) + 1, 1);
-  END LOOP;
-  RETURN a;
-END;
-$$ LANGUAGE plpgsql;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="n">cat</span><span class="w"> </span><span class="p">.</span><span class="o">/</span><span class="n">string_to_array</span><span class="p">.</span><span class="k">sql</span>
+<span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">string_to_array</span><span class="p">(</span><span class="n">s</span><span class="w"> </span><span class="nb">text</span><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="nb">char</span><span class="p">[]</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
+<span class="k">DECLARE</span>
+<span class="w">  </span><span class="n">a</span><span class="w"> </span><span class="nb">char</span><span class="p">[];</span>
+<span class="k">BEGIN</span>
+<span class="w">  </span><span class="n">WHILE</span><span class="w"> </span><span class="k">COALESCE</span><span class="p">(</span><span class="n">array_length</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="k">length</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="n">LOOP</span>
+<span class="w">    </span><span class="n">a</span><span class="p">[</span><span class="k">COALESCE</span><span class="p">(</span><span class="n">array_length</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">substr</span><span class="p">(</span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="k">COALESCE</span><span class="p">(</span><span class="n">array_length</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="k">END</span><span class="w"> </span><span class="n">LOOP</span><span class="p">;</span>
+<span class="w">  </span><span class="k">RETURN</span><span class="w"> </span><span class="n">a</span><span class="p">;</span>
+<span class="k">END</span><span class="p">;</span>
+<span class="err">$$</span><span class="w"> </span><span class="k">LANGUAGE</span><span class="w"> </span><span class="n">plpgsql</span><span class="p">;</span>
+</pre></div>
 <p>This is one way to do it by modify array values directly by index. We
 need to coalesce because calling <code>array_length</code> on an empty array
 returns <code>NULL</code>.</p>
 <p>Another way to do this is by calling the builtin function <code>array_append</code>.</p>
-<pre><code class="hljs sql">CREATE OR REPLACE FUNCTION string_to_array(s text) RETURNS char[] AS $$
-DECLARE
-  a char[];
-BEGIN
-  WHILE COALESCE(array_length(a, 1), 0) &lt; length(s) LOOP
-    a = array_append(a, substr(s, COALESCE(array_length(a, 1), 0) + 1, 1)::char);
-  END LOOP;
-  RETURN a;
-END;
-$$ LANGUAGE plpgsql;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">string_to_array</span><span class="p">(</span><span class="n">s</span><span class="w"> </span><span class="nb">text</span><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="nb">char</span><span class="p">[]</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
+<span class="k">DECLARE</span>
+<span class="w">  </span><span class="n">a</span><span class="w"> </span><span class="nb">char</span><span class="p">[];</span>
+<span class="k">BEGIN</span>
+<span class="w">  </span><span class="n">WHILE</span><span class="w"> </span><span class="k">COALESCE</span><span class="p">(</span><span class="n">array_length</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="k">length</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="n">LOOP</span>
+<span class="w">    </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">array_append</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">substr</span><span class="p">(</span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="k">COALESCE</span><span class="p">(</span><span class="n">array_length</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)::</span><span class="nb">char</span><span class="p">);</span>
+<span class="w">  </span><span class="k">END</span><span class="w"> </span><span class="n">LOOP</span><span class="p">;</span>
+<span class="w">  </span><span class="k">RETURN</span><span class="w"> </span><span class="n">a</span><span class="p">;</span>
+<span class="k">END</span><span class="p">;</span>
+<span class="err">$$</span><span class="w"> </span><span class="k">LANGUAGE</span><span class="w"> </span><span class="n">plpgsql</span><span class="p">;</span>
+</pre></div>
 <p>We can test and run both:</p>
-<pre><code class="hljs bash">$ ./test.sh ./string_to_array.sql &quot;SELECT string_to_array(&#39;foo&#39;)&quot;
- string_to_array
+<div class="highlight"><pre><span></span>$<span class="w"> </span>./test.sh<span class="w"> </span>./string_to_array.sql<span class="w"> </span><span class="s2">&quot;SELECT string_to_array(&#39;foo&#39;)&quot;</span>
+<span class="w"> </span>string_to_array
 -----------------
- {f,o,o}
-(1 row)
-$ ./test.sh ./string_to_array2.sql &quot;SELECT string_to_array(&#39;foo&#39;)&quot;
- string_to_array
+<span class="w"> </span><span class="o">{</span>f,o,o<span class="o">}</span>
+<span class="o">(</span><span class="m">1</span><span class="w"> </span>row<span class="o">)</span>
+$<span class="w"> </span>./test.sh<span class="w"> </span>./string_to_array2.sql<span class="w"> </span><span class="s2">&quot;SELECT string_to_array(&#39;foo&#39;)&quot;</span>
+<span class="w"> </span>string_to_array
 -----------------
- {f,o,o}
-(1 row)
-</code></pre>
+<span class="w"> </span><span class="o">{</span>f,o,o<span class="o">}</span>
+<span class="o">(</span><span class="m">1</span><span class="w"> </span>row<span class="o">)</span>
+</pre></div>
 <p>Of course the builtin alternative might be <code>SELECT
 regexp_split_to_array('foo')</code> but we need the practice.</p>
 <h3 id="custom-compound-types">Custom compound types</h3><p>If we're going to lex and parse JSON, we're going to want to return an
@@ -202,12 +201,12 @@ array of tokens from the lexer. A token will need to contain the type
 (e.g. <code>1</code>, <code>{</code>, <code>my great key</code>).</p>
 <p>PostgreSQL allows us to create compound types that we can then use as
 the base of an array:</p>
-<pre><code>DROP TYPE IF EXISTS json_token CASCADE;
-CREATE TYPE json_token AS (
-  kind text,
-  value text
-);
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nv">DROP</span><span class="w"> </span><span class="nv">TYPE</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="nv">EXISTS</span><span class="w"> </span><span class="nv">json_token</span><span class="w"> </span><span class="nv">CASCADE</span><span class="c1">;</span>
+<span class="nv">CREATE</span><span class="w"> </span><span class="nv">TYPE</span><span class="w"> </span><span class="nv">json_token</span><span class="w"> </span><span class="nv">AS</span><span class="w"> </span><span class="ss">(</span>
+<span class="w">  </span><span class="nv">kind</span><span class="w"> </span><span class="nv">text</span>,
+<span class="w">  </span><span class="nv">value</span><span class="w"> </span><span class="nv">text</span>
+<span class="ss">)</span><span class="c1">;</span>
+</pre></div>
 <p>We need to add <code>CASCADE</code> here because functions will have this type in
 their signature and it otherwise makes PostgreSQL unhappy to delete
 the type used in a function before deleting the function.</p>
@@ -216,200 +215,200 @@ the type used in a function before deleting the function.</p>
 <p>Now we're ready to build out the lexer.</p>
 <h3 id="lexing">Lexing</h3><p>The lexers job is to clump together groups of characters into tokens.</p>
 <p>I'm going to describe this function in literate code.</p>
-<pre><code class="hljs sql">CREATE OR REPLACE FUNCTION json_lex(j text, OUT ts json_token[]) RETURNS json_token[] AS $$
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">json_lex</span><span class="p">(</span><span class="n">j</span><span class="w"> </span><span class="nb">text</span><span class="p">,</span><span class="w"> </span><span class="k">OUT</span><span class="w"> </span><span class="n">ts</span><span class="w"> </span><span class="n">json_token</span><span class="p">[])</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="n">json_token</span><span class="p">[]</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
+</pre></div>
 <p>This function takes a string in and returns an array of json tokens.</p>
-<pre><code class="hljs sql">DECLARE 
-  i int = 1; -- Index in loop
-  c text; -- Current character in loop
-  token text; -- Current accumulated characters
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">DECLARE</span><span class="w"> </span>
+<span class="w">  </span><span class="n">i</span><span class="w"> </span><span class="nb">int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="c1">-- Index in loop</span>
+<span class="w">  </span><span class="k">c</span><span class="w"> </span><span class="nb">text</span><span class="p">;</span><span class="w"> </span><span class="c1">-- Current character in loop</span>
+<span class="w">  </span><span class="n">token</span><span class="w"> </span><span class="nb">text</span><span class="p">;</span><span class="w"> </span><span class="c1">-- Current accumulated characters</span>
+</pre></div>
 <p>We need to declare all variables up front.</p>
-<pre><code class="hljs sql">BEGIN
-  WHILE i &lt; length(j) + 1 LOOP
-    c = substr(j, i, 1);
-    token = &#39;&#39;;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">BEGIN</span>
+<span class="w">  </span><span class="n">WHILE</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="k">length</span><span class="p">(</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">LOOP</span>
+<span class="w">    </span><span class="k">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">substr</span><span class="p">(</span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">    </span><span class="n">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+</pre></div>
 <p>The main loop just looks at all characters.</p>
-<pre><code class="hljs sql">    -- Handle syntax characters
-    IF c = &#39;{&#39; OR c = &#39;}&#39; OR c = &#39;,&#39; OR c = &#39;:&#39; THEN
-      ts = array_append(ts, (&#39;syntax&#39;, c)::json_token);
-      i = i + 1;
-      CONTINUE;
-    END IF;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="c1">-- Handle syntax characters</span>
+<span class="w">    </span><span class="k">IF</span><span class="w"> </span><span class="k">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;{&#39;</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;}&#39;</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;,&#39;</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;:&#39;</span><span class="w"> </span><span class="k">THEN</span>
+<span class="w">      </span><span class="n">ts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">array_append</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;syntax&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">c</span><span class="p">)::</span><span class="n">json_token</span><span class="p">);</span>
+<span class="w">      </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">      </span><span class="k">CONTINUE</span><span class="p">;</span>
+<span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="k">IF</span><span class="p">;</span>
+</pre></div>
 <p>First we look if the character is a syntax character. If it is we
 append it to the array of tokens, increment the index, and go back to
 the start of the main loop.</p>
-<pre><code class="hljs sql">    -- Handle whitespace
-    IF regexp_replace(c, &#39;^\s+&#39;, &#39;&#39;) = &#39;&#39; THEN
-      i = i + 1;
-      CONTINUE;
-    END IF;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="c1">-- Handle whitespace</span>
+<span class="w">    </span><span class="k">IF</span><span class="w"> </span><span class="n">regexp_replace</span><span class="p">(</span><span class="k">c</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;^\s+&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="k">THEN</span>
+<span class="w">      </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">      </span><span class="k">CONTINUE</span><span class="p">;</span>
+<span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="k">IF</span><span class="p">;</span>
+</pre></div>
 <p>Then we check for whitespace characters. If replacing all whitespace
 characters returns an empty string then we know it's whitespace. We
 could also have done something like <code>IF c = ' ' OR c = '\n'
 ... THEN</code> instead.</p>
 <p>Same as before though if we find whitespace characters we move on
 (don't accumulate them) and restart the main loop.</p>
-<pre><code class="hljs sql">    -- Handle strings
-    IF c = &#39;&quot;&#39; THEN
-      i = i + 1;
-      c = substr(j, i, 1);
-      WHILE c &lt;&gt; &#39;&quot;&#39; LOOP
-        token = token || c;
-        i = i + 1;
-        c = substr(j, i, 1);
-      END LOOP;
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="c1">-- Handle strings</span>
+<span class="w">    </span><span class="k">IF</span><span class="w"> </span><span class="k">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&quot;&#39;</span><span class="w"> </span><span class="k">THEN</span>
+<span class="w">      </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">      </span><span class="k">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">substr</span><span class="p">(</span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">      </span><span class="n">WHILE</span><span class="w"> </span><span class="k">c</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">&#39;&quot;&#39;</span><span class="w"> </span><span class="n">LOOP</span>
+<span class="w">        </span><span class="n">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">token</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="k">c</span><span class="p">;</span>
+<span class="w">        </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">        </span><span class="k">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">substr</span><span class="p">(</span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">      </span><span class="k">END</span><span class="w"> </span><span class="n">LOOP</span><span class="p">;</span>
 
-      i = i + 1;
-      ts = array_append(ts, (&#39;string&#39;, token)::json_token);
-      CONTINUE;
-    END IF;
-</code></pre>
+<span class="w">      </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">      </span><span class="n">ts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">array_append</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;string&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">token</span><span class="p">)::</span><span class="n">json_token</span><span class="p">);</span>
+<span class="w">      </span><span class="k">CONTINUE</span><span class="p">;</span>
+<span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="k">IF</span><span class="p">;</span>
+</pre></div>
 <p>Next we loop through any strings we find and accumulate them as tokens
 before restarting the main loop.</p>
-<pre><code class="hljs sql">    -- Handle numbers
-    WHILE c ~ &#39;^[0-9]+$&#39; LOOP
-      token = token || c;
-      i = i + 1;
-      c = substr(j, i, 1);
-    END LOOP;
-    IF length(token) &gt; 0 THEN
-      ts = array_append(ts, (&#39;number&#39;, token)::json_token);
-      CONTINUE;
-    END IF;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="c1">-- Handle numbers</span>
+<span class="w">    </span><span class="n">WHILE</span><span class="w"> </span><span class="k">c</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="s1">&#39;^[0-9]+$&#39;</span><span class="w"> </span><span class="n">LOOP</span>
+<span class="w">      </span><span class="n">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">token</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="k">c</span><span class="p">;</span>
+<span class="w">      </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">      </span><span class="k">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">substr</span><span class="p">(</span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="n">LOOP</span><span class="p">;</span>
+<span class="w">    </span><span class="k">IF</span><span class="w"> </span><span class="k">length</span><span class="p">(</span><span class="n">token</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">THEN</span>
+<span class="w">      </span><span class="n">ts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">array_append</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;number&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">token</span><span class="p">)::</span><span class="n">json_token</span><span class="p">);</span>
+<span class="w">      </span><span class="k">CONTINUE</span><span class="p">;</span>
+<span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="k">IF</span><span class="p">;</span>
+</pre></div>
 <p>Then we look for integers.</p>
-<pre><code class="hljs sql">    RAISE EXCEPTION &#39;Unknown character: %, at index: %; already found: %.&#39;, c, i, ts;
-  END LOOP;
-END;
-$$ LANGUAGE plpgsql;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="n">RAISE</span><span class="w"> </span><span class="k">EXCEPTION</span><span class="w"> </span><span class="s1">&#39;Unknown character: %, at index: %; already found: %.&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">c</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">ts</span><span class="p">;</span>
+<span class="w">  </span><span class="k">END</span><span class="w"> </span><span class="n">LOOP</span><span class="p">;</span>
+<span class="k">END</span><span class="p">;</span>
+<span class="err">$$</span><span class="w"> </span><span class="k">LANGUAGE</span><span class="w"> </span><span class="n">plpgsql</span><span class="p">;</span>
+</pre></div>
 <p>Lastly if none of those lexing handlers match, we give up! Then the
 loop is done and the function is too.</p>
 <p>There's no <code>RETURN</code> statement because we already declared an <code>OUT</code>
 variable.</p>
 <p>If we test and run this now:</p>
-<pre><code class="hljs bash">./test.sh ./json.sql &quot;SELECT json_lex(&#39;{\&quot;flubberty\&quot;: 12, \&quot;nice\&quot;: \&quot;a\&quot;}&#39;)&quot;
-                                                                json_lex
+<div class="highlight"><pre><span></span>./test.sh<span class="w"> </span>./json.sql<span class="w"> </span><span class="s2">&quot;SELECT json_lex(&#39;{\&quot;flubberty\&quot;: 12, \&quot;nice\&quot;: \&quot;a\&quot;}&#39;)&quot;</span>
+<span class="w">                                                                </span>json_lex
 ----------------------------------------------------------------------------------------------------------------------------------------
- {&quot;(syntax,{)&quot;,&quot;(string,flubberty)&quot;,&quot;(syntax,:)&quot;,&quot;(number,12)&quot;,&quot;(syntax,\&quot;,\&quot;)&quot;,&quot;(string,nice)&quot;,&quot;(syntax,:)&quot;,&quot;(string,a)&quot;,&quot;(syntax,})&quot;}
-(1 row)
-</code></pre>
+<span class="w"> </span><span class="o">{</span><span class="s2">&quot;(syntax,{)&quot;</span>,<span class="s2">&quot;(string,flubberty)&quot;</span>,<span class="s2">&quot;(syntax,:)&quot;</span>,<span class="s2">&quot;(number,12)&quot;</span>,<span class="s2">&quot;(syntax,\&quot;,\&quot;)&quot;</span>,<span class="s2">&quot;(string,nice)&quot;</span>,<span class="s2">&quot;(syntax,:)&quot;</span>,<span class="s2">&quot;(string,a)&quot;</span>,<span class="s2">&quot;(syntax,})&quot;</span><span class="o">}</span>
+<span class="o">(</span><span class="m">1</span><span class="w"> </span>row<span class="o">)</span>
+</pre></div>
 <p>It's messy but it worked! Now on to parsing.</p>
 <h3 id="parsing">Parsing</h3><p>Our parser will only accept JSON objects. JSON objects will be defined
 as an array of key-value pairs. Custom types make this nice again.</p>
-<pre><code class="hljs sql">DROP TYPE IF EXISTS json_key_value CASCADE;
-CREATE TYPE json_key_value AS (
-  k text,
-  v text
-);
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">DROP</span><span class="w"> </span><span class="k">TYPE</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">json_key_value</span><span class="w"> </span><span class="k">CASCADE</span><span class="p">;</span>
+<span class="k">CREATE</span><span class="w"> </span><span class="k">TYPE</span><span class="w"> </span><span class="n">json_key_value</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="p">(</span>
+<span class="w">  </span><span class="n">k</span><span class="w"> </span><span class="nb">text</span><span class="p">,</span>
+<span class="w">  </span><span class="n">v</span><span class="w"> </span><span class="nb">text</span>
+<span class="p">);</span>
+</pre></div>
 <p>One thing PostgreSQL does not make nice is sum types or parametric
 types. But even if the value here is stored as text it can be easily
 cast to a number by the user. And again, we're not going to support
 nested objects/arrays. But using <code>hstore</code> for key-values might be the
 better alternative if we wanted to build a real JSON parser.</p>
-<pre><code class="hljs sql">CREATE OR REPLACE FUNCTION json_parse(ts json_token[], i int) RETURNS json_key_value[] AS $$
-DECLARE
-  t json_token; -- Current token in tokens loop
-  kvs json_key_value[];
-  k text;
-BEGIN
-  t = ts[i];
+<div class="highlight"><pre><span></span><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">json_parse</span><span class="p">(</span><span class="n">ts</span><span class="w"> </span><span class="n">json_token</span><span class="p">[],</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="nb">int</span><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="n">json_key_value</span><span class="p">[]</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
+<span class="k">DECLARE</span>
+<span class="w">  </span><span class="n">t</span><span class="w"> </span><span class="n">json_token</span><span class="p">;</span><span class="w"> </span><span class="c1">-- Current token in tokens loop</span>
+<span class="w">  </span><span class="n">kvs</span><span class="w"> </span><span class="n">json_key_value</span><span class="p">[];</span>
+<span class="w">  </span><span class="n">k</span><span class="w"> </span><span class="nb">text</span><span class="p">;</span>
+<span class="k">BEGIN</span>
+<span class="w">  </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ts</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
 
-  IF t.kind &lt;&gt; &#39;syntax&#39; OR t.value &lt;&gt; &#39;{&#39; THEN
-    RAISE EXCEPTION &#39;Invalid JSON, must be an object, got: %.&#39;, t;
-  END IF;
-  i = i + 1;
-  t = ts[i];
-</code></pre>
+<span class="w">  </span><span class="k">IF</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">kind</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">&#39;syntax&#39;</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">value</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">&#39;{&#39;</span><span class="w"> </span><span class="k">THEN</span>
+<span class="w">    </span><span class="n">RAISE</span><span class="w"> </span><span class="k">EXCEPTION</span><span class="w"> </span><span class="s1">&#39;Invalid JSON, must be an object, got: %.&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">;</span>
+<span class="w">  </span><span class="k">END</span><span class="w"> </span><span class="k">IF</span><span class="p">;</span>
+<span class="w">  </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ts</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+</pre></div>
 <p>First up in the parser is variable declarations and validating that
 this list of tokens represents a JSON object.</p>
-<pre><code class="hljs sql">  WHILE t.kind &lt;&gt; &#39;syntax&#39; OR t.value &lt;&gt; &#39;}&#39; LOOP
-    IF array_length(kvs, 1) &gt; 0 THEN
-      IF t.kind &lt;&gt; &#39;syntax&#39; OR t.value &lt;&gt; &#39;,&#39; THEN
-        RAISE EXCEPTION &#39;JSON key-value pair must be followed by a comma or closing brace, got: %.&#39;, t;
-      END IF;
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="n">WHILE</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">kind</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">&#39;syntax&#39;</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">value</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">&#39;}&#39;</span><span class="w"> </span><span class="n">LOOP</span>
+<span class="w">    </span><span class="k">IF</span><span class="w"> </span><span class="n">array_length</span><span class="p">(</span><span class="n">kvs</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">THEN</span>
+<span class="w">      </span><span class="k">IF</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">kind</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">&#39;syntax&#39;</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">value</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">&#39;,&#39;</span><span class="w"> </span><span class="k">THEN</span>
+<span class="w">        </span><span class="n">RAISE</span><span class="w"> </span><span class="k">EXCEPTION</span><span class="w"> </span><span class="s1">&#39;JSON key-value pair must be followed by a comma or closing brace, got: %.&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">;</span>
+<span class="w">      </span><span class="k">END</span><span class="w"> </span><span class="k">IF</span><span class="p">;</span>
 
-      i = i + 1;
-      t = ts[i];
-    END IF;
-</code></pre>
+<span class="w">      </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">      </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ts</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="k">IF</span><span class="p">;</span>
+</pre></div>
 <p>Then we loop to find each key-value pair. If one has already been
 found, we need to find a comma before the next pair.</p>
-<pre><code class="hljs sql">    IF t.kind &lt;&gt; &#39;string&#39; THEN
-      RAISE EXCEPTION &#39;JSON object must start with string key, got: %.&#39;, t;
-    END IF;
-    k = t.value;
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">IF</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">kind</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="w"> </span><span class="k">THEN</span>
+<span class="w">      </span><span class="n">RAISE</span><span class="w"> </span><span class="k">EXCEPTION</span><span class="w"> </span><span class="s1">&#39;JSON object must start with string key, got: %.&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">;</span>
+<span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="k">IF</span><span class="p">;</span>
+<span class="w">    </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">value</span><span class="p">;</span>
 
-    i = i + 1;
-    t = ts[i];
-    IF t.kind &lt;&gt; &#39;syntax&#39; OR t.value &lt;&gt; &#39;:&#39; THEN
-      RAISE EXCEPTION &#39;JSON object must start with string key followed by colon, got: %.&#39;, t;
-    END IF;
+<span class="w">    </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ts</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">    </span><span class="k">IF</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">kind</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">&#39;syntax&#39;</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">value</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">&#39;:&#39;</span><span class="w"> </span><span class="k">THEN</span>
+<span class="w">      </span><span class="n">RAISE</span><span class="w"> </span><span class="k">EXCEPTION</span><span class="w"> </span><span class="s1">&#39;JSON object must start with string key followed by colon, got: %.&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">;</span>
+<span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="k">IF</span><span class="p">;</span>
 
-    i = i + 1;
-    t = ts[i];
-    IF t.kind = &#39;number&#39; OR t.kind = &#39;string&#39; THEN
-      kvs = array_append(kvs, (k, t)::json_key_value);
-      i = i + 1;
-      t = ts[i];
-      CONTINUE;
-    END IF;
+<span class="w">    </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ts</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">    </span><span class="k">IF</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">kind</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;number&#39;</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">kind</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="w"> </span><span class="k">THEN</span>
+<span class="w">      </span><span class="n">kvs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">array_append</span><span class="p">(</span><span class="n">kvs</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">)::</span><span class="n">json_key_value</span><span class="p">);</span>
+<span class="w">      </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">      </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ts</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">      </span><span class="k">CONTINUE</span><span class="p">;</span>
+<span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="k">IF</span><span class="p">;</span>
 
-    RAISE EXCEPTION &#39;Invalid key-value pair syntax, got: %.&#39;, t;
-  END LOOP;
+<span class="w">    </span><span class="n">RAISE</span><span class="w"> </span><span class="k">EXCEPTION</span><span class="w"> </span><span class="s1">&#39;Invalid key-value pair syntax, got: %.&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">;</span>
+<span class="w">  </span><span class="k">END</span><span class="w"> </span><span class="n">LOOP</span><span class="p">;</span>
 
-  RETURN kvs;
-END;
-$$ LANGUAGE plpgsql;
-</code></pre>
+<span class="w">  </span><span class="k">RETURN</span><span class="w"> </span><span class="n">kvs</span><span class="p">;</span>
+<span class="k">END</span><span class="p">;</span>
+<span class="err">$$</span><span class="w"> </span><span class="k">LANGUAGE</span><span class="w"> </span><span class="n">plpgsql</span><span class="p">;</span>
+</pre></div>
 <p>Then we just look for the key, colon, value syntax and fail if we
 don't see it. And that's it! Very simple when not dealing with arrays
 and nested objects.</p>
 <h3 id="helpers">Helpers</h3><p>Lastly it would just be nice to have a single function that calls lex and parse:</p>
-<pre><code class="hljs sql">CREATE OR REPLACE FUNCTION json_from_string(s text) RETURNS json_key_value[] AS $$
-BEGIN
-  RETURN json_parse(json_lex(s), 1);
-END;
-$$ LANGUAGE plpgsql;
-</code></pre>
+<div class="highlight"><pre><span></span><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">json_from_string</span><span class="p">(</span><span class="n">s</span><span class="w"> </span><span class="nb">text</span><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="n">json_key_value</span><span class="p">[]</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
+<span class="k">BEGIN</span>
+<span class="w">  </span><span class="k">RETURN</span><span class="w"> </span><span class="n">json_parse</span><span class="p">(</span><span class="n">json_lex</span><span class="p">(</span><span class="n">s</span><span class="p">),</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="k">END</span><span class="p">;</span>
+<span class="err">$$</span><span class="w"> </span><span class="k">LANGUAGE</span><span class="w"> </span><span class="n">plpgsql</span><span class="p">;</span>
+</pre></div>
 <p>And another function to look up a value in a parsed object by key:</p>
-<pre><code class="hljs sql">CREATE OR REPLACE FUNCTION json_get(kvs json_key_value[], key text) RETURNS text AS $$
-DECLARE
-  kv json_key_value;
-BEGIN
-  FOREACH kv IN ARRAY kvs LOOP
-    IF kv.k = key THEN RETURN (kv.v::json_token).value; END IF;
-  END LOOP;
+<div class="highlight"><pre><span></span><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">json_get</span><span class="p">(</span><span class="n">kvs</span><span class="w"> </span><span class="n">json_key_value</span><span class="p">[],</span><span class="w"> </span><span class="k">key</span><span class="w"> </span><span class="nb">text</span><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="nb">text</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
+<span class="k">DECLARE</span>
+<span class="w">  </span><span class="n">kv</span><span class="w"> </span><span class="n">json_key_value</span><span class="p">;</span>
+<span class="k">BEGIN</span>
+<span class="w">  </span><span class="n">FOREACH</span><span class="w"> </span><span class="n">kv</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="nb">ARRAY</span><span class="w"> </span><span class="n">kvs</span><span class="w"> </span><span class="n">LOOP</span>
+<span class="w">    </span><span class="k">IF</span><span class="w"> </span><span class="n">kv</span><span class="p">.</span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">key</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="k">RETURN</span><span class="w"> </span><span class="p">(</span><span class="n">kv</span><span class="p">.</span><span class="n">v</span><span class="p">::</span><span class="n">json_token</span><span class="p">).</span><span class="n">value</span><span class="p">;</span><span class="w"> </span><span class="k">END</span><span class="w"> </span><span class="k">IF</span><span class="p">;</span>
+<span class="w">  </span><span class="k">END</span><span class="w"> </span><span class="n">LOOP</span><span class="p">;</span>
 
-  RAISE EXCEPTION &#39;Key not found.&#39;;
-END;
-$$ LANGUAGE plpgsql;
-</code></pre>
+<span class="w">  </span><span class="n">RAISE</span><span class="w"> </span><span class="k">EXCEPTION</span><span class="w"> </span><span class="s1">&#39;Key not found.&#39;</span><span class="p">;</span>
+<span class="k">END</span><span class="p">;</span>
+<span class="err">$$</span><span class="w"> </span><span class="k">LANGUAGE</span><span class="w"> </span><span class="n">plpgsql</span><span class="p">;</span>
+</pre></div>
 <p>And we're all set!</p>
 <h3 id="testing">Testing</h3><p>Let's try some bad syntax (missing a comma between pairs):</p>
-<pre><code class="hljs bash">./test.sh ./json.sql &quot;SELECT json_get(json_from_string(&#39;{\&quot;flubberty\&quot;: 12 \&quot;nice\&quot;: \&quot;a\&quot;}&#39;), &#39;ipo&#39;)&quot;
-ERROR:  JSON key-value pair must be followed by a comma or closing brace, got: (string,nice).
-CONTEXT:  PL/pgSQL function json_parse(json_token[],integer) line 18 at RAISE
-PL/pgSQL function json_from_string(text) line 3 at RETURN
-</code></pre>
+<div class="highlight"><pre><span></span>./test.sh<span class="w"> </span>./json.sql<span class="w"> </span><span class="s2">&quot;SELECT json_get(json_from_string(&#39;{\&quot;flubberty\&quot;: 12 \&quot;nice\&quot;: \&quot;a\&quot;}&#39;), &#39;ipo&#39;)&quot;</span>
+ERROR:<span class="w">  </span>JSON<span class="w"> </span>key-value<span class="w"> </span>pair<span class="w"> </span>must<span class="w"> </span>be<span class="w"> </span>followed<span class="w"> </span>by<span class="w"> </span>a<span class="w"> </span>comma<span class="w"> </span>or<span class="w"> </span>closing<span class="w"> </span>brace,<span class="w"> </span>got:<span class="w"> </span><span class="o">(</span>string,nice<span class="o">)</span>.
+CONTEXT:<span class="w">  </span>PL/pgSQL<span class="w"> </span><span class="k">function</span><span class="w"> </span>json_parse<span class="o">(</span>json_token<span class="o">[]</span>,integer<span class="o">)</span><span class="w"> </span>line<span class="w"> </span><span class="m">18</span><span class="w"> </span>at<span class="w"> </span>RAISE
+PL/pgSQL<span class="w"> </span><span class="k">function</span><span class="w"> </span>json_from_string<span class="o">(</span>text<span class="o">)</span><span class="w"> </span>line<span class="w"> </span><span class="m">3</span><span class="w"> </span>at<span class="w"> </span>RETURN
+</pre></div>
 <p>Sweet, it fails correctly.</p>
 <p>Now correct syntax but missing key:</p>
-<pre><code class="hljs bash">./test.sh ./json.sql &quot;SELECT json_get(json_from_string(&#39;{\&quot;flubberty\&quot;: 12, \&quot;nice\&quot;: \&quot;a\&quot;}&#39;), &#39;ipo&#39;)&quot;
-ERROR:  Key not found.
-CONTEXT:  PL/pgSQL function json_get(json_key_value[],text) line 9 at RAISE
-</code></pre>
+<div class="highlight"><pre><span></span>./test.sh<span class="w"> </span>./json.sql<span class="w"> </span><span class="s2">&quot;SELECT json_get(json_from_string(&#39;{\&quot;flubberty\&quot;: 12, \&quot;nice\&quot;: \&quot;a\&quot;}&#39;), &#39;ipo&#39;)&quot;</span>
+ERROR:<span class="w">  </span>Key<span class="w"> </span>not<span class="w"> </span>found.
+CONTEXT:<span class="w">  </span>PL/pgSQL<span class="w"> </span><span class="k">function</span><span class="w"> </span>json_get<span class="o">(</span>json_key_value<span class="o">[]</span>,text<span class="o">)</span><span class="w"> </span>line<span class="w"> </span><span class="m">9</span><span class="w"> </span>at<span class="w"> </span>RAISE
+</pre></div>
 <p>And finally, correct syntax and existing key:</p>
-<pre><code class="hljs bash">./test.sh ./json.sql &quot;SELECT json_get(json_from_string(&#39;{\&quot;flubberty\&quot;: 12, \&quot;nice\&quot;: \&quot;a\&quot;}&#39;), &#39;flubberty&#39;)&quot;
- json_get
+<div class="highlight"><pre><span></span>./test.sh<span class="w"> </span>./json.sql<span class="w"> </span><span class="s2">&quot;SELECT json_get(json_from_string(&#39;{\&quot;flubberty\&quot;: 12, \&quot;nice\&quot;: \&quot;a\&quot;}&#39;), &#39;flubberty&#39;)&quot;</span>
+<span class="w"> </span>json_get
 ----------
- 12
-(1 row)
-</code></pre>
+<span class="w"> </span><span class="m">12</span>
+<span class="o">(</span><span class="m">1</span><span class="w"> </span>row<span class="o">)</span>
+</pre></div>
 <p>Huzzah! Now hopefully PL/pgSQL is a little less scary to you, whether
 or not you decide to use it.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">For everyone dying to write imperative code in PostgreSQL, I wrote a post about PL/pgSQL 👽 It starts with implementing simple string and array functions, to recursive Fibonacci, to a small JSON parsing library. A nice little language with a great stdlib!<a href="https://t.co/m4Tff99N6R">https://t.co/m4Tff99N6R</a> <a href="https://t.co/2ZMJn2foNa">pic.twitter.com/2ZMJn2foNa</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1452339113131139072?ref_src=twsrc%5Etfw">October 24, 2021</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
@@ -1047,7 +1046,6 @@ or not you decide to use it.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

@@ -6,7 +6,6 @@
     <title>Writing a lisp compiler from scratch in JavaScript: 6. LLVM system calls | notes.eatonphil.com</title>
     <meta name="description" content="Writing a lisp compiler from scratch in JavaScript: 6. LLVM system calls" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -77,19 +76,19 @@ argument.</p>
 print one character at a time. Here's a version of a <code>print</code>
 form that hacks around not having arrays to send each integer in a
 number to stdout.</p>
-<pre><code class="hljs lisp">(def print-char (c)
-     ; First argument is stdout
-     ; Second argument is a pointer to a char array (of length one)
-     ; Third argument is the length of the char array
-     (syscall/sys_write 1 &amp;c 1))
+<div class="highlight"><pre><span></span><span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">print-char</span><span class="w"> </span><span class="p">(</span><span class="nv">c</span><span class="p">)</span>
+<span class="w">     </span><span class="c1">; First argument is stdout</span>
+<span class="w">     </span><span class="c1">; Second argument is a pointer to a char array (of length one)</span>
+<span class="w">     </span><span class="c1">; Third argument is the length of the char array</span>
+<span class="w">     </span><span class="p">(</span><span class="nv">syscall/sys_write</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="nv">&amp;c</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span>
 
-(def print (n)
-     (if (&gt; n 9)
-         (print (/ n 10)))
+<span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nb">print</span><span class="w"> </span><span class="p">(</span><span class="nv">n</span><span class="p">)</span>
+<span class="w">     </span><span class="p">(</span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">&gt;</span><span class="w"> </span><span class="nv">n</span><span class="w"> </span><span class="mi">9</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nb">print</span><span class="w"> </span><span class="p">(</span><span class="nb">/</span><span class="w"> </span><span class="nv">n</span><span class="w"> </span><span class="mi">10</span><span class="p">)))</span>
 
-     ; 48 is the ASCII code for &#39;0&#39;
-     (print-char (+ 48 (% n 10))))
-</code></pre>
+<span class="w">     </span><span class="c1">; 48 is the ASCII code for &#39;0&#39;</span>
+<span class="w">     </span><span class="p">(</span><span class="nv">print-char</span><span class="w"> </span><span class="p">(</span><span class="nb">+</span><span class="w"> </span><span class="mi">48</span><span class="w"> </span><span class="p">(</span><span class="nv">%</span><span class="w"> </span><span class="nv">n</span><span class="w"> </span><span class="mi">10</span><span class="p">))))</span>
+</pre></div>
 <p>In order to support this we need to add the
 <code>syscall/sys_write</code>, <code>></code>, <code>%</code>,
 and <code>/</code> builtin forms. We'll also need to add support for
@@ -116,28 +115,28 @@ types rather than hard-coding <code>i64</code> everywhere.</p>
 only need to do this on registration. Afterward, we'll have to find
 all uses of local variables to make sure they use the
 local's <code>value</code> and <code>type</code> fields appropriately.</p>
-<pre><code class="hljs javascript">class Scope {
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Scope</span><span class="w"> </span><span class="p">{</span>
 
-  ...
+<span class="w">  </span><span class="p">...</span>
 
-  register(local) {
-    let copy = local.replace(&#39;-&#39;, &#39;_&#39;);
-    let n = 1;
-    while (this.locals[copy]) {
-      copy = local + n++;
-    }
+<span class="w">  </span><span class="nx">register</span><span class="p">(</span><span class="nx">local</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">copy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">local</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1</span><span class="p">;</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">locals</span><span class="p">[</span><span class="nx">copy</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">copy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">local</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">n</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    this.locals[local] = {
-      value: copy,
-      type: &#39;i64&#39;,
-    };
-    return this.locals[local];
-  }
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">locals</span><span class="p">[</span><span class="nx">local</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">value</span><span class="o">:</span><span class="w"> </span><span class="nx">copy</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">type</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;i64&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">locals</span><span class="p">[</span><span class="nx">local</span><span class="p">];</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
+<span class="w">  </span><span class="p">...</span>
 
-}
-</code></pre>
+<span class="p">}</span>
+</pre></div>
 <p>We won't go through every use of a <code>Scope</code> variable in this
 post, but you can find it in the related <a href="https://github.com/eatonphil/ulisp/commit/213b83b8e952c210ba408bf38e59ae677d19e643">commit to
 ulisp</a>.</p>
@@ -150,33 +149,33 @@ the stack. This will return a pointer and will turn the destination
 variable into a pointer type. Then we'll use <code>store</code> to set
 the value at the address to the current value of the variable being
 referenced.</p>
-<pre><code class="hljs javascript">class Compiler {
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
 
-  ...
+<span class="w">  </span><span class="p">...</span>
 
-  compileExpression(exp, destination, context) {
+<span class="w">  </span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">exp</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">context</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 
-    ...
+<span class="w">    </span><span class="p">...</span>
 
-    // Is a reference, push onto the stack and return its address
-    if (exp.startsWith(&#39;&amp;&#39;)) {
-      const symbol = exp.substring(1);
-      const tmp = context.scope.symbol();
-      this.compileExpression(symbol, tmp, context);
-      this.emit(1, `%${destination.value} = alloca ${tmp.type}, align 4`);
-      destination.type = tmp.type + &#39;*&#39;;
-      this.emit(1, `store ${tmp.type} %${tmp.value}, ${destination.type} %${destination.value}, align 4`);
-      return;
-    }
+<span class="w">    </span><span class="c1">// Is a reference, push onto the stack and return its address</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">exp</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;&amp;&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">symbol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">exp</span><span class="p">.</span><span class="nx">substring</span><span class="p">(</span><span class="mf">1</span><span class="p">);</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">tmp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">();</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">symbol</span><span class="p">,</span><span class="w"> </span><span class="nx">tmp</span><span class="p">,</span><span class="w"> </span><span class="nx">context</span><span class="p">);</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`%</span><span class="si">${</span><span class="nx">destination</span><span class="p">.</span><span class="nx">value</span><span class="si">}</span><span class="sb"> = alloca </span><span class="si">${</span><span class="nx">tmp</span><span class="p">.</span><span class="nx">type</span><span class="si">}</span><span class="sb">, align 4`</span><span class="p">);</span>
+<span class="w">      </span><span class="nx">destination</span><span class="p">.</span><span class="nx">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">tmp</span><span class="p">.</span><span class="nx">type</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39;*&#39;</span><span class="p">;</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`store </span><span class="si">${</span><span class="nx">tmp</span><span class="p">.</span><span class="nx">type</span><span class="si">}</span><span class="sb"> %</span><span class="si">${</span><span class="nx">tmp</span><span class="p">.</span><span class="nx">value</span><span class="si">}</span><span class="sb">, </span><span class="si">${</span><span class="nx">destination</span><span class="p">.</span><span class="nx">type</span><span class="si">}</span><span class="sb"> %</span><span class="si">${</span><span class="nx">destination</span><span class="p">.</span><span class="nx">value</span><span class="si">}</span><span class="sb">, align 4`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    ...
+<span class="w">    </span><span class="p">...</span>
 
-  }
+<span class="w">  </span><span class="p">}</span>
 
-  ...
+<span class="w">  </span><span class="p">...</span>
 
-}
-</code></pre>
+<span class="p">}</span>
+</pre></div>
 <p>And now we're set to take the address of any code.</p>
 <h3 id="system-calls">System calls</h3><p>LLVM IR provides no high-level means for making system calls. The
 only way is to use inline assembly. This syntax is based on GCC inline
@@ -186,8 +185,8 @@ error messages.</p>
 one word: the <code>syscall</code> assembly instruction. We use inline
 assembly variable-to-register mapping functionality to line up all the
 parameters for the syscall. Here is an example:</p>
-<pre><code class="hljs llvm">%result = call i64 asm sideeffect &quot;syscall&quot;, &quot;=r,{rax},{rdi},{rsi},{rdx}&quot; (i64 %raxArg, i64 %rdiArg, i64 %rsiArg, i64 %rdxArg)
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nv">%result</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="k">call</span><span class="w"> </span><span class="kt">i64</span><span class="w"> </span><span class="k">asm</span><span class="w"> </span><span class="k">sideeffect</span><span class="w"> </span><span class="s">&quot;syscall&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;=r,{rax},{rdi},{rsi},{rdx}&quot;</span><span class="w"> </span><span class="p">(</span><span class="kt">i64</span><span class="w"> </span><span class="nv">%raxArg</span><span class="p">,</span><span class="w"> </span><span class="kt">i64</span><span class="w"> </span><span class="nv">%rdiArg</span><span class="p">,</span><span class="w"> </span><span class="kt">i64</span><span class="w"> </span><span class="nv">%rsiArg</span><span class="p">,</span><span class="w"> </span><span class="kt">i64</span><span class="w"> </span><span class="nv">%rdxArg</span><span class="p">)</span>
+</pre></div>
 <p>This says to execute the inline assembly string,
 "syscall". The <code>sideeffect</code> flag means that this assembly
 should always be run even if the result isn't used. <code>=r</code>
@@ -201,99 +200,99 @@ we call the function with all the LLVM variables we want to be mapped.</p>
 </p><h4 id="code">Code</h4><p>We'll add a mapping for <code>syscall/sys_write</code> and a helper
 function for generating syscall code using the example above as a
 template. We'll suport 64-bit Darwin and Linux kernels.</p>
-<pre><code class="hljs javascript">const SYSCALL_TABLE = {
-  darwin: {
-    sys_write: 0x2000004,
-    sys_exit: 0x2000001,
-  },
-  linux: {
-    sys_write: 1,
-    sys_exit: 60,
-  },
-}[process.platform];
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">SYSCALL_TABLE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">darwin</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">sys_write</span><span class="o">:</span><span class="w"> </span><span class="mh">0x2000004</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">sys_exit</span><span class="o">:</span><span class="w"> </span><span class="mh">0x2000001</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">linux</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">sys_write</span><span class="o">:</span><span class="w"> </span><span class="mf">1</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">sys_exit</span><span class="o">:</span><span class="w"> </span><span class="mf">60</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="p">}[</span><span class="nx">process</span><span class="p">.</span><span class="nx">platform</span><span class="p">];</span>
 
-class Compiler {
-  constructor() {
-    this.outBuffer = [];
-    this.primitiveFunctions = {
-      def: this.compileDefine.bind(this),
-      begin: this.compileBegin.bind(this),
-      &#39;if&#39;: this.compileIf.bind(this),
-      &#39;+&#39;: this.compileOp(&#39;add&#39;),
-      &#39;-&#39;: this.compileOp(&#39;sub&#39;),
-      &#39;*&#39;: this.compileOp(&#39;mul&#39;),
-      &#39;%&#39;: this.compileOp(&#39;urem&#39;),
-      &#39;&lt;&#39;: this.compileOp(&#39;icmp slt&#39;),
-      &#39;=&#39;: this.compileOp(&#39;icmp eq&#39;),
-      &#39;syscall/sys_write&#39;: this.compileSyscall(SYSCALL_TABLE.sys_write),
-    };
-  }
+<span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">def</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileDefine</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="nx">begin</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileBegin</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;if&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileIf</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;+&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;add&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;-&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;sub&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;*&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;mul&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;%&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;urem&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;&lt;&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;icmp slt&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;=&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;icmp eq&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;syscall/sys_write&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileSyscall</span><span class="p">(</span><span class="nx">SYSCALL_TABLE</span><span class="p">.</span><span class="nx">sys_write</span><span class="p">),</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
+<span class="w">  </span><span class="p">...</span>
 
-  compileSyscall(id) {
-    return (args, destination, context) =&gt; {
-      const argTmps = args.map((arg) =&gt; {
-          const tmp = context.scope.symbol();
-          this.compileExpression(arg, tmp, context);
-          return tmp.type + &#39; %&#39; + tmp.value;
-      }).join(&#39;, &#39;);
-      const regs = [&#39;rdi&#39;, &#39;rsi&#39;, &#39;rdx&#39;, &#39;r10&#39;, &#39;r8&#39;, &#39;r9&#39;];
-      const params = args.map((arg, i) =&gt; `{${regs[i]}}`).join(&#39;,&#39;);
-      const idTmp = context.scope.symbol().value;
-      this.emit(1, `%${idTmp} = add i64 ${id}, 0`)
-      this.emit(1, `%${destination.value} = call ${destination.type} asm sideeffect &quot;syscall&quot;, &quot;=r,{rax},${params},~{dirflag},~{fpsr},~{flags}&quot; (i64 %${idTmp}, ${argTmps})`);
-    }
-  }
-}
-</code></pre>
+<span class="w">  </span><span class="nx">compileSyscall</span><span class="p">(</span><span class="nx">id</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">,</span><span class="w"> </span><span class="nx">context</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">argTmps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">args</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">arg</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="kd">const</span><span class="w"> </span><span class="nx">tmp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">();</span>
+<span class="w">          </span><span class="k">this</span><span class="p">.</span><span class="nx">compileExpression</span><span class="p">(</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">tmp</span><span class="p">,</span><span class="w"> </span><span class="nx">context</span><span class="p">);</span>
+<span class="w">          </span><span class="k">return</span><span class="w"> </span><span class="nx">tmp</span><span class="p">.</span><span class="nx">type</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39; %&#39;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">tmp</span><span class="p">.</span><span class="nx">value</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}).</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;, &#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">regs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;rdi&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;rsi&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;rdx&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;r10&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;r8&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;r9&#39;</span><span class="p">];</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">params</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">args</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">arg</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="sb">`{</span><span class="si">${</span><span class="nx">regs</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span><span class="si">}</span><span class="sb">}`</span><span class="p">).</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">idTmp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">scope</span><span class="p">.</span><span class="nx">symbol</span><span class="p">().</span><span class="nx">value</span><span class="p">;</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`%</span><span class="si">${</span><span class="nx">idTmp</span><span class="si">}</span><span class="sb"> = add i64 </span><span class="si">${</span><span class="nx">id</span><span class="si">}</span><span class="sb">, 0`</span><span class="p">)</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`%</span><span class="si">${</span><span class="nx">destination</span><span class="p">.</span><span class="nx">value</span><span class="si">}</span><span class="sb"> = call </span><span class="si">${</span><span class="nx">destination</span><span class="p">.</span><span class="nx">type</span><span class="si">}</span><span class="sb"> asm sideeffect &quot;syscall&quot;, &quot;=r,{rax},</span><span class="si">${</span><span class="nx">params</span><span class="si">}</span><span class="sb">,~{dirflag},~{fpsr},~{flags}&quot; (i64 %</span><span class="si">${</span><span class="nx">idTmp</span><span class="si">}</span><span class="sb">, </span><span class="si">${</span><span class="nx">argTmps</span><span class="si">}</span><span class="sb">)`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <h3 id="<code>></code>,-<code>/</code>"><code>></code>, <code>/</code></h3><p>Finally, we have a few new operations to add support for. But they'll
 be pretty simple using the <code>compileOp</code> helper function.</p>
-<pre><code class="hljs javascript">class Compiler {
-  constructor() {
-    this.outBuffer = [];
-    this.primitiveFunctions = {
-      def: this.compileDefine.bind(this),
-      begin: this.compileBegin.bind(this),
-      &#39;if&#39;: this.compileIf.bind(this),
-      &#39;+&#39;: this.compileOp(&#39;add&#39;),
-      &#39;-&#39;: this.compileOp(&#39;sub&#39;),
-      &#39;*&#39;: this.compileOp(&#39;mul&#39;),
-      &#39;/&#39;: this.compileOp(&#39;udiv&#39;),
-      &#39;%&#39;: this.compileOp(&#39;urem&#39;),
-      &#39;&lt;&#39;: this.compileOp(&#39;icmp slt&#39;),
-      &#39;&gt;&#39;: this.compileOp(&#39;icmp sgt&#39;),
-      &#39;=&#39;: this.compileOp(&#39;icmp eq&#39;),
-      &#39;syscall/sys_write&#39;: this.compileSyscall(SYSCALL_TABLE.sys_write),
-    };
-  }
+<div class="highlight"><pre><span></span><span class="kd">class</span><span class="w"> </span><span class="nx">Compiler</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">outBuffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">primitiveFunctions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">def</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileDefine</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="nx">begin</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileBegin</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;if&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileIf</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;+&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;add&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;-&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;sub&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;*&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;mul&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;/&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;udiv&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;%&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;urem&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;&lt;&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;icmp slt&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;&gt;&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;icmp sgt&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;=&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileOp</span><span class="p">(</span><span class="s1">&#39;icmp eq&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="s1">&#39;syscall/sys_write&#39;</span><span class="o">:</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">compileSyscall</span><span class="p">(</span><span class="nx">SYSCALL_TABLE</span><span class="p">.</span><span class="nx">sys_write</span><span class="p">),</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
 
-  ...
+<span class="w">  </span><span class="p">...</span>
 
-}
-</code></pre>
+<span class="p">}</span>
+</pre></div>
 <h3 id="print">print</h3><p>We're ready to give our print function a shot.</p>
-<pre><code class="hljs bash">$ cat test.lisp
-(def print-char (c)
-     ; First argument is stdout
-     ; Second argument is a pointer to a char array (of length one)
-     ; Third argument is the length of the char array
-     (syscall/sys_write 1 &amp;c 1))
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>test.lisp
+<span class="o">(</span>def<span class="w"> </span>print-char<span class="w"> </span><span class="o">(</span>c<span class="o">)</span>
+<span class="w">     </span><span class="p">;</span><span class="w"> </span>First<span class="w"> </span>argument<span class="w"> </span>is<span class="w"> </span>stdout
+<span class="w">     </span><span class="p">;</span><span class="w"> </span>Second<span class="w"> </span>argument<span class="w"> </span>is<span class="w"> </span>a<span class="w"> </span>pointer<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>char<span class="w"> </span>array<span class="w"> </span><span class="o">(</span>of<span class="w"> </span>length<span class="w"> </span>one<span class="o">)</span>
+<span class="w">     </span><span class="p">;</span><span class="w"> </span>Third<span class="w"> </span>argument<span class="w"> </span>is<span class="w"> </span>the<span class="w"> </span>length<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>char<span class="w"> </span>array
+<span class="w">     </span><span class="o">(</span>syscall/sys_write<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="p">&amp;</span>c<span class="w"> </span><span class="m">1</span><span class="o">))</span>
 
-(def print (n)
-     (if (&gt; n 9)
-         (print (/ n 10)))
+<span class="o">(</span>def<span class="w"> </span>print<span class="w"> </span><span class="o">(</span>n<span class="o">)</span>
+<span class="w">     </span><span class="o">(</span><span class="k">if</span><span class="w"> </span><span class="o">(</span>&gt;<span class="w"> </span>n<span class="w"> </span><span class="m">9</span><span class="o">)</span>
+<span class="w">         </span><span class="o">(</span>print<span class="w"> </span><span class="o">(</span>/<span class="w"> </span>n<span class="w"> </span><span class="m">10</span><span class="o">)))</span>
 
-     ; 48 is the ASCII code for &#39;0&#39;
-     (print-char (+ 48 (% n 10))))
+<span class="w">     </span><span class="p">;</span><span class="w"> </span><span class="m">48</span><span class="w"> </span>is<span class="w"> </span>the<span class="w"> </span>ASCII<span class="w"> </span>code<span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="s1">&#39;0&#39;</span>
+<span class="w">     </span><span class="o">(</span>print-char<span class="w"> </span><span class="o">(</span>+<span class="w"> </span><span class="m">48</span><span class="w"> </span><span class="o">(</span>%<span class="w"> </span>n<span class="w"> </span><span class="m">10</span><span class="o">))))</span>
 
-(def main ()
-     (print 1234)
-     0)
-$ node ulisp.js test.lisp
-$ ./build/a.out
-1234
-</code></pre>
+<span class="o">(</span>def<span class="w"> </span>main<span class="w"> </span><span class="o">()</span>
+<span class="w">     </span><span class="o">(</span>print<span class="w"> </span><span class="m">1234</span><span class="o">)</span>
+<span class="w">     </span><span class="m">0</span><span class="o">)</span>
+$<span class="w"> </span>node<span class="w"> </span>ulisp.js<span class="w"> </span>test.lisp
+$<span class="w"> </span>./build/a.out
+<span class="m">1234</span>
+</pre></div>
 <p>Looks good! In the next post we'll talk about tail call elimination.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">It&#39;s been a slow month for the blog. But new post on compiler basics is up! Printing integers to stdout and making syscalls in LLVM (all without arrays). This was a pre-req for playing with tail-call elimination (post coming soon) <a href="https://t.co/fDtblUZRI8">https://t.co/fDtblUZRI8</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1142808835700252678?ref_src=twsrc%5Etfw">June 23, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
@@ -930,7 +929,6 @@ $ ./build/a.out
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

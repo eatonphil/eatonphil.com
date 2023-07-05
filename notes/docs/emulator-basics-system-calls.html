@@ -6,7 +6,6 @@
     <title>Writing an x86 emulator from scratch in JavaScript: 2. system calls | notes.eatonphil.com</title>
     <meta name="description" content="Writing an x86 emulator from scratch in JavaScript: 2. system calls" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -93,10 +92,10 @@ the programmer wants.</p>
   The wait syscall is how the parent process can block until exit is
   called by the child and receive its exit code.
 </p><p>On AMD64 Linux the syscall number is 60. For example:</p>
-<pre><code class="hljs assembly">  MOV RDI, 0
-  MOV RAX, 60
-  SYSCALL
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RDI</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="mi">60</span>
+<span class="w">  </span><span class="nf">SYSCALL</span>
+</pre></div>
 <p>This calls exit with a status code of 0.</p>
 <h4 id="write">Write</h4><p>The write syscall is how a process can send data to file descriptors,
 which are integers representing some file-like object. By default, a
@@ -107,12 +106,12 @@ to, a starting address to memory that is interpreted as a byte array,
 and the number of bytes to write to the file descriptor beginning at
 the start address.</p>
 <p>On AMD64 Linux the syscall number is 1. For example:</p>
-<pre><code class="hljs assembly">  MOV RDI, 1   ; stdout
-  MOV RSI, R12 ; address of string
-  MOV RDX, 8   ; 8 bytes to write
-  MOV RAX, 1   ; write
-  SYSCALL
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RDI</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="w">   </span><span class="c1">; stdout</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RSI</span><span class="p">,</span><span class="w"> </span><span class="nb">R12</span><span class="w"> </span><span class="c1">; address of string</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RDX</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="w">   </span><span class="c1">; 8 bytes to write</span>
+<span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="nb">RAX</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="w">   </span><span class="c1">; write</span>
+<span class="w">  </span><span class="nf">SYSCALL</span>
+</pre></div>
 <p>This writes 8 bytes to stdout starting from the string whose address
 is in R12.</p>
 <h3 id="implementing-syscalls">Implementing syscalls</h3><p>Our emulator is simplistic and is currently only implementing process
@@ -120,102 +119,102 @@ emulation, not full CPU emulation. So the syscalls themselves will be
 handled in JavaScript. First we'll write out stubs for the two
 syscalls we are adding. And we'll provide a map from syscall id to the
 syscall.</p>
-<pre><code class="hljs javascript">const SYSCALLS_BY_ID = {
-  1: function sys_write(process) {},
-  60: function sys_exit(process) {},
-};
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">SYSCALLS_BY_ID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="mf">1</span><span class="o">:</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">sys_write</span><span class="p">(</span><span class="nx">process</span><span class="p">)</span><span class="w"> </span><span class="p">{},</span>
+<span class="w">  </span><span class="mf">60</span><span class="o">:</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">sys_exit</span><span class="p">(</span><span class="nx">process</span><span class="p">)</span><span class="w"> </span><span class="p">{},</span>
+<span class="p">};</span>
+</pre></div>
 <p>We need to add an instruction handler to our instruction switch. In
 doing so we must convert the value in <code>RAX</code> from a BigInt
 to a regular Number so we can look it up in the syscall map.</p>
-<pre><code class="hljs javascript">      case &#39;syscall&#39;: {
-        const idNumber = Number(process.registers.RAX);
-        SYSCALLS_BY_ID[idNumber](process);
-        process.registers.RIP++;
-        break;
-      }
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;syscall&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">idNumber</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Number</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RAX</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">SYSCALLS_BY_ID</span><span class="p">[</span><span class="nx">idNumber</span><span class="p">](</span><span class="nx">process</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RIP</span><span class="o">++</span><span class="p">;</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+</pre></div>
 <h4 id="exit">Exit</h4><p>Exit is really simple. It will be implemented by calling Node's
 <code>global.process.exit()</code>. Again we'll need to convert the
 register's BigInt value to a Number.</p>
-<pre><code class="hljs javascript">const SYSCALLS_BY_ID = {
-  1: function sys_write(process) {},
-  60: function sys_exit(process) {
-    global.process.exit(Number(process.registers.RDI));
-  },
-};
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">SYSCALLS_BY_ID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="mf">1</span><span class="o">:</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">sys_write</span><span class="p">(</span><span class="nx">process</span><span class="p">)</span><span class="w"> </span><span class="p">{},</span>
+<span class="w">  </span><span class="mf">60</span><span class="o">:</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">sys_exit</span><span class="p">(</span><span class="nx">process</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nb">global</span><span class="p">.</span><span class="nx">process</span><span class="p">.</span><span class="nx">exit</span><span class="p">(</span><span class="nb">Number</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RDI</span><span class="p">));</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="p">};</span>
+</pre></div>
 <h4 id="write">Write</h4><p>Write will be implemented by iterating over the process memory as
 bytes and by calling <code>write()</code> on the relevant file
 descriptor. We'll store a map of these on the process object and
 supply stdout, stderr, and stdin proxies on startup.</p>
-<pre><code class="hljs javascript">function main(file) {
-  ...
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">main</span><span class="p">(</span><span class="nx">file</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="p">...</span>
 
-  const process = {
-    registers,
-    memory,
-    instructions,
-    labels,
-    fd: {
-      // stdout
-      1: global.process.stdout,
-    }
-  };
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">process</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">registers</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">memory</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">instructions</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">labels</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">fd</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="c1">// stdout</span>
+<span class="w">      </span><span class="mf">1</span><span class="o">:</span><span class="w"> </span><span class="nb">global</span><span class="p">.</span><span class="nx">process</span><span class="p">.</span><span class="nx">stdout</span><span class="p">,</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">};</span>
 
-  ...
-}
-</code></pre>
+<span class="w">  </span><span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
 <p>The base address is stored in <code>RSI</code>, the number of bytes to
 write are stored in <code>RDX</code>. And the file descriptor to write
 to is stored in <code>RDI</code>.</p>
-<pre><code class="hljs javascript">const SYSCALLS_BY_ID = {
-  1: function sys_write(process) {
-    const msg = BigInt(process.registers.RSI);
-    const bytes = Number(process.registers.RDX);
-    for (let i = 0; i &lt; bytes; i++) {
-      const byte = readMemoryBytes(process, msg + BigInt(i), 1);
-      const char = String.fromCharCode(Number(byte));
-      process.fd[Number(process.registers.RDI)].write(char);
-    }
-  },
-  ...
-</code></pre>
-<h3 id="all-together">All together</h3><pre><code class="hljs bash">$ cat exit3.asm
+<div class="highlight"><pre><span></span><span class="kd">const</span><span class="w"> </span><span class="nx">SYSCALLS_BY_ID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="mf">1</span><span class="o">:</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">sys_write</span><span class="p">(</span><span class="nx">process</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">BigInt</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RSI</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Number</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RDX</span><span class="p">);</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">bytes</span><span class="p">;</span><span class="w"> </span><span class="nx">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="kr">byte</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">readMemoryBytes</span><span class="p">(</span><span class="nx">process</span><span class="p">,</span><span class="w"> </span><span class="nx">msg</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">BigInt</span><span class="p">(</span><span class="nx">i</span><span class="p">),</span><span class="w"> </span><span class="mf">1</span><span class="p">);</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="kr">char</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span><span class="p">.</span><span class="nx">fromCharCode</span><span class="p">(</span><span class="nb">Number</span><span class="p">(</span><span class="kr">byte</span><span class="p">));</span>
+<span class="w">      </span><span class="nx">process</span><span class="p">.</span><span class="nx">fd</span><span class="p">[</span><span class="nb">Number</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">registers</span><span class="p">.</span><span class="nx">RDI</span><span class="p">)].</span><span class="nx">write</span><span class="p">(</span><span class="kr">char</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="p">...</span>
+</pre></div>
+<h3 id="all-together">All together</h3><div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>exit3.asm
 main:
-  MOV RDI, 1
-  MOV RSI, 2
-  ADD RDI, RSI
+<span class="w">  </span>MOV<span class="w"> </span>RDI,<span class="w"> </span><span class="m">1</span>
+<span class="w">  </span>MOV<span class="w"> </span>RSI,<span class="w"> </span><span class="m">2</span>
+<span class="w">  </span>ADD<span class="w"> </span>RDI,<span class="w"> </span>RSI
 
-  MOV RAX, 60 ; exit
-  SYSCALL
-$ node emulator.js exit3.asm
-$ echo $?
-3
-</code></pre>
-<pre><code class="hljs bash">$ cat hello.asm
+<span class="w">  </span>MOV<span class="w"> </span>RAX,<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="nb">exit</span>
+<span class="w">  </span>SYSCALL
+$<span class="w"> </span>node<span class="w"> </span>emulator.js<span class="w"> </span>exit3.asm
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="m">3</span>
+</pre></div>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>hello.asm
 main:
-  PUSH 10  ; \n
-  PUSH 33  ; !
-  PUSH 111 ; o
-  PUSH 108 ; l
-  PUSH 108 ; l
-  PUSH 101 ; e
-  PUSH 72  ; H
+<span class="w">  </span>PUSH<span class="w"> </span><span class="m">10</span><span class="w">  </span><span class="p">;</span><span class="w"> </span><span class="se">\n</span>
+<span class="w">  </span>PUSH<span class="w"> </span><span class="m">33</span><span class="w">  </span><span class="p">;</span><span class="w"> </span>!
+<span class="w">  </span>PUSH<span class="w"> </span><span class="m">111</span><span class="w"> </span><span class="p">;</span><span class="w"> </span>o
+<span class="w">  </span>PUSH<span class="w"> </span><span class="m">108</span><span class="w"> </span><span class="p">;</span><span class="w"> </span>l
+<span class="w">  </span>PUSH<span class="w"> </span><span class="m">108</span><span class="w"> </span><span class="p">;</span><span class="w"> </span>l
+<span class="w">  </span>PUSH<span class="w"> </span><span class="m">101</span><span class="w"> </span><span class="p">;</span><span class="w"> </span>e
+<span class="w">  </span>PUSH<span class="w"> </span><span class="m">72</span><span class="w">  </span><span class="p">;</span><span class="w"> </span>H
 
-  MOV RDI, 1   ; stdout
-  MOV RSI, RSP ; address of string
-  MOV RDX, 56  ; 7 8-bit characters in the string but PUSH acts on 64-bit integers
-  MOV RAX, 1   ; write
-  SYSCALL
+<span class="w">  </span>MOV<span class="w"> </span>RDI,<span class="w"> </span><span class="m">1</span><span class="w">   </span><span class="p">;</span><span class="w"> </span>stdout
+<span class="w">  </span>MOV<span class="w"> </span>RSI,<span class="w"> </span>RSP<span class="w"> </span><span class="p">;</span><span class="w"> </span>address<span class="w"> </span>of<span class="w"> </span>string
+<span class="w">  </span>MOV<span class="w"> </span>RDX,<span class="w"> </span><span class="m">56</span><span class="w">  </span><span class="p">;</span><span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="m">8</span>-bit<span class="w"> </span>characters<span class="w"> </span><span class="k">in</span><span class="w"> </span>the<span class="w"> </span>string<span class="w"> </span>but<span class="w"> </span>PUSH<span class="w"> </span>acts<span class="w"> </span>on<span class="w"> </span><span class="m">64</span>-bit<span class="w"> </span>integers
+<span class="w">  </span>MOV<span class="w"> </span>RAX,<span class="w"> </span><span class="m">1</span><span class="w">   </span><span class="p">;</span><span class="w"> </span>write
+<span class="w">  </span>SYSCALL
 
-  MOV RDI, 0
-  MOV RAX, 60
-  SYSCALL
-$ node emulator.js hello.asm
+<span class="w">  </span>MOV<span class="w"> </span>RDI,<span class="w"> </span><span class="m">0</span>
+<span class="w">  </span>MOV<span class="w"> </span>RAX,<span class="w"> </span><span class="m">60</span>
+<span class="w">  </span>SYSCALL
+$<span class="w"> </span>node<span class="w"> </span>emulator.js<span class="w"> </span>hello.asm
 Hello!
 $
-</code></pre>
+</pre></div>
 <h3 id="next-steps">Next steps</h3><p>We still aren't setting flags appropriately to support conditionals,
 so that's low-hanging fruit. There are some other fun syscalls to
 implement that would also give us access to an emulated VGA card so we
@@ -856,7 +855,6 @@ also be convenient and more efficient.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

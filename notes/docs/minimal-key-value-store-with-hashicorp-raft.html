@@ -6,7 +6,6 @@
     <title>A minimal distributed key-value database with Hashicorp's Raft library | notes.eatonphil.com</title>
     <meta name="description" content="A minimal distributed key-value database with Hashicorp's Raft library" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -64,23 +63,23 @@ them. But it will be able to overwrite existing entries. And it will
 expose this distributed key-value database over an HTTP API.</p>
 <p>Here's a sample interaction it will be able to support.</p>
 <p>Terminal 1:</p>
-<pre><code class="hljs bash">$ ./raft-example --node-id node1 --raft-port 2222 --http-port 8222
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>./raft-example<span class="w"> </span>--node-id<span class="w"> </span>node1<span class="w"> </span>--raft-port<span class="w"> </span><span class="m">2222</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8222</span>
+</pre></div>
 <p>Terminal 2:</p>
-<pre><code class="hljs bash">$ ./raft-example --node-id node2 --raft-port 2223 --http-port 8223
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>./raft-example<span class="w"> </span>--node-id<span class="w"> </span>node2<span class="w"> </span>--raft-port<span class="w"> </span><span class="m">2223</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8223</span>
+</pre></div>
 <p>Terminal 3, tell 1 to have 2 follow it:</p>
-<pre><code class="hljs bash">$ curl &#39;localhost:8222/join?followerAddr=localhost:2223&amp;followerId=node2&#39;
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span><span class="s1">&#39;localhost:8222/join?followerAddr=localhost:2223&amp;followerId=node2&#39;</span>
+</pre></div>
 <p>Terminal 3, now add a key:</p>
-<pre><code class="hljs bash">$ curl -X POST &#39;localhost:8222/set&#39; -d &#39;{&quot;key&quot;: &quot;x&quot;, &quot;value&quot;: &quot;23&quot;}&#39; -H &#39;content-type: application/json&#39;
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s1">&#39;localhost:8222/set&#39;</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;key&quot;: &quot;x&quot;, &quot;value&quot;: &quot;23&quot;}&#39;</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;content-type: application/json&#39;</span>
+</pre></div>
 <p>Terminal 3, now get the key from either server:</p>
-<pre><code class="hljs bash">$ curl &#39;localhost:8222/get?key=x&#39;
-{&quot;data&quot;:&quot;23&quot;}
-$ curl &#39;localhost:8223/get?key=x&#39;
-{&quot;data&quot;:&quot;23&quot;}
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span><span class="s1">&#39;localhost:8222/get?key=x&#39;</span>
+<span class="o">{</span><span class="s2">&quot;data&quot;</span>:<span class="s2">&quot;23&quot;</span><span class="o">}</span>
+$<span class="w"> </span>curl<span class="w"> </span><span class="s1">&#39;localhost:8223/get?key=x&#39;</span>
+<span class="o">{</span><span class="s2">&quot;data&quot;</span>:<span class="s2">&quot;23&quot;</span><span class="o">}</span>
+</pre></div>
 <p>Let's make it happen!</p>
 <h3 id="eine-kleine-background">Eine kleine background</h3><p>Raft is an algorithm for managing a replicated (basically append-only)
 log over a cluster of nodes. When you combine this with a state
@@ -105,57 +104,57 @@ with all other nodes in the cluster.</p>
 it will be backed by the durable append-only log! So with, Raft each
 in-memory key-value store will still be durable.</p>
 <p>Let's get things set up in a file, <code>main.go</code>.</p>
-<pre><code class="hljs go">package main
+<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 
-import (
-    &quot;encoding/json&quot;
-    &quot;fmt&quot;
-    &quot;io&quot;
-    &quot;log&quot;
-    &quot;net&quot;
-    &quot;net/http&quot;
-    &quot;os&quot;
-    &quot;path&quot;
-    &quot;sync&quot;
-    &quot;time&quot;
+<span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="s">&quot;encoding/json&quot;</span>
+<span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+<span class="w">    </span><span class="s">&quot;io&quot;</span>
+<span class="w">    </span><span class="s">&quot;log&quot;</span>
+<span class="w">    </span><span class="s">&quot;net&quot;</span>
+<span class="w">    </span><span class="s">&quot;net/http&quot;</span>
+<span class="w">    </span><span class="s">&quot;os&quot;</span>
+<span class="w">    </span><span class="s">&quot;path&quot;</span>
+<span class="w">    </span><span class="s">&quot;sync&quot;</span>
+<span class="w">    </span><span class="s">&quot;time&quot;</span>
 
-    &quot;github.com/hashicorp/raft&quot;
-    &quot;github.com/hashicorp/raft-boltdb&quot;
-)
-</code></pre>
+<span class="w">    </span><span class="s">&quot;github.com/hashicorp/raft&quot;</span>
+<span class="w">    </span><span class="s">&quot;github.com/hashicorp/raft-boltdb&quot;</span>
+<span class="p">)</span>
+</pre></div>
 <h3 id="the-state-machine">The state machine</h3><p>The state machine acts on an in-memory key-value store.</p>
-<pre><code class="hljs go">type kvFsm struct {
-    db *sync.Map
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">kvFsm</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">db</span><span class="w"> </span><span class="o">*</span><span class="nx">sync</span><span class="p">.</span><span class="nx">Map</span>
+<span class="p">}</span>
+</pre></div>
 <p>There are three operations this Raft library wants us to implement on
 our state machine struct.</p>
 <h4 id="apply">Apply</h4><p>The Apply operation is sent to basically-up-to-date nodes to keep them
 up to date. An Apply call is made for each new log the leader commits.</p>
 <p>Each log message will contain a key and value to store in the
 in-memory key-value store.</p>
-<pre><code class="hljs go">type setPayload struct {
-    Key   string
-    Value string
-}
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">setPayload</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">Key</span><span class="w">   </span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">Value</span><span class="w"> </span><span class="kt">string</span>
+<span class="p">}</span>
 
-func (kf *kvFsm) Apply(log *raft.Log) any {
-    switch log.Type {
-    case raft.LogCommand:
-        var sp setPayload
-        err := json.Unmarshal(log.Data, &amp;sp)
-        if err != nil {
-            return fmt.Errorf(&quot;Could not parse payload: %s&quot;, err)
-        }
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">kf</span><span class="w"> </span><span class="o">*</span><span class="nx">kvFsm</span><span class="p">)</span><span class="w"> </span><span class="nx">Apply</span><span class="p">(</span><span class="nx">log</span><span class="w"> </span><span class="o">*</span><span class="nx">raft</span><span class="p">.</span><span class="nx">Log</span><span class="p">)</span><span class="w"> </span><span class="kt">any</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="nx">log</span><span class="p">.</span><span class="nx">Type</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nx">raft</span><span class="p">.</span><span class="nx">LogCommand</span><span class="p">:</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">sp</span><span class="w"> </span><span class="nx">setPayload</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">Unmarshal</span><span class="p">(</span><span class="nx">log</span><span class="p">.</span><span class="nx">Data</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">sp</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Could not parse payload: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
-        kf.db.Store(sp.Key, sp.Value)
-    default:
-        return fmt.Errorf(&quot;Unknown raft log type: %#v&quot;, log.Type)
-    }
+<span class="w">        </span><span class="nx">kf</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">Store</span><span class="p">(</span><span class="nx">sp</span><span class="p">.</span><span class="nx">Key</span><span class="p">,</span><span class="w"> </span><span class="nx">sp</span><span class="p">.</span><span class="nx">Value</span><span class="p">)</span>
+<span class="w">    </span><span class="k">default</span><span class="p">:</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Unknown raft log type: %#v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">log</span><span class="p">.</span><span class="nx">Type</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>Here we're reading a log in a custom format. Later on down in the HTTP
 server we'll write the part that submits that log in this custom
 format.</p>
@@ -168,41 +167,41 @@ that this operates on an <code>io.ReadCloser</code> of serialized log data rathe
 than the high-level <code>raft.Log</code> struct.</p>
 <p>And most importantly, and unlike the <code>Apply</code> function, <code>Restore</code> must
 reset all local state.</p>
-<pre><code class="hljs go">func (kf *kvFsm) Restore(rc io.ReadCloser) error {
-    // Must always restore from a clean state!!
-    kf.db.Range(func(key any, _ any) bool {
-        kf.db.Delete(key)
-        return true
-    })
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">kf</span><span class="w"> </span><span class="o">*</span><span class="nx">kvFsm</span><span class="p">)</span><span class="w"> </span><span class="nx">Restore</span><span class="p">(</span><span class="nx">rc</span><span class="w"> </span><span class="nx">io</span><span class="p">.</span><span class="nx">ReadCloser</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Must always restore from a clean state!!</span>
+<span class="w">    </span><span class="nx">kf</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">Range</span><span class="p">(</span><span class="kd">func</span><span class="p">(</span><span class="nx">key</span><span class="w"> </span><span class="kt">any</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="kt">any</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">kf</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">Delete</span><span class="p">(</span><span class="nx">key</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">})</span>
 
-    decoder := json.NewDecoder(rc)
+<span class="w">    </span><span class="nx">decoder</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">NewDecoder</span><span class="p">(</span><span class="nx">rc</span><span class="p">)</span>
 
-    for decoder.More() {
-        var sp setPayload
-        err := decoder.Decode(&amp;sp)
-        if err != nil {
-            return fmt.Errorf(&quot;Could not decode payload: %s&quot;, err)
-        }
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">decoder</span><span class="p">.</span><span class="nx">More</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">sp</span><span class="w"> </span><span class="nx">setPayload</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">decoder</span><span class="p">.</span><span class="nx">Decode</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">sp</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Could not decode payload: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
-        kf.db.Store(sp.Key, sp.Value)
-    }
+<span class="w">        </span><span class="nx">kf</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">Store</span><span class="p">(</span><span class="nx">sp</span><span class="p">.</span><span class="nx">Key</span><span class="p">,</span><span class="w"> </span><span class="nx">sp</span><span class="p">.</span><span class="nx">Value</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return rc.Close()
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">rc</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="p">}</span>
+</pre></div>
 <p>The <code>io.ReadCloser</code> represents the latest snapshot or the beginning of
 time if there are no snapshots.</p>
 <h4 id="snapshot">Snapshot</h4><p>We won't implement this. But to satisfy the Go interface we must have
 empty some functions.</p>
-<pre><code class="hljs go">type snapshotNoop struct{}
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">snapshotNoop</span><span class="w"> </span><span class="kd">struct</span><span class="p">{}</span>
 
-func (sn snapshotNoop) Persist(_ raft.SnapshotSink) error { return nil }
-func (sn snapshotNoop) Release()                          {}
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">sn</span><span class="w"> </span><span class="nx">snapshotNoop</span><span class="p">)</span><span class="w"> </span><span class="nx">Persist</span><span class="p">(</span><span class="nx">_</span><span class="w"> </span><span class="nx">raft</span><span class="p">.</span><span class="nx">SnapshotSink</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">sn</span><span class="w"> </span><span class="nx">snapshotNoop</span><span class="p">)</span><span class="w"> </span><span class="nx">Release</span><span class="p">()</span><span class="w">                          </span><span class="p">{}</span>
 
-func (kf *kvFsm) Snapshot() (raft.FSMSnapshot, error) {
-    return snapshotNoop{}, nil
-}
-</code></pre>
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">kf</span><span class="w"> </span><span class="o">*</span><span class="nx">kvFsm</span><span class="p">)</span><span class="w"> </span><span class="nx">Snapshot</span><span class="p">()</span><span class="w"> </span><span class="p">(</span><span class="nx">raft</span><span class="p">.</span><span class="nx">FSMSnapshot</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">snapshotNoop</span><span class="p">{},</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p class="note">
   I <em>think</em> this is a correct noop. If we implemented a real
   snapshot we'd serialize the current key-value state, and <code>raft.SnapshotSink.Write()</code> it
@@ -231,91 +230,91 @@ there become a multi-node cluster.</p>
 <p>Each node also needs a permanent store for the append-only log. The
 Hashicorp Raft library suggests
 <a href="https://github.com/hashicorp/raft-boltdb">boltdb</a>.</p>
-<pre><code class="hljs go">func setupRaft(dir, nodeId, raftAddress string, kf *kvFsm) (*raft.Raft, error) {
-    os.MkdirAll(dir, os.ModePerm)
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">setupRaft</span><span class="p">(</span><span class="nx">dir</span><span class="p">,</span><span class="w"> </span><span class="nx">nodeId</span><span class="p">,</span><span class="w"> </span><span class="nx">raftAddress</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">kf</span><span class="w"> </span><span class="o">*</span><span class="nx">kvFsm</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">raft</span><span class="p">.</span><span class="nx">Raft</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">os</span><span class="p">.</span><span class="nx">MkdirAll</span><span class="p">(</span><span class="nx">dir</span><span class="p">,</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">ModePerm</span><span class="p">)</span>
 
-    store, err := raftboltdb.NewBoltStore(path.Join(dir, &quot;bolt&quot;))
-    if err != nil {
-        return nil, fmt.Errorf(&quot;Could not create bolt store: %s&quot;, err)
-    }
+<span class="w">    </span><span class="nx">store</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">raftboltdb</span><span class="p">.</span><span class="nx">NewBoltStore</span><span class="p">(</span><span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">dir</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;bolt&quot;</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Could not create bolt store: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    snapshots, err := raft.NewFileSnapshotStore(path.Join(dir, &quot;snapshot&quot;), 2, os.Stderr)
-    if err != nil {
-        return nil, fmt.Errorf(&quot;Could not create snapshot store: %s&quot;, err)
-    }
+<span class="w">    </span><span class="nx">snapshots</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">raft</span><span class="p">.</span><span class="nx">NewFileSnapshotStore</span><span class="p">(</span><span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">dir</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;snapshot&quot;</span><span class="p">),</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Could not create snapshot store: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    tcpAddr, err := net.ResolveTCPAddr(&quot;tcp&quot;, raftAddress)
-    if err != nil {
-        return nil, fmt.Errorf(&quot;Could not resolve address: %s&quot;, err)
-    }
+<span class="w">    </span><span class="nx">tcpAddr</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">ResolveTCPAddr</span><span class="p">(</span><span class="s">&quot;tcp&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">raftAddress</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Could not resolve address: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    transport, err := raft.NewTCPTransport(raftAddress, tcpAddr, 10, time.Second*10, os.Stderr)
-    if err != nil {
-        return nil, fmt.Errorf(&quot;Could not create tcp transport: %s&quot;, err)
-    }
+<span class="w">    </span><span class="nx">transport</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">raft</span><span class="p">.</span><span class="nx">NewTCPTransport</span><span class="p">(</span><span class="nx">raftAddress</span><span class="p">,</span><span class="w"> </span><span class="nx">tcpAddr</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="o">*</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Could not create tcp transport: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    raftCfg := raft.DefaultConfig()
-    raftCfg.LocalID = raft.ServerID(nodeId)
+<span class="w">    </span><span class="nx">raftCfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">raft</span><span class="p">.</span><span class="nx">DefaultConfig</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">raftCfg</span><span class="p">.</span><span class="nx">LocalID</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">raft</span><span class="p">.</span><span class="nx">ServerID</span><span class="p">(</span><span class="nx">nodeId</span><span class="p">)</span>
 
-    r, err := raft.NewRaft(raftCfg, kf, store, store, snapshots, transport)
-    if err != nil {
-        return nil, fmt.Errorf(&quot;Could not create raft instance: %s&quot;, err)
-    }
+<span class="w">    </span><span class="nx">r</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">raft</span><span class="p">.</span><span class="nx">NewRaft</span><span class="p">(</span><span class="nx">raftCfg</span><span class="p">,</span><span class="w"> </span><span class="nx">kf</span><span class="p">,</span><span class="w"> </span><span class="nx">store</span><span class="p">,</span><span class="w"> </span><span class="nx">store</span><span class="p">,</span><span class="w"> </span><span class="nx">snapshots</span><span class="p">,</span><span class="w"> </span><span class="nx">transport</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Could not create raft instance: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    // Cluster consists of unjoined leaders. Picking a leader and
-    // creating a real cluster is done manually after startup.
-    r.BootstrapCluster(raft.Configuration{
-        Servers: []raft.Server{
-            {
-                ID:      raft.ServerID(nodeId),
-                Address: transport.LocalAddr(),
-            },
-        },
-    })
+<span class="w">    </span><span class="c1">// Cluster consists of unjoined leaders. Picking a leader and</span>
+<span class="w">    </span><span class="c1">// creating a real cluster is done manually after startup.</span>
+<span class="w">    </span><span class="nx">r</span><span class="p">.</span><span class="nx">BootstrapCluster</span><span class="p">(</span><span class="nx">raft</span><span class="p">.</span><span class="nx">Configuration</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">Servers</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">raft</span><span class="p">.</span><span class="nx">Server</span><span class="p">{</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">ID</span><span class="p">:</span><span class="w">      </span><span class="nx">raft</span><span class="p">.</span><span class="nx">ServerID</span><span class="p">(</span><span class="nx">nodeId</span><span class="p">),</span>
+<span class="w">                </span><span class="nx">Address</span><span class="p">:</span><span class="w"> </span><span class="nx">transport</span><span class="p">.</span><span class="nx">LocalAddr</span><span class="p">(),</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">    </span><span class="p">})</span>
 
-    return r, nil
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">r</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
 <p>Now let's dig into how nodes learn about each other.</p>
 <h3 id="an-http-api">An HTTP API</h3><p>This key-value store application will have an HTTP API serving two purposes:</p>
 <ul>
 <li>Cluster management: telling a leader to add followers</li>
 <li>Key-value storage: setting and getting keys</li>
 </ul>
-<pre><code class="hljs go">type httpServer struct {
-    r  *raft.Raft
-    db *sync.Map
-}
-</code></pre>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">httpServer</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">r</span><span class="w">  </span><span class="o">*</span><span class="nx">raft</span><span class="p">.</span><span class="nx">Raft</span>
+<span class="w">    </span><span class="nx">db</span><span class="w"> </span><span class="o">*</span><span class="nx">sync</span><span class="p">.</span><span class="nx">Map</span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="cluster-management">Cluster management</h4><p>In this library, the leader is told to add other nodes as its
 follower. (This feels backwards to me, but it is what it is!)</p>
 <p>For this, the library requires a node ID and its internal TCP port for
 Raft messages.</p>
 <p>These will both be parameters we give each node later on when the node
 process is started.</p>
-<pre><code>func (hs httpServer) joinHandler(w http.ResponseWriter, r *http.Request) {
-    followerId := r.URL.Query().Get("followerId")
-    followerAddr := r.URL.Query().Get("followerAddr")
+<div class="highlight"><pre><span></span><span class="k">func</span><span class="w"> </span><span class="p">(</span><span class="n">hs</span><span class="w"> </span><span class="n">httpServer</span><span class="p">)</span><span class="w"> </span><span class="n">joinHandler</span><span class="p">(</span><span class="n">w</span><span class="w"> </span><span class="n">http</span><span class="o">.</span><span class="n">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">*</span><span class="n">http</span><span class="o">.</span><span class="n">Request</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">followerId</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="n">r</span><span class="o">.</span><span class="n">URL</span><span class="o">.</span><span class="n">Query</span><span class="p">()</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="s2">&quot;followerId&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="n">followerAddr</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="n">r</span><span class="o">.</span><span class="n">URL</span><span class="o">.</span><span class="n">Query</span><span class="p">()</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="s2">&quot;followerAddr&quot;</span><span class="p">)</span>
 
-    if hs.r.State() != raft.Leader {
-        json.NewEncoder(w).Encode(struct {
-            Error string `json:"error"`
-        }{
-            "Not the leader",
-        })
-        http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-        return
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">hs</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">State</span><span class="p">()</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">raft</span><span class="o">.</span><span class="n">Leader</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">json</span><span class="o">.</span><span class="n">NewEncoder</span><span class="p">(</span><span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">Encode</span><span class="p">(</span><span class="n">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">Error</span><span class="w"> </span><span class="n">string</span><span class="w"> </span><span class="err">`</span><span class="n">json</span><span class="p">:</span><span class="s2">&quot;error&quot;</span><span class="err">`</span>
+<span class="w">        </span><span class="p">}{</span>
+<span class="w">            </span><span class="s2">&quot;Not the leader&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">        </span><span class="n">http</span><span class="o">.</span><span class="n">Error</span><span class="p">(</span><span class="n">w</span><span class="p">,</span><span class="w"> </span><span class="n">http</span><span class="o">.</span><span class="n">StatusText</span><span class="p">(</span><span class="n">http</span><span class="o">.</span><span class="n">StatusBadRequest</span><span class="p">),</span><span class="w"> </span><span class="n">http</span><span class="o">.</span><span class="n">StatusBadRequest</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span>
+<span class="w">    </span><span class="p">}</span>
 
-    err := hs.r.AddVoter(raft.ServerID(followerId), raft.ServerAddress(followerAddr), 0, 0).Error()
-    if err != nil {
-        log.Printf("Failed to add follower: %s", err)
-        http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-    }
+<span class="w">    </span><span class="n">err</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="n">hs</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">AddVoter</span><span class="p">(</span><span class="n">raft</span><span class="o">.</span><span class="n">ServerID</span><span class="p">(</span><span class="n">followerId</span><span class="p">),</span><span class="w"> </span><span class="n">raft</span><span class="o">.</span><span class="n">ServerAddress</span><span class="p">(</span><span class="n">followerAddr</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">Error</span><span class="p">()</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s2">&quot;Failed to add follower: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">err</span><span class="p">)</span>
+<span class="w">        </span><span class="n">http</span><span class="o">.</span><span class="n">Error</span><span class="p">(</span><span class="n">w</span><span class="p">,</span><span class="w"> </span><span class="n">http</span><span class="o">.</span><span class="n">StatusText</span><span class="p">(</span><span class="n">http</span><span class="o">.</span><span class="n">StatusBadRequest</span><span class="p">),</span><span class="w"> </span><span class="n">http</span><span class="o">.</span><span class="n">StatusBadRequest</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    w.WriteHeader(http.StatusOK)
-}
-</code></pre>
+<span class="w">    </span><span class="n">w</span><span class="o">.</span><span class="n">WriteHeader</span><span class="p">(</span><span class="n">http</span><span class="o">.</span><span class="n">StatusOK</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <h4 id="key-value-storage">Key-value storage</h4><p>This part of the HTTP API exposes setting and getting.</p>
 <h5 id="set">Set</h5><p>Setting is where, instead of modifying the local database directly, we
 pass a message to the Raft cluster to store a log that contains the
@@ -327,34 +326,34 @@ expect that the user passes a JSON body that matches the <code>setPayload</code>
 struct.</p>
 <p>Then we call <code>Apply</code> on the Raft instance with the log message to get
 this process going.</p>
-<pre><code class="hljs go">func (hs httpServer) setHandler(w http.ResponseWriter, r *http.Request) {
-    defer r.Body.Close()
-    bs, err := io.ReadAll(r.Body)
-    if err != nil {
-        log.Printf(&quot;Could not read key-value in http request: %s&quot;, err)
-        http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-        return
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">hs</span><span class="w"> </span><span class="nx">httpServer</span><span class="p">)</span><span class="w"> </span><span class="nx">setHandler</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">Body</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">bs</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">io</span><span class="p">.</span><span class="nx">ReadAll</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">Body</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Could not read key-value in http request: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">http</span><span class="p">.</span><span class="nx">Error</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusText</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusBadRequest</span><span class="p">),</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusBadRequest</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span>
+<span class="w">    </span><span class="p">}</span>
 
-    future := hs.r.Apply(bs, 500*time.Millisecond)
+<span class="w">    </span><span class="nx">future</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">hs</span><span class="p">.</span><span class="nx">r</span><span class="p">.</span><span class="nx">Apply</span><span class="p">(</span><span class="nx">bs</span><span class="p">,</span><span class="w"> </span><span class="mi">500</span><span class="o">*</span><span class="nx">time</span><span class="p">.</span><span class="nx">Millisecond</span><span class="p">)</span>
 
-    // Blocks until completion
-    if err := future.Error(); err != nil {
-        log.Printf(&quot;Could not write key-value: %s&quot;, err)
-        http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-        return
-    }
+<span class="w">    </span><span class="c1">// Blocks until completion</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">future</span><span class="p">.</span><span class="nx">Error</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Could not write key-value: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">http</span><span class="p">.</span><span class="nx">Error</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusText</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusBadRequest</span><span class="p">),</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusBadRequest</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span>
+<span class="w">    </span><span class="p">}</span>
 
-    e := future.Response()
-    if e != nil {
-        log.Printf(&quot;Could not write key-value, application: %s&quot;, e)
-        http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-        return
-    }
+<span class="w">    </span><span class="nx">e</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">future</span><span class="p">.</span><span class="nx">Response</span><span class="p">()</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">e</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Could not write key-value, application: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">http</span><span class="p">.</span><span class="nx">Error</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusText</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusBadRequest</span><span class="p">),</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusBadRequest</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span>
+<span class="w">    </span><span class="p">}</span>
 
-    w.WriteHeader(http.StatusOK)
-}
-</code></pre>
+<span class="w">    </span><span class="nx">w</span><span class="p">.</span><span class="nx">WriteHeader</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusOK</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <p class="note">
   I'm not completely sure if `future.Response()` is supposed to be
   called from inside the `future.Error()` error block. You
@@ -366,122 +365,122 @@ key's value. We'd need to implement that <code>read</code> message in the state
 machine.</p>
 <p>But if we don't care strongly about consistency for reads we can just
 read the local in-memory store, skipping the Raft cluster.</p>
-<pre><code class="hljs go">func (hs httpServer) getHandler(w http.ResponseWriter, r *http.Request) {
-    key := r.URL.Query().Get(&quot;key&quot;)
-    value, _ := hs.db.Load(key)
-    if value == nil {
-        value = &quot;&quot;
-    }
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">hs</span><span class="w"> </span><span class="nx">httpServer</span><span class="p">)</span><span class="w"> </span><span class="nx">getHandler</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">key</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">URL</span><span class="p">.</span><span class="nx">Query</span><span class="p">().</span><span class="nx">Get</span><span class="p">(</span><span class="s">&quot;key&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">hs</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">Load</span><span class="p">(</span><span class="nx">key</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">value</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    rsp := struct {
-        Data string `json:&quot;data&quot;`
-    }{value.(string)}
-    err := json.NewEncoder(w).Encode(rsp)
-    if err != nil {
-        log.Printf(&quot;Could not encode key-value in http response: %s&quot;, err)
-        http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-    }
-}
-</code></pre>
+<span class="w">    </span><span class="nx">rsp</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">Data</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="s">`json:&quot;data&quot;`</span>
+<span class="w">    </span><span class="p">}{</span><span class="nx">value</span><span class="p">.(</span><span class="kt">string</span><span class="p">)}</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">NewEncoder</span><span class="p">(</span><span class="nx">w</span><span class="p">).</span><span class="nx">Encode</span><span class="p">(</span><span class="nx">rsp</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Could not encode key-value in http response: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">http</span><span class="p">.</span><span class="nx">Error</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusText</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusInternalServerError</span><span class="p">),</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusInternalServerError</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
 <p>And that's it for the server!</p>
 <h3 id="configuration">Configuration</h3><p>Let's throw together a quick helper for grabbing configuration from
 the CLI.</p>
 <p>When the process is started, each node must be configured
 with a Raft-level TCP address, a Raft-level unique node ID, and an
 HTTP address (for our application).</p>
-<pre><code class="hljs go">type config struct {
-    id       string
-    httpPort string
-    raftPort string
-}
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">id</span><span class="w">       </span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">httpPort</span><span class="w"> </span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">raftPort</span><span class="w"> </span><span class="kt">string</span>
+<span class="p">}</span>
 
-func getConfig() config {
-    cfg := config{}
-    for i, arg := range os.Args[1:] {
-        if arg == &quot;--node-id&quot; {
-            cfg.id = os.Args[i+2]
-            i++
-            continue
-        }
+<span class="kd">func</span><span class="w"> </span><span class="nx">getConfig</span><span class="p">()</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">cfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">config</span><span class="p">{}</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">arg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;--node-id&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">id</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="nx">i</span><span class="o">+</span><span class="mi">2</span><span class="p">]</span>
+<span class="w">            </span><span class="nx">i</span><span class="o">++</span>
+<span class="w">            </span><span class="k">continue</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if arg == &quot;--http-port&quot; {
-            cfg.httpPort = os.Args[i+2]
-            i++
-            continue
-        }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;--http-port&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">httpPort</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="nx">i</span><span class="o">+</span><span class="mi">2</span><span class="p">]</span>
+<span class="w">            </span><span class="nx">i</span><span class="o">++</span>
+<span class="w">            </span><span class="k">continue</span>
+<span class="w">        </span><span class="p">}</span>
 
-        if arg == &quot;--raft-port&quot; {
-            cfg.raftPort = os.Args[i+2]
-            i++
-            continue
-        }
-    }
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;--raft-port&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">raftPort</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="nx">i</span><span class="o">+</span><span class="mi">2</span><span class="p">]</span>
+<span class="w">            </span><span class="nx">i</span><span class="o">++</span>
+<span class="w">            </span><span class="k">continue</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if cfg.id == &quot;&quot; {
-        log.Fatal(&quot;Missing required parameter: --node-id&quot;)
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">id</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="s">&quot;Missing required parameter: --node-id&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if cfg.raftPort == &quot;&quot; {
-        log.Fatal(&quot;Missing required parameter: --raft-port&quot;)
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">raftPort</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="s">&quot;Missing required parameter: --raft-port&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if cfg.httpPort == &quot;&quot; {
-        log.Fatal(&quot;Missing required parameter: --http-port&quot;)
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">httpPort</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="s">&quot;Missing required parameter: --http-port&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return cfg
-}
-</code></pre>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">cfg</span>
+<span class="p">}</span>
+</pre></div>
 <p>And finally, the <code>main()</code> that brings it all together.</p>
-<h3 id="main">main</h3><pre><code class="hljs go">func main() {
-    cfg := getConfig()
+<h3 id="main">main</h3><div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">cfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">getConfig</span><span class="p">()</span>
 
-    db := &amp;sync.Map{}
-    kf := &amp;kvFsm{db}
+<span class="w">    </span><span class="nx">db</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">sync</span><span class="p">.</span><span class="nx">Map</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">kf</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">kvFsm</span><span class="p">{</span><span class="nx">db</span><span class="p">}</span>
 
-    dataDir := &quot;data&quot;
-    err := os.MkdirAll(dataDir, os.ModePerm)
-    if err != nil {
-        log.Fatalf(&quot;Could not create data directory: %s&quot;, err)
-    }
+<span class="w">    </span><span class="nx">dataDir</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;data&quot;</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">MkdirAll</span><span class="p">(</span><span class="nx">dataDir</span><span class="p">,</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">ModePerm</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;Could not create data directory: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    r, err := setupRaft(path.Join(dataDir, &quot;raft&quot;+cfg.id), cfg.id, &quot;localhost:&quot;+cfg.raftPort, kf)
-    if err != nil {
-        log.Fatal(err)
-    }
+<span class="w">    </span><span class="nx">r</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">setupRaft</span><span class="p">(</span><span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">dataDir</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;raft&quot;</span><span class="o">+</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">id</span><span class="p">),</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;localhost:&quot;</span><span class="o">+</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">raftPort</span><span class="p">,</span><span class="w"> </span><span class="nx">kf</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
 
-    hs := httpServer{r, db}
+<span class="w">    </span><span class="nx">hs</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">httpServer</span><span class="p">{</span><span class="nx">r</span><span class="p">,</span><span class="w"> </span><span class="nx">db</span><span class="p">}</span>
 
-    http.HandleFunc(&quot;/set&quot;, hs.setHandler)
-    http.HandleFunc(&quot;/get&quot;, hs.getHandler)
-    http.HandleFunc(&quot;/join&quot;, hs.joinHandler)
-    http.ListenAndServe(&quot;:&quot;+cfg.httpPort, nil)
-}
-</code></pre>
+<span class="w">    </span><span class="nx">http</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="s">&quot;/set&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">hs</span><span class="p">.</span><span class="nx">setHandler</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">http</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="s">&quot;/get&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">hs</span><span class="p">.</span><span class="nx">getHandler</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">http</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="s">&quot;/join&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">hs</span><span class="p">.</span><span class="nx">joinHandler</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">http</span><span class="p">.</span><span class="nx">ListenAndServe</span><span class="p">(</span><span class="s">&quot;:&quot;</span><span class="o">+</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">httpPort</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
 <p>Build it.</p>
-<pre><code class="hljs go">$ go mod init raft-example
-$ go mod tidy
-$ go build
-</code></pre>
+<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="k">go</span><span class="w"> </span><span class="nx">mod</span><span class="w"> </span><span class="nx">init</span><span class="w"> </span><span class="nx">raft</span><span class="o">-</span><span class="nx">example</span>
+<span class="err">$</span><span class="w"> </span><span class="k">go</span><span class="w"> </span><span class="nx">mod</span><span class="w"> </span><span class="nx">tidy</span>
+<span class="err">$</span><span class="w"> </span><span class="k">go</span><span class="w"> </span><span class="nx">build</span>
+</pre></div>
 <p>And give it a shot. :)</p>
 <p>Terminal 1:</p>
-<pre><code class="hljs bash">$ ./raft-example --node-id node1 --raft-port 2222 --http-port 8222
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>./raft-example<span class="w"> </span>--node-id<span class="w"> </span>node1<span class="w"> </span>--raft-port<span class="w"> </span><span class="m">2222</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8222</span>
+</pre></div>
 <p>Terminal 2:</p>
-<pre><code class="hljs bash">$ ./raft-example --node-id node2 --raft-port 2223 --http-port 8223
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>./raft-example<span class="w"> </span>--node-id<span class="w"> </span>node2<span class="w"> </span>--raft-port<span class="w"> </span><span class="m">2223</span><span class="w"> </span>--http-port<span class="w"> </span><span class="m">8223</span>
+</pre></div>
 <p>Terminal 3, tell 1 to have 2 follow it:</p>
-<pre><code class="hljs bash">$ curl &#39;localhost:8222/join?followerAddr=localhost:2223&amp;followerId=node2&#39;
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span><span class="s1">&#39;localhost:8222/join?followerAddr=localhost:2223&amp;followerId=node2&#39;</span>
+</pre></div>
 <p>Terminal 3, now add a key:</p>
-<pre><code class="hljs bash">$ curl -X POST &#39;localhost:8222/set&#39; -d &#39;{&quot;key&quot;: &quot;x&quot;, &quot;value&quot;: &quot;23&quot;}&#39; -H &#39;content-type: application/json&#39;
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s1">&#39;localhost:8222/set&#39;</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;key&quot;: &quot;x&quot;, &quot;value&quot;: &quot;23&quot;}&#39;</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;content-type: application/json&#39;</span>
+</pre></div>
 <p>Terminal 3, now get the key from either server:</p>
-<pre><code class="hljs bash">$ curl &#39;localhost:8222/get?key=x&#39;
-{&quot;data&quot;:&quot;23&quot;}
-$ curl &#39;localhost:8223/get?key=x&#39;
-{&quot;data&quot;:&quot;23&quot;}
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span><span class="s1">&#39;localhost:8222/get?key=x&#39;</span>
+<span class="o">{</span><span class="s2">&quot;data&quot;</span>:<span class="s2">&quot;23&quot;</span><span class="o">}</span>
+$<span class="w"> </span>curl<span class="w"> </span><span class="s1">&#39;localhost:8223/get?key=x&#39;</span>
+<span class="o">{</span><span class="s2">&quot;data&quot;</span>:<span class="s2">&quot;23&quot;</span><span class="o">}</span>
+</pre></div>
 <p>And we're golden!</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Following up on that &quot;build a distributed postgres&quot; post I wanted to write down a shorter intro to building a stateful, distributed application using Hashicorp&#39;s Raft library.<br><br>So, here&#39;s a new blog post!<br><br>Also, try reading the Raft paper! It&#39;s not bad 😀<a href="https://t.co/C4S3uzxm0W">https://t.co/C4S3uzxm0W</a> <a href="https://t.co/L3Wwawe0UC">pic.twitter.com/L3Wwawe0UC</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1571662239559716865?ref_src=twsrc%5Etfw">September 19, 2022</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
@@ -1118,7 +1117,6 @@ $ curl &#39;localhost:8223/get?key=x&#39;
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

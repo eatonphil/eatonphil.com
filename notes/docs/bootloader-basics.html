@@ -6,7 +6,6 @@
     <title>Bootloader basics | notes.eatonphil.com</title>
     <meta name="description" content="Bootloader basics" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -66,95 +65,95 @@ tweet</a> from a few
 years ago?</p>
 <p>Install qemu (on macOS or Linux), nasm, and copy the <code>snake.asm</code>
 source code to disk from that blog post.</p>
-<pre><code class="hljs assembly">$ cat snake.asm
-          [bits 16]                    ; Pragma, tells the assembler that we
-                                       ; are in 16 bit mode (which is the state
-                                       ; of x86 when booting from a floppy).
-          [org 0x7C00]                 ; Pragma, tell the assembler where the
-                                       ; code will be loaded.
+<div class="highlight"><pre><span></span><span class="nf">$</span><span class="w"> </span><span class="nv">cat</span><span class="w"> </span><span class="nv">snake.asm</span>
+<span class="w">          </span><span class="err">[</span><span class="k">bits</span><span class="w"> </span><span class="mi">16</span><span class="p">]</span><span class="w">                    </span><span class="c1">; Pragma, tells the assembler that we</span>
+<span class="w">                                       </span><span class="c1">; are in 16 bit mode (which is the state</span>
+<span class="w">                                       </span><span class="c1">; of x86 when booting from a floppy).</span>
+<span class="w">          </span><span class="err">[</span><span class="k">org</span><span class="w"> </span><span class="mh">0x7C00</span><span class="p">]</span><span class="w">                 </span><span class="c1">; Pragma, tell the assembler where the</span>
+<span class="w">                                       </span><span class="c1">; code will be loaded.</span>
 
-          mov bl, 1                    ; Starting direction for the worm.
-          push 0xa000                  ; Load address of VRAM into es.
-          pop es
+<span class="w">          </span><span class="nf">mov</span><span class="w"> </span><span class="nb">bl</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="w">                    </span><span class="c1">; Starting direction for the worm.</span>
+<span class="w">          </span><span class="nf">push</span><span class="w"> </span><span class="mh">0xa000</span><span class="w">                  </span><span class="c1">; Load address of VRAM into es.</span>
+<span class="w">          </span><span class="nf">pop</span><span class="w"> </span><span class="nb">es</span>
 
-restart_game:
-          mov       si, 320*100+160    ; worm&#39;s starting position, center of
-                                       ; screen
+<span class="nl">restart_game:</span>
+<span class="w">          </span><span class="nf">mov</span><span class="w">       </span><span class="nb">si</span><span class="p">,</span><span class="w"> </span><span class="mi">320</span><span class="o">*</span><span class="mi">100</span><span class="o">+</span><span class="mi">160</span><span class="w">    </span><span class="c1">; worm&#39;s starting position, center of</span>
+<span class="w">                                       </span><span class="c1">; screen</span>
 
-          ; Set video mode. Mode 13h is VGA (1 byte per pixel with the actual
-          ; color stored in a palette), 320x200 total size. When restarting,
-          ; this also clears the screen.
-          mov       ax, 0x0013
-          int       0x10
+<span class="w">          </span><span class="c1">; Set video mode. Mode 13h is VGA (1 byte per pixel with the actual</span>
+<span class="w">          </span><span class="c1">; color stored in a palette), 320x200 total size. When restarting,</span>
+<span class="w">          </span><span class="c1">; this also clears the screen.</span>
+<span class="w">          </span><span class="nf">mov</span><span class="w">       </span><span class="nb">ax</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0013</span>
+<span class="w">          </span><span class="nf">int</span><span class="w">       </span><span class="mh">0x10</span>
 
-          ; Draw borders. We assume the default palette will work for us.
-          ; We also assume that starting at the bottom and drawing 2176 pixels
-          ; wraps around and ends up drawing the top + bottom borders.
-          mov       di, 320*199
-          mov       cx, 2176
-          rep
-draw_loop:
-          stosb                        ; draw right border
-          stosb                        ; draw left border
-          add       di, 318
-          jnc       draw_loop          ; notice the jump in the middle of the
-                                       ; rep stosb instruction.
+<span class="w">          </span><span class="c1">; Draw borders. We assume the default palette will work for us.</span>
+<span class="w">          </span><span class="c1">; We also assume that starting at the bottom and drawing 2176 pixels</span>
+<span class="w">          </span><span class="c1">; wraps around and ends up drawing the top + bottom borders.</span>
+<span class="w">          </span><span class="nf">mov</span><span class="w">       </span><span class="nb">di</span><span class="p">,</span><span class="w"> </span><span class="mi">320</span><span class="o">*</span><span class="mi">199</span>
+<span class="w">          </span><span class="nf">mov</span><span class="w">       </span><span class="nb">cx</span><span class="p">,</span><span class="w"> </span><span class="mi">2176</span>
+<span class="w">          </span><span class="nf">rep</span>
+<span class="nl">draw_loop:</span>
+<span class="w">          </span><span class="nf">stosb</span><span class="w">                        </span><span class="c1">; draw right border</span>
+<span class="w">          </span><span class="nf">stosb</span><span class="w">                        </span><span class="c1">; draw left border</span>
+<span class="w">          </span><span class="nf">add</span><span class="w">       </span><span class="nb">di</span><span class="p">,</span><span class="w"> </span><span class="mi">318</span>
+<span class="w">          </span><span class="nf">jnc</span><span class="w">       </span><span class="nv">draw_loop</span><span class="w">          </span><span class="c1">; notice the jump in the middle of the</span>
+<span class="w">                                       </span><span class="c1">; rep stosb instruction.</span>
 
-game_loop:
-          ; We read the keyboard input from port 0x60. This also reads bytes from
-          ; the mouse, so we need to only handle [up (0x48), left (0x4b),
-          ; right (0x4d), down (0x50)]
-          in        al, 0x60
-          cmp       al, 0x48
-          jb        kb_handle_end
-          cmp       al, 0x50
-          ja        kb_handle_end
+<span class="nl">game_loop:</span>
+<span class="w">          </span><span class="c1">; We read the keyboard input from port 0x60. This also reads bytes from</span>
+<span class="w">          </span><span class="c1">; the mouse, so we need to only handle [up (0x48), left (0x4b),</span>
+<span class="w">          </span><span class="c1">; right (0x4d), down (0x50)]</span>
+<span class="w">          </span><span class="nf">in</span><span class="w">        </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mh">0x60</span>
+<span class="w">          </span><span class="nf">cmp</span><span class="w">       </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mh">0x48</span>
+<span class="w">          </span><span class="nf">jb</span><span class="w">        </span><span class="nv">kb_handle_end</span>
+<span class="w">          </span><span class="nf">cmp</span><span class="w">       </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mh">0x50</span>
+<span class="w">          </span><span class="nf">ja</span><span class="w">        </span><span class="nv">kb_handle_end</span>
 
-          ; At the end bx contains offset displacement (+1, -1, +320, -320)
-          ; based on pressed/released keypad key. I bet there are a few bytes
-          ; to shave around here given the bounds check above.
-          aaa
-          cbw
-          dec       ax
-          dec       ax
-          jc        kb_handle
-          sub       al, 2
-          imul      ax, ax, byte -0x50
-kb_handle:
-          mov       bx, ax
+<span class="w">          </span><span class="c1">; At the end bx contains offset displacement (+1, -1, +320, -320)</span>
+<span class="w">          </span><span class="c1">; based on pressed/released keypad key. I bet there are a few bytes</span>
+<span class="w">          </span><span class="c1">; to shave around here given the bounds check above.</span>
+<span class="w">          </span><span class="nf">aaa</span>
+<span class="w">          </span><span class="nf">cbw</span>
+<span class="w">          </span><span class="nf">dec</span><span class="w">       </span><span class="nb">ax</span>
+<span class="w">          </span><span class="nf">dec</span><span class="w">       </span><span class="nb">ax</span>
+<span class="w">          </span><span class="nf">jc</span><span class="w">        </span><span class="nv">kb_handle</span>
+<span class="w">          </span><span class="nf">sub</span><span class="w">       </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span>
+<span class="w">          </span><span class="nf">imul</span><span class="w">      </span><span class="nb">ax</span><span class="p">,</span><span class="w"> </span><span class="nb">ax</span><span class="p">,</span><span class="w"> </span><span class="kt">byte</span><span class="w"> </span><span class="o">-</span><span class="mh">0x50</span>
+<span class="nl">kb_handle:</span>
+<span class="w">          </span><span class="nf">mov</span><span class="w">       </span><span class="nb">bx</span><span class="p">,</span><span class="w"> </span><span class="nb">ax</span>
 
-kb_handle_end:
-          add       si, bx
+<span class="nl">kb_handle_end:</span>
+<span class="w">          </span><span class="nf">add</span><span class="w">       </span><span class="nb">si</span><span class="p">,</span><span class="w"> </span><span class="nb">bx</span>
 
-          ; The original code used set pallete command (10h/0bh) to wait for
-          ; the vertical retrace. Today&#39;s computers are however too fast, so
-          ; we use int 15h 86h instead. This also shaves a few bytes.
+<span class="w">          </span><span class="c1">; The original code used set pallete command (10h/0bh) to wait for</span>
+<span class="w">          </span><span class="c1">; the vertical retrace. Today&#39;s computers are however too fast, so</span>
+<span class="w">          </span><span class="c1">; we use int 15h 86h instead. This also shaves a few bytes.</span>
 
-          ; Note: you&#39;ll have to tweak cx+dx if you are running this on a virtual
-          ; machine vs real hardware. Casual testing seems to show that virtual machines
-          ; wait ~3-4x longer than physical hardware.
-          mov       ah, 0x86
-          mov       dh, 0xef
-          int       0x15
+<span class="w">          </span><span class="c1">; Note: you&#39;ll have to tweak cx+dx if you are running this on a virtual</span>
+<span class="w">          </span><span class="c1">; machine vs real hardware. Casual testing seems to show that virtual machines</span>
+<span class="w">          </span><span class="c1">; wait ~3-4x longer than physical hardware.</span>
+<span class="w">          </span><span class="nf">mov</span><span class="w">       </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x86</span>
+<span class="w">          </span><span class="nf">mov</span><span class="w">       </span><span class="nb">dh</span><span class="p">,</span><span class="w"> </span><span class="mh">0xef</span>
+<span class="w">          </span><span class="nf">int</span><span class="w">       </span><span class="mh">0x15</span>
 
-          ; Draw worm and check for collision with parity
-          ; (even parity=collision).
-          mov ah, 0x45
-          xor [es:si], ah
+<span class="w">          </span><span class="c1">; Draw worm and check for collision with parity</span>
+<span class="w">          </span><span class="c1">; (even parity=collision).</span>
+<span class="w">          </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x45</span>
+<span class="w">          </span><span class="nf">xor</span><span class="w"> </span><span class="p">[</span><span class="nb">es</span><span class="p">:</span><span class="nb">si</span><span class="p">],</span><span class="w"> </span><span class="nb">ah</span>
 
-          ; Go back to the main game loop.
-          jpo       game_loop
+<span class="w">          </span><span class="c1">; Go back to the main game loop.</span>
+<span class="w">          </span><span class="nf">jpo</span><span class="w">       </span><span class="nv">game_loop</span>
 
-          ; We hit a wall or the worm. Restart the game.
-          jmp       restart_game
+<span class="w">          </span><span class="c1">; We hit a wall or the worm. Restart the game.</span>
+<span class="w">          </span><span class="nf">jmp</span><span class="w">       </span><span class="nv">restart_game</span>
 
-TIMES 510 - ($ - $$) db 0              ; Fill the rest of sector with 0
-dw 0xaa55                              ; Boot signature at the end of bootloader
-</code></pre>
+<span class="kd">TIMES</span><span class="w"> </span><span class="mi">510</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="kc">$</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="kc">$$</span><span class="p">)</span><span class="w"> </span><span class="nv">db</span><span class="w"> </span><span class="mi">0</span><span class="w">              </span><span class="c1">; Fill the rest of sector with 0</span>
+<span class="kd">dw</span><span class="w"> </span><span class="mh">0xaa55</span><span class="w">                              </span><span class="c1">; Boot signature at the end of bootloader</span>
+</pre></div>
 <p>Now run:</p>
-<pre><code class="hljs bash">$ nasm -f bin snake.asm -o snake.bin
-$ qemu-system-x86_64 -fda snake.bin
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>nasm<span class="w"> </span>-f<span class="w"> </span>bin<span class="w"> </span>snake.asm<span class="w"> </span>-o<span class="w"> </span>snake.bin
+$<span class="w"> </span>qemu-system-x86_64<span class="w"> </span>-fda<span class="w"> </span>snake.bin
+</pre></div>
 <p><img src="bootloader-basics-snake.gif" alt="Recording of snake bootloader"></p>
 <p>What a phenomenal hack.</p>
 <p>I'm not going to get anywhere near that level of sophistication in
@@ -168,26 +167,26 @@ basics. Now all you have to do is learn the APIs.</p>
 and <a href="http://3zanders.co.uk/2017/10/13/writing-a-bootloader/">here</a>) so
 I won't go into too much line-by-line depth.</p>
 <p>In fact, let's just pull the code from the latter blog post.</p>
-<pre><code class="hljs assembly">$ cat hello.asm
-bits 16 ; tell NASM this is 16 bit code
-org 0x7c00 ; tell NASM to start outputting stuff at offset 0x7c00
-boot:
-    mov si,hello ; point si register to hello label memory location
-    mov ah,0x0e ; 0x0e means &#39;Write Character in TTY mode&#39;
-.loop:
-    lodsb
-    or al,al ; is al == 0 ?
-    jz halt  ; if (al == 0) jump to halt label
-    int 0x10 ; runs BIOS interrupt 0x10 - Video Services
-    jmp .loop
-halt:
-    cli ; clear interrupt flag
-    hlt ; halt execution
-hello: db &quot;Hello world!&quot;,0
+<div class="highlight"><pre><span></span><span class="nf">$</span><span class="w"> </span><span class="nv">cat</span><span class="w"> </span><span class="nv">hello.asm</span>
+<span class="k">bits</span><span class="w"> </span><span class="mi">16</span><span class="w"> </span><span class="c1">; tell NASM this is 16 bit code</span>
+<span class="k">org</span><span class="w"> </span><span class="mh">0x7c00</span><span class="w"> </span><span class="c1">; tell NASM to start outputting stuff at offset 0x7c00</span>
+<span class="nl">boot:</span>
+<span class="w">    </span><span class="nf">mov</span><span class="w"> </span><span class="nb">si</span><span class="p">,</span><span class="nv">hello</span><span class="w"> </span><span class="c1">; point si register to hello label memory location</span>
+<span class="w">    </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="mh">0x0e</span><span class="w"> </span><span class="c1">; 0x0e means &#39;Write Character in TTY mode&#39;</span>
+<span class="nl">.loop:</span>
+<span class="w">    </span><span class="nf">lodsb</span>
+<span class="w">    </span><span class="nf">or</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="nb">al</span><span class="w"> </span><span class="c1">; is al == 0 ?</span>
+<span class="w">    </span><span class="nf">jz</span><span class="w"> </span><span class="nv">halt</span><span class="w">  </span><span class="c1">; if (al == 0) jump to halt label</span>
+<span class="w">    </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span><span class="w"> </span><span class="c1">; runs BIOS interrupt 0x10 - Video Services</span>
+<span class="w">    </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">.loop</span>
+<span class="nl">halt:</span>
+<span class="w">    </span><span class="nf">cli</span><span class="w"> </span><span class="c1">; clear interrupt flag</span>
+<span class="w">    </span><span class="nf">hlt</span><span class="w"> </span><span class="c1">; halt execution</span>
+<span class="nl">hello:</span><span class="w"> </span><span class="kd">db</span><span class="w"> </span><span class="s">&quot;Hello world!&quot;</span><span class="p">,</span><span class="mi">0</span>
 
-times 510 - ($-$$) db 0 ; pad remaining 510 bytes with zeroes
-dw 0xaa55 ; magic bootloader magic - marks this 512 byte sector bootable!
-</code></pre>
+<span class="kd">times</span><span class="w"> </span><span class="mi">510</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="kc">$</span><span class="o">-</span><span class="kc">$$</span><span class="p">)</span><span class="w"> </span><span class="nv">db</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="c1">; pad remaining 510 bytes with zeroes</span>
+<span class="kd">dw</span><span class="w"> </span><span class="mh">0xaa55</span><span class="w"> </span><span class="c1">; magic bootloader magic - marks this 512 byte sector bootable!</span>
+</pre></div>
 <p>The computer boots, prints "Hello world!" and hangs.</p>
 <p>But aside from clerical settings (16-bit assembly, where the program
 exists in memory, padding to 512 bytes) the only real bootloader-y
@@ -203,9 +202,9 @@ the display family (documentation
 <a href="https://stanislavs.org/helppc/int_10.html">here</a>).</p>
 <h4 id="run-hello-world">Run hello world</h4><p>Anyway, back to the hello world. Assemble it with nasm and run it with
 qemu.</p>
-<pre><code class="hljs bash">$ nasm -f bin hello.asm -o hello.bin
-$ qemu-system-x86_64 -fda hello.bin
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>nasm<span class="w"> </span>-f<span class="w"> </span>bin<span class="w"> </span>hello.asm<span class="w"> </span>-o<span class="w"> </span>hello.bin
+$<span class="w"> </span>qemu-system-x86_64<span class="w"> </span>-fda<span class="w"> </span>hello.bin
+</pre></div>
 <p><img src="bootloader-basics-hello.gif" alt="Printing hello world"></p>
 <p>Getting the hang of it?</p>
 <h3 id="io-loop">IO Loop</h3><p>The specific function we called above to write a character to the
@@ -226,116 +225,116 @@ ASCII character will be in <code>AL</code> when the interrupt returns.</p>
 runs. We can use <a href="https://stanislavs.org/helppc/int_10-0.html">INT
 0x10,0</a> to clear the
 screen.</p>
-<pre><code>        ;; Clear screen
+<div class="highlight"><pre><span></span>        ;; Clear screen
         mov ah, 0x00
         mov al, 0x03
         int 0x10
-</code></pre>
+</pre></div>
 <h4 id="all-together">All together</h4><p>Since the display function reads from the same register the input
 function outputs to, we can just call both interrupts after each
 other. Wrap this in a loop and we have the world's worst editor.</p>
-<pre><code>$ cat ioloop.asm
-bits 16
-org 0x7c00
+<div class="highlight"><pre><span></span><span class="o">$</span><span class="w"> </span><span class="n">cat</span><span class="w"> </span><span class="n">ioloop</span><span class="o">.</span><span class="n">asm</span>
+<span class="n">bits</span><span class="w"> </span><span class="mi">16</span>
+<span class="n">org</span><span class="w"> </span><span class="mh">0x7c00</span>
 
-main:
-        ;; Clear screen
-        mov ah, 0x00
-        mov al, 0x03
-        int 0x10
+<span class="n">main</span><span class="p">:</span>
+<span class="w">        </span><span class="p">;;</span><span class="w"> </span><span class="n">Clear</span><span class="w"> </span><span class="n">screen</span>
+<span class="w">        </span><span class="n">mov</span><span class="w"> </span><span class="n">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x00</span>
+<span class="w">        </span><span class="n">mov</span><span class="w"> </span><span class="n">al</span><span class="p">,</span><span class="w"> </span><span class="mh">0x03</span>
+<span class="w">        </span><span class="nb nb-Type">int</span><span class="w"> </span><span class="mh">0x10</span>
 
-.loop:
-        ;; Read character
-        mov ah, 0
-        int 0x16
+<span class="o">.</span><span class="n">loop</span><span class="p">:</span>
+<span class="w">        </span><span class="p">;;</span><span class="w"> </span><span class="n">Read</span><span class="w"> </span><span class="n">character</span>
+<span class="w">        </span><span class="n">mov</span><span class="w"> </span><span class="n">ah</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">        </span><span class="nb nb-Type">int</span><span class="w"> </span><span class="mh">0x16</span>
 
-        ;; Print character
-        mov ah, 0x0e
-        int 0x10
+<span class="w">        </span><span class="p">;;</span><span class="w"> </span><span class="n">Print</span><span class="w"> </span><span class="n">character</span>
+<span class="w">        </span><span class="n">mov</span><span class="w"> </span><span class="n">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0e</span>
+<span class="w">        </span><span class="nb nb-Type">int</span><span class="w"> </span><span class="mh">0x10</span>
 
-        jmp .loop
+<span class="w">        </span><span class="n">jmp</span><span class="w"> </span><span class="o">.</span><span class="n">loop</span>
 
-times 510 - ($-$$) db 0 ; pad remaining 510 bytes with zeroes
-dw 0xaa55 ; magic bootloader magic - marks this 512 byte sector bootable!
-</code></pre>
+<span class="n">times</span><span class="w"> </span><span class="mi">510</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="o">$-$$</span><span class="p">)</span><span class="w"> </span><span class="n">db</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="n">pad</span><span class="w"> </span><span class="n">remaining</span><span class="w"> </span><span class="mi">510</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="n">with</span><span class="w"> </span><span class="n">zeroes</span>
+<span class="n">dw</span><span class="w"> </span><span class="mh">0xaa55</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="n">magic</span><span class="w"> </span><span class="n">bootloader</span><span class="w"> </span><span class="n">magic</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">marks</span><span class="w"> </span><span class="n">this</span><span class="w"> </span><span class="mi">512</span><span class="w"> </span><span class="n">byte</span><span class="w"> </span><span class="n">sector</span><span class="w"> </span><span class="n">bootable</span><span class="o">!</span>
+</pre></div>
 <p class="note">
   By the way, the <code>main</code> label here (like
   the <code>boot</code> label above in <code>hello.asm</code>) is only
   to help the reader. It is not something the BIOS uses.
 </p><p>Now that we've got the code, let's run it!</p>
-<pre><code class="hljs bash">$ nasm -f bin ioloop.asm -o ioloop.bin
-$ qemu-system-x86_64 -fda ioloop.bin
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>nasm<span class="w"> </span>-f<span class="w"> </span>bin<span class="w"> </span>ioloop.asm<span class="w"> </span>-o<span class="w"> </span>ioloop.bin
+$<span class="w"> </span>qemu-system-x86_64<span class="w"> </span>-fda<span class="w"> </span>ioloop.bin
+</pre></div>
 <p><img src="bootloader-basics-ioloop.gif" alt="Recording of ioloop bootloader"></p>
 <h3 id="digression-on-abstraction">Digression on abstraction</h3><p>There are two ways to build abstractions: assembly functions and nasm
 macros.</p>
 <p>We could build a clear screen function like this:</p>
-<pre><code class="hljs assembly">clear_screen:
-        ;; Clear screen
-        mov ah, 0x00
-        mov al, 0x03
-        int 0x10
-        ret
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nl">clear_screen:</span>
+<span class="w">        </span><span class="c1">;; Clear screen</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x00</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mh">0x03</span>
+<span class="w">        </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
+<span class="w">        </span><span class="nf">ret</span>
+</pre></div>
 <p>And then we can call this in the ioloop program like so:</p>
-<pre><code class="hljs assembly">bits 16
-org 0x7c00
+<div class="highlight"><pre><span></span><span class="k">bits</span><span class="w"> </span><span class="mi">16</span>
+<span class="k">org</span><span class="w"> </span><span class="mh">0x7c00</span>
 
-jmp main
+<span class="nf">jmp</span><span class="w"> </span><span class="nv">main</span>
 
-clear_screen:
-        ;; Clear screen
-        mov ah, 0x00
-        mov al, 0x03
-        int 0x10
-        ret
+<span class="nl">clear_screen:</span>
+<span class="w">        </span><span class="c1">;; Clear screen</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x00</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mh">0x03</span>
+<span class="w">        </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
+<span class="w">        </span><span class="nf">ret</span>
 
-main:
-        call clear_screen
+<span class="nl">main:</span>
+<span class="w">        </span><span class="nf">call</span><span class="w"> </span><span class="nv">clear_screen</span>
 
-.loop:
-        ;; Read character
-        mov ah, 0
-        int 0x16
+<span class="nl">.loop:</span>
+<span class="w">        </span><span class="c1">;; Read character</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">        </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x16</span>
 
-        ;; Print character
-        mov ah, 0x0e
-        int 0x10
+<span class="w">        </span><span class="c1">;; Print character</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0e</span>
+<span class="w">        </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
 
-        jmp .loop
+<span class="w">        </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">.loop</span>
 
-times 510 - ($-$$) db 0 ; pad remaining 510 bytes with zeroes
-dw 0xaa55 ; magic bootloader magic - marks this 512 byte sector bootable!
-</code></pre>
+<span class="kd">times</span><span class="w"> </span><span class="mi">510</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="kc">$</span><span class="o">-</span><span class="kc">$$</span><span class="p">)</span><span class="w"> </span><span class="nv">db</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="c1">; pad remaining 510 bytes with zeroes</span>
+<span class="kd">dw</span><span class="w"> </span><span class="mh">0xaa55</span><span class="w"> </span><span class="c1">; magic bootloader magic - marks this 512 byte sector bootable!</span>
+</pre></div>
 <p>On the other hand if you do it in a macro:</p>
-<pre><code class="hljs assembly">bits 16
-org 0x7c00
+<div class="highlight"><pre><span></span><span class="k">bits</span><span class="w"> </span><span class="mi">16</span>
+<span class="k">org</span><span class="w"> </span><span class="mh">0x7c00</span>
 
-jmp main
+<span class="nf">jmp</span><span class="w"> </span><span class="nv">main</span>
 
-%macro cls 0 ; Zero is the number of arguments
-        mov ah, 0x00
-        mov al, 0x03
-        int 0x10
-%endmacro
+<span class="cp">%macro cls 0 </span><span class="c1">; Zero is the number of arguments</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x00</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mh">0x03</span>
+<span class="w">        </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
+<span class="cp">%endmacro</span>
 
-main:
-        cls
+<span class="nl">main:</span>
+<span class="w">        </span><span class="nf">cls</span>
 
-.loop:
-        ;; Read character
-        mov ah, 0
-        int 0x16
+<span class="nl">.loop:</span>
+<span class="w">        </span><span class="c1">;; Read character</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">        </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x16</span>
 
-        ;; Print character
-        mov ah, 0x0e
-        int 0x10
+<span class="w">        </span><span class="c1">;; Print character</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0e</span>
+<span class="w">        </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
 
-        jmp .loop
+<span class="w">        </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">.loop</span>
 
-times 510 - ($-$$) db 0 ; pad remaining 510 bytes with zeroes
-dw 0xaa55 ; magic bootloader magic - marks this 512 byte sector bootable!
-</code></pre>
+<span class="kd">times</span><span class="w"> </span><span class="mi">510</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="kc">$</span><span class="o">-</span><span class="kc">$$</span><span class="p">)</span><span class="w"> </span><span class="nv">db</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="c1">; pad remaining 510 bytes with zeroes</span>
+<span class="kd">dw</span><span class="w"> </span><span class="mh">0xaa55</span><span class="w"> </span><span class="c1">; magic bootloader magic - marks this 512 byte sector bootable!</span>
+</pre></div>
 <p>And nasm macros even have a way to write macro-safe labels by
 prefixing them with <code>%%</code> which is useful if you have
 conditions or loops within a macro.</p>
@@ -356,262 +355,262 @@ pressed.</p>
 <a href="http://www.techhelpmanual.com/93-rom_bios_variables.html">here</a> or
 <a href="https://www.tau.ac.il/~flaxer/edu/course/processcontrol/BiosDataArea.pdf">here</a>),
 we can build a macro for reading the pressed character:</p>
-<pre><code class="hljs assembly">%macro mov_read_character_into 1
-  mov eax, [0x041a]
-  add eax, 0x03fe   ; Offset from 0x0400 - sizeof(uint16) (since head points to next free slot, not last/current slot)
-  and eax, 0xFFFF
+<div class="highlight"><pre><span></span><span class="cp">%macro mov_read_character_into 1</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">eax</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mh">0x041a</span><span class="p">]</span>
+<span class="w">  </span><span class="nf">add</span><span class="w"> </span><span class="nb">eax</span><span class="p">,</span><span class="w"> </span><span class="mh">0x03fe</span><span class="w">   </span><span class="c1">; Offset from 0x0400 - sizeof(uint16) (since head points to next free slot, not last/current slot)</span>
+<span class="w">  </span><span class="nf">and</span><span class="w"> </span><span class="nb">eax</span><span class="p">,</span><span class="w"> </span><span class="mh">0xFFFF</span>
 
-  mov %1, [eax]
-  and %1, 0xFF
-%endmacro
-</code></pre>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="o">%</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="nb">eax</span><span class="p">]</span>
+<span class="w">  </span><span class="nf">and</span><span class="w"> </span><span class="o">%</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mh">0xFF</span>
+<span class="cp">%endmacro</span>
+</pre></div>
 <p>And another macro for reading the pressed control character (if any):</p>
-<pre><code class="hljs assembly">%macro mov_read_ctrl_flag_into 1
-  mov %1, [0x0417]
-  and %1, 0x04    ; Grab 3rd bit: %1 &amp; 0b0100
-%endmacro
-</code></pre>
+<div class="highlight"><pre><span></span><span class="cp">%macro mov_read_ctrl_flag_into 1</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="o">%</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mh">0x0417</span><span class="p">]</span>
+<span class="w">  </span><span class="nf">and</span><span class="w"> </span><span class="o">%</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mh">0x04</span><span class="w">    </span><span class="c1">; Grab 3rd bit: %1 &amp; 0b0100</span>
+<span class="cp">%endmacro</span>
+</pre></div>
 <h3 id="cursor-location">Cursor location</h3><p>Lastly we'll use some cursor APIs that that allow us to handle
 newlines, backspace on the first column of a line, and ctrl-a (jump to
 beginning of line).</p>
-<pre><code class="hljs assembly">%macro get_position 0
-  mov ah, 0x03
-  int 0x10
-%endmacro
+<div class="highlight"><pre><span></span><span class="cp">%macro get_position 0</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x03</span>
+<span class="w">  </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
+<span class="cp">%endmacro</span>
 
-%macro set_position 0
-  mov ah, 0x02
-  int 0x10
-%endmacro
-</code></pre>
+<span class="cp">%macro set_position 0</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x02</span>
+<span class="w">  </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
+<span class="cp">%endmacro</span>
+</pre></div>
 <p>But there's something buggy about my <code>goto_end_of_line</code>
 function. Sometimes it works and sometimes it just jumps all over the
 screen in an infinite loop. Part of the problem is that the editor
 memory is the video card. The cursor location is only stored there and
 not in some program state like you might do in a high-level
 environment/language.</p>
-<pre><code class="hljs assembly">goto_end_of_line:
-;; Get current character
-  mov ah, 0x08
-  int 0x10
+<div class="highlight"><pre><span></span><span class="nl">goto_end_of_line:</span>
+<span class="c1">;; Get current character</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x08</span>
+<span class="w">  </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
 
-;; Iterate until the character is null
-  cmp al, 0
-  jz .done
+<span class="c1">;; Iterate until the character is null</span>
+<span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="nf">jz</span><span class="w"> </span><span class="nv">.done</span>
 
-  inc dl
-  set_position
-  jmp goto_end_of_line
+<span class="w">  </span><span class="nf">inc</span><span class="w"> </span><span class="nb">dl</span>
+<span class="w">  </span><span class="nf">set_position</span>
+<span class="w">  </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">goto_end_of_line</span>
 
-.done:
-  ret
-</code></pre>
+<span class="nl">.done:</span>
+<span class="w">  </span><span class="nf">ret</span>
+</pre></div>
 <p>Alright, let's put all these pieces together.</p>
 <h3 id="editor-with-keyboard-shortcuts">Editor with keyboard shortcuts</h3><p>Start with the basics in <code>editor.asm</code>.</p>
-<pre><code class="hljs assembly">; -*- mode: nasm;-*-
+<div class="highlight"><pre><span></span><span class="c1">; -*- mode: nasm;-*-</span>
 
-bits 16
-org 0x7c00
+<span class="k">bits</span><span class="w"> </span><span class="mi">16</span>
+<span class="k">org</span><span class="w"> </span><span class="mh">0x7c00</span>
 
-  jmp main
-</code></pre>
+<span class="w">  </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">main</span>
+</pre></div>
 <p>Then add a clear screen macro.</p>
-<pre><code class="hljs assembly">%macro cls 0
-  mov ah, 0x00
-  mov al, 0x03
-  int 0x10
-%endmacro
-</code></pre>
+<div class="highlight"><pre><span></span><span class="cp">%macro cls 0</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x00</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mh">0x03</span>
+<span class="w">  </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
+<span class="cp">%endmacro</span>
+</pre></div>
 <p>Add macros for reading and printing.</p>
-<pre><code class="hljs assembly">%macro read_character 0
-  ;; Read character
-  mov ah, 0
-  int 0x16
-%endmacro
+<div class="highlight"><pre><span></span><span class="cp">%macro read_character 0</span>
+<span class="w">  </span><span class="c1">;; Read character</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x16</span>
+<span class="cp">%endmacro</span>
 
-%macro print_character 1
-  mov ax, %1
-  mov ah, 0x0e
-  int 0x10
-%endmacro
-</code></pre>
+<span class="cp">%macro print_character 1</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ax</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="mi">1</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0e</span>
+<span class="w">  </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
+<span class="cp">%endmacro</span>
+</pre></div>
 <p>Add cursor utilities.</p>
-<pre><code class="hljs assembly">%macro get_position 0
-  mov ah, 0x03
-  int 0x10
-%endmacro
+<div class="highlight"><pre><span></span><span class="cp">%macro get_position 0</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x03</span>
+<span class="w">  </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
+<span class="cp">%endmacro</span>
 
-%macro set_position 0
-  mov ah, 0x02
-  int 0x10
-%endmacro
+<span class="cp">%macro set_position 0</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x02</span>
+<span class="w">  </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
+<span class="cp">%endmacro</span>
 
-goto_end_of_line:
-;; Get current character
-  mov ah, 0x08
-  int 0x10
+<span class="nl">goto_end_of_line:</span>
+<span class="c1">;; Get current character</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x08</span>
+<span class="w">  </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
 
-;; Iterate until the character is null
-  cmp al, 0
-  jz .done
+<span class="c1">;; Iterate until the character is null</span>
+<span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="nf">jz</span><span class="w"> </span><span class="nv">.done</span>
 
-  inc dl
-  set_position
-  jmp goto_end_of_line
+<span class="w">  </span><span class="nf">inc</span><span class="w"> </span><span class="nb">dl</span>
+<span class="w">  </span><span class="nf">set_position</span>
+<span class="w">  </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">goto_end_of_line</span>
 
-.done:
-  ret
-</code></pre>
+<span class="nl">.done:</span>
+<span class="w">  </span><span class="nf">ret</span>
+</pre></div>
 <p>And keyboard utilities.</p>
-<pre><code class="hljs assembly">%macro mov_read_ctrl_flag_into 1
-  mov %1, [0x0417]
-  and %1, 0x04    ; Grab 3rd bit: %1 &amp; 0b0100
-%endmacro
+<div class="highlight"><pre><span></span><span class="cp">%macro mov_read_ctrl_flag_into 1</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="o">%</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mh">0x0417</span><span class="p">]</span>
+<span class="w">  </span><span class="nf">and</span><span class="w"> </span><span class="o">%</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mh">0x04</span><span class="w">    </span><span class="c1">; Grab 3rd bit: %1 &amp; 0b0100</span>
+<span class="cp">%endmacro</span>
 
-%macro mov_read_character_into 1
-  mov eax, [0x041a]
-  add eax, 0x03fe   ; Offset from 0x0400 - sizeof(uint16) (since head points to next free slot, not last/current slot)
-  and eax, 0xFFFF
+<span class="cp">%macro mov_read_character_into 1</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">eax</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mh">0x041a</span><span class="p">]</span>
+<span class="w">  </span><span class="nf">add</span><span class="w"> </span><span class="nb">eax</span><span class="p">,</span><span class="w"> </span><span class="mh">0x03fe</span><span class="w">   </span><span class="c1">; Offset from 0x0400 - sizeof(uint16) (since head points to next free slot, not last/current slot)</span>
+<span class="w">  </span><span class="nf">and</span><span class="w"> </span><span class="nb">eax</span><span class="p">,</span><span class="w"> </span><span class="mh">0xFFFF</span>
 
-  mov %1, [eax]
-  and %1, 0xFF
-%endmacro
-</code></pre>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="o">%</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="nb">eax</span><span class="p">]</span>
+<span class="w">  </span><span class="nf">and</span><span class="w"> </span><span class="o">%</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mh">0xFF</span>
+<span class="cp">%endmacro</span>
+</pre></div>
 <p>Now we can start the editor loop where we wait for a keypress and
 handle it.</p>
-<pre><code class="hljs assembly">editor_action:
-  read_character
-</code></pre>
+<div class="highlight"><pre><span></span><span class="nl">editor_action:</span>
+<span class="w">  </span><span class="nf">read_character</span>
+</pre></div>
 <p>Don't print ASCII garbage if the key pressed is an arrow key. Just do
 nothing. (This isn't good editor behavior in general but ours is a
 limited one.)</p>
-<pre><code class="hljs assembly">;; Ignore arrow keys
-  cmp ah, 0x4b    ; Left
-  jz .done
-  cmp ah, 0x50    ; Down
-  jz .done
-  cmp ah, 0x4d    ; Right
-  jz .done
-  cmp ah, 0x48    ; Up
-  jz .done
-</code></pre>
+<div class="highlight"><pre><span></span><span class="c1">;; Ignore arrow keys</span>
+<span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x4b</span><span class="w">    </span><span class="c1">; Left</span>
+<span class="w">  </span><span class="nf">jz</span><span class="w"> </span><span class="nv">.done</span>
+<span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x50</span><span class="w">    </span><span class="c1">; Down</span>
+<span class="w">  </span><span class="nf">jz</span><span class="w"> </span><span class="nv">.done</span>
+<span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x4d</span><span class="w">    </span><span class="c1">; Right</span>
+<span class="w">  </span><span class="nf">jz</span><span class="w"> </span><span class="nv">.done</span>
+<span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x48</span><span class="w">    </span><span class="c1">; Up</span>
+<span class="w">  </span><span class="nf">jz</span><span class="w"> </span><span class="nv">.done</span>
+</pre></div>
 <p>Next handle backspace.</p>
-<pre><code class="hljs assembly">;; Handle backspace
-  cmp al, 0x08
-  jz .is_backspace
+<div class="highlight"><pre><span></span><span class="c1">;; Handle backspace</span>
+<span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mh">0x08</span>
+<span class="w">  </span><span class="nf">jz</span><span class="w"> </span><span class="nv">.is_backspace</span>
 
-  cmp al, 0x7F    ; For mac keyboards
-  jnz .done_backspace
+<span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mh">0x7F</span><span class="w">    </span><span class="c1">; For mac keyboards</span>
+<span class="w">  </span><span class="nf">jnz</span><span class="w"> </span><span class="nv">.done_backspace</span>
 
-.is_backspace:
+<span class="nl">.is_backspace:</span>
 
-  get_position
-</code></pre>
+<span class="w">  </span><span class="nf">get_position</span>
+</pre></div>
 <p>If this key is pressed at the first line and the first column, do
 nothing.</p>
-<pre><code class="hljs assembly">;; Handle 0,0 coordinate (do nothing)
-  mov al, dh
-  add al, dl
-  jz .overwrite_character
-</code></pre>
+<div class="highlight"><pre><span></span><span class="c1">;; Handle 0,0 coordinate (do nothing)</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="nb">dh</span>
+<span class="w">  </span><span class="nf">add</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="nb">dl</span>
+<span class="w">  </span><span class="nf">jz</span><span class="w"> </span><span class="nv">.overwrite_character</span>
+</pre></div>
 <p>Otherwise if backspace is pressed not at the beginning of the line,
 just overwrite the last character with the ASCII 0 (the code 0 not the
 digit 0).</p>
-<pre><code class="hljs assembly">  cmp dl, 0
-  jz .backspace_at_start_of_line
-  dec dl      ; Decrement column
-  set_position
-  jmp .overwrite_character
-</code></pre>
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">dl</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="nf">jz</span><span class="w"> </span><span class="nv">.backspace_at_start_of_line</span>
+<span class="w">  </span><span class="nf">dec</span><span class="w"> </span><span class="nb">dl</span><span class="w">      </span><span class="c1">; Decrement column</span>
+<span class="w">  </span><span class="nf">set_position</span>
+<span class="w">  </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">.overwrite_character</span>
+</pre></div>
 <p>Otherwise you're at the beginning of the line and you need to jump to
 the end of the previous line.</p>
-<pre><code class="hljs assembly">.backspace_at_start_of_line:
-  dec dh      ; Decrement row
-  set_position
+<div class="highlight"><pre><span></span><span class="nl">.backspace_at_start_of_line:</span>
+<span class="w">  </span><span class="nf">dec</span><span class="w"> </span><span class="nb">dh</span><span class="w">      </span><span class="c1">; Decrement row</span>
+<span class="w">  </span><span class="nf">set_position</span>
 
-  call goto_end_of_line
+<span class="w">  </span><span class="nf">call</span><span class="w"> </span><span class="nv">goto_end_of_line</span>
 
-.overwrite_character:
-  mov al, 0
-  mov ah, 0x0a
-  int 0x10
+<span class="nl">.overwrite_character:</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">ah</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0a</span>
+<span class="w">  </span><span class="nf">int</span><span class="w"> </span><span class="mh">0x10</span>
 
-  jmp .done
+<span class="w">  </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">.done</span>
 
-.done_backspace:
-</code></pre>
+<span class="nl">.done_backspace:</span>
+</pre></div>
 <p>Next we handle the Enter key. This should move the cursor onto the
 next line and set the column back to zero.</p>
-<pre><code class="hljs assembly">;; Handle enter
-  mov_read_character_into ax
-  cmp al, 0x0d
-  jnz .done_enter
+<div class="highlight"><pre><span></span><span class="c1">;; Handle enter</span>
+<span class="w">  </span><span class="nf">mov_read_character_into</span><span class="w"> </span><span class="nb">ax</span>
+<span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0d</span>
+<span class="w">  </span><span class="nf">jnz</span><span class="w"> </span><span class="nv">.done_enter</span>
 
-  get_position
-  inc dh      ; Increment line
-  mov dl, 0     ; Reset column
-  set_position
+<span class="w">  </span><span class="nf">get_position</span>
+<span class="w">  </span><span class="nf">inc</span><span class="w"> </span><span class="nb">dh</span><span class="w">      </span><span class="c1">; Increment line</span>
+<span class="w">  </span><span class="nf">mov</span><span class="w"> </span><span class="nb">dl</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="w">     </span><span class="c1">; Reset column</span>
+<span class="w">  </span><span class="nf">set_position</span>
 
-  jmp .done
+<span class="w">  </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">.done</span>
 
-.done_enter:
-</code></pre>
+<span class="nl">.done_enter:</span>
+</pre></div>
 <p>Next we handle ctrl-a, jump to start of line.</p>
-<pre><code class="hljs assembly">;; Handle ctrl- shortcuts
+<div class="highlight"><pre><span></span><span class="c1">;; Handle ctrl- shortcuts</span>
 
-;; Check ctrl key
-  mov_read_ctrl_flag_into ax
-    jz .ctrl_not_set
+<span class="c1">;; Check ctrl key</span>
+<span class="w">  </span><span class="nf">mov_read_ctrl_flag_into</span><span class="w"> </span><span class="nb">ax</span>
+<span class="w">    </span><span class="nf">jz</span><span class="w"> </span><span class="nv">.ctrl_not_set</span>
 
-;; Handle ctrl-a shortcut
-  mov_read_character_into ax
-  cmp al, 1     ; For some reason with ctlr, these are offset from a-z
-  jnz .not_ctrl_a
+<span class="c1">;; Handle ctrl-a shortcut</span>
+<span class="w">  </span><span class="nf">mov_read_character_into</span><span class="w"> </span><span class="nb">ax</span>
+<span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="w">     </span><span class="c1">; For some reason with ctlr, these are offset from a-z</span>
+<span class="w">  </span><span class="nf">jnz</span><span class="w"> </span><span class="nv">.not_ctrl_a</span>
 
-;; Reset column
-    mov dl, 0
-    set_position
+<span class="c1">;; Reset column</span>
+<span class="w">    </span><span class="nf">mov</span><span class="w"> </span><span class="nb">dl</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="nf">set_position</span>
 
-    jmp .done
+<span class="w">    </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">.done</span>
 
-.not_ctrl_a:
-</code></pre>
+<span class="nl">.not_ctrl_a:</span>
+</pre></div>
 <p>For ctrl-e, jump to the end of the line.</p>
-<pre><code class="hljs assembly">;; Handle ctrl-e shortcut
-  mov_read_character_into ax
-  cmp al, 5
-  jnz .not_ctrl_e
+<div class="highlight"><pre><span></span><span class="c1">;; Handle ctrl-e shortcut</span>
+<span class="w">  </span><span class="nf">mov_read_character_into</span><span class="w"> </span><span class="nb">ax</span>
+<span class="w">  </span><span class="nf">cmp</span><span class="w"> </span><span class="nb">al</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span>
+<span class="w">  </span><span class="nf">jnz</span><span class="w"> </span><span class="nv">.not_ctrl_e</span>
 
-  call goto_end_of_line
-  jmp .done
+<span class="w">  </span><span class="nf">call</span><span class="w"> </span><span class="nv">goto_end_of_line</span>
+<span class="w">  </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">.done</span>
 
-.not_ctrl_e:
-  jmp .done
+<span class="nl">.not_ctrl_e:</span>
+<span class="w">  </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">.done</span>
 
-.ctrl_not_set:
-</code></pre>
+<span class="nl">.ctrl_not_set:</span>
+</pre></div>
 <p>Finally if none of these cases are met, just print the pressed character and return.</p>
-<pre><code class="hljs assembly">  mov_read_character_into ax
-  print_character ax
+<div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">mov_read_character_into</span><span class="w"> </span><span class="nb">ax</span>
+<span class="w">  </span><span class="nf">print_character</span><span class="w"> </span><span class="nb">ax</span>
 
-.done:
-  ret
-</code></pre>
+<span class="nl">.done:</span>
+<span class="w">  </span><span class="nf">ret</span>
+</pre></div>
 <p>Finally, create the main function that calls this editor code in a loop.</p>
-<pre><code class="hljs assembly">main:
-  cls
+<div class="highlight"><pre><span></span><span class="nl">main:</span>
+<span class="w">  </span><span class="nf">cls</span>
 
-.loop:
-  call editor_action
-  jmp .loop
+<span class="nl">.loop:</span>
+<span class="w">  </span><span class="nf">call</span><span class="w"> </span><span class="nv">editor_action</span>
+<span class="w">  </span><span class="nf">jmp</span><span class="w"> </span><span class="nv">.loop</span>
 
-times 510 - ($-$$) db 0 ; pad remaining 510 bytes with zeroes
-dw 0xaa55 ; magic bootloader magic - marks this 512 byte sector bootable!
-</code></pre>
+<span class="kd">times</span><span class="w"> </span><span class="mi">510</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="kc">$</span><span class="o">-</span><span class="kc">$$</span><span class="p">)</span><span class="w"> </span><span class="nv">db</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="c1">; pad remaining 510 bytes with zeroes</span>
+<span class="kd">dw</span><span class="w"> </span><span class="mh">0xaa55</span><span class="w"> </span><span class="c1">; magic bootloader magic - marks this 512 byte sector bootable!</span>
+</pre></div>
 <p>And we're done! Try it out:</p>
-<pre><code class="hljs bash">$ nasm -f bin editor.asm -o editor.bin
-$ qemu-system-x86_64 -fda editor.bin
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>nasm<span class="w"> </span>-f<span class="w"> </span>bin<span class="w"> </span>editor.asm<span class="w"> </span>-o<span class="w"> </span>editor.bin
+$<span class="w"> </span>qemu-system-x86_64<span class="w"> </span>-fda<span class="w"> </span>editor.bin
+</pre></div>
 <p><img src="bootloader-basics-editor.gif" alt="Recording of a bad editor"></p>
 <p>Tedious and buggy! But I learned something, I think.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">I wrote a new post on my first time exploring bootloader basics! Neat to discover the BIOS APIs and spend some time actually coding in assembly versus just generating or emulating it.<a href="https://t.co/7iP6Nib620">https://t.co/7iP6Nib620</a> <a href="https://t.co/xSyG1IXgEB">pic.twitter.com/xSyG1IXgEB</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1485398216124346371?ref_src=twsrc%5Etfw">January 23, 2022</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
@@ -1249,7 +1248,6 @@ $ qemu-system-x86_64 -fda editor.bin
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

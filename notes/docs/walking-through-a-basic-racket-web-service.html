@@ -6,7 +6,6 @@
     <title>Walking through a basic Racket web service | notes.eatonphil.com</title>
     <meta name="description" content="Walking through a basic Racket web service" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -65,23 +64,23 @@ the complexity of Scala and the ugliness of Play in Java helped too.)</p>
 <p>With this motivation in mind, I'm going to break down the simple web
 service <a href="https://docs.racket-lang.org/web-server/stateless.html#%28part._stateless-example%29">example</a> provided in the Racket manuals. If you don't see
 the following code in the linked page immediately, scroll down a bit.</p>
-<pre><code class="hljs scheme">#lang web-server
+<div class="highlight"><pre><span></span><span class="o">#</span><span class="nv">lang</span><span class="w"> </span><span class="nv">web-server</span>
 
-(require web-server/http)
+<span class="p">(</span><span class="nf">require</span><span class="w"> </span><span class="nv">web-server/http</span><span class="p">)</span>
 
-(provide interface-version stuffer start)
+<span class="p">(</span><span class="nb">provide</span><span class="w"> </span><span class="nv">interface-version</span><span class="w"> </span><span class="nv">stuffer</span><span class="w"> </span><span class="nv">start</span><span class="p">)</span>
 
-(define interface-version &#39;stateless)
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="nv">interface-version</span><span class="w"> </span><span class="ss">&#39;stateless</span><span class="p">)</span>
 
-(define stuffer
-  (stuffer-chain
-   serialize-stuffer
-   (md5-stuffer (build-path (find-system-path &#39;home-dir) &quot;.urls&quot;))))
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="nv">stuffer</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">stuffer-chain</span>
+<span class="w">   </span><span class="nv">serialize-stuffer</span>
+<span class="w">   </span><span class="p">(</span><span class="nf">md5-stuffer</span><span class="w"> </span><span class="p">(</span><span class="nf">build-path</span><span class="w"> </span><span class="p">(</span><span class="nf">find-system-path</span><span class="w"> </span><span class="ss">&#39;home-dir</span><span class="p">)</span><span class="w"> </span><span class="s">&quot;.urls&quot;</span><span class="p">))))</span>
 
-(define (start req)
-  (response/xexpr
-   `(html (body (h2 &quot;Look ma, no state!&quot;)))))
-</code></pre>
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="p">(</span><span class="nf">start</span><span class="w"> </span><span class="nv">req</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">response/xexpr</span>
+<span class="w">   </span><span class="o">`</span><span class="p">(</span><span class="nf">html</span><span class="w"> </span><span class="p">(</span><span class="nf">body</span><span class="w"> </span><span class="p">(</span><span class="nf">h2</span><span class="w"> </span><span class="s">&quot;Look ma, no state!&quot;</span><span class="p">)))))</span>
+</pre></div>
 <p>First we notice the #lang declaration. Racket libraries love to make
 new "languages". These languages can include some entirely new syntax
 (like the <a href="http://docs.racket-lang.org/algol60/">Algol language implementation</a>) or can simply include a
@@ -100,26 +99,26 @@ manual for functions we've used.  For instance, <a href="https://docs.racket-lan
 "response/xexpr" tells us it's in the <a href="https://docs.racket-lang.org/web-server/http.html#%28part._xexpr%29">web-server/http/xexpr</a>
 module. We'll import the modules we need using the "prefix-in" form to
 make function-module connections explicit.</p>
-<pre><code class="hljs scheme">#lang racket/base
+<div class="highlight"><pre><span></span><span class="o">#</span><span class="nv">lang</span><span class="w"> </span><span class="nv">racket/base</span>
 
-(require (prefix-in xexpr: web-server/http/xexpr)
-         (prefix-in hash: web-server/stuffers/hash)
-         (prefix-in stuffer: web-server/stuffers/stuffer)
-         (prefix-in serialize: web-server/stuffers/serialize))
+<span class="p">(</span><span class="nf">require</span><span class="w"> </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">xexpr:</span><span class="w"> </span><span class="nv">web-server/http/xexpr</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">hash:</span><span class="w"> </span><span class="nv">web-server/stuffers/hash</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">stuffer:</span><span class="w"> </span><span class="nv">web-server/stuffers/stuffer</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">serialize:</span><span class="w"> </span><span class="nv">web-server/stuffers/serialize</span><span class="p">))</span>
 
-(provide interface-version stuffer start)
+<span class="p">(</span><span class="nb">provide</span><span class="w"> </span><span class="nv">interface-version</span><span class="w"> </span><span class="nv">stuffer</span><span class="w"> </span><span class="nv">start</span><span class="p">)</span>
 
-(define interface-version &#39;stateless)
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="nv">interface-version</span><span class="w"> </span><span class="ss">&#39;stateless</span><span class="p">)</span>
 
-(define stuffer
-  (stuffer:stuffer-chain
-   serialize:serialize-stuffer
-   (hash:md5-stuffer (build-path (find-system-path &#39;home-dir) &quot;.urls&quot;))))
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="nv">stuffer</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">stuffer:stuffer-chain</span>
+<span class="w">   </span><span class="nv">serialize:serialize-stuffer</span>
+<span class="w">   </span><span class="p">(</span><span class="nf">hash:md5-stuffer</span><span class="w"> </span><span class="p">(</span><span class="nf">build-path</span><span class="w"> </span><span class="p">(</span><span class="nf">find-system-path</span><span class="w"> </span><span class="ss">&#39;home-dir</span><span class="p">)</span><span class="w"> </span><span class="s">&quot;.urls&quot;</span><span class="p">))))</span>
 
-(define (start req)
-  (xexpr:response/xexpr
-   `(html (body (h2 &quot;Look ma, no state!&quot;)))))
-</code></pre>
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="p">(</span><span class="nf">start</span><span class="w"> </span><span class="nv">req</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">xexpr:response/xexpr</span>
+<span class="w">   </span><span class="o">`</span><span class="p">(</span><span class="nf">html</span><span class="w"> </span><span class="p">(</span><span class="nf">body</span><span class="w"> </span><span class="p">(</span><span class="nf">h2</span><span class="w"> </span><span class="s">&quot;Look ma, no state!&quot;</span><span class="p">)))))</span>
+</pre></div>
 <p>Now we've got something that is a little less magical. We can run this
 file by calling it: "racket server.rkt". But nothing happens. This is
 because the web-server language would start the service itself using
@@ -130,29 +129,29 @@ field yields nothing relevant. So we Google "racket web server
 start". Down the page on the second <a href="https://docs.racket-lang.org/web-server/run.html">search result</a> we notice an
 <a href="https://docs.racket-lang.org/web-server/run.html#%28part._.Examples%29">example</a> using the serve/servlet function to register the start
 function.  This is our in.</p>
-<pre><code class="hljs scheme">#lang racket/base
+<div class="highlight"><pre><span></span><span class="o">#</span><span class="nv">lang</span><span class="w"> </span><span class="nv">racket/base</span>
 
-(require (prefix-in xexpr: web-server/http/xexpr)
-         (prefix-in hash: web-server/stuffers/hash)
-         (prefix-in stuffer: web-server/stuffers/stuffer)
-         (prefix-in serialize: web-server/stuffers/serialize)
-         (prefix-in servlet-env: web-server/servlet-env))
+<span class="p">(</span><span class="nf">require</span><span class="w"> </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">xexpr:</span><span class="w"> </span><span class="nv">web-server/http/xexpr</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">hash:</span><span class="w"> </span><span class="nv">web-server/stuffers/hash</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">stuffer:</span><span class="w"> </span><span class="nv">web-server/stuffers/stuffer</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">serialize:</span><span class="w"> </span><span class="nv">web-server/stuffers/serialize</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">servlet-env:</span><span class="w"> </span><span class="nv">web-server/servlet-env</span><span class="p">))</span>
 
-(provide interface-version stuffer start)
+<span class="p">(</span><span class="nb">provide</span><span class="w"> </span><span class="nv">interface-version</span><span class="w"> </span><span class="nv">stuffer</span><span class="w"> </span><span class="nv">start</span><span class="p">)</span>
 
-(define interface-version &#39;stateless)
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="nv">interface-version</span><span class="w"> </span><span class="ss">&#39;stateless</span><span class="p">)</span>
 
-(define stuffer
-  (stuffer:stuffer-chain
-   serialize:serialize-stuffer
-   (hash:md5-stuffer (build-path (find-system-path &#39;home-dir) &quot;.urls&quot;))))
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="nv">stuffer</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">stuffer:stuffer-chain</span>
+<span class="w">   </span><span class="nv">serialize:serialize-stuffer</span>
+<span class="w">   </span><span class="p">(</span><span class="nf">hash:md5-stuffer</span><span class="w"> </span><span class="p">(</span><span class="nf">build-path</span><span class="w"> </span><span class="p">(</span><span class="nf">find-system-path</span><span class="w"> </span><span class="ss">&#39;home-dir</span><span class="p">)</span><span class="w"> </span><span class="s">&quot;.urls&quot;</span><span class="p">))))</span>
 
-(define (start req)
-  (xexpr:response/xexpr
-   `(html (body (h2 &quot;Look ma, no state!&quot;)))))
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="p">(</span><span class="nf">start</span><span class="w"> </span><span class="nv">req</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">xexpr:response/xexpr</span>
+<span class="w">   </span><span class="o">`</span><span class="p">(</span><span class="nf">html</span><span class="w"> </span><span class="p">(</span><span class="nf">body</span><span class="w"> </span><span class="p">(</span><span class="nf">h2</span><span class="w"> </span><span class="s">&quot;Look ma, no state!&quot;</span><span class="p">)))))</span>
 
-(servlet-env:serve/servlet start)
-</code></pre>
+<span class="p">(</span><span class="nf">servlet-env:serve/servlet</span><span class="w"> </span><span class="nv">start</span><span class="p">)</span>
+</pre></div>
 <p>Run this version and it works! We are directed to a browser with our
 HTML.  But we should clean this code up a bit. We no longer need to
 export anything so we'll drop the provide line. We aren't even using
@@ -160,21 +159,21 @@ the interface-version and stuffer code. Things seem to be fine without
 them, so we'll drop those too.  Also, looking at the serve/servlet
 <a href="https://docs.racket-lang.org/web-server/run.html#%28def._%28%28lib._web-server%2Fservlet-env..rkt%29._serve%2Fservlet%29%29">documentation</a> we notice some other nice arguments we can tack
 on.</p>
-<pre><code class="hljs scheme">#lang racket/base
+<div class="highlight"><pre><span></span><span class="o">#</span><span class="nv">lang</span><span class="w"> </span><span class="nv">racket/base</span>
 
-(require (prefix-in xexpr: web-server/http/xexpr)
-         (prefix-in servlet-env: web-server/servlet-env))
+<span class="p">(</span><span class="nf">require</span><span class="w"> </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">xexpr:</span><span class="w"> </span><span class="nv">web-server/http/xexpr</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">servlet-env:</span><span class="w"> </span><span class="nv">web-server/servlet-env</span><span class="p">))</span>
 
-(define (start req)
-  (xexpr:response/xexpr
-   `(html (body (h2 &quot;Look ma, no state!&quot;)))))
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="p">(</span><span class="nf">start</span><span class="w"> </span><span class="nv">req</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">xexpr:response/xexpr</span>
+<span class="w">   </span><span class="o">`</span><span class="p">(</span><span class="nf">html</span><span class="w"> </span><span class="p">(</span><span class="nf">body</span><span class="w"> </span><span class="p">(</span><span class="nf">h2</span><span class="w"> </span><span class="s">&quot;Look ma, no state!&quot;</span><span class="p">)))))</span>
 
-(servlet-env:serve/servlet
- start
- #:servlet-path &quot;/&quot;
- #:servlet-regexp rx&quot;&quot;
- #:stateless? #t)
-</code></pre>
+<span class="p">(</span><span class="nf">servlet-env:serve/servlet</span>
+<span class="w"> </span><span class="nv">start</span>
+<span class="w"> </span><span class="kd">#:servlet-path</span><span class="w"> </span><span class="s">&quot;/&quot;</span>
+<span class="w"> </span><span class="kd">#:servlet-regexp</span><span class="w"> </span><span class="nv">rx</span><span class="s">&quot;&quot;</span>
+<span class="w"> </span><span class="kd">#:stateless?</span><span class="w"> </span><span class="no">#t</span><span class="p">)</span>
+</pre></div>
 <p>Ah, that's much cleaner. When you run this code, you will no longer be
 directed to the /servlets/standalone.rkt path but to the site root --
 set by the #:servlet-path optional variable. Also, every other path
@@ -187,67 +186,67 @@ service. The first is routing. We do that by looking up the
 documentation for the <a href="https://docs.racket-lang.org/web-server/dispatch.html">web-server/dispatch</a> module. We'll use this
 module to define some routes -- adding a 404 route to demonstrate the
 usage.</p>
-<pre><code class="hljs scheme">#lang racket/base
+<div class="highlight"><pre><span></span><span class="o">#</span><span class="nv">lang</span><span class="w"> </span><span class="nv">racket/base</span>
 
-(require (prefix-in dispatch: web-server/dispatch)
-         (prefix-in xexpr: web-server/http/xexpr)
-         (prefix-in servlet: web-server/servlet-env))
+<span class="p">(</span><span class="nf">require</span><span class="w"> </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">dispatch:</span><span class="w"> </span><span class="nv">web-server/dispatch</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">xexpr:</span><span class="w"> </span><span class="nv">web-server/http/xexpr</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">servlet:</span><span class="w"> </span><span class="nv">web-server/servlet-env</span><span class="p">))</span>
 
-(define (not-found-route request)
-  (xexpr:response/xexpr
-   `(html (body (h2 &quot;Uh-oh! Page not found.&quot;)))))
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="p">(</span><span class="nf">not-found-route</span><span class="w"> </span><span class="nv">request</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">xexpr:response/xexpr</span>
+<span class="w">   </span><span class="o">`</span><span class="p">(</span><span class="nf">html</span><span class="w"> </span><span class="p">(</span><span class="nf">body</span><span class="w"> </span><span class="p">(</span><span class="nf">h2</span><span class="w"> </span><span class="s">&quot;Uh-oh! Page not found.&quot;</span><span class="p">)))))</span>
 
-(define (home-route request)
-  (xexpr:response/xexpr
-   `(html (body (h2 &quot;Look ma, no state!!!!!!!!!&quot;)))))
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="p">(</span><span class="nf">home-route</span><span class="w"> </span><span class="nv">request</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">xexpr:response/xexpr</span>
+<span class="w">   </span><span class="o">`</span><span class="p">(</span><span class="nf">html</span><span class="w"> </span><span class="p">(</span><span class="nf">body</span><span class="w"> </span><span class="p">(</span><span class="nf">h2</span><span class="w"> </span><span class="s">&quot;Look ma, no state!!!!!!!!!&quot;</span><span class="p">)))))</span>
 
-(define-values (route-dispatch route-url)
-  (dispatch:dispatch-rules
-   [(&quot;&quot;) home-route]
-   [else not-found-route]))
+<span class="p">(</span><span class="k">define-values</span><span class="w"> </span><span class="p">(</span><span class="nf">route-dispatch</span><span class="w"> </span><span class="nv">route-url</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">dispatch:dispatch-rules</span>
+<span class="w">   </span><span class="p">[(</span><span class="s">&quot;&quot;</span><span class="p">)</span><span class="w"> </span><span class="nv">home-route</span><span class="p">]</span>
+<span class="w">   </span><span class="p">[</span><span class="k">else</span><span class="w"> </span><span class="nv">not-found-route</span><span class="p">]))</span>
 
-(servlet:serve/servlet
- route-dispatch
- #:servlet-path &quot;/&quot;
- #:servlet-regexp #rx&quot;&quot;
- #:stateless? #t)
-</code></pre>
+<span class="p">(</span><span class="nf">servlet:serve/servlet</span>
+<span class="w"> </span><span class="nv">route-dispatch</span>
+<span class="w"> </span><span class="kd">#:servlet-path</span><span class="w"> </span><span class="s">&quot;/&quot;</span>
+<span class="w"> </span><span class="kd">#:servlet-regexp</span><span class="w"> </span><span class="o">#</span><span class="nv">rx</span><span class="s">&quot;&quot;</span>
+<span class="w"> </span><span class="kd">#:stateless?</span><span class="w"> </span><span class="no">#t</span><span class="p">)</span>
+</pre></div>
 <p>Run this version and check out the server root. Then try any other
 path. Looks good.  The final missing piece to this simple web service
 is logging. Thankfully, the <a href="https://docs.racket-lang.org/web-server-internal/dispatch-log.html">web-server/dispatch-log</a> module has
 us covered with some request formatting functions. So we'll wrap the
 route-dispatch function and we'll print out the formatted request.</p>
-<pre><code class="hljs scheme">#lang racket/base
+<div class="highlight"><pre><span></span><span class="o">#</span><span class="nv">lang</span><span class="w"> </span><span class="nv">racket/base</span>
 
-(require (prefix-in dispatch: web-server/dispatch)
-         (prefix-in dispatch-log: web-server/dispatchers/dispatch-log)
-         (prefix-in xexpr: web-server/http/xexpr)
-         (prefix-in servlet: web-server/servlet-env))
+<span class="p">(</span><span class="nf">require</span><span class="w"> </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">dispatch:</span><span class="w"> </span><span class="nv">web-server/dispatch</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">dispatch-log:</span><span class="w"> </span><span class="nv">web-server/dispatchers/dispatch-log</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">xexpr:</span><span class="w"> </span><span class="nv">web-server/http/xexpr</span><span class="p">)</span>
+<span class="w">         </span><span class="p">(</span><span class="nf">prefix-in</span><span class="w"> </span><span class="nv">servlet:</span><span class="w"> </span><span class="nv">web-server/servlet-env</span><span class="p">))</span>
 
-(define (not-found-route request)
-  (xexpr:response/xexpr
-   `(html (body (h2 &quot;Uh-oh! Page not found.&quot;)))))
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="p">(</span><span class="nf">not-found-route</span><span class="w"> </span><span class="nv">request</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">xexpr:response/xexpr</span>
+<span class="w">   </span><span class="o">`</span><span class="p">(</span><span class="nf">html</span><span class="w"> </span><span class="p">(</span><span class="nf">body</span><span class="w"> </span><span class="p">(</span><span class="nf">h2</span><span class="w"> </span><span class="s">&quot;Uh-oh! Page not found.&quot;</span><span class="p">)))))</span>
 
-(define (home-route request)
-  (xexpr:response/xexpr
-   `(html (body (h2 &quot;Look ma, no state!!!!!!!!!&quot;)))))
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="p">(</span><span class="nf">home-route</span><span class="w"> </span><span class="nv">request</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">xexpr:response/xexpr</span>
+<span class="w">   </span><span class="o">`</span><span class="p">(</span><span class="nf">html</span><span class="w"> </span><span class="p">(</span><span class="nf">body</span><span class="w"> </span><span class="p">(</span><span class="nf">h2</span><span class="w"> </span><span class="s">&quot;Look ma, no state!!!!!!!!!&quot;</span><span class="p">)))))</span>
 
-(define-values (route-dispatch route-url)
-  (dispatch:dispatch-rules
-   [(&quot;&quot;) home-route]
-   [else not-found-route]))
+<span class="p">(</span><span class="k">define-values</span><span class="w"> </span><span class="p">(</span><span class="nf">route-dispatch</span><span class="w"> </span><span class="nv">route-url</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">dispatch:dispatch-rules</span>
+<span class="w">   </span><span class="p">[(</span><span class="s">&quot;&quot;</span><span class="p">)</span><span class="w"> </span><span class="nv">home-route</span><span class="p">]</span>
+<span class="w">   </span><span class="p">[</span><span class="k">else</span><span class="w"> </span><span class="nv">not-found-route</span><span class="p">]))</span>
 
-(define (route-dispatch/log-middleware req)
-  (display (dispatch-log:apache-default-format req))
-  (flush-output)
-  (route-dispatch req))
+<span class="p">(</span><span class="k">define</span><span class="w"> </span><span class="p">(</span><span class="nf">route-dispatch/log-middleware</span><span class="w"> </span><span class="nv">req</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nb">display</span><span class="w"> </span><span class="p">(</span><span class="nf">dispatch-log:apache-default-format</span><span class="w"> </span><span class="nv">req</span><span class="p">))</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">flush-output</span><span class="p">)</span>
+<span class="w">  </span><span class="p">(</span><span class="nf">route-dispatch</span><span class="w"> </span><span class="nv">req</span><span class="p">))</span>
 
-(servlet:serve/servlet
- route-dispatch/log-middleware
- #:servlet-path &quot;/&quot;
- #:servlet-regexp #rx&quot;&quot;
- #:stateless? #t)
-</code></pre>
+<span class="p">(</span><span class="nf">servlet:serve/servlet</span>
+<span class="w"> </span><span class="nv">route-dispatch/log-middleware</span>
+<span class="w"> </span><span class="kd">#:servlet-path</span><span class="w"> </span><span class="s">&quot;/&quot;</span>
+<span class="w"> </span><span class="kd">#:servlet-regexp</span><span class="w"> </span><span class="o">#</span><span class="nv">rx</span><span class="s">&quot;&quot;</span>
+<span class="w"> </span><span class="kd">#:stateless?</span><span class="w"> </span><span class="no">#t</span><span class="p">)</span>
+</pre></div>
 <p>Run this version and notice the logs displayed for each request. Now
 you've got a simple web service with routing and logging!  I hope this
 gives you a taste for how easy it is to build simple web services in
@@ -262,7 +261,7 @@ more advanced web service.</p>
   racket.org docs would link directly to the source of a function when
   the function is documented. Of course I could just download the
   Racket source and start grepping... but I'm only so interested.
-</p><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/languages/scheme.min.js"></script><p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Walking through a basic Racket web service <a href="https://t.co/J3us48kzga">https://t.co/J3us48kzga</a> <a href="https://twitter.com/racketlang?ref_src=twsrc%5Etfw">@racketlang</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/814674473681121280?ref_src=twsrc%5Etfw">December 30, 2016</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
+</p><p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Walking through a basic Racket web service <a href="https://t.co/J3us48kzga">https://t.co/J3us48kzga</a> <a href="https://twitter.com/racketlang?ref_src=twsrc%5Etfw">@racketlang</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/814674473681121280?ref_src=twsrc%5Etfw">December 30, 2016</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
 	<div class="feedback">
 	  <h4>Feedback</h4>
@@ -897,7 +896,6 @@ more advanced web service.</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

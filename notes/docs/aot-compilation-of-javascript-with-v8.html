@@ -6,7 +6,6 @@
     <title>AOT-compilation of Javascript with V8 | notes.eatonphil.com</title>
     <meta name="description" content="AOT-compilation of Javascript with V8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -96,144 +95,144 @@ of ES6 that includes all of ES5).</p>
 </ul>
 <p>And so on.</p>
 <h4 id="an-example">An example</h4><p>This first version of jsc could take the following Javascript:</p>
-<pre><code class="hljs javascript">function fib(n, a, b) {
-    if (n == 0) {
-        return a;
-    }
+<div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">fib</span><span class="p">(</span><span class="nx">n</span><span class="p">,</span><span class="w"> </span><span class="nx">a</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">n</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mf">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">a</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    if (n == 1) {
-        return b;
-    }
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">n</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mf">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">b</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 
-    return fib(n - 1, b, a + b);
-}
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">fib</span><span class="p">(</span><span class="nx">n</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="p">,</span><span class="w"> </span><span class="nx">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">b</span><span class="p">);</span>
+<span class="p">}</span>
 
-function main() {
-  console.log(fib(50, 0, 1));
-}
-</code></pre>
+<span class="kd">function</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">fib</span><span class="p">(</span><span class="mf">50</span><span class="p">,</span><span class="w"> </span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
 <p>And produce the following C++:</p>
-<pre><code class="hljs cpp">#include &lt;string&gt;
-#include &lt;iostream&gt;
+<div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;string&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;iostream&gt;</span>
 
-#include &lt;node.h&gt;
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;node.h&gt;</span>
 
-using v8::Array;
-using v8::Boolean;
-using v8::Context;
-using v8::Exception;
-using v8::Function;
-using v8::FunctionTemplate;
-using v8::FunctionCallbackInfo;
-using v8::Isolate;
-using v8::Local;
-using v8::Null;
-using v8::Number;
-using v8::Object;
-using v8::String;
-using v8::False;
-using v8::True;
-using v8::Value;
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">Array</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">Boolean</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">Context</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">Exception</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">Function</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">FunctionTemplate</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">FunctionCallbackInfo</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">Isolate</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">Local</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">Null</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">Number</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">Object</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">String</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">False</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">True</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">v8</span><span class="o">::</span><span class="n">Value</span><span class="p">;</span>
 
-void fib_0(const FunctionCallbackInfo&lt;Value&gt;&amp; args) {
-  Isolate* isolate = args.GetIsolate();
-  Local&lt;Value&gt; n_1 = args[0];
-  Local&lt;Value&gt; a_2 = args[1];
-  Local&lt;Value&gt; b_3 = args[2];
-tail_recurse_4:
+<span class="kt">void</span><span class="w"> </span><span class="nf">fib_0</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">FunctionCallbackInfo</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">Isolate</span><span class="o">*</span><span class="w"> </span><span class="n">isolate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">GetIsolate</span><span class="p">();</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">n_1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">a_2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">b_3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+<span class="nl">tail_recurse_4</span><span class="p">:</span>
 
-  Local&lt;Context&gt; ctx_5 = isolate-&gt;GetCurrentContext();
-  Local&lt;Object&gt; global_6 = ctx_5-&gt;Global();
-  Local&lt;Function&gt; Boolean_7 = Local&lt;Function&gt;::Cast(global_6-&gt;Get(String::NewFromUtf8(isolate, &quot;Boolean&quot;)));
-  String::Utf8Value utf8value_tmp_8(n_1);
-  std::string string_tmp_9(*utf8value_tmp_8);
-  String::Utf8Value utf8value_tmp_10(Number::New(isolate, 0));
-  std::string string_tmp_11(*utf8value_tmp_10);
-  Local&lt;Value&gt; argv_12[] = { (n_1-&gt;IsBoolean() || Number::New(isolate, 0)-&gt;IsBoolean()) ? Boolean::New(isolate, n_1-&gt;ToBoolean(isolate)-&gt;Value() == Number::New(isolate, 0)-&gt;ToBoolean(isolate)-&gt;Value()) : ((n_1-&gt;IsNumber() || Number::New(isolate, 0)-&gt;IsNumber()) ? Boolean::New(isolate, n_1-&gt;ToNumber(isolate)-&gt;Value() == Number::New(isolate, 0)-&gt;ToNumber(isolate)-&gt;Value()) : ((n_1-&gt;IsString() || Number::New(isolate, 0)-&gt;IsString()) ? Boolean::New(isolate, string_tmp_9 == string_tmp_11) : (False(isolate)))) };
-  Local&lt;Value&gt; result_13 = Boolean_7-&gt;Call(Null(isolate), 1, argv_12);
-  if (result_13-&gt;ToBoolean()-&gt;Value()) {
-    // return a;
-    args.GetReturnValue().Set(a_2);
-    return;
-
-
-  }
-
-  Local&lt;Context&gt; ctx_14 = isolate-&gt;GetCurrentContext();
-  Local&lt;Object&gt; global_15 = ctx_14-&gt;Global();
-  Local&lt;Function&gt; Boolean_16 = Local&lt;Function&gt;::Cast(global_15-&gt;Get(String::NewFromUtf8(isolate, &quot;Boolean&quot;)));
-  String::Utf8Value utf8value_tmp_17(n_1);
-  std::string string_tmp_18(*utf8value_tmp_17);
-  String::Utf8Value utf8value_tmp_19(Number::New(isolate, 1));
-  std::string string_tmp_20(*utf8value_tmp_19);
-  Local&lt;Value&gt; argv_21[] = { (n_1-&gt;IsBoolean() || Number::New(isolate, 1)-&gt;IsBoolean()) ? Boolean::New(isolate, n_1-&gt;ToBoolean(isolate)-&gt;Value() == Number::New(isolate, 1)-&gt;ToBoolean(isolate)-&gt;Value()) : ((n_1-&gt;IsNumber() || Number::New(isolate, 1)-&gt;IsNumber()) ? Boolean::New(isolate, n_1-&gt;ToNumber(isolate)-&gt;Value() == Number::New(isolate, 1)-&gt;ToNumber(isolate)-&gt;Value()) : ((n_1-&gt;IsString() || Number::New(isolate, 1)-&gt;IsString()) ? Boolean::New(isolate, string_tmp_18 == string_tmp_20) : (False(isolate)))) };
-  Local&lt;Value&gt; result_22 = Boolean_16-&gt;Call(Null(isolate), 1, argv_21);
-  if (result_22-&gt;ToBoolean()-&gt;Value()) {
-    // return b;
-    args.GetReturnValue().Set(b_3);
-    return;
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Context</span><span class="o">&gt;</span><span class="w"> </span><span class="n">ctx_5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">isolate</span><span class="o">-&gt;</span><span class="n">GetCurrentContext</span><span class="p">();</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">&gt;</span><span class="w"> </span><span class="n">global_6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ctx_5</span><span class="o">-&gt;</span><span class="n">Global</span><span class="p">();</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Function</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Boolean_7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Function</span><span class="o">&gt;::</span><span class="n">Cast</span><span class="p">(</span><span class="n">global_6</span><span class="o">-&gt;</span><span class="n">Get</span><span class="p">(</span><span class="n">String</span><span class="o">::</span><span class="n">NewFromUtf8</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Boolean&quot;</span><span class="p">)));</span>
+<span class="w">  </span><span class="n">String</span><span class="o">::</span><span class="n">Utf8Value</span><span class="w"> </span><span class="n">utf8value_tmp_8</span><span class="p">(</span><span class="n">n_1</span><span class="p">);</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">string_tmp_9</span><span class="p">(</span><span class="o">*</span><span class="n">utf8value_tmp_8</span><span class="p">);</span>
+<span class="w">  </span><span class="n">String</span><span class="o">::</span><span class="n">Utf8Value</span><span class="w"> </span><span class="n">utf8value_tmp_10</span><span class="p">(</span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">));</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">string_tmp_11</span><span class="p">(</span><span class="o">*</span><span class="n">utf8value_tmp_10</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">argv_12</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">(</span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">IsBoolean</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">IsBoolean</span><span class="p">())</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">Boolean</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">ToBoolean</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">ToBoolean</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">())</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">((</span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">IsNumber</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">IsNumber</span><span class="p">())</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">Boolean</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">ToNumber</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">ToNumber</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">())</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">((</span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">IsString</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">IsString</span><span class="p">())</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">Boolean</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">string_tmp_9</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">string_tmp_11</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="n">False</span><span class="p">(</span><span class="n">isolate</span><span class="p">))))</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">result_13</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Boolean_7</span><span class="o">-&gt;</span><span class="n">Call</span><span class="p">(</span><span class="n">Null</span><span class="p">(</span><span class="n">isolate</span><span class="p">),</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">argv_12</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">result_13</span><span class="o">-&gt;</span><span class="n">ToBoolean</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// return a;</span>
+<span class="w">    </span><span class="n">args</span><span class="p">.</span><span class="n">GetReturnValue</span><span class="p">().</span><span class="n">Set</span><span class="p">(</span><span class="n">a_2</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
 
 
-  }
+<span class="w">  </span><span class="p">}</span>
 
-  // return fib(n - 1, b, a + b);
-  Local&lt;Value&gt; arg_23 = (n_1-&gt;IsNumber() || Number::New(isolate, 1)-&gt;IsNumber()) ? (Number::New(isolate, n_1-&gt;ToNumber(isolate)-&gt;Value() - Number::New(isolate, 1)-&gt;ToNumber(isolate)-&gt;Value())) : Local&lt;Number&gt;::Cast(Null(isolate));
-  Local&lt;Value&gt; arg_24 = b_3;
-  Local&lt;Value&gt; arg_25 = (a_2-&gt;IsString() || b_3-&gt;IsString()) ? Local&lt;Value&gt;::Cast(String::Concat(a_2-&gt;ToString(), b_3-&gt;ToString())) : Local&lt;Value&gt;::Cast((a_2-&gt;IsNumber() || b_3-&gt;IsNumber()) ? (Number::New(isolate, a_2-&gt;ToNumber(isolate)-&gt;Value() + b_3-&gt;ToNumber(isolate)-&gt;Value())) : Local&lt;Number&gt;::Cast(Null(isolate)));
-  Local&lt;FunctionTemplate&gt; ftpl_27 = FunctionTemplate::New(isolate, fib_0);
-  Local&lt;Function&gt; fn_26 = ftpl_27-&gt;GetFunction();
-  fn_26-&gt;SetName(String::NewFromUtf8(isolate, &quot;fib_0&quot;));
-  n_1 = arg_23;
-  a_2 = arg_24;
-  b_3 = arg_25;
-  goto tail_recurse_4;
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Context</span><span class="o">&gt;</span><span class="w"> </span><span class="n">ctx_14</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">isolate</span><span class="o">-&gt;</span><span class="n">GetCurrentContext</span><span class="p">();</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">&gt;</span><span class="w"> </span><span class="n">global_15</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ctx_14</span><span class="o">-&gt;</span><span class="n">Global</span><span class="p">();</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Function</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Boolean_16</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Function</span><span class="o">&gt;::</span><span class="n">Cast</span><span class="p">(</span><span class="n">global_15</span><span class="o">-&gt;</span><span class="n">Get</span><span class="p">(</span><span class="n">String</span><span class="o">::</span><span class="n">NewFromUtf8</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Boolean&quot;</span><span class="p">)));</span>
+<span class="w">  </span><span class="n">String</span><span class="o">::</span><span class="n">Utf8Value</span><span class="w"> </span><span class="n">utf8value_tmp_17</span><span class="p">(</span><span class="n">n_1</span><span class="p">);</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">string_tmp_18</span><span class="p">(</span><span class="o">*</span><span class="n">utf8value_tmp_17</span><span class="p">);</span>
+<span class="w">  </span><span class="n">String</span><span class="o">::</span><span class="n">Utf8Value</span><span class="w"> </span><span class="n">utf8value_tmp_19</span><span class="p">(</span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">));</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">string_tmp_20</span><span class="p">(</span><span class="o">*</span><span class="n">utf8value_tmp_19</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">argv_21</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">(</span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">IsBoolean</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">IsBoolean</span><span class="p">())</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">Boolean</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">ToBoolean</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">ToBoolean</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">())</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">((</span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">IsNumber</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">IsNumber</span><span class="p">())</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">Boolean</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">ToNumber</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">ToNumber</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">())</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">((</span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">IsString</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">IsString</span><span class="p">())</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">Boolean</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">string_tmp_18</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">string_tmp_20</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="n">False</span><span class="p">(</span><span class="n">isolate</span><span class="p">))))</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">result_22</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Boolean_16</span><span class="o">-&gt;</span><span class="n">Call</span><span class="p">(</span><span class="n">Null</span><span class="p">(</span><span class="n">isolate</span><span class="p">),</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">argv_21</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">result_22</span><span class="o">-&gt;</span><span class="n">ToBoolean</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// return b;</span>
+<span class="w">    </span><span class="n">args</span><span class="p">.</span><span class="n">GetReturnValue</span><span class="p">().</span><span class="n">Set</span><span class="p">(</span><span class="n">b_3</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
 
-}
 
-void jsc_main(const FunctionCallbackInfo&lt;Value&gt;&amp; args) {
-  Isolate* isolate = args.GetIsolate();
-tail_recurse_5:
+<span class="w">  </span><span class="p">}</span>
 
-  // console.log(fib(50, 0, 1))
-  Local&lt;Value&gt; dot_parent_7 = isolate-&gt;GetCurrentContext()-&gt;Global()-&gt;Get(String::NewFromUtf8(isolate, &quot;console&quot;));
-  Local&lt;String&gt; property_8 = String::NewFromUtf8(isolate, &quot;log&quot;);
-  while (dot_parent_7-&gt;IsObject() &amp;&amp; !dot_parent_7.As&lt;Object&gt;()-&gt;HasOwnProperty(isolate-&gt;GetCurrentContext(), property_8).ToChecked()) {
-    dot_parent_7 = dot_parent_7.As&lt;Object&gt;()-&gt;GetPrototype();
-  }
-  Local&lt;Value&gt; dot_result_6 = dot_parent_7.As&lt;Object&gt;()-&gt;Get(isolate-&gt;GetCurrentContext(), property_8).ToLocalChecked();
-  Local&lt;Value&gt; arg_9 = Number::New(isolate, 50);
-  Local&lt;Value&gt; arg_10 = Number::New(isolate, 0);
-  Local&lt;Value&gt; arg_11 = Number::New(isolate, 1);
-  Local&lt;FunctionTemplate&gt; ftpl_13 = FunctionTemplate::New(isolate, fib_0);
-  Local&lt;Function&gt; fn_12 = ftpl_13-&gt;GetFunction();
-  fn_12-&gt;SetName(String::NewFromUtf8(isolate, &quot;fib_0&quot;));
-  Local&lt;Value&gt; argv_14[] = { arg_9, arg_10, arg_11 };
-  Local&lt;Value&gt; result_15 = fn_12-&gt;Call(Null(isolate), 3, argv_14);
-  Local&lt;Value&gt; arg_16 = result_15;
-  Local&lt;Function&gt; fn_17 = Local&lt;Function&gt;::Cast(dot_result_6);
-  Local&lt;Value&gt; argv_18[] = { arg_16 };
-  Local&lt;Value&gt; result_19 = fn_17-&gt;Call(dot_parent_7, 1, argv_18);
-  result_19;
+<span class="w">  </span><span class="c1">// return fib(n - 1, b, a + b);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">arg_23</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">IsNumber</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">IsNumber</span><span class="p">())</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="p">(</span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">n_1</span><span class="o">-&gt;</span><span class="n">ToNumber</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">ToNumber</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">()))</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Number</span><span class="o">&gt;::</span><span class="n">Cast</span><span class="p">(</span><span class="n">Null</span><span class="p">(</span><span class="n">isolate</span><span class="p">));</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">arg_24</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b_3</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">arg_25</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">a_2</span><span class="o">-&gt;</span><span class="n">IsString</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">b_3</span><span class="o">-&gt;</span><span class="n">IsString</span><span class="p">())</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;::</span><span class="n">Cast</span><span class="p">(</span><span class="n">String</span><span class="o">::</span><span class="n">Concat</span><span class="p">(</span><span class="n">a_2</span><span class="o">-&gt;</span><span class="n">ToString</span><span class="p">(),</span><span class="w"> </span><span class="n">b_3</span><span class="o">-&gt;</span><span class="n">ToString</span><span class="p">()))</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;::</span><span class="n">Cast</span><span class="p">((</span><span class="n">a_2</span><span class="o">-&gt;</span><span class="n">IsNumber</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">b_3</span><span class="o">-&gt;</span><span class="n">IsNumber</span><span class="p">())</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="p">(</span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">a_2</span><span class="o">-&gt;</span><span class="n">ToNumber</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b_3</span><span class="o">-&gt;</span><span class="n">ToNumber</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">Value</span><span class="p">()))</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Number</span><span class="o">&gt;::</span><span class="n">Cast</span><span class="p">(</span><span class="n">Null</span><span class="p">(</span><span class="n">isolate</span><span class="p">)));</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">FunctionTemplate</span><span class="o">&gt;</span><span class="w"> </span><span class="n">ftpl_27</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FunctionTemplate</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">fib_0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Function</span><span class="o">&gt;</span><span class="w"> </span><span class="n">fn_26</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ftpl_27</span><span class="o">-&gt;</span><span class="n">GetFunction</span><span class="p">();</span>
+<span class="w">  </span><span class="n">fn_26</span><span class="o">-&gt;</span><span class="n">SetName</span><span class="p">(</span><span class="n">String</span><span class="o">::</span><span class="n">NewFromUtf8</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;fib_0&quot;</span><span class="p">));</span>
+<span class="w">  </span><span class="n">n_1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">arg_23</span><span class="p">;</span>
+<span class="w">  </span><span class="n">a_2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">arg_24</span><span class="p">;</span>
+<span class="w">  </span><span class="n">b_3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">arg_25</span><span class="p">;</span>
+<span class="w">  </span><span class="k">goto</span><span class="w"> </span><span class="n">tail_recurse_4</span><span class="p">;</span>
 
-}
+<span class="p">}</span>
 
-void Init(Local&lt;Object&gt; exports) {
-  NODE_SET_METHOD(exports, &quot;jsc_main&quot;, jsc_main);
-}
+<span class="kt">void</span><span class="w"> </span><span class="nf">jsc_main</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">FunctionCallbackInfo</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">Isolate</span><span class="o">*</span><span class="w"> </span><span class="n">isolate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">GetIsolate</span><span class="p">();</span>
+<span class="nl">tail_recurse_5</span><span class="p">:</span>
 
-NODE_MODULE(NODE_GYP_MODULE_NAME, Init)
-</code></pre>
+<span class="w">  </span><span class="c1">// console.log(fib(50, 0, 1))</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">dot_parent_7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">isolate</span><span class="o">-&gt;</span><span class="n">GetCurrentContext</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">Global</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">Get</span><span class="p">(</span><span class="n">String</span><span class="o">::</span><span class="n">NewFromUtf8</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;console&quot;</span><span class="p">));</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span><span class="w"> </span><span class="n">property_8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">String</span><span class="o">::</span><span class="n">NewFromUtf8</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;log&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">dot_parent_7</span><span class="o">-&gt;</span><span class="n">IsObject</span><span class="p">()</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">dot_parent_7</span><span class="p">.</span><span class="n">As</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">&gt;</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">HasOwnProperty</span><span class="p">(</span><span class="n">isolate</span><span class="o">-&gt;</span><span class="n">GetCurrentContext</span><span class="p">(),</span><span class="w"> </span><span class="n">property_8</span><span class="p">).</span><span class="n">ToChecked</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">dot_parent_7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dot_parent_7</span><span class="p">.</span><span class="n">As</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">&gt;</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">GetPrototype</span><span class="p">();</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">dot_result_6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dot_parent_7</span><span class="p">.</span><span class="n">As</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">&gt;</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">Get</span><span class="p">(</span><span class="n">isolate</span><span class="o">-&gt;</span><span class="n">GetCurrentContext</span><span class="p">(),</span><span class="w"> </span><span class="n">property_8</span><span class="p">).</span><span class="n">ToLocalChecked</span><span class="p">();</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">arg_9</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">50</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">arg_10</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">arg_11</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">FunctionTemplate</span><span class="o">&gt;</span><span class="w"> </span><span class="n">ftpl_13</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FunctionTemplate</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">fib_0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Function</span><span class="o">&gt;</span><span class="w"> </span><span class="n">fn_12</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ftpl_13</span><span class="o">-&gt;</span><span class="n">GetFunction</span><span class="p">();</span>
+<span class="w">  </span><span class="n">fn_12</span><span class="o">-&gt;</span><span class="n">SetName</span><span class="p">(</span><span class="n">String</span><span class="o">::</span><span class="n">NewFromUtf8</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;fib_0&quot;</span><span class="p">));</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">argv_14</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">arg_9</span><span class="p">,</span><span class="w"> </span><span class="n">arg_10</span><span class="p">,</span><span class="w"> </span><span class="n">arg_11</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">result_15</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fn_12</span><span class="o">-&gt;</span><span class="n">Call</span><span class="p">(</span><span class="n">Null</span><span class="p">(</span><span class="n">isolate</span><span class="p">),</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="n">argv_14</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">arg_16</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">result_15</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Function</span><span class="o">&gt;</span><span class="w"> </span><span class="n">fn_17</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Function</span><span class="o">&gt;::</span><span class="n">Cast</span><span class="p">(</span><span class="n">dot_result_6</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">argv_18</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">arg_16</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">result_19</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fn_17</span><span class="o">-&gt;</span><span class="n">Call</span><span class="p">(</span><span class="n">dot_parent_7</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">argv_18</span><span class="p">);</span>
+<span class="w">  </span><span class="n">result_19</span><span class="p">;</span>
+
+<span class="p">}</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">Init</span><span class="p">(</span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">&gt;</span><span class="w"> </span><span class="n">exports</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">NODE_SET_METHOD</span><span class="p">(</span><span class="n">exports</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;jsc_main&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">jsc_main</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">NODE_MODULE</span><span class="p">(</span><span class="n">NODE_GYP_MODULE_NAME</span><span class="p">,</span><span class="w"> </span><span class="n">Init</span><span class="p">)</span>
+</pre></div>
 <p>This output gets compiled (by jsc) as a <a href="https://nodejs.org/api/addons.html">Node
 addon</a> using
 <a href="https://github.com/nodejs/node-gyp">node-gyp</a>.</p>
 <p>The compiled addon is loaded by a single-line Javascript file generated by jsc:</p>
-<pre><code class="hljs bash">$ rm -rf build
-$ jsc fib.js
-$ cat build/fib.js
-require(&quot;build/Release/fib.node&quot;).jsc_main()
-$ node build/fib.js
-12586269025
-</code></pre>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>rm<span class="w"> </span>-rf<span class="w"> </span>build
+$<span class="w"> </span>jsc<span class="w"> </span>fib.js
+$<span class="w"> </span>cat<span class="w"> </span>build/fib.js
+require<span class="o">(</span><span class="s2">&quot;build/Release/fib.node&quot;</span><span class="o">)</span>.jsc_main<span class="o">()</span>
+$<span class="w"> </span>node<span class="w"> </span>build/fib.js
+<span class="m">12586269025</span>
+</pre></div>
 <h4 id="analysis">Analysis</h4><p>The code was a mess of bad formatting, unnecessary locals, inefficient
 basic operations (e.g. huge, often unnecessary Boolean conversions),
 and so on. The unnecessary locals was partially a by-product of
@@ -257,68 +256,68 @@ on a statically-known boolean rather than calling
 <code>V8::Value::Equals()</code>.</p>
 <h4 id="example">Example</h4><p>Given the same fibonacci Javascript program from before, this
 iteration produces the following C++:</p>
-<pre><code class="hljs cpp">#include &quot;lib.cc&quot;
+<div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;lib.cc&quot;</span>
 
-void tco_fib(const FunctionCallbackInfo&lt;Value&gt;&amp; _args) {
-  Isolate* isolate = _args.GetIsolate();
-  std::vector&lt;Local&lt;Value&gt;&gt; args(_args.Length());;
-  for (int i = 0; i &lt; _args.Length(); i++) args[i] = _args[i];
-tail_recurse_0:
+<span class="kt">void</span><span class="w"> </span><span class="nf">tco_fib</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">FunctionCallbackInfo</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">_args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">Isolate</span><span class="o">*</span><span class="w"> </span><span class="n">isolate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_args</span><span class="p">.</span><span class="n">GetIsolate</span><span class="p">();</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">args</span><span class="p">(</span><span class="n">_args</span><span class="p">.</span><span class="n">Length</span><span class="p">());;</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">_args</span><span class="p">.</span><span class="n">Length</span><span class="p">();</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_args</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="nl">tail_recurse_0</span><span class="p">:</span>
 
-  Local&lt;Number&gt; sym_rhs_4 = Number::New(isolate, 0);
-  Local&lt;Boolean&gt; sym_anon_2 = args[0]-&gt;StrictEquals(sym_rhs_4) ? True(isolate) : False(isolate);
-  if (sym_anon_2-&gt;IsTrue()) {
-    _args.GetReturnValue().Set(args[1]);
-    return;
-  }
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Number</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_rhs_4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Boolean</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_anon_2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">StrictEquals</span><span class="p">(</span><span class="n">sym_rhs_4</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">True</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">False</span><span class="p">(</span><span class="n">isolate</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sym_anon_2</span><span class="o">-&gt;</span><span class="n">IsTrue</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">_args</span><span class="p">.</span><span class="n">GetReturnValue</span><span class="p">().</span><span class="n">Set</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  Local&lt;Number&gt; sym_rhs_11 = Number::New(isolate, 1);
-  Local&lt;Boolean&gt; sym_anon_9 = args[0]-&gt;StrictEquals(sym_rhs_11) ? True(isolate) : False(isolate);
-  if (sym_anon_9-&gt;IsTrue()) {
-    _args.GetReturnValue().Set(args[2]);
-    return;
-  }
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Number</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_rhs_11</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Boolean</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_anon_9</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">StrictEquals</span><span class="p">(</span><span class="n">sym_rhs_11</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">True</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">False</span><span class="p">(</span><span class="n">isolate</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sym_anon_9</span><span class="o">-&gt;</span><span class="n">IsTrue</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">_args</span><span class="p">.</span><span class="n">GetReturnValue</span><span class="p">().</span><span class="n">Set</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 
-  Local&lt;Number&gt; sym_rhs_19 = Number::New(isolate, 1);
-  Local&lt;Value&gt; sym_arg_17 = genericMinus(isolate, args[0], sym_rhs_19);
-  Local&lt;Value&gt; sym_arg_21 = genericPlus(isolate, args[1], args[2]);
-  args[0] = sym_arg_17;
-  args[1] = args[2];
-  args[2] = sym_arg_21;
-  goto tail_recurse_0;
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Number</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_rhs_19</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_arg_17</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">genericMinus</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">sym_rhs_19</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_arg_21</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">genericPlus</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+<span class="w">  </span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sym_arg_17</span><span class="p">;</span>
+<span class="w">  </span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+<span class="w">  </span><span class="n">args</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sym_arg_21</span><span class="p">;</span>
+<span class="w">  </span><span class="k">goto</span><span class="w"> </span><span class="n">tail_recurse_0</span><span class="p">;</span>
 
-  return;
-}
+<span class="w">  </span><span class="k">return</span><span class="p">;</span>
+<span class="p">}</span>
 
-void jsc_main(const FunctionCallbackInfo&lt;Value&gt;&amp; _args) {
-  Isolate* isolate = _args.GetIsolate();
-  std::vector&lt;Local&lt;Value&gt;&gt; args(_args.Length());;
-  for (int i = 0; i &lt; _args.Length(); i++) args[i] = _args[i];
-tail_recurse_1:
+<span class="kt">void</span><span class="w"> </span><span class="nf">jsc_main</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">FunctionCallbackInfo</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">_args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">Isolate</span><span class="o">*</span><span class="w"> </span><span class="n">isolate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_args</span><span class="p">.</span><span class="n">GetIsolate</span><span class="p">();</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">args</span><span class="p">(</span><span class="n">_args</span><span class="p">.</span><span class="n">Length</span><span class="p">());;</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">_args</span><span class="p">.</span><span class="n">Length</span><span class="p">();</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_args</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="nl">tail_recurse_1</span><span class="p">:</span>
 
-  Local&lt;Number&gt; sym_arg_29 = Number::New(isolate, 100);
-  Local&lt;Number&gt; sym_arg_30 = Number::New(isolate, 0);
-  Local&lt;Number&gt; sym_arg_31 = Number::New(isolate, 1);
-  Local&lt;Value&gt; sym_args_32[] = { sym_arg_29, sym_arg_30, sym_arg_31 };
-  Local&lt;Function&gt; sym_fn_33 = FunctionTemplate::New(isolate, tco_fib)-&gt;GetFunction();
-  sym_fn_33-&gt;SetName(String::NewFromUtf8(isolate, &quot;tco_fib&quot;));
-  Local&lt;Value&gt; sym_arg_28 = sym_fn_33-&gt;Call(sym_fn_33, 3, sym_args_32);
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Number</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_arg_29</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">100</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Number</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_arg_30</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Number</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_arg_31</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Number</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_args_32</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">sym_arg_29</span><span class="p">,</span><span class="w"> </span><span class="n">sym_arg_30</span><span class="p">,</span><span class="w"> </span><span class="n">sym_arg_31</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Function</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_fn_33</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FunctionTemplate</span><span class="o">::</span><span class="n">New</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="n">tco_fib</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">GetFunction</span><span class="p">();</span>
+<span class="w">  </span><span class="n">sym_fn_33</span><span class="o">-&gt;</span><span class="n">SetName</span><span class="p">(</span><span class="n">String</span><span class="o">::</span><span class="n">NewFromUtf8</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;tco_fib&quot;</span><span class="p">));</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_arg_28</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sym_fn_33</span><span class="o">-&gt;</span><span class="n">Call</span><span class="p">(</span><span class="n">sym_fn_33</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="n">sym_args_32</span><span class="p">);</span>
 
-  Local&lt;Value&gt; sym_args_34[] = { sym_arg_28 };
-  Local&lt;Value&gt; sym_parent_37 = isolate-&gt;GetCurrentContext()-&gt;Global()-&gt;Get(String::NewFromUtf8(isolate, &quot;console&quot;));
-  Local&lt;Value&gt; sym_anon_36 = sym_parent_37.As&lt;Object&gt;()-&gt;Get(String::NewFromUtf8(isolate, &quot;log&quot;));
-  Local&lt;Function&gt; sym_fn_35 = Local&lt;Function&gt;::Cast(sym_anon_36);
-  Local&lt;Value&gt; sym_anon_27 = sym_fn_35-&gt;Call(sym_fn_35, 1, sym_args_34);
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_args_34</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">sym_arg_28</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_parent_37</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">isolate</span><span class="o">-&gt;</span><span class="n">GetCurrentContext</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">Global</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">Get</span><span class="p">(</span><span class="n">String</span><span class="o">::</span><span class="n">NewFromUtf8</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;console&quot;</span><span class="p">));</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_anon_36</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sym_parent_37</span><span class="p">.</span><span class="n">As</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">&gt;</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">Get</span><span class="p">(</span><span class="n">String</span><span class="o">::</span><span class="n">NewFromUtf8</span><span class="p">(</span><span class="n">isolate</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;log&quot;</span><span class="p">));</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Function</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_fn_35</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Function</span><span class="o">&gt;::</span><span class="n">Cast</span><span class="p">(</span><span class="n">sym_anon_36</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_anon_27</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sym_fn_35</span><span class="o">-&gt;</span><span class="n">Call</span><span class="p">(</span><span class="n">sym_fn_35</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">sym_args_34</span><span class="p">);</span>
 
-  return;
-}
+<span class="w">  </span><span class="k">return</span><span class="p">;</span>
+<span class="p">}</span>
 
-void Init(Local&lt;Object&gt; exports) {
-  NODE_SET_METHOD(exports, &quot;jsc_main&quot;, jsc_main);
-}
+<span class="kt">void</span><span class="w"> </span><span class="nf">Init</span><span class="p">(</span><span class="n">Local</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">&gt;</span><span class="w"> </span><span class="n">exports</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">NODE_SET_METHOD</span><span class="p">(</span><span class="n">exports</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;jsc_main&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">jsc_main</span><span class="p">);</span>
+<span class="p">}</span>
 
-NODE_MODULE(NODE_GYP_MODULE_NAME, Init)
-</code></pre>
+<span class="n">NODE_MODULE</span><span class="p">(</span><span class="n">NODE_GYP_MODULE_NAME</span><span class="p">,</span><span class="w"> </span><span class="n">Init</span><span class="p">)</span>
+</pre></div>
 <h4 id="analysis">Analysis</h4><p>Common code (<code>genericPlus</code>, <code>genericMinus</code>) and
 all imports have been pulled into <code>lib.cc</code> for clarity. And
 the entire result is run through
@@ -327,11 +326,11 @@ present on the system.</p>
 <p>The benefit of leaf type propagation can be seen everywhere a local is
 declared that is not <code>Local<Value></code> and specifically in if
 tests on statically known booleans:</p>
-<pre><code class="hljs cpp">...
-Local&lt;Boolean&gt; sym_anon_2 = args[0]-&gt;StrictEquals(sym_rhs_4) ? True(isolate) : False(isolate);
-  if (sym_anon_2-&gt;IsTrue()) {
-...
-</code></pre>
+<div class="highlight"><pre><span></span><span class="p">...</span>
+<span class="n">Local</span><span class="o">&lt;</span><span class="n">Boolean</span><span class="o">&gt;</span><span class="w"> </span><span class="n">sym_anon_2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">StrictEquals</span><span class="p">(</span><span class="n">sym_rhs_4</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">True</span><span class="p">(</span><span class="n">isolate</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">False</span><span class="p">(</span><span class="n">isolate</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sym_anon_2</span><span class="o">-&gt;</span><span class="n">IsTrue</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="p">...</span>
+</pre></div>
 <p>It's obvious to a human that there is another optimization you could
 do here by not wrapping this check in a <code>V8::Boolean</code> at
 all. The only types tracked in destinations are V8 types, not yet C++
@@ -988,7 +987,6 @@ comparative performance to Node.js/V8 but isn't saying much).</p>
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

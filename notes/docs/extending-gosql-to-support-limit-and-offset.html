@@ -6,7 +6,6 @@
     <title>Extending gosql to supporting LIMIT and OFFSET | notes.eatonphil.com</title>
     <meta name="description" content="Extending gosql to supporting LIMIT and OFFSET" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
   </head>
@@ -70,132 +69,132 @@ Github</a>.</p>
 have a generalized method of lexing any keywords from an array (see
 <code>lexer.go:lexKeyword</code>), this is really easy. Just add a new
 <code>Keyword</code>:</p>
-<pre><code class="hljs golang">@@ -37,6 +37,8 @@ const (
-        OnKeyword         Keyword = &quot;on&quot;
-        PrimarykeyKeyword Keyword = &quot;primary key&quot;
-        NullKeyword       Keyword = &quot;null&quot;
-+       LimitKeyword      Keyword = &quot;limit&quot;
-+       OffsetKeyword     Keyword = &quot;offset&quot;
- )
-</code></pre>
+<div class="highlight"><pre><span></span><span class="err">@@</span><span class="w"> </span><span class="o">-</span><span class="mi">37</span><span class="p">,</span><span class="mi">6</span><span class="w"> </span><span class="o">+</span><span class="mi">37</span><span class="p">,</span><span class="mi">8</span><span class="w"> </span><span class="err">@@</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="p">(</span>
+<span class="w">        </span><span class="nx">OnKeyword</span><span class="w">         </span><span class="nx">Keyword</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;on&quot;</span>
+<span class="w">        </span><span class="nx">PrimarykeyKeyword</span><span class="w"> </span><span class="nx">Keyword</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;primary key&quot;</span>
+<span class="w">        </span><span class="nx">NullKeyword</span><span class="w">       </span><span class="nx">Keyword</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;null&quot;</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">LimitKeyword</span><span class="w">      </span><span class="nx">Keyword</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;limit&quot;</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">OffsetKeyword</span><span class="w">     </span><span class="nx">Keyword</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;offset&quot;</span>
+<span class="w"> </span><span class="p">)</span>
+</pre></div>
 <p>And then add these two new enums to the list of <code>Keyword</code>s
 to lex:</p>
-<pre><code class="hljs golang">@@ -261,6 +263,8 @@ func lexKeyword(source string, ic cursor) (*Token, cursor, bool) {
-                OnKeyword,
-                PrimarykeyKeyword,
-                NullKeyword,
-+               LimitKeyword,
-+               OffsetKeyword,
-        }
+<div class="highlight"><pre><span></span><span class="err">@@</span><span class="w"> </span><span class="o">-</span><span class="mi">261</span><span class="p">,</span><span class="mi">6</span><span class="w"> </span><span class="o">+</span><span class="mi">263</span><span class="p">,</span><span class="mi">8</span><span class="w"> </span><span class="err">@@</span><span class="w"> </span><span class="kd">func</span><span class="w"> </span><span class="nx">lexKeyword</span><span class="p">(</span><span class="nx">source</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">ic</span><span class="w"> </span><span class="nx">cursor</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">Token</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">OnKeyword</span><span class="p">,</span>
+<span class="w">                </span><span class="nx">PrimarykeyKeyword</span><span class="p">,</span>
+<span class="w">                </span><span class="nx">NullKeyword</span><span class="p">,</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">LimitKeyword</span><span class="p">,</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">OffsetKeyword</span><span class="p">,</span>
+<span class="w">        </span><span class="p">}</span>
 
-        var options []string
-</code></pre>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">options</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span>
+</pre></div>
 <p>That's it for the lexer.</p>
 <h3 id="parsing">Parsing</h3><p>Before we can parse limit and offset into the AST, we have to modify
 our AST struct to support these two fields in ast.go:</p>
-<pre><code class="hljs golang">@@ -54,9 +54,11 @@ type SelectItem struct {
- }
+<div class="highlight"><pre><span></span><span class="err">@@</span><span class="w"> </span><span class="o">-</span><span class="mi">54</span><span class="p">,</span><span class="mi">9</span><span class="w"> </span><span class="o">+</span><span class="mi">54</span><span class="p">,</span><span class="mi">11</span><span class="w"> </span><span class="err">@@</span><span class="w"> </span><span class="kd">type</span><span class="w"> </span><span class="nx">SelectItem</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w"> </span><span class="p">}</span>
 
- type SelectStatement struct {
--       Item  *[]*SelectItem
--       From  *Token
--       Where *Expression
-+       Item   *[]*SelectItem
-+       From   *Token
-+       Where  *Expression
-+       Limit  *Expression
-+       Offset *Expression
- }
-</code></pre>
+<span class="w"> </span><span class="kd">type</span><span class="w"> </span><span class="nx">SelectStatement</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="o">-</span><span class="w">       </span><span class="nx">Item</span><span class="w">  </span><span class="o">*</span><span class="p">[]</span><span class="o">*</span><span class="nx">SelectItem</span>
+<span class="o">-</span><span class="w">       </span><span class="nx">From</span><span class="w">  </span><span class="o">*</span><span class="nx">Token</span>
+<span class="o">-</span><span class="w">       </span><span class="nx">Where</span><span class="w"> </span><span class="o">*</span><span class="nx">Expression</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">Item</span><span class="w">   </span><span class="o">*</span><span class="p">[]</span><span class="o">*</span><span class="nx">SelectItem</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">From</span><span class="w">   </span><span class="o">*</span><span class="nx">Token</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">Where</span><span class="w">  </span><span class="o">*</span><span class="nx">Expression</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">Limit</span><span class="w">  </span><span class="o">*</span><span class="nx">Expression</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">Offset</span><span class="w"> </span><span class="o">*</span><span class="nx">Expression</span>
+<span class="w"> </span><span class="p">}</span>
+</pre></div>
 <p>And to be a good citizen, we'll fix up the <code>GenerateCode</code>
 helper function (for pretty-printing the AST) to
 show <code>LIMIT</code> and <code>OFFSET</code>.</p>
-<pre><code class="hljs golang">@@ -73,17 +75,24 @@ func (ss SelectStatement) GenerateCode() string {
-                item = append(item, s)
-        }
+<div class="highlight"><pre><span></span><span class="err">@@</span><span class="w"> </span><span class="o">-</span><span class="mi">73</span><span class="p">,</span><span class="mi">17</span><span class="w"> </span><span class="o">+</span><span class="mi">75</span><span class="p">,</span><span class="mi">24</span><span class="w"> </span><span class="err">@@</span><span class="w"> </span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">ss</span><span class="w"> </span><span class="nx">SelectStatement</span><span class="p">)</span><span class="w"> </span><span class="nx">GenerateCode</span><span class="p">()</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">item</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">item</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
--       from := &quot;&quot;
-+       code := &quot;SELECT\n&quot; + strings.Join(item, &quot;,\n&quot;)
-        if ss.From != nil {
--               from = fmt.Sprintf(&quot;\nFROM\n\t\&quot;%s\&quot;&quot;, ss.From.Value)
-+               code += fmt.Sprintf(&quot;\nFROM\n\t\&quot;%s\&quot;&quot;, ss.From.Value)
-        }
+<span class="o">-</span><span class="w">       </span><span class="nx">from</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">code</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;SELECT\n&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">strings</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">item</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;,\n&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">ss</span><span class="p">.</span><span class="nx">From</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="o">-</span><span class="w">               </span><span class="nx">from</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;\nFROM\n\t\&quot;%s\&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">ss</span><span class="p">.</span><span class="nx">From</span><span class="p">.</span><span class="nx">Value</span><span class="p">)</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">code</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;\nFROM\n\t\&quot;%s\&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">ss</span><span class="p">.</span><span class="nx">From</span><span class="p">.</span><span class="nx">Value</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
 
--       where := &quot;&quot;
-        if ss.Where != nil {
--               where = fmt.Sprintf(&quot;\nWHERE\n\t%s&quot;, ss.Where.GenerateCode())
-+               code += &quot;\nWHERE\n\t&quot; + ss.Where.GenerateCode()
-        }
+<span class="o">-</span><span class="w">       </span><span class="nx">where</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">ss</span><span class="p">.</span><span class="nx">Where</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="o">-</span><span class="w">               </span><span class="nx">where</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;\nWHERE\n\t%s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">ss</span><span class="p">.</span><span class="nx">Where</span><span class="p">.</span><span class="nx">GenerateCode</span><span class="p">())</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">code</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="s">&quot;\nWHERE\n\t&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">ss</span><span class="p">.</span><span class="nx">Where</span><span class="p">.</span><span class="nx">GenerateCode</span><span class="p">()</span>
+<span class="w">        </span><span class="p">}</span>
 
--       return fmt.Sprintf(&quot;SELECT\n%s%s%s;&quot;, strings.Join(item, &quot;,\n&quot;), from, where)
-+       if ss.Limit != nil {
-+               code += &quot;\nLIMIT\n\t&quot; + ss.Limit.GenerateCode()
-+       }
-+
-+       if ss.Offset != nil {
-+               code += &quot;\nOFFSET\n\t&quot; + ss.Limit.GenerateCode()
-+       }
-+
-+       return code + &quot;;&quot;
- }
+<span class="o">-</span><span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;SELECT\n%s%s%s;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">strings</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">item</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;,\n&quot;</span><span class="p">),</span><span class="w"> </span><span class="nx">from</span><span class="p">,</span><span class="w"> </span><span class="nx">where</span><span class="p">)</span>
+<span class="o">+</span><span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="nx">ss</span><span class="p">.</span><span class="nx">Limit</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">code</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="s">&quot;\nLIMIT\n\t&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">ss</span><span class="p">.</span><span class="nx">Limit</span><span class="p">.</span><span class="nx">GenerateCode</span><span class="p">()</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="nx">ss</span><span class="p">.</span><span class="nx">Offset</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">code</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="s">&quot;\nOFFSET\n\t&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">ss</span><span class="p">.</span><span class="nx">Limit</span><span class="p">.</span><span class="nx">GenerateCode</span><span class="p">()</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="nx">code</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;;&quot;</span>
+<span class="w"> </span><span class="p">}</span>
 
- type ColumnDefinition struct {
-</code></pre>
+<span class="w"> </span><span class="kd">type</span><span class="w"> </span><span class="nx">ColumnDefinition</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+</pre></div>
 <p>That's it for modifying the AST itself. Now we can modify the select
 statement parser to look for these two new sections. It's pretty
 simple: for both <code>LIMIT</code> and <code>OFFSET</code> first
 check if they exist in the current statement and then try to parse the
 expression after them, in parser.go:</p>
-<pre><code class="hljs golang">@@ -285,6 +288,30 @@ func (p Parser) parseSelectStatement(tokens []*Token, initialCursor uint, delimi
-                cursor = newCursor
-        }
+<div class="highlight"><pre><span></span><span class="err">@@</span><span class="w"> </span><span class="o">-</span><span class="mi">285</span><span class="p">,</span><span class="mi">6</span><span class="w"> </span><span class="o">+</span><span class="mi">288</span><span class="p">,</span><span class="mi">30</span><span class="w"> </span><span class="err">@@</span><span class="w"> </span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="nx">Parser</span><span class="p">)</span><span class="w"> </span><span class="nx">parseSelectStatement</span><span class="p">(</span><span class="nx">tokens</span><span class="w"> </span><span class="p">[]</span><span class="o">*</span><span class="nx">Token</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="nx">delimi</span>
+<span class="w">                </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">newCursor</span>
+<span class="w">        </span><span class="p">}</span>
 
-+       _, cursor, ok = p.parseToken(tokens, cursor, limitToken)
-+       if ok {
-+               limit, newCursor, ok := p.parseExpression(tokens, cursor, []Token{offsetToken, delimiter}, 0)
-+               if !ok {
-+                       p.helpMessage(tokens, cursor, &quot;Expected LIMIT value&quot;)
-+                       return nil, initialCursor, false
-+               }
-+
-+               slct.Limit = limit
-+               cursor = newCursor
-+       }
-+
-+       _, cursor, ok = p.parseToken(tokens, cursor, offsetToken)
-+       if ok {
-+               offset, newCursor, ok := p.parseExpression(tokens, cursor, []Token{delimiter}, 0)
-+               if !ok {
-+                       p.helpMessage(tokens, cursor, &quot;Expected OFFSET value&quot;)
-+                       return nil, initialCursor, false
-+               }
-+
-+               slct.Offset = offset
-+               cursor = newCursor
-+       }
-+
-        return &amp;slct, cursor, true
- }
-</code></pre>
+<span class="o">+</span><span class="w">       </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">p</span><span class="p">.</span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">limitToken</span><span class="p">)</span>
+<span class="o">+</span><span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">limit</span><span class="p">,</span><span class="w"> </span><span class="nx">newCursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">p</span><span class="p">.</span><span class="nx">parseExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="nx">Token</span><span class="p">{</span><span class="nx">offsetToken</span><span class="p">,</span><span class="w"> </span><span class="nx">delimiter</span><span class="p">},</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="o">+</span><span class="w">               </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                       </span><span class="nx">p</span><span class="p">.</span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected LIMIT value&quot;</span><span class="p">)</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="o">+</span><span class="w">               </span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">slct</span><span class="p">.</span><span class="nx">Limit</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">limit</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">newCursor</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">p</span><span class="p">.</span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">offsetToken</span><span class="p">)</span>
+<span class="o">+</span><span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">offset</span><span class="p">,</span><span class="w"> </span><span class="nx">newCursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">p</span><span class="p">.</span><span class="nx">parseExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="nx">Token</span><span class="p">{</span><span class="nx">delimiter</span><span class="p">},</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="o">+</span><span class="w">               </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                       </span><span class="nx">p</span><span class="p">.</span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected OFFSET value&quot;</span><span class="p">)</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+<span class="o">+</span><span class="w">               </span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">slct</span><span class="p">.</span><span class="nx">Offset</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">offset</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">newCursor</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">slct</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span>
+<span class="w"> </span><span class="p">}</span>
+</pre></div>
 <p>And the last tricky bit is to make sure that previous
 optional <code>parseExpression</code> know that they can be delimited
 by <code>OFFSET</code> and <code>LIMIT</code> (this delimiter
 awareness is just how the parser works):</p>
-<pre><code class="hljs golang">@@ -273,9 +273,12 @@ func (p Parser) parseSelectStatement(tokens []*Token, initialCursor uint, delimi
-                cursor = newCursor
-        }
+<div class="highlight"><pre><span></span><span class="err">@@</span><span class="w"> </span><span class="o">-</span><span class="mi">273</span><span class="p">,</span><span class="mi">9</span><span class="w"> </span><span class="o">+</span><span class="mi">273</span><span class="p">,</span><span class="mi">12</span><span class="w"> </span><span class="err">@@</span><span class="w"> </span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="nx">Parser</span><span class="p">)</span><span class="w"> </span><span class="nx">parseSelectStatement</span><span class="p">(</span><span class="nx">tokens</span><span class="w"> </span><span class="p">[]</span><span class="o">*</span><span class="nx">Token</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="w"> </span><span class="kt">uint</span><span class="p">,</span><span class="w"> </span><span class="nx">delimi</span>
+<span class="w">                </span><span class="nx">cursor</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">newCursor</span>
+<span class="w">        </span><span class="p">}</span>
 
-+       limitToken := tokenFromKeyword(LimitKeyword)
-+       offsetToken := tokenFromKeyword(OffsetKeyword)
-+
-        _, cursor, ok = p.parseToken(tokens, cursor, whereToken)
-        if ok {
--               where, newCursor, ok := p.parseExpression(tokens, cursor, []Token{delimiter}, 0)
-+               where, newCursor, ok := p.parseExpression(tokens, cursor, []Token{limitToken, offsetToken, delimiter}, 0)
-                if !ok {
-                        p.helpMessage(tokens, cursor, &quot;Expected WHERE conditionals&quot;)
-                        return nil, initialCursor, false
-</code></pre>
+<span class="o">+</span><span class="w">       </span><span class="nx">limitToken</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">tokenFromKeyword</span><span class="p">(</span><span class="nx">LimitKeyword</span><span class="p">)</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">offsetToken</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">tokenFromKeyword</span><span class="p">(</span><span class="nx">OffsetKeyword</span><span class="p">)</span>
+<span class="o">+</span>
+<span class="w">        </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">p</span><span class="p">.</span><span class="nx">parseToken</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="nx">whereToken</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="o">-</span><span class="w">               </span><span class="nx">where</span><span class="p">,</span><span class="w"> </span><span class="nx">newCursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">p</span><span class="p">.</span><span class="nx">parseExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="nx">Token</span><span class="p">{</span><span class="nx">delimiter</span><span class="p">},</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">where</span><span class="p">,</span><span class="w"> </span><span class="nx">newCursor</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">p</span><span class="p">.</span><span class="nx">parseExpression</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="nx">Token</span><span class="p">{</span><span class="nx">limitToken</span><span class="p">,</span><span class="w"> </span><span class="nx">offsetToken</span><span class="p">,</span><span class="w"> </span><span class="nx">delimiter</span><span class="p">},</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">p</span><span class="p">.</span><span class="nx">helpMessage</span><span class="p">(</span><span class="nx">tokens</span><span class="p">,</span><span class="w"> </span><span class="nx">cursor</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Expected WHERE conditionals&quot;</span><span class="p">)</span>
+<span class="w">                        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">initialCursor</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span>
+</pre></div>
 <p>That's it for parsing!</p>
 <h3 id="runtime">Runtime</h3><p>Gosql has just one storage backend currently: an in-memory store. To
 support <code>LIMIT</code> and <code>OFFSET</code> we need to evaluate
@@ -205,55 +204,55 @@ the <code>WHERE</code> filter, we'll check if the number of rows
 passing the <code>WHERE</code> filter falls within the range
 of <code>OFFSET</code> and <code>LIMIT + OFFSET</code> otherwise we'll
 skip the row, in memory.go:</p>
-<pre><code class="hljs golang">@@ -587,6 +587,33 @@ func (mb *MemoryBackend) Select(slct *SelectStatement) (*Results, error) {
-                }
-        }
+<div class="highlight"><pre><span></span><span class="err">@@</span><span class="w"> </span><span class="o">-</span><span class="mi">587</span><span class="p">,</span><span class="mi">6</span><span class="w"> </span><span class="o">+</span><span class="mi">587</span><span class="p">,</span><span class="mi">33</span><span class="w"> </span><span class="err">@@</span><span class="w"> </span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mb</span><span class="w"> </span><span class="o">*</span><span class="nx">MemoryBackend</span><span class="p">)</span><span class="w"> </span><span class="nx">Select</span><span class="p">(</span><span class="nx">slct</span><span class="w"> </span><span class="o">*</span><span class="nx">SelectStatement</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">Results</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
 
-+       limit := len(t.rows)
-+       if slct.Limit != nil {
-+               v, _, _, err := t.evaluateCell(0, *slct.Limit)
-+               if err != nil {
-+                       return nil, err
-+               }
-+
-+               limit = int(*v.AsInt())
-+       }
-+       if limit &lt; 0 {
-+               return nil, fmt.Errorf(&quot;Invalid, negative limit&quot;)
-+       }
-+
-+       offset := 0
-+       if slct.Offset != nil {
-+               v, _, _, err := t.evaluateCell(0, *slct.Offset)
-+               if err != nil {
-+                       return nil, err
-+               }
-+
-+               offset = int(*v.AsInt())
-+       }
-+       if offset &lt; 0 {
-+               return nil, fmt.Errorf(&quot;Invalid, negative limit&quot;)
-+       }
-+
-+       rowIndex := -1
-        for i := range t.rows {
-                result := []Cell{}
-                isFirstRow := len(results) == 0
-@@ -602,6 +629,13 @@ func (mb *MemoryBackend) Select(slct *SelectStatement) (*Results, error) {
-                        }
-                }
+<span class="o">+</span><span class="w">       </span><span class="nx">limit</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">rows</span><span class="p">)</span>
+<span class="o">+</span><span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="nx">slct</span><span class="p">.</span><span class="nx">Limit</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">v</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="nx">slct</span><span class="p">.</span><span class="nx">Limit</span><span class="p">)</span>
+<span class="o">+</span><span class="w">               </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="o">+</span><span class="w">               </span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">limit</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">int</span><span class="p">(</span><span class="o">*</span><span class="nx">v</span><span class="p">.</span><span class="nx">AsInt</span><span class="p">())</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="nx">limit</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Invalid, negative limit&quot;</span><span class="p">)</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">offset</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+<span class="o">+</span><span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="nx">slct</span><span class="p">.</span><span class="nx">Offset</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">v</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="nx">slct</span><span class="p">.</span><span class="nx">Offset</span><span class="p">)</span>
+<span class="o">+</span><span class="w">               </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="o">+</span><span class="w">               </span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="w">               </span><span class="nx">offset</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">int</span><span class="p">(</span><span class="o">*</span><span class="nx">v</span><span class="p">.</span><span class="nx">AsInt</span><span class="p">())</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span><span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">               </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Invalid, negative limit&quot;</span><span class="p">)</span>
+<span class="o">+</span><span class="w">       </span><span class="p">}</span>
+<span class="o">+</span>
+<span class="o">+</span><span class="w">       </span><span class="nx">rowIndex</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">-</span><span class="mi">1</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">rows</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">result</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">Cell</span><span class="p">{}</span>
+<span class="w">                </span><span class="nx">isFirstRow</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">results</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span>
+<span class="err">@@</span><span class="w"> </span><span class="o">-</span><span class="mi">602</span><span class="p">,</span><span class="mi">6</span><span class="w"> </span><span class="o">+</span><span class="mi">629</span><span class="p">,</span><span class="mi">13</span><span class="w"> </span><span class="err">@@</span><span class="w"> </span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">mb</span><span class="w"> </span><span class="o">*</span><span class="nx">MemoryBackend</span><span class="p">)</span><span class="w"> </span><span class="nx">Select</span><span class="p">(</span><span class="nx">slct</span><span class="w"> </span><span class="o">*</span><span class="nx">SelectStatement</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">Results</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
 
-+               rowIndex++
-+               if rowIndex &lt; offset {
-+                       continue
-+               } else if rowIndex &gt; offset+limit-1 {
-+                       break
-+               }
-+
-                for _, col := range finalItems {
-                        value, columnName, columnType, err := t.evaluateCell(uint(i), *col.Exp)
-                        if err != nil {
-</code></pre>
+<span class="o">+</span><span class="w">               </span><span class="nx">rowIndex</span><span class="o">++</span>
+<span class="o">+</span><span class="w">               </span><span class="k">if</span><span class="w"> </span><span class="nx">rowIndex</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">continue</span>
+<span class="o">+</span><span class="w">               </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nx">rowIndex</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="nx">offset</span><span class="o">+</span><span class="nx">limit</span><span class="o">-</span><span class="mi">1</span><span class="w"> </span><span class="p">{</span>
+<span class="o">+</span><span class="w">                       </span><span class="k">break</span>
+<span class="o">+</span><span class="w">               </span><span class="p">}</span>
+<span class="o">+</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">col</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">finalItems</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">columnName</span><span class="p">,</span><span class="w"> </span><span class="nx">columnType</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">evaluateCell</span><span class="p">(</span><span class="nb">uint</span><span class="p">(</span><span class="nx">i</span><span class="p">),</span><span class="w"> </span><span class="o">*</span><span class="nx">col</span><span class="p">.</span><span class="nx">Exp</span><span class="p">)</span>
+<span class="w">                        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</pre></div>
 <p class="note">
   Just to call out explicitly, with <code>LIMIT</code>
   and <code>OFFSET</code> we still have to check every single row in
@@ -263,56 +262,56 @@ skip the row, in memory.go:</p>
   <a href="https://use-the-index-luke.com/sql/partial-results/fetch-next-page">compared
   to index-based pagination</a>.
 </p><p>That's all!</p>
-<h3 id="trying-it-out">Trying it out</h3><pre><code class="hljs bash">$ go build cmd/main.go
-$ ./main
-Welcome to gosql.
-# create table user (name text, age int);
+<h3 id="trying-it-out">Trying it out</h3><div class="highlight"><pre><span></span>$<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>cmd/main.go
+$<span class="w"> </span>./main
+Welcome<span class="w"> </span>to<span class="w"> </span>gosql.
+<span class="c1"># create table user (name text, age int);</span>
 ok
-# insert into user values (&#39;meg&#39;, 2);
+<span class="c1"># insert into user values (&#39;meg&#39;, 2);</span>
 ok
-# insert into user values (&#39;jerry&#39;, 2);
+<span class="c1"># insert into user values (&#39;jerry&#39;, 2);</span>
 ok
-# insert into user values (&#39;phil&#39;, 1);
+<span class="c1"># insert into user values (&#39;phil&#39;, 1);</span>
 ok
-# select * from user;
-  name  | age
+<span class="c1"># select * from user;</span>
+<span class="w">  </span>name<span class="w">  </span><span class="p">|</span><span class="w"> </span>age
 --------+------
-  meg   |   2
-  jerry |   2
-  phil  |   1
-(3 results)
+<span class="w">  </span>meg<span class="w">   </span><span class="p">|</span><span class="w">   </span><span class="m">2</span>
+<span class="w">  </span>jerry<span class="w"> </span><span class="p">|</span><span class="w">   </span><span class="m">2</span>
+<span class="w">  </span>phil<span class="w">  </span><span class="p">|</span><span class="w">   </span><span class="m">1</span>
+<span class="o">(</span><span class="m">3</span><span class="w"> </span>results<span class="o">)</span>
 ok
-# select * from user limit 1;
-  name | age
+<span class="c1"># select * from user limit 1;</span>
+<span class="w">  </span>name<span class="w"> </span><span class="p">|</span><span class="w"> </span>age
 -------+------
-  meg  |   2
-(1 result)
+<span class="w">  </span>meg<span class="w">  </span><span class="p">|</span><span class="w">   </span><span class="m">2</span>
+<span class="o">(</span><span class="m">1</span><span class="w"> </span>result<span class="o">)</span>
 ok
-# select * from user where age=1 limit 1;
-  name | age
+<span class="c1"># select * from user where age=1 limit 1;</span>
+<span class="w">  </span>name<span class="w"> </span><span class="p">|</span><span class="w"> </span>age
 -------+------
-  phil |   1
-(1 result)
+<span class="w">  </span>phil<span class="w"> </span><span class="p">|</span><span class="w">   </span><span class="m">1</span>
+<span class="o">(</span><span class="m">1</span><span class="w"> </span>result<span class="o">)</span>
 ok
-# select * from user where age=1 limit 4;
-  name | age
+<span class="c1"># select * from user where age=1 limit 4;</span>
+<span class="w">  </span>name<span class="w"> </span><span class="p">|</span><span class="w"> </span>age
 -------+------
-  phil |   1
-(1 result)
+<span class="w">  </span>phil<span class="w"> </span><span class="p">|</span><span class="w">   </span><span class="m">1</span>
+<span class="o">(</span><span class="m">1</span><span class="w"> </span>result<span class="o">)</span>
 ok
-# select * from user where age=2 limit 1;
-  name | age
+<span class="c1"># select * from user where age=2 limit 1;</span>
+<span class="w">  </span>name<span class="w"> </span><span class="p">|</span><span class="w"> </span>age
 -------+------
-  meg  |   2
-(1 result)
+<span class="w">  </span>meg<span class="w">  </span><span class="p">|</span><span class="w">   </span><span class="m">2</span>
+<span class="o">(</span><span class="m">1</span><span class="w"> </span>result<span class="o">)</span>
 ok
-# select * from user where age=2 limit 1 offset 1;
-  name  | age
+<span class="c1"># select * from user where age=2 limit 1 offset 1;</span>
+<span class="w">  </span>name<span class="w">  </span><span class="p">|</span><span class="w"> </span>age
 --------+------
-  jerry |   2
-(1 result)
+<span class="w">  </span>jerry<span class="w"> </span><span class="p">|</span><span class="w">   </span><span class="m">2</span>
+<span class="o">(</span><span class="m">1</span><span class="w"> </span>result<span class="o">)</span>
 ok
-</code></pre>
+</pre></div>
 <p>Not so hard to hack is it? Make sure to include some tests!</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Working on a prototype SQL-based explorer for data stored in S3 and I needed OFFSET/LIMIT support in the gosql parser. Wrote up a short post on how you can hack in additional syntax and functionality into this SQL engine written in Go.<a href="https://t.co/PyVozTPZ5S">https://t.co/PyVozTPZ5S</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1353372050023456768?ref_src=twsrc%5Etfw">January 24, 2021</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
@@ -949,7 +948,6 @@ ok
       </div>
     </footer>
     <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
-    <script async onload="hljs.highlightAll()" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       function loadGA() {
 	  window.dataLayer = window.dataLayer || [];

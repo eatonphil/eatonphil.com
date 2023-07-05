@@ -196,13 +196,18 @@ aside p {
     line-height: initial;
 }
 
-.hljs {
-    padding: 2rem;
+.highlight {
+    overflow: auto;
+    padding: 1.5rem;
     max-height: 1000px;
     border: 1px solid #ddd;
     background: white;
     width: 800px;
     margin-left: -100px;
+}
+
+.highlight pre {
+    margin: 0;
 }
 
 .title {
@@ -374,7 +379,7 @@ th, td {
 	width: 100%;
     }
 
-    .hljs {
+    .highlight {
 	width: 100%;
 	margin-left: 0;
     }
