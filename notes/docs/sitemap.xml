@@ -385,10 +385,6 @@
     <lastmod>2022-10-12</lastmod>
  </url>
   <url>
-    <loc>https://notes.eatonphil.com/2023-07-11-we-put-a-distributed-database-in-the-browse.html</loc>
-    <lastmod>2022-10-12</lastmod>
- </url>
-  <url>
     <loc>https://notes.eatonphil.com/zigrocks.html</loc>
     <lastmod>2022-10-30</lastmod>
  </url>
@@ -451,5 +447,9 @@
   <url>
     <loc>https://notes.eatonphil.com/2023-06-19-metaprogramming-in-zig-and-parsing-css.html</loc>
     <lastmod>2023-06-19</lastmod>
+ </url>
+  <url>
+    <loc>https://notes.eatonphil.com/2023-07-11-we-put-a-distributed-database-in-the-browse.html</loc>
+    <lastmod>2023-07-11</lastmod>
  </url>
 </urlset>
