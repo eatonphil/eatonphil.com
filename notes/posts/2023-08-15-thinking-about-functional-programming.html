@@ -1,0 +1,137 @@
+# Thinking about functional programming
+## August 15, 2023
+###### scheme,standard ml,haskell
+
+Someone on Discord asked about how to learn functional programming.
+
+The question and my initial tweet on the subject prompted an
+interesting
+[discussion](https://twitter.com/ShriramKMurthi/status/1691548254331092992)
+with [Shriram
+Krishnamurthi](https://twitter.com/ShriramKMurthi) and other folks.
+
+So here's a slightly more thought out exploration.
+
+<p class="note">
+  I spent a bunch of time a while
+  ago <a href="https://github.com/eatonphil/ponyo">programming in
+  Standard ML</a> and I wrote
+  a <a href="https://github.com/eatonphil/bsdscheme">chunk of a Scheme
+  implementation</a> so I have a bit of background.
+  <br /> <br />
+  But, hey, this is a free opinion.
+</p>
+
+### Concepts from functional programming
+
+When people talk about functional programming, I think of a few key
+choices you can make while programming:
+
+* Immutability by default
+* (Tail) recursion by default
+* First-class functions (and the suite of tools that go along with it. e.g. map, reduce/fold)
+
+And if you have experience as a programmer, you either get the basic
+gist of these tenets or you can easily read about the basics. That is,
+while most programmers I've met understood the basics, most
+programmers I've met were not particularly *comfortable* or *fluent*
+expressing programs with these ideas.
+
+For myself, the only way I got comfortable expressing code with these
+ideas was lots of practice (as I mentioned above). And the thing is,
+even after I did a bunch of programming in Standard ML and Scheme, I
+really don't see a particular benefit to practicing in a language
+other than one with which you are already comfortable in general.
+
+So I think it's kind of misguided when person A asks how to learn
+functional programmer and person B responds that they should learn
+Haskell or OCaml or whatever. I see this happen pretty often online.
+
+<p class="note">
+  Beyond any "language for functional programming" as a recommendation
+  in general, Haskell is a particularly egregious suggestion to make
+  in my opinion because not only are you trying to practice functional
+  programming tenets but you're also dealing with a complex type
+  system and lazy evaluation.
+</p>
+
+Instead, [practice immutability, recursion,
+map/reduce](https://notes.eatonphil.com/practicing-recursion.html) in
+whatever language you like.
+
+### Programming languages
+
+If you want to study programming languages, that's awesome. However,
+functional programming doesn't really have any direct connection to
+studying programming languages.
+
+Languages are all over the place. Scheme, Standard ML, and Haskell are
+worlds apart, even within the functional programming family.
+
+And modern languages have mostly adapted the aspects of functional
+programming that used to be unique 20 years ago.
+
+Moreover, there are many other worthwhile families of languages to
+learn about:
+
+* Imperative/C-like (ok, you probably already know these)
+* Stack-based (JVM, x86 assembly sort of, Forth)
+* Array-oriented (APL, J)
+* Declarative (CSS, SQL, TLA+, Prolog)
+* Data (HTML, JSON, YAML)
+* Proof assistants (Isabelle/HOL, Coq)
+
+The list isn't exhaustive, and the variations within families can be
+massive. But the point is that functional programming doesn't mean
+crazy programming languages or crazy programming ideas. Functional
+programming is a *subset* of crazy programming languages and crazy
+programming ideas.
+
+If you want to learn about crazy programming languages and crazy
+programming ideas, you should! Go for it!
+
+### Introduction to Computer Science
+
+SICP is famous as the (former) introductory textbook for computer
+science at MIT, and for its use of Scheme and the [Metacircular
+Evaluator](https://en.wikipedia.org/wiki/Meta-circular_evaluator).
+
+I don't have any experience teaching beginners how to program so I
+don't have thoughts on if this made sense. That's for folks like
+[Shriram](https://twitter.com/ShriramKMurthi/status/1691548254331092992)
+to think about.
+
+However, I'm a half-decent programmer and I can't make it through this
+book. If you liked the book or want to read it, that's great! But I [don't
+recommend](https://notes.eatonphil.com/recommending-a-book.html) it to
+anyone.
+
+And many introductory Computer Science textbooks just don't make much
+sense to give to experienced programmers. For an experienced
+programmer, they can be quite slow!
+
+Most of the folks I see asking about how to learn functional
+programming are experienced programmers.
+
+### Do whatever you feel like doing
+
+I don't mean to overanalyze things, or get you overanalyzing
+things. If you want to learn functional programming by writing
+Haskell, that's awesome, you should go for it.
+
+Wanting to do something is basically the best motivation there is.
+
+The only reason I write this sort of post is so that folks who think
+that using Haskell or Standard ML or Scheme or reading SICP is the
+only way to learn functional programming see those ideas aren't
+necessarily true.
+
+### Write a Scheme!
+
+Finally, for folks with time and motivation wanting to work out their
+functional programming muscles, writing a programming implementation
+with a decent chunk of the standard library can be an immensely
+enjoyable project.
+
+You'll learn a lot about languages and compilers and algorithms and
+data structures. It's leetcode with meaning.
