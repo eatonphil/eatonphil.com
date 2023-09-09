@@ -462,3 +462,21 @@ th, td {
 #share {
     margin-top: 30px;
 }
+
+header .lfw {
+    font-size: initial;
+    background: #fcfcfc;
+    border-bottom: 1px solid #eee;
+}
+
+header .lfw .container {
+    padding: 5px 15px;
+}
+
+header .lfw .container > div {
+    padding-bottom: 0;
+}
+
+header .lfw .container a {
+    color: #333;
+}
