@@ -124,13 +124,15 @@ func parseDoc(docPath string) (Doc, string) {
 	bodyRunes := []rune(body)
 	var prev rune
 	var i int
+
+outer:
 	for i < len(bodyRunes) {
 		if i > 0 {
 			prev = bodyRunes[i-1]
 		}
 
 		c := bodyRunes[i]
-		// Deal with headers
+		// Support for headers
 		if (i == 0 || prev == '\n') && c == '#' {
 			var headerNumber = 0
 			for c == '#' {
@@ -148,6 +150,35 @@ func parseDoc(docPath string) (Doc, string) {
 
 			fmt.Fprintf(outWriter, "<h%d>%s</h%d>", headerNumber, string(header), headerNumber)
 			continue
+		}
+
+		// Support for links
+		if (c == '[') {
+			tmpI := i
+			tmpC := bodyRunes[tmpI]
+
+			oldI := tmpI
+			for tmpC != ']' {
+				tmpI++
+				tmpC = bodyRunes[tmpI]
+			}
+			linkText := string(bodyRunes[oldI+1:tmpI])
+
+			// Found ending ], now look for (
+			tmpI++
+			tmpC = bodyRunes[tmpI]
+			if tmpC == '(' {
+				oldI = tmpI
+				for tmpC != ')' {
+					tmpI++
+					tmpC = bodyRunes[tmpI]
+				}
+				linkHref := string(bodyRunes[oldI+1: tmpI])
+
+				fmt.Fprintf(outWriter, `<a href="%s">%s</a>`, linkHref, linkText)
+				i = tmpI + 1
+				continue outer
+			}
 		}
 
 		outWriter.WriteRune(c)
