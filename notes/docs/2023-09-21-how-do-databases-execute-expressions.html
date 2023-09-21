@@ -59,14 +59,14 @@ developer. For example, every database with a query language is also a
 programming language implementation of some caliber. That doesn't
 include all databases though of course; see: RocksDB, FoundationDB,
 TigerBeetle, etc.</p>
-<p>This post will take a look at how various databases execute
-expressions in their query language.</p>
+<p>This post looks at how various databases execute expressions in their
+query language.</p>
 <p>tldr; Most surveyed databases use a tree-walking interpreter. A few
 use stack- or register-based virtual machines. A couple have
 just-in-time compilers. And, tangentially, a few do vectorized
 interpretation.</p>
-<h3 id="stepping-back">Stepping back</h3><p>Programming languages are typically implemented by turning the
-tree-like Abstract Syntax Tree (AST) into a linear set of instructions
+<h3 id="stepping-back">Stepping back</h3><p>Programming languages are typically implemented by turning an
+Abstract Syntax Tree (AST) into a linear set of instructions
 for a virtual machine (e.g. CPython, Java, C#) or native code
 (e.g. GCC's C compiler, Go, Rust). Some of the former implementations
 also generate and run Just-In-Time (JIT) compiled native code
@@ -74,11 +74,12 @@ also generate and run Just-In-Time (JIT) compiled native code
 <p>Less commonly these days in programming languages does the
 implementation interpret off the AST or some other tree-like
 intermediate representation. This style is often called
-tree-walking. Shell languages typically do tree-walking. But other
-than that, the implementations that interpret directly off of a tree
-normally do so as a short-term measure before switching to compiled
-virtual machine code or JIT-ed native code (e.g. some JavaScript
-implementations, GraalVM, RPython, etc.)</p>
+tree-walking.</p>
+<p>Shell languages sometimes do tree-walking. Otherwise, implementations
+that interpret directly off of a tree normally do so as a short-term
+measure before switching to compiled virtual machine code or JIT-ed
+native code (e.g. some JavaScript implementations, GraalVM, RPython,
+etc.)</p>
 <p>That is, while some major programming language implementations started
 out with tree-walking interpreters, they mostly moved away from solely
 tree-walking over a decade ago. See <a href="https://www.webkit.org/blog/189/announcing-squirrelfish/">JSC in
