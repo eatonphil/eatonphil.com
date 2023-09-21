@@ -288,23 +288,18 @@ in Scylla, we see function evaluation first <a href="https://github.com/scylladb
 arguments</a>. And
 the function evaluation function itself returns a
 <code>cql3::raw_value</code>. So that's a tree-walking interpreter.</p>
-<h4><a href="https://github.com/sqlite/sqlite">SQLite</a> (Ruling: Virtual Machine)</h4>>
-
-SQLite's virtual machine is [comprehensive and
-well-documented](https://www.sqlite.org/opcode.html). It encompasses
+<h4><a href="https://github.com/sqlite/sqlite">SQLite</a> (Ruling: Virtual Machine)</h4><p>SQLite's virtual machine is <a href="https://www.sqlite.org/opcode.html">comprehensive and
+well-documented</a>. It encompasses
 more than just expression evaluation but the entirety of query
-execution.
-
-We can find the massive virtual machine switch in
-[src/vdbe.c](https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L971).
-
-And if we look, for example, at how `AND` is implemented, we see it
-[pulling its arguments out of
-memory](https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L2536)
-(already evaluated) and assigning the result back to [a designated
+execution.</p>
+<p>We can find the massive virtual machine switch in
+<a href="https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L971">src/vdbe.c</a>.</p>
+<p>And if we look, for example, at how <code>AND</code> is implemented, we see it
+<a href="https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L2536">pulling its arguments out of
+memory</a>
+(already evaluated) and assigning the result back to <a href="https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L2545">a designated
 point in
-memory](https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L2545).
-
+memory</a>.</p>
 <h4>SingleStore (Ruling: Virtual Machine + JIT)</h4><p>While there's no source code to link to, SingleStore <a href="https://www.youtube.com/watch?v=_vloWsdPCDs&amp;t=3810s">gave a talk at
 CMU</a> that broke
 down their query execution pipeline. Their
