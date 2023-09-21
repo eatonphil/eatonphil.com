@@ -1,0 +1,384 @@
+# How do databases execute expressions?
+## September 21, 2023
+###### databases,postgres,mysql,sqlite,sql,interpreters
+
+Databases sit at the confluence of Computer Science
+topics that might otherwise not seem practical in life as a
+developer. For example, every database with a query language is also a
+programming language implementation of some caliber. That doesn't
+include all databases though of course; see: RocksDB, FoundationDB,
+TigerBeetle, etc.
+
+This post will take a look at how various databases execute
+expressions in their query language.
+
+tldr; Most surveyed databases use a tree-walking interpreter. A few
+use stack- or register-based virtual machines. A couple have
+just-in-time compilers. And, tangentially, a few do vectorized
+interpretation.
+
+### Stepping back
+
+Programming languages are typically implemented by turning the
+tree-like Abstract Syntax Tree (AST) into a linear set of instructions
+for a virtual machine (e.g. CPython, Java, C#) or native code
+(e.g. GCC's C compiler, Go, Rust). Some of the former implementations
+also generate and run Just-In-Time (JIT) compiled native code
+(e.g. Java and C#).
+
+Less commonly these days in programming languages does the
+implementation interpret off the AST or some other tree-like
+intermediate representation. This style is often called
+tree-walking. Shell languages typically do tree-walking. But other
+than that, the implementations that interpret directly off of a tree
+normally do so as a short-term measure before switching to compiled
+virtual machine code or JIT-ed native code (e.g. some JavaScript
+implementations, GraalVM, RPython, etc.)
+
+That is, while some major programming language implementations started
+out with tree-walking interpreters, they mostly moved away from solely
+tree-walking over a decade ago. See [JSC in
+2008](https://www.webkit.org/blog/189/announcing-squirrelfish/), [Ruby
+in 2007](https://www.infoq.com/news/2007/12/ruby-19/), etc.
+
+My intuition is that tree-walking takes up more memory and is less
+cache-friendly than the linear instructions you give to a virtual
+machine or to your CPU. There are [some folks who
+disagree](https://stefan-marr.de/downloads/oopsla23-larose-et-al-ast-vs-bytecode-interpreters-in-the-age-of-meta-compilation.pdf),
+but they mostly talk about tree-walking when you've also got a JIT
+compiler hooked up. Which isn't quite the same thing. There has also
+been [some early exploration and
+improvements](https://www.cs.cornell.edu/~asampson/blog/flattening.html)
+reported when tree-walking with a tree organized as an array.
+
+#### And databases?
+
+Databases often interpret directly off a tree. (It isn't, generally
+speaking, fair to say they are AST-walking interpreters because they
+typically do transformations and optimizations that go beyond just an
+AST as parsed from user code.)
+
+But not all databases interpret a tree. Some have a virtual
+machine. And some generate and run JIT-ed native code.
+
+### Methodology
+
+If a core function (in the query execution path that does something
+like arithmetic or comparison) returns a value, that's a sign it's a
+tree-walking interpreter. Or, if you see code that is evaluating its
+arguments during execution, that's also a sign of a tree-walking
+interpreter.
+
+On the other hand, if the function mutates internal state such as by
+assigning a value to a context or pushing to a stack, that's a sign
+it's a stack- or register-based virtual machine. If a function pulls
+its arguments from memory and doesn't evaluate the arguments, that's
+also an indication it's a stack- or register-based virtual machine.
+
+This approach can result in false-positives depending on the
+architecture of the interpreter. User-defined functions (UDFs) would
+probably accept evaluated arguments and return a value regardless of
+how the interpreter is implemented. So it's important to find not just
+functions that could be implemented like UDFs, but core builtin
+behavior. Control flow implementations of functions like `if` or
+`case` can be great places to look.
+
+And tactically, I clone the source code and run stuff like `git grep
+-i eval | grep -v test | grep \\.java | grep -i eval` or `git grep -i
+expr | grep -v test | grep \\.go | grep -i expr` until I convince
+myself I'm somewhere interesting.
+
+Note: In talking about a broad swath of projects, maybe I've
+misunderstood one or some. If you've got a correction, let me know! If
+there's a proprietary database you work on where you can link to the
+(publicly described) execution strategy, feel free to pass it along!
+Or if I'm missing your public-source database in this list, send me a
+message!
+
+### Survey
+
+<h4><a href="https://github.com/cockroachdb/cockroach">Cockroach</a> (Ruling: Tree Walker)</h4>
+
+Judging by functions like [`func (e *evaluator)
+EvalBinaryExpr`](https://github.com/cockroachdb/cockroach/blob/master/pkg/sql/sem/eval/expr.go#L105)
+that [evaluates the left-hand
+side](https://github.com/cockroachdb/cockroach/blob/master/pkg/sql/sem/eval/expr.go#L106)
+and then [evaluates the right-hand
+side](https://github.com/cockroachdb/cockroach/blob/master/pkg/sql/sem/eval/expr.go#L113)
+and returns a value, Cockroach looks like a tree walking interpreter.
+
+It gets a little more interesting though, since Cockroach also
+[supports](https://www.cockroachlabs.com/docs/stable/vectorized-execution)
+vectorized expression execution. Vectorizing is a fancy term for
+acting on many pieces of data at once rather than one at a time. It
+doesn't necessarily imply SIMD. Here is an example of a [vectorized
+addition](https://github.com/cockroachdb/cockroach/blob/master/pkg/sql/colexec/colexecproj/proj_non_const_ops.eg.go#L4427)
+of two int64 columns.
+
+<h4><a href="https://github.com/ClickHouse/clickhouse">ClickHouse</a> (Ruling: ? + JIT)</h4>
+
+The ClickHouse architecture is a little unique and difficult for me to
+read through – likely due to it being fairly mature, with serious
+optimization. But they tend to document their header files well. So
+files like
+[src/Functions/IFunction.h](https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/IFunction.h)
+and
+[src/Interpreters/ExpressionActions.h](https://github.com/ClickHouse/ClickHouse/blob/9af9b4a08542812694f171833a7afe08f5aaaafb/src/Interpreters/ExpressionActions.h)
+were helpful.
+
+They have also spoken publicly about their pipeline execution model;
+e.g. [this
+presentation](https://presentations.clickhouse.com/meetup24/5.%20Clickhouse%20query%20execution%20pipeline%20changes/)
+and [this roadmap
+issue](https://github.com/ClickHouse/ClickHouse/issues/34045). But it
+isn't completely clear how much pipeline execution (which is broader
+than just expression evaluation) connects to expression evaluation.
+
+Moreover, they have [publicly
+spoken](https://clickhouse.com/blog/clickhouse-just-in-time-compiler-jit)
+about their support for JIT compilation for query execution. But how
+execution works when the JIT is not enabled is still unclear to me
+after a while of digging.
+
+For example, If we take a look at how [`if` is
+implemented](https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/if.cpp),
+we know that the `then` and `else` rows must be conditionally
+evaluated. We can see where the vector result is being built up [such
+as
+here](https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/if.cpp#L696).
+
+However, I can't really see anything obvious there that shows that
+cell being inserted into the result column as being evaluated. In a
+stack- or register-based virtual machine, it wouldn't be obvious that
+evaluation is happening since it happens implicitly during
+execution. But if it was a tree-walker we'd expect to see something
+like `result_column->insertFrom(eval(*col_then), then_is_short ?
+then_index++ : i);`. Or it's possible that `IColumn` is only evaluated
+later on as needed. But if that were the case, I'd expect that the
+`cond` column would have to be evaluated by this code and I didn't
+notice anything like that either.
+
+Either way it's clear that the interpreted execution is over
+vectorized data, similar to Cockroach. However in ClickHouse execution
+is _always_ over column vectors.
+
+But on the exact interpreter strategy I'm unclear. Pointers welcome!
+
+<h4><a href="https://github.com/duckdb/duckdb">DuckDB</a> (Ruling: Tree Walker)</h4>
+
+If we take a look at how [function expressions are
+executed](https://github.com/duckdb/duckdb/blob/479c89e154f32012143d741c1a4f4d769f20044e/src/execution/expression_executor/execute_function.cpp#L59),
+we can see each [argument in the function being
+evaluated](https://github.com/duckdb/duckdb/blob/479c89e154f32012143d741c1a4f4d769f20044e/src/execution/expression_executor/execute_function.cpp#L66)
+before being passed to the actual function. So that looks like a tree
+walking interpreter.
+
+Like ClickHouse, DuckDB expression execution is always over column
+vectors. You can read more about this architecture
+[here](https://duckdb.org/internals/vector.html) and
+[here](https://www.infoq.com/articles/analytical-data-management-duckdb/).
+
+<h4><a href="https://github.com/influxdata/influxdb">Influx</a> (Ruling: Tree Walker)</h4>
+
+Influx originally had a SQL-like query language called InfluxQL. If we
+look at [how it evaluates a binary
+expression](https://github.com/influxdata/influxdb/blob/b3b982d746fdc34451ca44d262f83b483cd9ea33/storage/reads/influxql_eval.go#L41),
+it first evaluates the left-hand side and then the right-hand side
+before operating on the sides and returning a value. That's a
+tree-walking interpreter.
+
+[Flux](https://github.com/influxdata/flux) was the new query language
+for Influx. While the Flux
+[docs](https://github.com/influxdata/flux/blob/master/docs/VirtualMachine.md)
+suggest they transform to an intermediate representation that is
+executed on a virtual machine, there's nothing I'm seeing that looks
+like a stack- or register-based virtual machine. All the [evaluation
+functions](https://github.com/influxdata/flux/blob/master/interpreter/interpreter.go#L352)
+evaluate their arguments and return a value. That looks like a
+tree-walking interpreter to me.
+
+Today Influx
+[announced](https://www.influxdata.com/blog/the-plan-for-influxdb-3-0-open-source/)
+that Flux is in maintenance mode and they are focusing on InfluxQL
+again.
+
+<h4><a href="https://github.com/MariaDB/server">MariaDB</a> / <a href="https://github.com/mysql/mysql-server">MySQL</a> (Ruling: Tree Walker)</h4>
+
+Control flow methods are normally a good way to see how an interpreter
+is implemented. The implementation of COALESCE [looks pretty
+simple](https://github.com/MariaDB/server/blob/e9573c059656d9477c2176f102f7e79d0f1ca6b0/sql/item_cmpfunc.cc#L3431). We
+see it [call
+`val_str()`](https://github.com/MariaDB/server/blob/e9573c059656d9477c2176f102f7e79d0f1ca6b0/sql/item_cmpfunc.cc#L3442)
+for each argument to COALESCE. But I can only seem to find
+implementations of `val_str()` on raw values and not
+expressions. `Item_func_coalesce` itself does not implement
+`val_str()` for example, which would be a strong indication of a tree
+walker. Maybe it does implement `val_str()` through inheritance.
+
+It becomes a little clearer if we look at non-control flow methods
+like
+[`acos`](https://github.com/MariaDB/server/blob/e9573c059656d9477c2176f102f7e79d0f1ca6b0/sql/item_func.cc#L2048). In
+this method we see `Item_func_acos` itself implement `val_real()` and
+also call `val_real()` on all its arguments. In this case it's obvious
+how the control flow of `acos(acos(.5))` would work. So that seems to
+indicate expressions are executed with a tree walking interpreter.
+
+I also noticed
+[sql/sp_instr.cc](https://github.com/MariaDB/server/blob/e9573c059656d9477c2176f102f7e79d0f1ca6b0/sql/sp_instr.cc). That
+is scary (in terms of invalidating my analysis) since it looks like a
+virtual machine. But after looking through it, I think this virtual
+machine only corresponds to how stored procedures are executed, hence
+the `sp_` prefix for Stored Programs. [MySQL
+docs](https://dev.mysql.com/doc/dev/mysql-server/latest/stored_programs.html)
+also explain that stored procedures are executed with a bytecode
+virtual machine.
+
+I'm curious why they don't use that virtual machine for query
+execution.
+
+As far as I can tell MySQL and MariaDB do not differ in this regard.
+
+<h4><a href="https://github.com/mongodb/mongo">MongoDB</a> (Ruling: Virtual Machine)</h4>
+
+Mongo [recently
+introduced](https://laplab.me/posts/inside-new-query-engine-of-mongodb/)
+a virtual machine for executing queries, called Slot Based Execution
+(SBE). We can find the SBE code in
+[src/mongo/db/exec/sbe/vm/vm.cpp](https://github.com/mongodb/mongo/blob/master/src/mongo/db/exec/sbe/vm/vm.cpp#L9313)
+and the main virtual machine entrypoint
+[here](https://github.com/mongodb/mongo/blob/master/src/mongo/db/exec/sbe/vm/vm.cpp#L9313). [Looks
+like](https://github.com/mongodb/mongo/blob/master/src/mongo/db/exec/sbe/vm/vm.cpp#L9419)
+a classic stack-based virtual machine!
+
+It isn't completely clear to me if the SBE path is always used or if
+there are still cases where it falls back to their old execution
+model. You can read more about Mongo execution
+[here](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/README.md)
+and [here](https://www.mongodb.com/docs/manual/reference/sbe/).
+
+<h4><a hjef="https://github.com/postgres/postgres">PostgreSQL</a> (Ruling: Virtual Machine + JIT)</h4>
+
+The top of PostgreSQL's
+[src/backend/executor/execExprInterp.c](https://github.com/postgres/postgres/blob/cca97ce6a6653df7f4ec71ecd54944cc9a6c4c16/src/backend/executor/execExprInterp.c#L6)
+clearly explains that expression execution uses a virtual machine. You
+see all the hallmarks: opcodes, a loop over a giant switch, etc. And
+if we look at how [function expressions are
+executed](https://github.com/postgres/postgres/blob/cca97ce6a6653df7f4ec71ecd54944cc9a6c4c16/src/backend/executor/execExprInterp.c#L728),
+we see another hallmark which is that the function expression code
+doesn't evaluate its arguments. They've already been evaluated. And
+function expression code just acts on the results of its arguments.
+
+PostgreSQL also
+[supports](https://github.com/postgres/postgres/blob/master/src/backend/jit/README)
+JIT-ing expression execution. And we can find the switch between
+interpreting and JIT-compiling an expression
+[here](https://github.com/postgres/postgres/blob/cca97ce6a6653df7f4ec71ecd54944cc9a6c4c16/src/backend/executor/execExpr.c#L873).
+
+<h4><a href="https://github.com/questdb/questdb">QuestDB</a> (Ruling: Tree Walker + JIT)</h4>
+
+QuestDB [wrote about their execution engine
+recently](https://questdb.io/blog/2022/01/12/jit-sql-compiler/). When
+the conditions are right, they'll [switch over to a JIT
+compiler](https://github.com/questdb/questdb/blob/11ac85510292596f0d21b10603e500f8edb5e486/core/src/main/java/io/questdb/griffin/SqlCodeGenerator.java#L1394)
+and run native code.
+
+But let's look at the default path. For example, how [`AND` is
+implemented](https://github.com/questdb/questdb/blob/11ac85510292596f0d21b10603e500f8edb5e486/core/src/main/java/io/questdb/griffin/engine/functions/bool/AndFunctionFactory.java#L82). `AndBooleanFunction`
+implements `BooleanFunction` which implements `Function`. An
+expression can be evaluated by calling a `getX()` method on the
+expression type that implements `Function`. `AndBooleanFunction` calls
+`getBool()` on its left and right hand sides. And if we look at the
+[partial
+implementation](https://github.com/questdb/questdb/blob/11ac85510292596f0d21b10603e500f8edb5e486/core/src/main/java/io/questdb/griffin/engine/functions/BooleanFunction.java#L35)
+of `BooleanFunction` we'll also see it doing `getX()` specific
+conversions during the call of `getX()`. So that's a tree-walking
+interpreter.
+
+<h4><a href="https://github.com/scylladb/scylladb">Scylla</a> (Ruling: Tree Walker)</h4>
+
+If we take a look at how [functions are
+evaluated](https://github.com/scylladb/scylladb/blob/08197882074227edbd0a95f49914913e3124753d/cql3/expr/expression.cc#L2145)
+in Scylla, we see function evaluation first [evaluating all of its
+arguments](https://github.com/scylladb/scylladb/blob/08197882074227edbd0a95f49914913e3124753d/cql3/expr/expression.cc#L2161). And
+the function evaluation function itself returns a
+`cql3::raw_value`. So that's a tree-walking interpreter.
+
+<h4><a href="https://github.com/sqlite/sqlite">SQLite</a> (Ruling: Virtual Machine)</h4>>
+
+SQLite's virtual machine is [comprehensive and
+well-documented](https://www.sqlite.org/opcode.html). It encompasses
+more than just expression evaluation but the entirety of query
+execution.
+
+We can find the massive virtual machine switch in
+[src/vdbe.c](https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L971).
+
+And if we look, for example, at how `AND` is implemented, we see it
+[pulling its arguments out of
+memory](https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L2536)
+(already evaluated) and assigning the result back to [a designated
+point in
+memory](https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L2545).
+
+<h4>SingleStore (Ruling: Virtual Machine + JIT)</h4>
+
+While there's no source code to link to, SingleStore [gave a talk at
+CMU](https://www.youtube.com/watch?v=_vloWsdPCDs&t=3810s) that broke
+down their query execution pipeline. Their
+[docs](https://docs.singlestore.com/cloud/query-data/advanced-query-topics/code-generation/)
+also cover the topic.
+
+![SingleStore compiler pipeline](/assets/memsql.webp)
+
+<h4><a href="https://github.com/pingcap/tidb">TiDB</a> (Ruling: Tree Walker)</h4>
+
+Similar to DuckDB and ClickHouse, TiDB implements vectorized
+interpretation. They've [written publicly about their switch to this
+method](https://www.pingcap.com/blog/10x-performance-improvement-for-expression-evaluation-made-possible-by-vectorized-execution/).
+
+Let's take a look at how `if` is implemented in TiDB. There is a
+vectorized and non-vectorized version of `if` (in
+[expression/control_builtin.go](https://github.com/pingcap/tidb/blob/3ccd09e63addddeb0d33b5b87594a2d61fffd1d8/expression/builtin_control.go)
+and
+[expression/control_builtin_generated.go](https://github.com/pingcap/tidb/blob/3ccd09e63addddeb0d33b5b87594a2d61fffd1d8/expression/builtin_control_vec_generated.go)
+respectively). So maybe they haven't completely switched over to
+vectorized execution or maybe it can only be used in some conditions.
+
+If we look at the [non-vectorized version of
+`if`](https://github.com/pingcap/tidb/blob/3ccd09e63addddeb0d33b5b87594a2d61fffd1d8/expression/builtin_control.go#L599),
+we see the [condition
+evaluated](https://github.com/pingcap/tidb/blob/3ccd09e63addddeb0d33b5b87594a2d61fffd1d8/expression/builtin_control.go#L600). And
+then the `then` or `else` is evaluated [depending on the result of the
+condition](https://github.com/pingcap/tidb/blob/3ccd09e63addddeb0d33b5b87594a2d61fffd1d8/expression/builtin_control.go#L604). That's
+a tree-walking interpreter.
+
+### Conclusion
+
+As the DuckDB team [points out](https://duckdb.org/why_duckdb.html),
+vectorized interpretation or JIT compilation [seem like the
+future](https://www.vldb.org/pvldb/vol11/p2209-kersten.pdf) for
+database expression execution. These strategies seem particularly
+important for analytics or time-series workloads. But vectorized
+interpretation seems to make the most sense for column-wise storage
+engines. And column-wise storage normally only makes sense for
+analytics workloads. Still, TiDB and Cockroach are transactional
+databases that also vectorize execution.
+
+And while SQLite and PostgreSQL use the virtual machine model, it's
+possible databases with tree-walking interpreters like Scylla and
+MySQL/MariaDB have decided there is not significant enough gains to be
+had (for transactional workloads) to justify the complexity of moving
+to a compiler + virtual machine architecture.
+
+Tree-walking interpreters and virtual machines are also independent
+from whether or not execution is vectorized. So that will be another
+interesting dimension to watch: if more databases move toward
+vectorized execution even if they don't adapt JIT compilation.
+
+Yet another alternative is that maybe as databases mature we'll see
+compilation tiers similar to what [browsers
+do](https://webkit.org/blog/9329/a-new-bytecode-format-for-javascriptcore/)
+[with JavaScript](https://v8.dev/blog/sparkplug).
+
+Credits: Thanks Max Bernstein, Alex Miller, and Justin Jaffray for
+reviewing a draft version of this!

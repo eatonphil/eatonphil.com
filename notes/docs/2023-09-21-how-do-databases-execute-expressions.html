@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="canonical" href="https://notes.eatonphil.com/2023-09-21-how-do-databases-execute-expressions.html">
+    <title>How do databases execute expressions? | notes.eatonphil.com</title>
+    <meta name="description" content="How do databases execute expressions?" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+  </head>
+  <body>
+    <header>
+      <div class="lfw">
+	<div class="container">
+	  <div class="row">
+	    <a href="https://eatonphil.com/hire-me.html">Hire me!</a>
+	  </div>
+	</div>
+      </div>
+      <div class="container">
+        <div>
+          <div class="row">
+	    <div>
+	      <a href="https://eatonphil.com" class="sm-link">
+		Home
+              </a>
+	      <a href="/" class="sm-link">
+		Notes
+              </a>
+	      <a href="/favorites.html" class="sm-link">
+		Popular
+              </a>
+	      <a href="/rss.xml" class="sm-link">
+		RSS
+              </a>
+	    </div>
+	    	      
+	    <div class="subscribe">                                     
+	      <a href="https://notes.eatonphil.com/2023-09-21-how-do-databases-execute-expressions.html#subscribe">       
+		Subscribe          
+	      </a>
+            </div>
+	  </div>
+	  <hr />
+          <h2>September 21, 2023</h2>
+          <h1>How do databases execute expressions?</h1>
+          <div class="row" style="padding-bottom: 5px">
+            <div class="tags"><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/mysql.html" class="tag">mysql</a><a href="/tags/sqlite.html" class="tag">sqlite</a><a href="/tags/sql.html" class="tag">sql</a><a href="/tags/interpreters.html" class="tag">interpreters</a></div>
+          </div>
+	</div>
+      </div>
+    </header>
+    <div class="container">
+      <div class="col-6">
+        <p>Databases sit at the confluence of Computer Science
+topics that might otherwise not seem practical in life as a
+developer. For example, every database with a query language is also a
+programming language implementation of some caliber. That doesn't
+include all databases though of course; see: RocksDB, FoundationDB,
+TigerBeetle, etc.</p>
+<p>This post will take a look at how various databases execute
+expressions in their query language.</p>
+<p>tldr; Most surveyed databases use a tree-walking interpreter. A few
+use stack- or register-based virtual machines. A couple have
+just-in-time compilers. And, tangentially, a few do vectorized
+interpretation.</p>
+<h3 id="stepping-back">Stepping back</h3><p>Programming languages are typically implemented by turning the
+tree-like Abstract Syntax Tree (AST) into a linear set of instructions
+for a virtual machine (e.g. CPython, Java, C#) or native code
+(e.g. GCC's C compiler, Go, Rust). Some of the former implementations
+also generate and run Just-In-Time (JIT) compiled native code
+(e.g. Java and C#).</p>
+<p>Less commonly these days in programming languages does the
+implementation interpret off the AST or some other tree-like
+intermediate representation. This style is often called
+tree-walking. Shell languages typically do tree-walking. But other
+than that, the implementations that interpret directly off of a tree
+normally do so as a short-term measure before switching to compiled
+virtual machine code or JIT-ed native code (e.g. some JavaScript
+implementations, GraalVM, RPython, etc.)</p>
+<p>That is, while some major programming language implementations started
+out with tree-walking interpreters, they mostly moved away from solely
+tree-walking over a decade ago. See <a href="https://www.webkit.org/blog/189/announcing-squirrelfish/">JSC in
+2008</a>, <a href="https://www.infoq.com/news/2007/12/ruby-19/">Ruby
+in 2007</a>, etc.</p>
+<p>My intuition is that tree-walking takes up more memory and is less
+cache-friendly than the linear instructions you give to a virtual
+machine or to your CPU. There are <a href="https://stefan-marr.de/downloads/oopsla23-larose-et-al-ast-vs-bytecode-interpreters-in-the-age-of-meta-compilation.pdf">some folks who
+disagree</a>,
+but they mostly talk about tree-walking when you've also got a JIT
+compiler hooked up. Which isn't quite the same thing. There has also
+been <a href="https://www.cs.cornell.edu/~asampson/blog/flattening.html">some early exploration and
+improvements</a>
+reported when tree-walking with a tree organized as an array.</p>
+<h4 id="and-databases?">And databases?</h4><p>Databases often interpret directly off a tree. (It isn't, generally
+speaking, fair to say they are AST-walking interpreters because they
+typically do transformations and optimizations that go beyond just an
+AST as parsed from user code.)</p>
+<p>But not all databases interpret a tree. Some have a virtual
+machine. And some generate and run JIT-ed native code.</p>
+<h3 id="methodology">Methodology</h3><p>If a core function (in the query execution path that does something
+like arithmetic or comparison) returns a value, that's a sign it's a
+tree-walking interpreter. Or, if you see code that is evaluating its
+arguments during execution, that's also a sign of a tree-walking
+interpreter.</p>
+<p>On the other hand, if the function mutates internal state such as by
+assigning a value to a context or pushing to a stack, that's a sign
+it's a stack- or register-based virtual machine. If a function pulls
+its arguments from memory and doesn't evaluate the arguments, that's
+also an indication it's a stack- or register-based virtual machine.</p>
+<p>This approach can result in false-positives depending on the
+architecture of the interpreter. User-defined functions (UDFs) would
+probably accept evaluated arguments and return a value regardless of
+how the interpreter is implemented. So it's important to find not just
+functions that could be implemented like UDFs, but core builtin
+behavior. Control flow implementations of functions like <code>if</code> or
+<code>case</code> can be great places to look.</p>
+<p>And tactically, I clone the source code and run stuff like <code>git grep
+-i eval | grep -v test | grep \\.java | grep -i eval</code> or <code>git grep -i
+expr | grep -v test | grep \\.go | grep -i expr</code> until I convince
+myself I'm somewhere interesting.</p>
+<p>Note: In talking about a broad swath of projects, maybe I've
+misunderstood one or some. If you've got a correction, let me know! If
+there's a proprietary database you work on where you can link to the
+(publicly described) execution strategy, feel free to pass it along!
+Or if I'm missing your public-source database in this list, send me a
+message!</p>
+<h3 id="survey">Survey</h3><h4><a href="https://github.com/cockroachdb/cockroach">Cockroach</a> (Ruling: Tree Walker)</h4><p>Judging by functions like <a href="https://github.com/cockroachdb/cockroach/blob/master/pkg/sql/sem/eval/expr.go#L105"><code>func (e *evaluator)
+EvalBinaryExpr</code></a>
+that <a href="https://github.com/cockroachdb/cockroach/blob/master/pkg/sql/sem/eval/expr.go#L106">evaluates the left-hand
+side</a>
+and then <a href="https://github.com/cockroachdb/cockroach/blob/master/pkg/sql/sem/eval/expr.go#L113">evaluates the right-hand
+side</a>
+and returns a value, Cockroach looks like a tree walking interpreter.</p>
+<p>It gets a little more interesting though, since Cockroach also
+<a href="https://www.cockroachlabs.com/docs/stable/vectorized-execution">supports</a>
+vectorized expression execution. Vectorizing is a fancy term for
+acting on many pieces of data at once rather than one at a time. It
+doesn't necessarily imply SIMD. Here is an example of a <a href="https://github.com/cockroachdb/cockroach/blob/master/pkg/sql/colexec/colexecproj/proj_non_const_ops.eg.go#L4427">vectorized
+addition</a>
+of two int64 columns.</p>
+<h4><a href="https://github.com/ClickHouse/clickhouse">ClickHouse</a> (Ruling: ? + JIT)</h4><p>The ClickHouse architecture is a little unique and difficult for me to
+read through – likely due to it being fairly mature, with serious
+optimization. But they tend to document their header files well. So
+files like
+<a href="https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/IFunction.h">src/Functions/IFunction.h</a>
+and
+<a href="https://github.com/ClickHouse/ClickHouse/blob/9af9b4a08542812694f171833a7afe08f5aaaafb/src/Interpreters/ExpressionActions.h">src/Interpreters/ExpressionActions.h</a>
+were helpful.</p>
+<p>They have also spoken publicly about their pipeline execution model;
+e.g. <a href="https://presentations.clickhouse.com/meetup24/5.%20Clickhouse%20query%20execution%20pipeline%20changes/">this
+presentation</a>
+and <a href="https://github.com/ClickHouse/ClickHouse/issues/34045">this roadmap
+issue</a>. But it
+isn't completely clear how much pipeline execution (which is broader
+than just expression evaluation) connects to expression evaluation.</p>
+<p>Moreover, they have <a href="https://clickhouse.com/blog/clickhouse-just-in-time-compiler-jit">publicly
+spoken</a>
+about their support for JIT compilation for query execution. But how
+execution works when the JIT is not enabled is still unclear to me
+after a while of digging.</p>
+<p>For example, If we take a look at how <a href="https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/if.cpp"><code>if</code> is
+implemented</a>,
+we know that the <code>then</code> and <code>else</code> rows must be conditionally
+evaluated. We can see where the vector result is being built up <a href="https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/if.cpp#L696">such
+as
+here</a>.</p>
+<p>However, I can't really see anything obvious there that shows that
+cell being inserted into the result column as being evaluated. In a
+stack- or register-based virtual machine, it wouldn't be obvious that
+evaluation is happening since it happens implicitly during
+execution. But if it was a tree-walker we'd expect to see something
+like <code>result_column-&gt;insertFrom(eval(*col_then), then_is_short ?
+then_index++ : i);</code>. Or it's possible that <code>IColumn</code> is only evaluated
+later on as needed. But if that were the case, I'd expect that the
+<code>cond</code> column would have to be evaluated by this code and I didn't
+notice anything like that either.</p>
+<p>Either way it's clear that the interpreted execution is over
+vectorized data, similar to Cockroach. However in ClickHouse execution
+is <em>always</em> over column vectors.</p>
+<p>But on the exact interpreter strategy I'm unclear. Pointers welcome!</p>
+<h4><a href="https://github.com/duckdb/duckdb">DuckDB</a> (Ruling: Tree Walker)</h4><p>If we take a look at how <a href="https://github.com/duckdb/duckdb/blob/479c89e154f32012143d741c1a4f4d769f20044e/src/execution/expression_executor/execute_function.cpp#L59">function expressions are
+executed</a>,
+we can see each <a href="https://github.com/duckdb/duckdb/blob/479c89e154f32012143d741c1a4f4d769f20044e/src/execution/expression_executor/execute_function.cpp#L66">argument in the function being
+evaluated</a>
+before being passed to the actual function. So that looks like a tree
+walking interpreter.</p>
+<p>Like ClickHouse, DuckDB expression execution is always over column
+vectors. You can read more about this architecture
+<a href="https://duckdb.org/internals/vector.html">here</a> and
+<a href="https://www.infoq.com/articles/analytical-data-management-duckdb/">here</a>.</p>
+<h4><a href="https://github.com/influxdata/influxdb">Influx</a> (Ruling: Tree Walker)</h4><p>Influx originally had a SQL-like query language called InfluxQL. If we
+look at <a href="https://github.com/influxdata/influxdb/blob/b3b982d746fdc34451ca44d262f83b483cd9ea33/storage/reads/influxql_eval.go#L41">how it evaluates a binary
+expression</a>,
+it first evaluates the left-hand side and then the right-hand side
+before operating on the sides and returning a value. That's a
+tree-walking interpreter.</p>
+<p><a href="https://github.com/influxdata/flux">Flux</a> was the new query language
+for Influx. While the Flux
+<a href="https://github.com/influxdata/flux/blob/master/docs/VirtualMachine.md">docs</a>
+suggest they transform to an intermediate representation that is
+executed on a virtual machine, there's nothing I'm seeing that looks
+like a stack- or register-based virtual machine. All the <a href="https://github.com/influxdata/flux/blob/master/interpreter/interpreter.go#L352">evaluation
+functions</a>
+evaluate their arguments and return a value. That looks like a
+tree-walking interpreter to me.</p>
+<p>Today Influx
+<a href="https://www.influxdata.com/blog/the-plan-for-influxdb-3-0-open-source/">announced</a>
+that Flux is in maintenance mode and they are focusing on InfluxQL
+again.</p>
+<h4><a href="https://github.com/MariaDB/server">MariaDB</a> / <a href="https://github.com/mysql/mysql-server">MySQL</a> (Ruling: Tree Walker)</h4><p>Control flow methods are normally a good way to see how an interpreter
+is implemented. The implementation of COALESCE <a href="https://github.com/MariaDB/server/blob/e9573c059656d9477c2176f102f7e79d0f1ca6b0/sql/item_cmpfunc.cc#L3431">looks pretty
+simple</a>. We
+see it <a href="https://github.com/MariaDB/server/blob/e9573c059656d9477c2176f102f7e79d0f1ca6b0/sql/item_cmpfunc.cc#L3442">call
+<code>val_str()</code></a>
+for each argument to COALESCE. But I can only seem to find
+implementations of <code>val_str()</code> on raw values and not
+expressions. <code>Item_func_coalesce</code> itself does not implement
+<code>val_str()</code> for example, which would be a strong indication of a tree
+walker. Maybe it does implement <code>val_str()</code> through inheritance.</p>
+<p>It becomes a little clearer if we look at non-control flow methods
+like
+<a href="https://github.com/MariaDB/server/blob/e9573c059656d9477c2176f102f7e79d0f1ca6b0/sql/item_func.cc#L2048"><code>acos</code></a>. In
+this method we see <code>Item_func_acos</code> itself implement <code>val_real()</code> and
+also call <code>val_real()</code> on all its arguments. In this case it's obvious
+how the control flow of <code>acos(acos(.5))</code> would work. So that seems to
+indicate expressions are executed with a tree walking interpreter.</p>
+<p>I also noticed
+<a href="https://github.com/MariaDB/server/blob/e9573c059656d9477c2176f102f7e79d0f1ca6b0/sql/sp_instr.cc">sql/sp_instr.cc</a>. That
+is scary (in terms of invalidating my analysis) since it looks like a
+virtual machine. But after looking through it, I think this virtual
+machine only corresponds to how stored procedures are executed, hence
+the <code>sp_</code> prefix for Stored Programs. <a href="https://dev.mysql.com/doc/dev/mysql-server/latest/stored_programs.html">MySQL
+docs</a>
+also explain that stored procedures are executed with a bytecode
+virtual machine.</p>
+<p>I'm curious why they don't use that virtual machine for query
+execution.</p>
+<p>As far as I can tell MySQL and MariaDB do not differ in this regard.</p>
+<h4><a href="https://github.com/mongodb/mongo">MongoDB</a> (Ruling: Virtual Machine)</h4><p>Mongo <a href="https://laplab.me/posts/inside-new-query-engine-of-mongodb/">recently
+introduced</a>
+a virtual machine for executing queries, called Slot Based Execution
+(SBE). We can find the SBE code in
+<a href="https://github.com/mongodb/mongo/blob/master/src/mongo/db/exec/sbe/vm/vm.cpp#L9313">src/mongo/db/exec/sbe/vm/vm.cpp</a>
+and the main virtual machine entrypoint
+<a href="https://github.com/mongodb/mongo/blob/master/src/mongo/db/exec/sbe/vm/vm.cpp#L9313">here</a>. <a href="https://github.com/mongodb/mongo/blob/master/src/mongo/db/exec/sbe/vm/vm.cpp#L9419">Looks
+like</a>
+a classic stack-based virtual machine!</p>
+<p>It isn't completely clear to me if the SBE path is always used or if
+there are still cases where it falls back to their old execution
+model. You can read more about Mongo execution
+<a href="https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/README.md">here</a>
+and <a href="https://www.mongodb.com/docs/manual/reference/sbe/">here</a>.</p>
+<h4><a hjef="https://github.com/postgres/postgres">PostgreSQL</a> (Ruling: Virtual Machine + JIT)</h4><p>The top of PostgreSQL's
+<a href="https://github.com/postgres/postgres/blob/cca97ce6a6653df7f4ec71ecd54944cc9a6c4c16/src/backend/executor/execExprInterp.c#L6">src/backend/executor/execExprInterp.c</a>
+clearly explains that expression execution uses a virtual machine. You
+see all the hallmarks: opcodes, a loop over a giant switch, etc. And
+if we look at how <a href="https://github.com/postgres/postgres/blob/cca97ce6a6653df7f4ec71ecd54944cc9a6c4c16/src/backend/executor/execExprInterp.c#L728">function expressions are
+executed</a>,
+we see another hallmark which is that the function expression code
+doesn't evaluate its arguments. They've already been evaluated. And
+function expression code just acts on the results of its arguments.</p>
+<p>PostgreSQL also
+<a href="https://github.com/postgres/postgres/blob/master/src/backend/jit/README">supports</a>
+JIT-ing expression execution. And we can find the switch between
+interpreting and JIT-compiling an expression
+<a href="https://github.com/postgres/postgres/blob/cca97ce6a6653df7f4ec71ecd54944cc9a6c4c16/src/backend/executor/execExpr.c#L873">here</a>.</p>
+<h4><a href="https://github.com/questdb/questdb">QuestDB</a> (Ruling: Tree Walker + JIT)</h4><p>QuestDB <a href="https://questdb.io/blog/2022/01/12/jit-sql-compiler/">wrote about their execution engine
+recently</a>. When
+the conditions are right, they'll <a href="https://github.com/questdb/questdb/blob/11ac85510292596f0d21b10603e500f8edb5e486/core/src/main/java/io/questdb/griffin/SqlCodeGenerator.java#L1394">switch over to a JIT
+compiler</a>
+and run native code.</p>
+<p>But let's look at the default path. For example, how <a href="https://github.com/questdb/questdb/blob/11ac85510292596f0d21b10603e500f8edb5e486/core/src/main/java/io/questdb/griffin/engine/functions/bool/AndFunctionFactory.java#L82"><code>AND</code> is
+implemented</a>. <code>AndBooleanFunction</code>
+implements <code>BooleanFunction</code> which implements <code>Function</code>. An
+expression can be evaluated by calling a <code>getX()</code> method on the
+expression type that implements <code>Function</code>. <code>AndBooleanFunction</code> calls
+<code>getBool()</code> on its left and right hand sides. And if we look at the
+<a href="https://github.com/questdb/questdb/blob/11ac85510292596f0d21b10603e500f8edb5e486/core/src/main/java/io/questdb/griffin/engine/functions/BooleanFunction.java#L35">partial
+implementation</a>
+of <code>BooleanFunction</code> we'll also see it doing <code>getX()</code> specific
+conversions during the call of <code>getX()</code>. So that's a tree-walking
+interpreter.</p>
+<h4><a href="https://github.com/scylladb/scylladb">Scylla</a> (Ruling: Tree Walker)</h4><p>If we take a look at how <a href="https://github.com/scylladb/scylladb/blob/08197882074227edbd0a95f49914913e3124753d/cql3/expr/expression.cc#L2145">functions are
+evaluated</a>
+in Scylla, we see function evaluation first <a href="https://github.com/scylladb/scylladb/blob/08197882074227edbd0a95f49914913e3124753d/cql3/expr/expression.cc#L2161">evaluating all of its
+arguments</a>. And
+the function evaluation function itself returns a
+<code>cql3::raw_value</code>. So that's a tree-walking interpreter.</p>
+<h4><a href="https://github.com/sqlite/sqlite">SQLite</a> (Ruling: Virtual Machine)</h4>>
+
+SQLite's virtual machine is [comprehensive and
+well-documented](https://www.sqlite.org/opcode.html). It encompasses
+more than just expression evaluation but the entirety of query
+execution.
+
+We can find the massive virtual machine switch in
+[src/vdbe.c](https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L971).
+
+And if we look, for example, at how `AND` is implemented, we see it
+[pulling its arguments out of
+memory](https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L2536)
+(already evaluated) and assigning the result back to [a designated
+point in
+memory](https://github.com/sqlite/sqlite/blob/8aaf63c6ac8b8292c0ecead0d2b04b68e9e6be78/src/vdbe.c#L2545).
+
+<h4>SingleStore (Ruling: Virtual Machine + JIT)</h4><p>While there's no source code to link to, SingleStore <a href="https://www.youtube.com/watch?v=_vloWsdPCDs&amp;t=3810s">gave a talk at
+CMU</a> that broke
+down their query execution pipeline. Their
+<a href="https://docs.singlestore.com/cloud/query-data/advanced-query-topics/code-generation/">docs</a>
+also cover the topic.</p>
+<p><img src="/assets/memsql.webp" alt="SingleStore compiler pipeline"></p>
+<h4><a href="https://github.com/pingcap/tidb">TiDB</a> (Ruling: Tree Walker)</h4><p>Similar to DuckDB and ClickHouse, TiDB implements vectorized
+interpretation. They've <a href="https://www.pingcap.com/blog/10x-performance-improvement-for-expression-evaluation-made-possible-by-vectorized-execution/">written publicly about their switch to this
+method</a>.</p>
+<p>Let's take a look at how <code>if</code> is implemented in TiDB. There is a
+vectorized and non-vectorized version of <code>if</code> (in
+<a href="https://github.com/pingcap/tidb/blob/3ccd09e63addddeb0d33b5b87594a2d61fffd1d8/expression/builtin_control.go">expression/control_builtin.go</a>
+and
+<a href="https://github.com/pingcap/tidb/blob/3ccd09e63addddeb0d33b5b87594a2d61fffd1d8/expression/builtin_control_vec_generated.go">expression/control_builtin_generated.go</a>
+respectively). So maybe they haven't completely switched over to
+vectorized execution or maybe it can only be used in some conditions.</p>
+<p>If we look at the <a href="https://github.com/pingcap/tidb/blob/3ccd09e63addddeb0d33b5b87594a2d61fffd1d8/expression/builtin_control.go#L599">non-vectorized version of
+<code>if</code></a>,
+we see the <a href="https://github.com/pingcap/tidb/blob/3ccd09e63addddeb0d33b5b87594a2d61fffd1d8/expression/builtin_control.go#L600">condition
+evaluated</a>. And
+then the <code>then</code> or <code>else</code> is evaluated <a href="https://github.com/pingcap/tidb/blob/3ccd09e63addddeb0d33b5b87594a2d61fffd1d8/expression/builtin_control.go#L604">depending on the result of the
+condition</a>. That's
+a tree-walking interpreter.</p>
+<h3 id="conclusion">Conclusion</h3><p>As the DuckDB team <a href="https://duckdb.org/why_duckdb.html">points out</a>,
+vectorized interpretation or JIT compilation <a href="https://www.vldb.org/pvldb/vol11/p2209-kersten.pdf">seem like the
+future</a> for
+database expression execution. These strategies seem particularly
+important for analytics or time-series workloads. But vectorized
+interpretation seems to make the most sense for column-wise storage
+engines. And column-wise storage normally only makes sense for
+analytics workloads. Still, TiDB and Cockroach are transactional
+databases that also vectorize execution.</p>
+<p>And while SQLite and PostgreSQL use the virtual machine model, it's
+possible databases with tree-walking interpreters like Scylla and
+MySQL/MariaDB have decided there is not significant enough gains to be
+had (for transactional workloads) to justify the complexity of moving
+to a compiler + virtual machine architecture.</p>
+<p>Tree-walking interpreters and virtual machines are also independent
+from whether or not execution is vectorized. So that will be another
+interesting dimension to watch: if more databases move toward
+vectorized execution even if they don't adapt JIT compilation.</p>
+<p>Yet another alternative is that maybe as databases mature we'll see
+compilation tiers similar to what <a href="https://webkit.org/blog/9329/a-new-bytecode-format-for-javascriptcore/">browsers
+do</a>
+<a href="https://v8.dev/blog/sparkplug">with JavaScript</a>.</p>
+<p>Credits: Thanks Max Bernstein, Alex Miller, and Justin Jaffray for
+reviewing a draft version of this!</p>
+<style>.feedback{display:initial;}</style>
+	<div class="feedback">
+	  <h4>Feedback</h4>
+	  <p><small>As always,
+	      please <a href="mailto:phil@eatonphil.com">email</a>
+	      or <a href="https://twitter.com/eatonphil">tweet me</a>
+	      with questions, corrections, or ideas!</small></p>
+
+	</div>
+      </div>
+    </div>
+    <footer>
+      <div class="container">
+	<div>
+	  <div class="row">
+	    <div class="feedback">
+	      <h4>Frequent Topics</h4>
+	      <div class="tags"><a href="/tags/javascript.html" class="tag">javascript (24)</a><a href="/tags/parsing.html" class="tag">parsing (21)</a><a href="/tags/databases.html" class="tag">databases (20)</a><a href="/tags/postgres.html" class="tag">postgres (14)</a><a href="/tags/golang.html" class="tag">golang (14)</a><a href="/tags/compilers.html" class="tag">compilers (14)</a><a href="/tags/sql.html" class="tag">sql (11)</a><a href="/tags/interpreters.html" class="tag">interpreters (11)</a><a href="/tags/lisp.html" class="tag">lisp (9)</a><a href="/tags/books.html" class="tag">books (9)</a><a href="/tags/python.html" class="tag">python (8)</a><a href="/tags/go.html" class="tag">go (8)</a><a href="/tags/zig.html" class="tag">zig (7)</a><a href="/tags/management.html" class="tag">management (7)</a><a href="/tags/json.html" class="tag">json (7)</a><a href="/tags/scheme.html" class="tag">scheme (6)</a><a href="/tags/linux.html" class="tag">linux (6)</a><a href="/tags/learning.html" class="tag">learning (6)</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64 (5)</a><a href="/tags/typescript.html" class="tag">typescript (5)</a></div>
+	    </div>
+	  </div>
+	  <div class="row" id="subscribe">
+	    <style type="text/css">
+  /* LOADER */
+  .ml-form-embedSubmitLoad {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+  }
+  .g-recaptcha {
+      transform: scale(1);
+      -webkit-transform: scale(1);
+      transform-origin: 0 0;
+      -webkit-transform-origin: 0 0;
+      height: ;
+  }
+  .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      border: 0;
+  }
+  .ml-form-embedSubmitLoad:after {
+      content: " ";
+      display: block;
+      width: 11px;
+      height: 11px;
+      margin: 1px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      border-color: #ffffff #ffffff #ffffff transparent;
+      animation: ml-form-embedSubmitLoad 1.2s linear infinite;
+  }
+  @keyframes ml-form-embedSubmitLoad {
+      0% {
+          transform: rotate(0deg);
+      }
+      100% {
+          transform: rotate(360deg);
+      }
+  }
+  #mlb2-3175296.ml-form-embedContainer {
+      box-sizing: border-box;
+      display: table;
+      margin: 0 auto;
+      position: static;
+      width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer h3,
+  #mlb2-3175296.ml-form-embedContainer p,
+  #mlb2-3175296.ml-form-embedContainer span,
+  #mlb2-3175296.ml-form-embedContainer button {
+      text-transform: none !important;
+      letter-spacing: normal !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper {
+      border-width: 0px;
+      border-color: transparent;
+  border-radius: 4px;
+  border-style: solid;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-left { text-align: left; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-center {
+  text-align: center;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-default { display: table-cell !important; vertical-align: middle !important; text-align: center !important; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-right { text-align: right; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedHeader img {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  height: auto;
+  margin: 0 auto !important;
+  max-width: 100%;
+  width: undefinedpx;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody.ml-form-embedBodyHorizontal {
+  padding-bottom: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent {
+  text-align: left;
+  margin: 0 0 20px 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p {
+  color: #000000;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  margin: 0 0 10px 0;
+  text-align: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol {
+  color: #000000;
+  font-size: 14px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol {
+  list-style-type: lower-alpha;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol ol {
+  list-style-type: lower-roman;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p a,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group {
+  text-align: left!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group label {
+  margin-bottom: 5px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: bold; font-style: normal; text-decoration: none;;
+  display: inline-block;
+  line-height: 20px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p:last-child,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody form {
+  margin: 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  margin: 0 0 20px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent.horozintalForm {
+  margin: 0;
+  padding: 0 0 20px 0;
+  width: 100%;
+  height: auto;
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow {
+  margin: 0 0 10px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-last-item {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-formfieldHorizintal {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-webkit-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-webkit-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-ms-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-ms-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow textarea, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow textarea {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-color: #cccccc!important;
+  background-color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input.custom-control-input[type="checkbox"]{
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-radius: 4px!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23fff' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::before  {
+  border-color: #000000!important;
+  background-color: #000000!important;
+  color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::after {
+  top: 2px;
+  box-sizing: border-box;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  position: absolute;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::after {
+  position: absolute;
+  top: 2px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-radio .custom-control-label::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-control, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-control {
+  position: relative;
+  display: block;
+  min-height: 1.5rem;
+  padding-left: 1.5rem;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input {
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  box-sizing: border-box;
+  padding: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label {
+  color: #000000;
+  font-size: 12px!important;
+  line-height: 22px;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  font-style: normal;
+  font-weight: 700;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-select, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-select {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 28px 10px 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+  background: url('https://assets.mlcdn.com/ml/images/default/dropdown.svg') no-repeat right .75rem center/8px 10px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow {
+  height: auto;
+  width: 100%;
+  float: left;
+  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 70%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal { width: 30%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal.labelsOn { padding-top: 25px;  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .horizontal-fields { box-sizing: border-box; float: left; padding-right: 10px;  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input {
+  background-color: #ffffff;
+  color: #333333;
+  border-color: #cccccc;
+  border-radius: 4px;
+  border-style: solid;
+  border-width: 1px;
+  font-size: 14px;
+  line-height: 20px;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: initial;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button {
+  background-color: #000000 !important;
+  border-color: #000000;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 4px;
+  box-shadow: none;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700;
+  line-height: 20px;
+  margin: 0 !important;
+  padding: 10px !important;
+  width: 100%;
+  height: auto;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button:hover {
+  background-color: #333333 !important;
+  border-color: #333333 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type="checkbox"] {
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description {
+  color: #000000;
+  display: block;
+  font-size: 12px;
+  text-align: left;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label {
+  font-weight: normal;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  display: block;
+  min-height: 24px;
+  padding-left: 24px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p {
+  color: #000000 !important;
+  font-size: 12px !important;
+  font-weight: normal !important;
+  line-height: 18px !important;
+  padding: 0 !important;
+  margin: 0 5px 0 0 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit {
+  margin: 0 0 20px 0;
+  float: left;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button {
+  background-color: #000000 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 21px !important;
+  height: auto;
+  padding: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button.loading {
+  display: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button:hover {
+  background-color: #333333 !important;
+  }
+  .ml-subscribe-close {
+  width: 30px;
+  height: 30px;
+  background: url('https://assets.mlcdn.com/ml/images/default/modal_close.png') no-repeat;
+  background-size: 30px;
+  cursor: pointer;
+  margin-top: -10px;
+  margin-right: -10px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  }
+  .ml-error input, .ml-error textarea, .ml-error select {
+  border-color: red!important;
+  }
+  .ml-error .custom-checkbox-radio-list {
+  border: 1px solid red !important;
+  border-radius: 4px;
+  padding: 10px;
+  }
+  .ml-error .label-description,
+  .ml-error .label-description p,
+  .ml-error .label-description p a,
+  .ml-error label:first-child {
+  color: #ff0000 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p:first-letter {
+  color: #ff0000 !important;
+  }
+  @media only screen and (max-width: 400px){
+  .ml-form-embedWrapper.embedDefault, .ml-form-embedWrapper.embedPopup { width: 100%!important; }
+  .ml-form-formContent.horozintalForm { float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow { height: auto!important; width: 100%!important; float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 100%!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal > div { padding-right: 0px!important; padding-bottom: 10px; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal { width: 100%!important; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal.labelsOn { padding-top: 0px!important; }
+    }
+</style>
+<div id="mlb2-3175296" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-3175296">
+  <hr />
+  <div class="ml-form-align-center ">
+    <div class="ml-form-embedWrapper embedForm">
+      <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+        <div class="ml-form-embedContent" style=" ">
+          <h4>Subscribe</h4>
+          <p>Enter your email if you'd like to be kept in the loop about future articles!<br><br>You can expect 2 to 4 messages per month depending on how motivated I'm feeling. :)</p>
+	  <p></p>
+	  <p>Cheers,<br>Phil</p>
+        </div>
+        <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/303114/forms/78235486326359572/subscribe" data-code="" method="post" target="_blank">
+          <div class="ml-form-formContent">
+            <div class="ml-form-fieldRow ml-last-item">
+              <div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
+                <!-- input -->
+                <input aria-label="email" aria-required="true" type="email" class="form-control" data-inputmask="" name="fields[email]" placeholder="Email" autocomplete="email">
+                <!-- /input -->
+                <!-- textarea -->
+                <!-- /textarea -->
+                <!-- select -->
+                <!-- /select -->
+                <!-- checkboxes -->
+		<!-- /checkboxes -->
+                <!-- radio -->
+                <!-- /radio -->
+                <!-- countries -->
+                <!-- /countries -->
+              </div>
+            </div>
+          </div>
+          <!-- Privacy policy -->
+          <!-- /Privacy policy -->
+	  <div class="ml-form-recaptcha ml-validate-required" style="float: left;">
+            <style type="text/css">
+	      .ml-form-recaptcha {
+		  margin-bottom: 20px;
+	      }
+	      .ml-form-recaptcha.ml-error iframe {
+		  border: solid 1px #ff0000;
+	      }
+	      @media screen and (max-width: 480px) {
+		  .ml-form-recaptcha {
+		      width: 220px!important
+		  }
+		  .g-recaptcha {
+		      transform: scale(0.78);
+		      -webkit-transform: scale(0.78);
+		      transform-origin: 0 0;
+		      -webkit-transform-origin: 0 0;
+		  }
+	      }
+	    </style>
+	    <script src="https://www.google.com/recaptcha/api.js"></script>
+	    <div class="g-recaptcha" data-sitekey="6Lf1KHQUAAAAAFNKEX1hdSWCS3mRMv4FlFaNslaD"></div>
+	  </div>
+          <input type="hidden" name="ml-submit" value="1">
+          <div class="ml-form-embedSubmit">
+            <button type="submit" class="primary">Subscribe</button>
+            <button disabled="disabled" style="display: none;" type="button" class="loading">
+              <div class="ml-form-embedSubmitLoad"></div>
+              <span class="sr-only">Loading...</span>
+            </button>
+          </div>
+          <input type="hidden" name="anticsrf" value="true">
+        </form>
+      </div>
+      <div class="ml-form-successBody row-success" style="display: none">
+        <div class="ml-form-successContent">
+          <h3>Thanks :)</h3>
+          <p>You're in.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function ml_webform_success_3175296() {
+      var $ = ml_jQuery || jQuery;
+      $('.ml-subscribe-form-3175296 .row-success').show();
+      $('.ml-subscribe-form-3175296 .row-form').hide();
+  }
+</script>
+<script src="https://groot.mailerlite.com/js/w/webforms.min.js?v300817f630ad0e957914d0b28a2b6d78" type="text/javascript"></script>
+
+	  </div>
+	  <div class="row" style="margin-bottom: 25px">
+	    <small>Having trouble subscribing? <a href="mailto:phil@eatonphil.com">Let me know</a>.</small>
+	  </div>
+	</div>
+      </div>
+    </footer>
+    <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
+    <script>
+      function loadGA() {
+	  window.dataLayer = window.dataLayer || [];
+	  function gtag(){dataLayer.push(arguments);}
+	  gtag('js', new Date());
+	  gtag('config', 'UA-58109156-2');
+      }
+    </script>
+    <script defer src="https://cdn.usefathom.com/script.js" data-site="CEPUOLOQ"></script>
+  </body>
+</html>
