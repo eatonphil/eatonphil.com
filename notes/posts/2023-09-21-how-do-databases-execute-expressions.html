@@ -164,9 +164,10 @@ argument](https://github.com/ClickHouse/ClickHouse/blob/master/src/Columns/Colum
 to the function and then calls execute on the function.
 
 So from this we can tell the non-JIT execution is a tree walker and
-that it is over entire columns, i.e. vectorized data, similar to
-Cockroach.However in ClickHouse execution is _always_ over column
-vectors.
+that it is over [chunks of
+columns](https://twitter.com/ClickHouseDB/status/1705619463888900538),
+i.e. vectorized data, similar to Cockroach. However in ClickHouse
+execution is _always_ over column vectors.
 
 <p class="note">
   In the original version of this post, I had some confusion about the
