@@ -164,9 +164,9 @@ isn't completely clear how much pipeline execution (which is broader
 than just expression evaluation) connects to expression evaluation.</p>
 <p>Moreover, they have <a href="https://clickhouse.com/blog/clickhouse-just-in-time-compiler-jit">publicly
 spoken</a>
-about their support for JIT compilation for query execution.</p>
-<p>But let's look at how execution works when the JIT is not enabled.</p>
-<p>For example, If we take a look at how <a href="https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/if.cpp"><code>if</code> is
+about their support for JIT compilation for query execution. But let's
+look at how execution works when the JIT is not enabled. For example,
+If we take a look at how <a href="https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/if.cpp"><code>if</code> is
 implemented</a>,
 we know that the <code>then</code> and <code>else</code> rows must be conditionally
 evaluated.</p>
