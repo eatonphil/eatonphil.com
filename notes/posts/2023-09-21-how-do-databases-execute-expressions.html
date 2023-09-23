@@ -125,7 +125,7 @@ doesn't necessarily imply SIMD. Here is an example of a [vectorized
 addition](https://github.com/cockroachdb/cockroach/blob/master/pkg/sql/colexec/colexecproj/proj_non_const_ops.eg.go#L4427)
 of two int64 columns.
 
-<h4><a href="https://github.com/ClickHouse/clickhouse">ClickHouse</a> (Ruling: ? + JIT)</h4>
+<h4><a href="https://github.com/ClickHouse/clickhouse">ClickHouse</a> (Ruling: Tree Walker + JIT)</h4>
 
 The ClickHouse architecture is a little unique and difficult for me to
 read through – likely due to it being fairly mature, with serious
@@ -146,33 +146,36 @@ than just expression evaluation) connects to expression evaluation.
 
 Moreover, they have [publicly
 spoken](https://clickhouse.com/blog/clickhouse-just-in-time-compiler-jit)
-about their support for JIT compilation for query execution. But how
-execution works when the JIT is not enabled is still unclear to me
-after a while of digging.
+about their support for JIT compilation for query execution.
+
+But let's look at how execution works when the JIT is not enabled.
 
 For example, If we take a look at how [`if` is
 implemented](https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/if.cpp),
 we know that the `then` and `else` rows must be conditionally
-evaluated. We can see where the vector result is being built up [such
-as
-here](https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/if.cpp#L696).
+evaluated.
 
-However, I can't really see anything obvious there that shows that
-cell being inserted into the result column as being evaluated. In a
-stack- or register-based virtual machine, it wouldn't be obvious that
-evaluation is happening since it happens implicitly during
-execution. But if it was a tree-walker we'd expect to see something
-like `result_column->insertFrom(eval(*col_then), then_is_short ?
-then_index++ : i);`. Or it's possible that `IColumn` is only evaluated
-later on as needed. But if that were the case, I'd expect that the
-`cond` column would have to be evaluated by this code and I didn't
-notice anything like that either.
+In the runtime entrypoint,
+[`executeImpl`](https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/if.cpp#L1048),
+we see the function call
+[`executeShortCircuitArguments`](https://github.com/ClickHouse/ClickHouse/blob/853e3f0aa789d5b6dcb251a403276d9fdc02902c/src/Functions/if.cpp#L983)
+which in turn calls
+[`ColumnFunction::reduce()`](https://github.com/ClickHouse/ClickHouse/blob/master/src/Columns/ColumnFunction.cpp#L280)
+which [evaluates each column vector that is an
+argument](https://github.com/ClickHouse/ClickHouse/blob/master/src/Columns/ColumnFunction.cpp#L299)
+to the function and then calls execute on the function.
 
-Either way it's clear that the interpreted execution is over
-vectorized data, similar to Cockroach. However in ClickHouse execution
-is _always_ over column vectors.
+So from this we can tell the non-JIT execution is a tree walker and
+that it is over entire columns, i.e. vectorized data, similar to
+Cockroach.However in ClickHouse execution is _always_ over column
+vectors.
 
-But on the exact interpreter strategy I'm unclear. Pointers welcome!
+<p class="note">
+  In the original version of this post, I had some confusion about the
+  ClickHouse execution strategy. Robert Schulze from
+  ClickHouse <a href="https://clickhousedb.slack.com/archives/CUDSPUJ68/p1695307656700889">helped
+  clarify</a> things for me. Thanks Robert!
+</p>
 
 <h4><a href="https://github.com/duckdb/duckdb">DuckDB</a> (Ruling: Tree Walker)</h4>
 
