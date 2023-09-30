@@ -126,8 +126,11 @@ def main():
 
         tags = tags_raw.split(",")
         tags_html = get_html_tags(tags)
+        # Ignore drafts for all but the page itself.
+        if "draft" in tags:
+            continue
 
-        post_data.append((out_file, title[1], title[2], post, output, tags_html, tags))
+        post_data.append((out_file, title[1], title[2], post, output, tags_html))
         for tag in tags:
             if tag not in all_tags:
                 all_tags[tag] = []
@@ -145,7 +148,7 @@ def main():
         frequent_tags.append(f'<a href="/tags/{tag.replace(" ", "-").replace("/", "-")}.html" class="tag">{tag} ({count})</a>')
     frequent_tags = "".join(frequent_tags)
 
-    for (out_file, title, date, _, output, tags_html, _) in post_data:
+    for (out_file, title, date, _, output, tags_html) in post_data:
         with open('docs/' + out_file, 'w') as f:
             f.write(TEMPLATE.format(post=output+showfeedback, title=title, subtitle=date, tag=title, tags=tags_html, meta="", frequent_tags=frequent_tags, full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL))
 
@@ -153,10 +156,6 @@ def main():
     post_data.reverse()
     notes = []
     for i, args in enumerate(post_data):
-        # Allows draft posts to be deployed but not included in the front page
-        tags = args[6]
-        if "draft" in tags:
-            continue
         year = args[2].split(' ')[-1]
         prev_post_year = str(datetime.today().year + 1) if i == 0 else post_data[i-1][2].split(' ')[-1]
         if year != prev_post_year:
@@ -179,10 +178,7 @@ def main():
                 shutil.copy(f, os.path.join('../', other_folder, 'style.css'))
 
     fg = FeedGenerator()
-    for url, title, date, post, content, _, tags in reversed(post_data):
-        # Skip draft posts
-        if "draft" in tags:
-            continue
+    for url, title, date, post, content, _ in reversed(post_data):
         fe = fg.add_entry()
         fe.id('http://notes.eatonphil.com/' + url)
         fe.title(title)
@@ -200,10 +196,7 @@ def main():
 
     with open('docs/sitemap.xml', 'w') as f:
         urls = []
-        for url, _, date, _, _, _, tags in reversed(post_data):
-            # Skip draft posts
-            if "draft" in tags:
-                continue
+        for url, _, date, _, _, _ in reversed(post_data):
             urls.append("""  <url>
     <loc>https://notes.eatonphil.com/{url}</loc>
     <lastmod>{date}</lastmod>
