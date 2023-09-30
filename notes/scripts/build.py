@@ -128,6 +128,9 @@ def main():
         tags_html = get_html_tags(tags)
         # Ignore drafts for all but the page itself.
         if "draft" in tags:
+            t = out_file.split('.')[0].title()
+            with open('docs/' + out_file, 'w') as f:
+                f.write(TEMPLATE.format(post=output, meta="", tag=header, subtitle=date, title=header, tags=tags, frequent_tags=tags_html, full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL))
             continue
 
         post_data.append((out_file, title[1], title[2], post, output, tags_html))
