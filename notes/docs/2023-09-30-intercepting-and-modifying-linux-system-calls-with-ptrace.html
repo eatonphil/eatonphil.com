@@ -3,8 +3,8 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <link rel="canonical" href="https://notes.eatonphil.com/2023-09-30-intercepting-and-modifying-linux-system-calls-with-ptrace.html">
-    <title>Intercepting and modifying Linux system calls with ptrace | notes.eatonphil.com</title>
-    <meta name="description" content="Intercepting and modifying Linux system calls with ptrace" />
+    <title>[DRAFT] Intercepting and modifying Linux system calls with ptrace | notes.eatonphil.com</title>
+    <meta name="description" content="[DRAFT] Intercepting and modifying Linux system calls with ptrace" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
@@ -44,7 +44,7 @@
 	  </div>
 	  <hr />
           <h2>October 1, 2023</h2>
-          <h1>Intercepting and modifying Linux system calls with ptrace</h1>
+          <h1>[DRAFT] Intercepting and modifying Linux system calls with ptrace</h1>
           <div class="row" style="padding-bottom: 5px">
             <div class="tags"><a href="/tags/linux.html" class="tag">linux</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64</a><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/zig.html" class="tag">zig</a><a href="/tags/draft.html" class="tag">draft</a></div>
           </div>
@@ -97,7 +97,11 @@ three pages heavily.</p>
 <p>Specifically, rather than me explain, just take a look at this slide
 from the UAlberta page.</p>
 <p><img src="/assets/ptraceprotocol.webp" alt="ptrace&#39;s syscall tracing protocol"></p>
-<h3 id="implementation">Implementation</h3><p>Let's turn that into some Zig code.</p>
+<p>We fork and have the child call <code>PTRACE_TRACEME</code>. Then we handle each
+syscall entrance by calling <code>PTRACE_SYSCALL</code> and waiting with <code>wait</code>
+until the child has entered the syscall. It is in this moment we can
+start to mess with things.</p>
+<h3 id="implementation">Implementation</h3><p>Let's turn that graphic into Zig code.</p>
 <div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">std</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@import</span><span class="p">(</span><span class="s">&quot;std&quot;</span><span class="p">);</span>
 <span class="kr">const</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@cImport</span><span class="p">({</span>
 <span class="w">    </span><span class="nb">@cInclude</span><span class="p">(</span><span class="s">&quot;sys/ptrace.h&quot;</span><span class="p">);</span>
@@ -138,9 +142,10 @@ from the UAlberta page.</p>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
-<p>So just like the slide, we fork and start a child process. That means
-this Zig program will be called like:</p>
-<div class="highlight"><pre><span></span>$<span class="w"> </span>./main<span class="w"> </span>/actual/program/to/intercept<span class="w"> </span>--and<span class="w"> </span>--its<span class="w"> </span>args
+<p>So like the graphic suggested, we fork and start a child process. That
+means this Zig program should be called like:</p>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>zig<span class="w"> </span>build-exe<span class="w"> </span>--library<span class="w"> </span>c<span class="w"> </span>main.zig
+$<span class="w"> </span>./main<span class="w"> </span>/actual/program/to/intercept<span class="w"> </span>--and<span class="w"> </span>--its<span class="w"> </span>args
 </pre></div>
 <p>Presumably, as with strace or gdb, we could instead attach to an
 already running process with <code>PTRACE_ATTACH</code> or <code>PTRACE_SEIZE</code> (based
@@ -150,9 +155,9 @@ than going the <code>PTRACE_TRACEME</code> route. But I haven't tried that out
 yet.</p>
 <h4 id="childmanager">ChildManager</h4><p>Anyway, with the child ready to be intercepted, we can implement the
 <code>ChildManager</code> that actually does the interception.</p>
-<p>The core of the <code>ChildManager</code> is an infinite loop that waits for the
-next syscall and then calls a hook for the sytem call if it
-exists.</p>
+<p>The core of the <code>ChildManager</code> is an infinite loop (at least as long
+as the child process lives) that waits for the next syscall and then
+calls a hook for the sytem call if it exists.</p>
 <div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">ChildManager</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="n">arena</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">std</span><span class="p">.</span><span class="n">heap</span><span class="p">.</span><span class="n">ArenaAllocator</span><span class="p">,</span>
 <span class="w">    </span><span class="n">childPid</span><span class="o">:</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">os</span><span class="p">.</span><span class="n">pid_t</span><span class="p">,</span>
@@ -196,7 +201,7 @@ process to be stopped again so we can handle the syscall entrance.</p>
 </pre></div>
 <p>Now that we've intercepted a syscall (after <code>waitpid</code> finishes
 blocking), we need to figure out what syscall it was. We do this by
-calling <code>PTRACE_GETREGS</code> and reading the <code>RAX</code> register which
+calling <code>PTRACE_GETREGS</code> and reading the <code>rax</code> register which
 according to <a href="https://stackoverflow.com/a/54957101/1507139">amd64/linux calling
 convention</a> is the
 syscall called.</p>
@@ -293,13 +298,36 @@ original <code>rax</code> value on syscall entrance. You can read more about thi
 registers; i.e. manipulate a system call!</p>
 <p>We'll start by registering a <code>sys_write</code> hook in the <code>hooks</code> field we
 check in <code>childInterceptSyscalls</code> above.</p>
-<div class="highlight"><pre><span></span><span class="w">    </span><span class="n">const</span><span class="w"> </span><span class="n">hooks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;[</span><span class="n">_</span><span class="o">]</span><span class="n">struct</span><span class="w"> </span><span class="err">{</span>
-<span class="w">        </span><span class="nl">syscall</span><span class="p">:</span><span class="w"> </span><span class="n">c_ulong</span><span class="p">,</span>
-<span class="w">        </span><span class="nl">hook</span><span class="p">:</span><span class="w"> </span><span class="o">*</span><span class="n">const</span><span class="w"> </span><span class="n">fn</span><span class="w"> </span><span class="p">(</span><span class="n">ChildManager</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">ABIArguments</span><span class="p">)</span><span class="w"> </span><span class="n">anyerror</span><span class="err">!</span><span class="n">void</span><span class="p">,</span>
-<span class="w">    </span><span class="err">}{</span><span class="p">.</span><span class="err">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">syscall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">@intFromEnum</span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">os</span><span class="p">.</span><span class="n">linux</span><span class="p">.</span><span class="n">syscalls</span><span class="p">.</span><span class="n">X64</span><span class="p">.</span><span class="k">write</span><span class="p">),</span>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="kr">const</span><span class="w"> </span><span class="n">hooks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[</span><span class="n">_</span><span class="p">]</span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">syscall</span><span class="o">:</span><span class="w"> </span><span class="kt">c_ulong</span><span class="p">,</span>
+<span class="w">        </span><span class="n">hook</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="kr">const</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="p">(</span><span class="n">ChildManager</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">ABIArguments</span><span class="p">)</span><span class="w"> </span><span class="kt">anyerror</span><span class="o">!</span><span class="kt">void</span><span class="p">,</span>
+<span class="w">    </span><span class="p">}{.{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">syscall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@intFromEnum</span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">os</span><span class="p">.</span><span class="n">linux</span><span class="p">.</span><span class="n">syscalls</span><span class="p">.</span><span class="n">X64</span><span class="p">.</span><span class="n">write</span><span class="p">),</span>
 <span class="w">        </span><span class="p">.</span><span class="n">hook</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">writeHandler</span><span class="p">,</span>
-<span class="w">    </span><span class="err">}}</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}};</span>
+</pre></div>
+<p>If we look at the <a href="https://man7.org/linux/man-pages/man2/write.2.html">manpage for
+<code>write</code></a> we see it
+takes three arguments: 1) the file descriptor (fd) to write to, 2) the
+address to start writing data from, and 3) the number of bytes to
+write. Going back to the <a href="https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f">calling
+convention</a>
+that means the fd will be in <code>rdi</code>, the data address in <code>rsi</code>, and the
+data length in <code>rdx</code>.</p>
+<p>So if we shorten the data length, we should be creating a short
+(incomplete) write.</p>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">writeHandler</span><span class="p">(</span><span class="n">cm</span><span class="o">:</span><span class="w"> </span><span class="n">ChildManager</span><span class="p">,</span><span class="w"> </span><span class="n">entryArgs</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">ABIArguments</span><span class="p">)</span><span class="w"> </span><span class="kt">anyerror</span><span class="o">!</span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">const</span><span class="w"> </span><span class="n">fd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<span class="w">        </span><span class="kr">const</span><span class="w"> </span><span class="n">dataAddress</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">dataLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Truncate some bytes</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dataLength</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">dataLength</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">            </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">setNth</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">dataLength</span><span class="p">);</span>
+<span class="w">            </span><span class="n">cm</span><span class="p">.</span><span class="n">setABIArguments</span><span class="p">(</span><span class="n">entryArgs</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
 </pre></div>
 <style>.feedback{display:initial;}</style>
 	<div class="feedback">
