@@ -1,0 +1,344 @@
+# Intercepting and modifying Linux system calls with ptrace
+## October 1, 2023
+###### linux,x86/amd64,databases,zig,draft
+
+How software fails is incredibly interesting. But real-world errors
+can be infrequent to manifest. Jepsen and ChaosMonkey help to
+instigate process and network failure, but what about disk and
+filesystem errors?
+
+I've been thinking about how to instigate file IO errors in programs
+and three solutions seem apparent: 1) a custom FUSE filesystem, 2) an
+LD_PRELOAD interception layer or 3) a ptrace system call interception
+layer.
+
+I would like to try out FUSE sometime. But LD_PRELOAD layer only works
+if IO goes through libc, which won't be the case for all programs. And
+ptrace is something I've wanted to hack on for years, going back to
+when I worked for a Linux security company that alerted on suspicious
+system call patterns.
+
+So this particular post will cover intercepting system calls
+(syscalls) using ptrace with code written in Zig (since I think Zig is
+easier to both read and write than C).
+
+By the end, we'll be able to intercept and force short (incomplete)
+writes in a Go, Python, and C program. Emulating a disk that is having
+an issue completing the write. This is a case that isn't common, but
+should probably be handled with retries in production code.
+
+This post corresponds roughly to [this
+commit](https://github.com/eatonphil/badio/tree/720c3ee0482e6dcb1dd49d1789bccf86747b7776)
+on GitHub.
+
+### ptrace
+
+ptrace is a somewhat cross-platform layer that allows you to intercept
+syscalls in a process and read and modify memory and registers in
+the process when the syscalls starts and before it finishes.
+
+gdb and strace both use ptrace for their magic.
+
+Although ptrace is cross-platform, actually writing
+cross-platform-aware code with ptrace can be complex. So this post
+assumes amd64/linux.
+
+On a slight tangent, [here's a fun Brendan Gregg
+post](https://www.brendangregg.com/blog/2014-05-11/strace-wow-much-syscall.html)
+on the dangers of using strace (that is based on ptrace) in
+production.
+
+### Protocol
+
+The ptrace protocol is described in the [ptrace
+manpage](https://man7.org/linux/man-pages/man2/ptrace.2.html), but
+[Chris Wellons](https://nullprogram.com/blog/2018/06/23/) and [a
+University of Alberta
+group](https://webdocs.cs.ualberta.ca/~paullu/C498/meng.ptrace.slides.pdf)
+also provide a slightly nicer visual introduction. I referenced these
+three pages heavily.
+
+Specifically, rather than me explain, just take a look at this slide
+from the UAlberta page.
+
+![ptrace's syscall tracing protocol](/assets/ptraceprotocol.webp)
+
+We fork and have the child call `PTRACE_TRACEME`. Then we handle each
+syscall entrance by calling `PTRACE_SYSCALL` and waiting with `wait`
+until the child has entered the syscall. It is in this moment we can
+start to mess with things.
+
+### Implementation
+
+Let's turn that graphic into Zig code.
+
+```zig
+const std = @import("std");
+const c = @cImport({
+    @cInclude("sys/ptrace.h");
+    @cInclude("sys/user.h");
+    @cInclude("sys/wait.h");
+    @cInclude("errno.h");
+});
+
+const cNullPtr: ?*anyopaque = null;
+
+// TODO //
+
+pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
+    var args = try std.process.argsAlloc(arena.allocator());
+    std.debug.assert(args.len >= 2);
+
+    const pid = try std.os.fork();
+
+    if (pid < 0) {
+        std.debug.print("Fork failed!\n", .{});
+        return;
+    } else if (pid == 0) {
+        // Child process
+        _ = c.ptrace(c.PTRACE_TRACEME, pid, cNullPtr, cNullPtr);
+        return std.process.execv(
+            arena.allocator(),
+            args[1..],
+        );
+    } else {
+        // Parent process
+        const childPid = pid;
+        _ = c.waitpid(childPid, 0, 0);
+        var cm = ChildManager{ .arena = &arena, .childPid = childPid };
+        try cm.childInterceptSyscalls();
+    }
+}
+```
+
+So like the graphic suggested, we fork and start a child process. That
+means this Zig program should be called like:
+
+```
+$ zig build-exe --library c main.zig
+$ ./main /actual/program/to/intercept --and --its args
+```
+
+Presumably, as with strace or gdb, we could instead attach to an
+already running process with `PTRACE_ATTACH` or `PTRACE_SEIZE` (based
+on the [ptrace
+manpage](https://man7.org/linux/man-pages/man2/ptrace.2.html)) rather
+than going the `PTRACE_TRACEME` route. But I haven't tried that out
+yet.
+
+#### ChildManager
+
+Anyway, with the child ready to be intercepted, we can implement the
+`ChildManager` that actually does the interception.
+
+The core of the `ChildManager` is an infinite loop (at least as long
+as the child process lives) that waits for the next syscall and then
+calls a hook for the sytem call if it exists.
+
+```zig
+const ChildManager = struct {
+    arena: *std.heap.ArenaAllocator,
+    childPid: std.os.pid_t,
+	
+	// TODO //
+	
+	fn childInterceptSyscalls(
+        cm: *ChildManager,
+    ) !void {
+        while (true) {
+            // Handle syscall entrance
+            const status = cm.childWaitForSyscall();
+            if (std.os.W.IFEXITED(status)) {
+                break;
+            }
+
+            var args: ABIArguments = cm.getABIArguments();
+            const syscall = args.syscall();
+
+            for (hooks) |hook| {
+                if (syscall == hook.syscall) {
+                    try hook.hook(cm.*, &args);
+                }
+            }
+        }
+    }
+};
+```
+
+We'll ultimately write a hook for the `sys_write` syscall that
+will force an incomplete write.
+
+Back to the protocol, `childWaitForSyscall` will call `PTRACE_SYSCALL`
+to allow the child process to start up again and continue until the
+next syscall. We'll follow that by `wait`-ing for the child
+process to be stopped again so we can handle the syscall entrance.
+
+```zig
+    fn childWaitForSyscall(cm: ChildManager) u32 {
+        var status: i32 = 0;
+        _ = c.ptrace(c.PTRACE_SYSCALL, cm.childPid, cNullPtr, cNullPtr);
+        _ = c.waitpid(cm.childPid, &status, 0);
+        return @bitCast(status);
+    }
+```
+
+Now that we've intercepted a syscall (after `waitpid` finishes
+blocking), we need to figure out what syscall it was. We do this by
+calling `PTRACE_GETREGS` and reading the `rax` register which
+according to [amd64/linux calling
+convention](https://stackoverflow.com/a/54957101/1507139) is the
+syscall called.
+
+#### Registers
+
+`PTRACE_GETREGS` fills out the [following
+struct](https://sites.uclouvain.be/SystInfo/usr/include/sys/user.h.html):
+
+```c
+struct user_regs_struct
+{
+  unsigned long r15;
+  unsigned long r14;
+  unsigned long r13;
+  unsigned long r12;
+  unsigned long rbp;
+  unsigned long rbx;
+  unsigned long r11;
+  unsigned long r10;
+  unsigned long r9;
+  unsigned long r8;
+  unsigned long rax;
+  unsigned long rcx;
+  unsigned long rdx;
+  unsigned long rsi;
+  unsigned long rdi;
+  unsigned long orig_rax;
+  unsigned long rip;
+  unsigned long cs;
+  unsigned long eflags;
+  unsigned long rsp;
+  unsigned long ss;
+  unsigned long fs_base;
+  unsigned long gs_base;
+  unsigned long ds;
+  unsigned long es;
+  unsigned long fs;
+  unsigned long gs;
+};
+```
+
+Let's write a little amd64/linux-specific wrapper for accessing
+meaningful fields.
+
+```zig
+const ABIArguments = struct {
+    regs: c.user_regs_struct,
+
+    fn nth(aa: ABIArguments, i: u8) c_ulong {
+        std.debug.assert(i < 4);
+
+        return switch (i) {
+            0 => aa.regs.rdi,
+            1 => aa.regs.rsi,
+            2 => aa.regs.rdx,
+            else => unreachable,
+        };
+    }
+
+    fn setNth(aa: *ABIArguments, i: u8, value: c_ulong) void {
+        std.debug.assert(i < 4);
+
+        switch (i) {
+            0 => { aa.regs.rdi = value; },
+            1 => { aa.regs.rsi = value; },
+            2 => { aa.regs.rdx = value; },
+            else => unreachable,
+        }
+    }
+
+    fn result(aa: ABIArguments) c_ulong { return aa.regs.rax; }
+
+    fn setResult(aa: *ABIArguments, value: c_ulong) void {
+        aa.regs.rax = value;
+    }
+
+    fn syscall(aa: ABIArguments) c_ulong { return aa.regs.orig_rax; }
+};
+```
+
+One thing to note is that the field we read to get `rax` is not
+`aa.regs.rax` but `aa.regs.orig_rax`. This is because `rax` is also
+the return value and `PTRACE_SYSCALL` gets called twice for some
+syscalls on entrance and exit. The `orig_rax` field preserves the
+original `rax` value on syscall entrance. You can read more about this
+[here](https://stackoverflow.com/questions/6468896/why-is-orig-eax-provided-in-addition-to-eax/6469069#6469069).
+
+#### Getting and setting registers
+
+And then let's write the `ChildManager` code that actually calls
+`PTRACE_GETREGS` to fill out one of these structs.
+
+```zig
+    fn getABIArguments(cm: ChildManager) ABIArguments {
+        var args = ABIArguments{ .regs = undefined };
+        _ = c.ptrace(c.PTRACE_GETREGS, cm.childPid, cNullPtr, &args.regs);
+        return args;
+    }
+```
+
+Setting registers is similar, we just pass the struct back and call
+`PTRACE_SETREGS` instead:
+
+```zig
+    fn setABIArguments(cm: ChildManager, args: *ABIArguments) void {
+        _ = c.ptrace(c.PTRACE_SETREGS, cm.childPid, cNullPtr, &args.regs);
+    }
+```
+
+#### A hook
+
+Now we finally have enough code to write a hook that can get and set
+registers; i.e. manipulate a system call!
+
+We'll start by registering a `sys_write` hook in the `hooks` field we
+check in `childInterceptSyscalls` above.
+
+```zig
+    const hooks = &[_]struct {
+        syscall: c_ulong,
+        hook: *const fn (ChildManager, *ABIArguments) anyerror!void,
+    }{.{
+        .syscall = @intFromEnum(std.os.linux.syscalls.X64.write),
+        .hook = writeHandler,
+    }};
+```
+
+If we look at the [manpage for
+`write`](https://man7.org/linux/man-pages/man2/write.2.html) we see it
+takes three arguments: 1) the file descriptor (fd) to write to, 2) the
+address to start writing data from, and 3) the number of bytes to
+write. Going back to the [calling
+convention](https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f)
+that means the fd will be in `rdi`, the data address in `rsi`, and the
+data length in `rdx`.
+
+So if we shorten the data length, we should be creating a short
+(incomplete) write.
+
+```zig
+    fn writeHandler(cm: ChildManager, entryArgs: *ABIArguments) anyerror!void {
+        const fd = entryArgs.nth(0);
+        const dataAddress = entryArgs.nth(1);
+        var dataLength = entryArgs.nth(2);
+
+        // Truncate some bytes
+        if (dataLength > 2) {
+            dataLength -= 2;
+            entryArgs.setNth(2, dataLength);
+            cm.setABIArguments(entryArgs);
+        }
+	}
+```
