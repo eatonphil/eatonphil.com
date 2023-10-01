@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <link rel="canonical" href="https://notes.eatonphil.com/2023-09-30-intercepting-and-modifying-linux-system-calls-with-ptrace.html">
+    <link rel="canonical" href="https://notes.eatonphil.com/2023-10-01-intercepting-and-modifying-linux-system-calls-with-ptrace.html">
     <title>[DRAFT] Intercepting and modifying Linux system calls with ptrace | notes.eatonphil.com</title>
     <meta name="description" content="[DRAFT] Intercepting and modifying Linux system calls with ptrace" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -37,7 +37,7 @@
 	    </div>
 	    	      
 	    <div class="subscribe">                                     
-	      <a href="https://notes.eatonphil.com/2023-09-30-intercepting-and-modifying-linux-system-calls-with-ptrace.html#subscribe">       
+	      <a href="https://notes.eatonphil.com/2023-10-01-intercepting-and-modifying-linux-system-calls-with-ptrace.html#subscribe">       
 		Subscribe          
 	      </a>
             </div>
@@ -46,51 +46,57 @@
           <h2>October 1, 2023</h2>
           <h1>[DRAFT] Intercepting and modifying Linux system calls with ptrace</h1>
           <div class="row" style="padding-bottom: 5px">
-            ['linux', 'x86/amd64', 'databases', 'zig', 'fault-injection', 'draft']
+            <div class="tags"><a href="/tags/linux.html" class="tag">linux</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64</a><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/zig.html" class="tag">zig</a><a href="/tags/fault-injection.html" class="tag">fault-injection</a></div>
           </div>
 	</div>
       </div>
     </header>
     <div class="container">
       <div class="col-6">
-        <p>How software fails is incredibly interesting. But real-world errors
-can be infrequent to manifest. "Fault injection" is a technique in
-software development that explicitly triggers errors in the hopes of
-discovering bad logic, typically during automated tests. Jepsen and
-ChaosMonkey help to instigate process and network failure, but what
-about disk and filesystem errors?</p>
-<p>I've been thinking about how to instigate file IO errors in programs
-and three solutions seem apparent: 1) a custom FUSE filesystem, 2) an
-LD_PRELOAD interception layer or 3) a ptrace system call interception
-layer.</p>
-<p class="note">
-  From a cursory look, while eBPF seems great for tracing system
-  calls, it doesn't seem to be able to much in terms of modifying the
-  system call other
-  than <a href="https://github.com/iovisor/bpftrace/discussions/2280">altering
-  a return value</a> and even then only if the kernel has been
-  configured with this ability on.
-</p><p>I would like to try out FUSE sometime. But LD_PRELOAD layer only works
-if IO goes through libc, which won't be the case for all programs. And
-ptrace is something I've wanted to hack on for years, going back to
-when I worked for a Linux security company that alerted on suspicious
-system call patterns.</p>
+        <p>How software fails is interesting. But real-world errors can be
+infrequent to manifest. <a href="https://course.ece.cmu.edu/~ece749/docs/faultInjectionSurvey.pdf">Fault
+injection</a>
+is a formal-sounding term that just means: trying to explicitly
+triggers errors in the hopes of discovering bad logic, typically
+during automated tests.</p>
+<p><a href="https://github.com/jepsen-io/jepsen">Jepsen</a>
+and <a href="https://github.com/Netflix/chaosmonkey">ChaosMonkey</a> are two
+famous examples that help to trigger process and network failure. But
+what about disk and filesystem errors?</p>
+<p>A few avenues seem worth investigating:</p>
+<ul>
+<li>A custom FUSE filesystem</li>
+<li>An LD_PRELOAD interception layer</li>
+<li>A ptrace system call interception layer</li>
+<li>A <code>SECCOMP_RET_TRAP</code> interception layer</li>
+<li>Or, symbolic analysis a la <a href="https://research.cs.wisc.edu/adsl/Publications/alice-osdi14.html">Alice from University of
+Wisconsin-Madison</a></li>
+</ul>
+<p>I would like to try out FUSE sometime. But LD_PRELOAD layer only works
+if IO goes through libc, which won't be the case for all
+programs. ptrace is something I've wanted to dig into for years since
+learning about
+<a href="https://www.usenix.org/system/files/hotcloud19-paper-young.pdf">gvisor</a>.</p>
+<p><code>SECCOMP_RET_TRAP</code> doesn't have the same high-level guides that ptrace
+does so maybe I'll dig into it later. And symbolic analysis might be
+able to detect bad workloads but it also isn't fault injection. Maybe
+it's the better idea but fault injection just sounds more fun.</p>
 <p>So this particular post will cover intercepting system calls
 (syscalls) using ptrace with code written in Zig (since I think Zig is
 easier to both read and write than C).</p>
-<p>By the end, we'll be able to intercept and force short (incomplete)
+<p>In the end, we'll be able to intercept and force short (incomplete)
 writes in a Go, Python, and C program. Emulating a disk that is having
 an issue completing the write. This is a case that isn't common, but
 should probably be handled with retries in production code.</p>
 <p>This post corresponds roughly to <a href="https://github.com/eatonphil/badio/tree/720c3ee0482e6dcb1dd49d1789bccf86747b7776">this
 commit</a>
 on GitHub.</p>
-<h3 id="a-bad-program">A bad program</h3><p>To begin with, I wanted an example of an error I could try to trigger
-and thus catch in a bad program.</p>
-<p>For short writes this is easy, we just try to write some text to disk
-but we don't make sure we've written the whole thing. This is
-extremely common code; or at least I've written it often.</p>
-<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+<h3 id="a-bad-program">A bad program</h3><p>First off, let's write some code for a program that would exhibit a
+short write. Basically, we write to a file and don't check how many
+bytes we wrote. This is extremely common code; or at least I've
+written it often.</p>
+<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="nx">cat</span><span class="w"> </span><span class="nx">test</span><span class="o">/</span><span class="nx">main</span><span class="p">.</span><span class="k">go</span>
+<span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="p">(</span>
 <span class="w">        </span><span class="s">&quot;os&quot;</span>
@@ -108,37 +114,49 @@ extremely common code; or at least I've written it often.</p>
 <span class="w">        </span><span class="nx">_</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
 <span class="p">}</span>
 </pre></div>
-<p>Most importantly here, if the <code>Write()</code> call doesn't write everything,
-we won't know that. And the file will contain less than all of <code>some
-great stuff</code>.</p>
-<p>This logical mistake will happen rarely, if ever, on a normal disk.</p>
-<p>Now that we've got an example program in main, let's see if we can
-trigger this error.</p>
+<p>With this code, if the <code>Write()</code> call doesn't actually succeed in
+writing everything, we won't know that. And the file will contain less
+than all of <code>some great stuff</code>.</p>
+<p>This logical mistake will happen rarely, if ever, on a normal
+disk. But it is possible.</p>
+<p>Now that we've got an example program in mind, let's see if we can
+trigger the logic error.</p>
 <h3 id="ptrace">ptrace</h3><p>ptrace is a somewhat cross-platform layer that allows you to intercept
-syscalls in a process and read and modify memory and registers in
-the process when the syscalls starts and before it finishes.</p>
+syscalls in a process. You can read and modify memory and registers in
+the process, when the syscalls starts and before it finishes.</p>
 <p>gdb and strace both use ptrace for their magic.</p>
-<p>Although ptrace is cross-platform, actually writing
+<p>Google's gvisor that <a href="https://cloud.google.com/run/docs/container-contract">powers various serverless runtimes in Google
+Cloud</a> was also
+historically based on ptrace (<code>PTRACE_SYSEMU</code> specifically, which we
+won't explore much in this post).</p>
+<p class="note">
+  Interestingly though,
+  gvisor <a href="https://gvisor.dev/blog/2023/04/28/systrap-release/">switched
+  only this year </a> (2023) to a different default backend for
+  trapping system calls. Based
+  on <a href="https://www.kernel.org/doc/Documentation/prctl/seccomp_filter.txt"><code>SECCOMP_RET_TRAP</code></a>.
+  <br />
+  <br />
+  You can get similar vibes
+  from <a href="https://www.brendangregg.com/blog/2014-05-11/strace-wow-much-syscall.html">this
+  Brendan Gregg post</a> on the dangers of using strace (that is based
+  on ptrace) in production.
+</p><p>Although ptrace is cross-platform, actually writing
 cross-platform-aware code with ptrace can be complex. So this post
 assumes amd64/linux.</p>
-<p>On a slight tangent, <a href="https://www.brendangregg.com/blog/2014-05-11/strace-wow-much-syscall.html">here's a fun Brendan Gregg
-post</a>
-on the dangers of using strace (that is based on ptrace) in
-production.</p>
 <h3 id="protocol">Protocol</h3><p>The ptrace protocol is described in the <a href="https://man7.org/linux/man-pages/man2/ptrace.2.html">ptrace
 manpage</a>, but
 <a href="https://nullprogram.com/blog/2018/06/23/">Chris Wellons</a> and <a href="https://webdocs.cs.ualberta.ca/~paullu/C498/meng.ptrace.slides.pdf">a
 University of Alberta
 group</a>
-also provide a slightly nicer visual introduction. I referenced these
-three pages heavily.</p>
-<p>Specifically, rather than me explain, just take a look at this slide
-from the UAlberta page.</p>
+also wrote nice introductions. I referenced these three pages
+heavily.</p>
+<p>Here's what the UAlberta page has to say:</p>
 <p><img src="/assets/ptraceprotocol.webp" alt="ptrace&#39;s syscall tracing protocol"></p>
 <p>We fork and have the child call <code>PTRACE_TRACEME</code>. Then we handle each
 syscall entrance by calling <code>PTRACE_SYSCALL</code> and waiting with <code>wait</code>
 until the child has entered the syscall. It is in this moment we can
-start to mess with things.</p>
+mess with things.</p>
 <h3 id="implementation">Implementation</h3><p>Let's turn that graphic into Zig code.</p>
 <div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">std</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@import</span><span class="p">(</span><span class="s">&quot;std&quot;</span><span class="p">);</span>
 <span class="kr">const</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">@cImport</span><span class="p">({</span>
@@ -191,9 +209,9 @@ on the <a href="https://man7.org/linux/man-pages/man2/ptrace.2.html">ptrace
 manpage</a>) rather
 than going the <code>PTRACE_TRACEME</code> route. But I haven't tried that out
 yet.</p>
-<h4 id="childmanager">ChildManager</h4><p>Anyway, with the child ready to be intercepted, we can implement the
+<p>With the child ready to be intercepted, we can implement the
 <code>ChildManager</code> that actually does the interception.</p>
-<p>The core of the <code>ChildManager</code> is an infinite loop (at least as long
+<h4 id="childmanager">ChildManager</h4><p>The core of the <code>ChildManager</code> is an infinite loop (at least as long
 as the child process lives) that waits for the next syscall and then
 calls a hook for the sytem call if it exists.</p>
 <div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">ChildManager</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
@@ -224,7 +242,7 @@ calls a hook for the sytem call if it exists.</p>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">};</span>
 </pre></div>
-<p>We'll ultimately write a hook for the <code>sys_write</code> syscall that
+<p>Later we'll write a hook for the <code>sys_write</code> syscall that
 will force an incomplete write.</p>
 <p>Back to the protocol, <code>childWaitForSyscall</code> will call <code>PTRACE_SYSCALL</code>
 to allow the child process to start up again and continue until the
@@ -318,7 +336,7 @@ the return value and <code>PTRACE_SYSCALL</code> gets called twice for some
 syscalls on entrance and exit. The <code>orig_rax</code> field preserves the
 original <code>rax</code> value on syscall entrance. You can read more about this
 <a href="https://stackoverflow.com/questions/6468896/why-is-orig-eax-provided-in-addition-to-eax/6469069#6469069">here</a>.</p>
-<h4 id="getting-and-setting-registers">Getting and setting registers</h4><p>And then let's write the <code>ChildManager</code> code that actually calls
+<h4 id="getting-and-setting-registers">Getting and setting registers</h4><p>Now let's write the <code>ChildManager</code> code that actually calls
 <code>PTRACE_GETREGS</code> to fill out one of these structs.</p>
 <div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">getABIArguments</span><span class="p">(</span><span class="n">cm</span><span class="o">:</span><span class="w"> </span><span class="n">ChildManager</span><span class="p">)</span><span class="w"> </span><span class="n">ABIArguments</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">args</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ABIArguments</span><span class="p">{</span><span class="w"> </span><span class="p">.</span><span class="n">regs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">undefined</span><span class="w"> </span><span class="p">};</span>
@@ -346,9 +364,13 @@ check in <code>childInterceptSyscalls</code> above.</p>
 </pre></div>
 <p>If we look at the <a href="https://man7.org/linux/man-pages/man2/write.2.html">manpage for
 <code>write</code></a> we see it
-takes three arguments: 1) the file descriptor (fd) to write to, 2) the
-address to start writing data from, and 3) the number of bytes to
-write. Going back to the <a href="https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f">calling
+takes three arguments</p>
+<ol>
+<li>The file descriptor (fd) to write to</li>
+<li>The address to start writing data from</li>
+<li>And he number of bytes to write</li>
+</ol>
+<p>Going back to the <a href="https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f">calling
 convention</a>
 that means the fd will be in <code>rdi</code>, the data address in <code>rsi</code>, and the
 data length in <code>rdx</code>.</p>
@@ -370,16 +392,15 @@ data length in <code>rdx</code>.</p>
 <p>In a more sophisticated version of this program, we could randomly
 decide when to truncate data and randomly decide how much data to
 truncate. However, for our purposes this is sufficient.</p>
-<p>But there's are some real problems with this code. I started off with
-something like this and when I ran this program against a basic Go
-program, I saw duplicate requests.</p>
+<p>But there are some real problems with this code. When I ran this
+program against a basic Go program, I saw duplicate requests.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Ah ok, PTRACE_SYSCALL gets hit when you both enter and exit a syscall.<br><br>So each time you call PTRACE_SYSCALL and you do stuff, you just call it again afterwards to handle/wait for the exit. <a href="https://t.co/PjmNwcMepG">pic.twitter.com/PjmNwcMepG</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1707846783035183267?ref_src=twsrc%5Etfw">September 29, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <p>So the deal with <code>PTRACE_SYSCALL</code> is that for (most?) syscalls, you
 get to modify data before the data actually is handled by the
 kernel. And you get to modify data after the kernel has finished the
 syscall too.</p>
 <p>This makes sense because <code>PTRACE_SYSCALL</code> (unlike <code>PTRACE_SYSEMU</code>)
-still allows the syscall to actually happen. And if we wanted to, for
+allows the syscall to actually happen. And if we wanted to, for
 example, modify the syscall exit code, we'd have to do that after the
 syscall was done not before it started. We are modifying registers
 directly after all.</p>
@@ -461,8 +482,145 @@ what <code>os.File.Write()</code> does on Linux you eventually get to
 <span class="w">        </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
-<p>Credits: Thanks Charlie Cummings for reviewing a draft of this post!</p>
+<p>This might be common knowledge but I didn't realize Go did this. And
+when I tried out the same basic program in Python and even C, the
+behavior was the same. The builtin <code>write()</code> behavior on a file (in
+many languages apparantly) is to retry until all data is written, with
+some exceptions.</p>
+<p>This makes sense since files on disk, unlike file descriptors backed
+by network sockets, are generally always available. Compared to a
+network connection, disks are physically close and almost always
+stay connected. (With some obvious exceptions like
+network-attached storage and thumb drives.)</p>
+<p>So to trigger the short write, the easiest way seems to have the
+<code>sys_write</code> call return an error that is NOT <code>EAGAIN</code> since the code
+will retry if that is the error.</p>
+<p>After looking through the <a href="https://man7.org/linux/man-pages/man2/write.2.html#ERRORS">list of errors that sys_write can
+return</a>,
+<code>EIO</code> seems like a nice one.</p>
+<p>So let's do our final version of <code>writeHandler</code> and on the syscall
+exit, we'll modify the return value (<code>rax</code> in amd64/linux) to be
+<code>EIO</code>.</p>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">writeHandler</span><span class="p">(</span><span class="n">cm</span><span class="o">:</span><span class="w"> </span><span class="n">ChildManager</span><span class="p">,</span><span class="w"> </span><span class="n">entryArgs</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">ABIArguments</span><span class="p">)</span><span class="w"> </span><span class="kt">anyerror</span><span class="o">!</span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">const</span><span class="w"> </span><span class="n">fd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<span class="w">        </span><span class="kr">const</span><span class="w"> </span><span class="n">dataAddress</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">dataLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
 
+<span class="w">        </span><span class="c1">// Truncate some bytes</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dataLength</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">dataLength</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">            </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">setNth</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">dataLength</span><span class="p">);</span>
+<span class="w">            </span><span class="n">cm</span><span class="p">.</span><span class="n">setABIArguments</span><span class="p">(</span><span class="n">entryArgs</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="c1">// Handle syscall exit</span>
+<span class="w">        </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cm</span><span class="p">.</span><span class="n">childWaitForSyscall</span><span class="p">();</span>
+
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">exitArgs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cm</span><span class="p">.</span><span class="n">getABIArguments</span><span class="p">();</span>
+<span class="w">        </span><span class="n">dataLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">exitArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dataLength</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="c1">// Force the writes to stop after the first one by returning EIO.</span>
+<span class="w">            </span><span class="kr">var</span><span class="w"> </span><span class="n">result</span><span class="o">:</span><span class="w"> </span><span class="kt">c_ulong</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">            </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">-%</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">EIO</span><span class="p">;</span>
+<span class="w">            </span><span class="n">exitArgs</span><span class="p">.</span><span class="n">setResult</span><span class="p">(</span><span class="n">result</span><span class="p">);</span>
+<span class="w">            </span><span class="n">cm</span><span class="p">.</span><span class="n">setABIArguments</span><span class="p">(</span><span class="o">&amp;</span><span class="n">exitArgs</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+<p>Let's give it a whirl!</p>
+<h3 id="all-together">All together</h3><p>Build the Zig fault injector and the Go test code:</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>zig<span class="w"> </span>build-exe<span class="w"> </span>--library<span class="w"> </span>c<span class="w"> </span>main.zig
+<span class="gp">$ </span><span class="o">(</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>main.go<span class="w"> </span><span class="o">)</span>
+</pre></div>
+<p>And run:</p>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>./main<span class="w"> </span>test/main
+</pre></div>
+<p>And check <code>test.txt</code>:</p>
+<div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>test.txt
+some<span class="w"> </span>great<span class="w"> </span>stu
+</pre></div>
+<p>Hey, that's a short write! :)</p>
+<h3 id="sidenote:-reading-data-from-the-child">Sidenote: Reading data from the child</h3><p>We accomplished everything we set out to, but there's one other useful
+thing we can do: reading the actual data passed to the write syscall.</p>
+<p>Just like how we can get the child process registers with
+<code>PTRACE_GETREGS</code>, we can read child memory with
+<code>PTRACE_PEEKDATA</code>. <code>PTRACE_PEEKDATA</code> takes the child process id and
+the memory address in the child to read from. It returns a word of
+data (which on amd64/linux is 8 bytes).</p>
+<p>We can use the syscall arguments (data address and length) to keep
+calling <code>PTRACE_PEEKDATA</code> on the child until we've read all bytes of
+the data the child process wanted to write:</p>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">childReadData</span><span class="p">(</span>
+<span class="w">        </span><span class="n">cm</span><span class="o">:</span><span class="w"> </span><span class="n">ChildManager</span><span class="p">,</span>
+<span class="w">        </span><span class="n">address</span><span class="o">:</span><span class="w"> </span><span class="kt">c_ulong</span><span class="p">,</span>
+<span class="w">        </span><span class="n">length</span><span class="o">:</span><span class="w"> </span><span class="kt">c_ulong</span><span class="p">,</span>
+<span class="w">    </span><span class="p">)</span><span class="w"> </span><span class="o">!</span><span class="n">std</span><span class="p">.</span><span class="n">ArrayList</span><span class="p">(</span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">ArrayList</span><span class="p">(</span><span class="kt">u8</span><span class="p">).</span><span class="n">init</span><span class="p">(</span><span class="n">cm</span><span class="p">.</span><span class="n">arena</span><span class="p">.</span><span class="n">allocator</span><span class="p">());</span>
+<span class="w">        </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">items</span><span class="p">.</span><span class="n">len</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">length</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">var</span><span class="w"> </span><span class="n">word</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">ptrace</span><span class="p">(</span>
+<span class="w">                </span><span class="n">c</span><span class="p">.</span><span class="n">PTRACE_PEEKDATA</span><span class="p">,</span>
+<span class="w">                </span><span class="n">cm</span><span class="p">.</span><span class="n">childPid</span><span class="p">,</span>
+<span class="w">                </span><span class="n">address</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">data</span><span class="p">.</span><span class="n">items</span><span class="p">.</span><span class="n">len</span><span class="p">,</span>
+<span class="w">                </span><span class="n">cNullPtr</span><span class="p">,</span>
+<span class="w">            </span><span class="p">);</span>
+
+<span class="w">            </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">asBytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">word</span><span class="p">))</span><span class="w"> </span><span class="o">|</span><span class="n">byte</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">items</span><span class="p">.</span><span class="n">len</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">length</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="k">break</span><span class="p">;</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">                </span><span class="k">try</span><span class="w"> </span><span class="n">data</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">byte</span><span class="p">);</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">data</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+<p>And we could modify <code>writeHandler</code> to print out the entirety of the write message each time (for debugging):</p>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">writeHandler</span><span class="p">(</span><span class="n">cm</span><span class="o">:</span><span class="w"> </span><span class="n">ChildManager</span><span class="p">,</span><span class="w"> </span><span class="n">entryArgs</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">ABIArguments</span><span class="p">)</span><span class="w"> </span><span class="kt">anyerror</span><span class="o">!</span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">const</span><span class="w"> </span><span class="n">fd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<span class="w">        </span><span class="kr">const</span><span class="w"> </span><span class="n">dataAddress</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">dataLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Truncate some bytes</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dataLength</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">dataLength</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">            </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">setNth</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">dataLength</span><span class="p">);</span>
+<span class="w">            </span><span class="n">cm</span><span class="p">.</span><span class="n">setABIArguments</span><span class="p">(</span><span class="n">entryArgs</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="kr">const</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="n">cm</span><span class="p">.</span><span class="n">childReadData</span><span class="p">(</span><span class="n">dataAddress</span><span class="p">,</span><span class="w"> </span><span class="n">dataLength</span><span class="p">);</span>
+<span class="w">        </span><span class="k">defer</span><span class="w"> </span><span class="n">data</span><span class="p">.</span><span class="n">deinit</span><span class="p">();</span>
+<span class="w">        </span><span class="n">std</span><span class="p">.</span><span class="n">debug</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Got a write on {}: {s}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">.{</span><span class="w"> </span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">.</span><span class="n">items</span><span class="w"> </span><span class="p">});</span>
+
+<span class="w">        </span><span class="c1">// Handle syscall exit</span>
+<span class="w">        </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cm</span><span class="p">.</span><span class="n">childWaitForSyscall</span><span class="p">();</span>
+
+<span class="w">        </span><span class="kr">var</span><span class="w"> </span><span class="n">exitArgs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cm</span><span class="p">.</span><span class="n">getABIArguments</span><span class="p">();</span>
+<span class="w">        </span><span class="n">dataLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">exitArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">dataLength</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="c1">// Force the writes to stop after the first one by returning EIO.</span>
+<span class="w">            </span><span class="kr">var</span><span class="w"> </span><span class="n">result</span><span class="o">:</span><span class="w"> </span><span class="kt">c_ulong</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">            </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">-%</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">EIO</span><span class="p">;</span>
+<span class="w">            </span><span class="n">exitArgs</span><span class="p">.</span><span class="n">setResult</span><span class="p">(</span><span class="n">result</span><span class="p">);</span>
+<span class="w">            </span><span class="n">cm</span><span class="p">.</span><span class="n">setABIArguments</span><span class="p">(</span><span class="o">&amp;</span><span class="n">exitArgs</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+<p>That's pretty neat!</p>
+<h3 id="next-steps">Next steps</h3><p>Short writes are just one of many bad IO interactions. Another fun one
+would be to completely buffer all writes on a file descriptor (not
+allowing anything to be written to disk at all) until fsync is called
+on the file descriptor. Or <a href="https://www.usenix.org/conference/atc20/presentation/rebello">forcing fsyncs to
+fail</a>.</p>
+<p>An interesting optimization would be to apply <a href="https://www.kernel.org/doc/Documentation/prctl/seccomp_filter.txt">seccomp
+filters</a>
+so that rather than paying a penalty for watching every syscall, I
+only get notified about the ones I have hooks for like
+<code>sys_write</code>. <a href="https://www.alfonsobeato.net/c/filter-and-modify-system-calls-with-seccomp-and-ptrace/">Here's another
+post</a>
+that explores ptrace with seccomp filters.</p>
+<p>Credits: Thank you Charlie Cummings and Paul Khuong for reviewing a draft
+of this post!</p>
+<style>.feedback{display:initial;}</style>
 	<div class="feedback">
 	  <h4>Feedback</h4>
 	  <p><small>As always,
@@ -479,7 +637,7 @@ what <code>os.File.Write()</code> does on Linux you eventually get to
 	  <div class="row">
 	    <div class="feedback">
 	      <h4>Frequent Topics</h4>
-	      <div class="tags"><div class="tags"><a href="/tags/linux.html" class="tag">linux</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64</a><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/zig.html" class="tag">zig</a><a href="/tags/fault-injection.html" class="tag">fault-injection</a><a href="/tags/draft.html" class="tag">draft</a></div></div>
+	      <div class="tags"><a href="/tags/javascript.html" class="tag">javascript (24)</a><a href="/tags/parsing.html" class="tag">parsing (21)</a><a href="/tags/databases.html" class="tag">databases (21)</a><a href="/tags/postgres.html" class="tag">postgres (14)</a><a href="/tags/golang.html" class="tag">golang (14)</a><a href="/tags/compilers.html" class="tag">compilers (14)</a><a href="/tags/sql.html" class="tag">sql (11)</a><a href="/tags/interpreters.html" class="tag">interpreters (11)</a><a href="/tags/lisp.html" class="tag">lisp (9)</a><a href="/tags/books.html" class="tag">books (9)</a><a href="/tags/zig.html" class="tag">zig (8)</a><a href="/tags/python.html" class="tag">python (8)</a><a href="/tags/go.html" class="tag">go (8)</a><a href="/tags/management.html" class="tag">management (7)</a><a href="/tags/linux.html" class="tag">linux (7)</a><a href="/tags/json.html" class="tag">json (7)</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64 (6)</a><a href="/tags/scheme.html" class="tag">scheme (6)</a><a href="/tags/learning.html" class="tag">learning (6)</a><a href="/tags/typescript.html" class="tag">typescript (5)</a></div>
 	    </div>
 	  </div>
 	  <div class="row" id="subscribe">

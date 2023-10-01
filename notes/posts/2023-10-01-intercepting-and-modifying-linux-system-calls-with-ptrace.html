@@ -1,39 +1,44 @@
 # [DRAFT] Intercepting and modifying Linux system calls with ptrace
 ## October 1, 2023
-###### linux,x86/amd64,databases,zig,fault-injection,draft
+###### linux,x86/amd64,databases,zig,fault-injection
 
-How software fails is incredibly interesting. But real-world errors
-can be infrequent to manifest. "Fault injection" is a technique in
-software development that explicitly triggers errors in the hopes of
-discovering bad logic, typically during automated tests. Jepsen and
-ChaosMonkey help to instigate process and network failure, but what
-about disk and filesystem errors?
+How software fails is interesting. But real-world errors can be
+infrequent to manifest. [Fault
+injection](https://course.ece.cmu.edu/~ece749/docs/faultInjectionSurvey.pdf)
+is a formal-sounding term that just means: trying to explicitly
+triggers errors in the hopes of discovering bad logic, typically
+during automated tests.
 
-I've been thinking about how to instigate file IO errors in programs
-and three solutions seem apparent: 1) a custom FUSE filesystem, 2) an
-LD_PRELOAD interception layer or 3) a ptrace system call interception
-layer.
+[Jepsen](https://github.com/jepsen-io/jepsen)
+and [ChaosMonkey](https://github.com/Netflix/chaosmonkey) are two
+famous examples that help to trigger process and network failure. But
+what about disk and filesystem errors?
 
-<p class="note">
-  From a cursory look, while eBPF seems great for tracing system
-  calls, it doesn't seem to be able to much in terms of modifying the
-  system call other
-  than <a href="https://github.com/iovisor/bpftrace/discussions/2280">altering
-  a return value</a> and even then only if the kernel has been
-  configured with this ability on.
-</p>
+A few avenues seem worth investigating:
+
+* A custom FUSE filesystem
+* An LD_PRELOAD interception layer
+* A ptrace system call interception layer
+* A `SECCOMP_RET_TRAP` interception layer
+* Or, symbolic analysis a la [Alice from University of
+Wisconsin-Madison](https://research.cs.wisc.edu/adsl/Publications/alice-osdi14.html)
 
 I would like to try out FUSE sometime. But LD_PRELOAD layer only works
-if IO goes through libc, which won't be the case for all programs. And
-ptrace is something I've wanted to hack on for years, going back to
-when I worked for a Linux security company that alerted on suspicious
-system call patterns.
+if IO goes through libc, which won't be the case for all
+programs. ptrace is something I've wanted to dig into for years since
+learning about
+[gvisor](https://www.usenix.org/system/files/hotcloud19-paper-young.pdf).
+
+`SECCOMP_RET_TRAP` doesn't have the same high-level guides that ptrace
+does so maybe I'll dig into it later. And symbolic analysis might be
+able to detect bad workloads but it also isn't fault injection. Maybe
+it's the better idea but fault injection just sounds more fun.
 
 So this particular post will cover intercepting system calls
 (syscalls) using ptrace with code written in Zig (since I think Zig is
 easier to both read and write than C).
 
-By the end, we'll be able to intercept and force short (incomplete)
+In the end, we'll be able to intercept and force short (incomplete)
 writes in a Go, Python, and C program. Emulating a disk that is having
 an issue completing the write. This is a case that isn't common, but
 should probably be handled with retries in production code.
@@ -44,14 +49,13 @@ on GitHub.
 
 ### A bad program
 
-To begin with, I wanted an example of an error I could try to trigger
-and thus catch in a bad program.
-
-For short writes this is easy, we just try to write some text to disk
-but we don't make sure we've written the whole thing. This is
-extremely common code; or at least I've written it often.
+First off, let's write some code for a program that would exhibit a
+short write. Basically, we write to a file and don't check how many
+bytes we wrote. This is extremely common code; or at least I've
+written it often.
 
 ```go
+$ cat test/main.go
 package main
 
 import (
@@ -71,31 +75,46 @@ func main() {
 }
 ```
 
-Most importantly here, if the `Write()` call doesn't write everything,
-we won't know that. And the file will contain less than all of `some
-great stuff`.
+With this code, if the `Write()` call doesn't actually succeed in
+writing everything, we won't know that. And the file will contain less
+than all of `some great stuff`.
 
-This logical mistake will happen rarely, if ever, on a normal disk.
+This logical mistake will happen rarely, if ever, on a normal
+disk. But it is possible.
 
-Now that we've got an example program in main, let's see if we can
-trigger this error.
+Now that we've got an example program in mind, let's see if we can
+trigger the logic error.
 
 ### ptrace
 
 ptrace is a somewhat cross-platform layer that allows you to intercept
-syscalls in a process and read and modify memory and registers in
-the process when the syscalls starts and before it finishes.
+syscalls in a process. You can read and modify memory and registers in
+the process, when the syscalls starts and before it finishes.
 
 gdb and strace both use ptrace for their magic.
+
+Google's gvisor that [powers various serverless runtimes in Google
+Cloud](https://cloud.google.com/run/docs/container-contract) was also
+historically based on ptrace (`PTRACE_SYSEMU` specifically, which we
+won't explore much in this post).
+
+<p class="note">
+  Interestingly though,
+  gvisor <a href="https://gvisor.dev/blog/2023/04/28/systrap-release/">switched
+  only this year </a> (2023) to a different default backend for
+  trapping system calls. Based
+  on <a href="https://www.kernel.org/doc/Documentation/prctl/seccomp_filter.txt"><code>SECCOMP_RET_TRAP</code></a>.
+  <br />
+  <br />
+  You can get similar vibes
+  from <a href="https://www.brendangregg.com/blog/2014-05-11/strace-wow-much-syscall.html">this
+  Brendan Gregg post</a> on the dangers of using strace (that is based
+  on ptrace) in production.
+</p>
 
 Although ptrace is cross-platform, actually writing
 cross-platform-aware code with ptrace can be complex. So this post
 assumes amd64/linux.
-
-On a slight tangent, [here's a fun Brendan Gregg
-post](https://www.brendangregg.com/blog/2014-05-11/strace-wow-much-syscall.html)
-on the dangers of using strace (that is based on ptrace) in
-production.
 
 ### Protocol
 
@@ -104,18 +123,17 @@ manpage](https://man7.org/linux/man-pages/man2/ptrace.2.html), but
 [Chris Wellons](https://nullprogram.com/blog/2018/06/23/) and [a
 University of Alberta
 group](https://webdocs.cs.ualberta.ca/~paullu/C498/meng.ptrace.slides.pdf)
-also provide a slightly nicer visual introduction. I referenced these
-three pages heavily.
+also wrote nice introductions. I referenced these three pages
+heavily.
 
-Specifically, rather than me explain, just take a look at this slide
-from the UAlberta page.
+Here's what the UAlberta page has to say:
 
 ![ptrace's syscall tracing protocol](/assets/ptraceprotocol.webp)
 
 We fork and have the child call `PTRACE_TRACEME`. Then we handle each
 syscall entrance by calling `PTRACE_SYSCALL` and waiting with `wait`
 until the child has entered the syscall. It is in this moment we can
-start to mess with things.
+mess with things.
 
 ### Implementation
 
@@ -177,11 +195,11 @@ on the [ptrace
 manpage](https://man7.org/linux/man-pages/man2/ptrace.2.html)) rather
 than going the `PTRACE_TRACEME` route. But I haven't tried that out
 yet.
+						   
+With the child ready to be intercepted, we can implement the
+`ChildManager` that actually does the interception.
 
 #### ChildManager
-
-Anyway, with the child ready to be intercepted, we can implement the
-`ChildManager` that actually does the interception.
 
 The core of the `ChildManager` is an infinite loop (at least as long
 as the child process lives) that waits for the next syscall and then
@@ -217,7 +235,7 @@ const ChildManager = struct {
 };
 ```
 
-We'll ultimately write a hook for the `sys_write` syscall that
+Later we'll write a hook for the `sys_write` syscall that
 will force an incomplete write.
 
 Back to the protocol, `childWaitForSyscall` will call `PTRACE_SYSCALL`
@@ -327,7 +345,7 @@ original `rax` value on syscall entrance. You can read more about this
 
 #### Getting and setting registers
 
-And then let's write the `ChildManager` code that actually calls
+Now let's write the `ChildManager` code that actually calls
 `PTRACE_GETREGS` to fill out one of these structs.
 
 ```zig
@@ -367,9 +385,13 @@ check in `childInterceptSyscalls` above.
 
 If we look at the [manpage for
 `write`](https://man7.org/linux/man-pages/man2/write.2.html) we see it
-takes three arguments: 1) the file descriptor (fd) to write to, 2) the
-address to start writing data from, and 3) the number of bytes to
-write. Going back to the [calling
+takes three arguments
+
+1. The file descriptor (fd) to write to
+2. The address to start writing data from
+3. And he number of bytes to write
+
+Going back to the [calling
 convention](https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f)
 that means the fd will be in `rdi`, the data address in `rsi`, and the
 data length in `rdx`.
@@ -396,9 +418,8 @@ In a more sophisticated version of this program, we could randomly
 decide when to truncate data and randomly decide how much data to
 truncate. However, for our purposes this is sufficient.
 
-But there's are some real problems with this code. I started off with
-something like this and when I ran this program against a basic Go
-program, I saw duplicate requests.
+But there are some real problems with this code. When I ran this
+program against a basic Go program, I saw duplicate requests.
 
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">Ah ok, PTRACE_SYSCALL gets hit when you both enter and exit a syscall.<br><br>So each time you call PTRACE_SYSCALL and you do stuff, you just call it again afterwards to handle/wait for the exit. <a href="https://t.co/PjmNwcMepG">pic.twitter.com/PjmNwcMepG</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1707846783035183267?ref_src=twsrc%5Etfw">September 29, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
@@ -408,7 +429,7 @@ kernel. And you get to modify data after the kernel has finished the
 syscall too.
 
 This makes sense because `PTRACE_SYSCALL` (unlike `PTRACE_SYSEMU`)
-still allows the syscall to actually happen. And if we wanted to, for
+allows the syscall to actually happen. And if we wanted to, for
 example, modify the syscall exit code, we'd have to do that after the
 syscall was done not before it started. We are modifying registers
 directly after all.
@@ -503,4 +524,176 @@ func (fd *FD) Write(p []byte) (int, error) {
 }
 ```
 
-Credits: Thanks Charlie Cummings for reviewing a draft of this post!
+This might be common knowledge but I didn't realize Go did this. And
+when I tried out the same basic program in Python and even C, the
+behavior was the same. The builtin `write()` behavior on a file (in
+many languages apparantly) is to retry until all data is written, with
+some exceptions.
+
+This makes sense since files on disk, unlike file descriptors backed
+by network sockets, are generally always available. Compared to a
+network connection, disks are physically close and almost always
+stay connected. (With some obvious exceptions like
+network-attached storage and thumb drives.)
+
+So to trigger the short write, the easiest way seems to have the
+`sys_write` call return an error that is NOT `EAGAIN` since the code
+will retry if that is the error.
+
+After looking through the [list of errors that sys_write can
+return](https://man7.org/linux/man-pages/man2/write.2.html#ERRORS),
+`EIO` seems like a nice one.
+
+So let's do our final version of `writeHandler` and on the syscall
+exit, we'll modify the return value (`rax` in amd64/linux) to be
+`EIO`.
+
+```zig
+    fn writeHandler(cm: ChildManager, entryArgs: *ABIArguments) anyerror!void {
+        const fd = entryArgs.nth(0);
+        const dataAddress = entryArgs.nth(1);
+        var dataLength = entryArgs.nth(2);
+
+        // Truncate some bytes
+        if (dataLength > 2) {
+            dataLength -= 2;
+            entryArgs.setNth(2, dataLength);
+            cm.setABIArguments(entryArgs);
+        }
+
+        // Handle syscall exit
+        _ = cm.childWaitForSyscall();
+
+        var exitArgs = cm.getABIArguments();
+        dataLength = exitArgs.nth(2);
+        if (dataLength > 2) {
+            // Force the writes to stop after the first one by returning EIO.
+            var result: c_ulong = 0;
+            result = result -% c.EIO;
+            exitArgs.setResult(result);
+            cm.setABIArguments(&exitArgs);
+        }
+    }
+```
+
+Let's give it a whirl!
+
+### All together
+
+Build the Zig fault injector and the Go test code:
+
+```console
+$ zig build-exe --library c main.zig
+$ ( cd test && go build main.go )
+```
+
+And run:
+
+```
+$ ./main test/main
+```
+
+And check `test.txt`:
+
+```
+$ cat test.txt
+some great stu
+```
+
+Hey, that's a short write! :)
+
+### Sidenote: Reading data from the child
+
+We accomplished everything we set out to, but there's one other useful
+thing we can do: reading the actual data passed to the write syscall.
+
+Just like how we can get the child process registers with
+`PTRACE_GETREGS`, we can read child memory with
+`PTRACE_PEEKDATA`. `PTRACE_PEEKDATA` takes the child process id and
+the memory address in the child to read from. It returns a word of
+data (which on amd64/linux is 8 bytes).
+
+We can use the syscall arguments (data address and length) to keep
+calling `PTRACE_PEEKDATA` on the child until we've read all bytes of
+the data the child process wanted to write:
+
+```zig
+    fn childReadData(
+        cm: ChildManager,
+        address: c_ulong,
+        length: c_ulong,
+    ) !std.ArrayList(u8) {
+        var data = std.ArrayList(u8).init(cm.arena.allocator());
+        while (data.items.len < length) {
+            var word = c.ptrace(
+                c.PTRACE_PEEKDATA,
+                cm.childPid,
+                address + data.items.len,
+                cNullPtr,
+            );
+
+            for (std.mem.asBytes(&word)) |byte| {
+                if (data.items.len == length) {
+                    break;
+                }
+                try data.append(byte);
+            }
+        }
+        return data;
+    }
+```
+
+And we could modify `writeHandler` to print out the entirety of the write message each time (for debugging):
+
+```zig
+    fn writeHandler(cm: ChildManager, entryArgs: *ABIArguments) anyerror!void {
+        const fd = entryArgs.nth(0);
+        const dataAddress = entryArgs.nth(1);
+        var dataLength = entryArgs.nth(2);
+
+        // Truncate some bytes
+        if (dataLength > 2) {
+            dataLength -= 2;
+            entryArgs.setNth(2, dataLength);
+            cm.setABIArguments(entryArgs);
+        }
+
+        const data = try cm.childReadData(dataAddress, dataLength);
+        defer data.deinit();
+        std.debug.print("Got a write on {}: {s}\n", .{ fd, data.items });
+
+        // Handle syscall exit
+        _ = cm.childWaitForSyscall();
+
+        var exitArgs = cm.getABIArguments();
+        dataLength = exitArgs.nth(2);
+        if (dataLength > 2) {
+            // Force the writes to stop after the first one by returning EIO.
+            var result: c_ulong = 0;
+            result = result -% c.EIO;
+            exitArgs.setResult(result);
+            cm.setABIArguments(&exitArgs);
+        }
+    }
+```
+
+That's pretty neat!
+
+### Next steps
+
+Short writes are just one of many bad IO interactions. Another fun one
+would be to completely buffer all writes on a file descriptor (not
+allowing anything to be written to disk at all) until fsync is called
+on the file descriptor. Or [forcing fsyncs to
+fail](https://www.usenix.org/conference/atc20/presentation/rebello).
+
+An interesting optimization would be to apply [seccomp
+filters](https://www.kernel.org/doc/Documentation/prctl/seccomp_filter.txt)
+so that rather than paying a penalty for watching every syscall, I
+only get notified about the ones I have hooks for like
+`sys_write`. [Here's another
+post](https://www.alfonsobeato.net/c/filter-and-modify-system-calls-with-seccomp-and-ptrace/)
+that explores ptrace with seccomp filters.
+
+Credits: Thank you Charlie Cummings and Paul Khuong for reviewing a draft
+of this post!

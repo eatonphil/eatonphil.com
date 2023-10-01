@@ -464,4 +464,8 @@
     <loc>https://notes.eatonphil.com/2023-09-21-how-do-databases-execute-expressions.html</loc>
     <lastmod>2023-09-21</lastmod>
  </url>
+  <url>
+    <loc>https://notes.eatonphil.com/2023-10-01-intercepting-and-modifying-linux-system-calls-with-ptrace.html</loc>
+    <lastmod>2023-10-01</lastmod>
+ </url>
 </urlset>
