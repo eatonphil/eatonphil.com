@@ -1,16 +1,27 @@
 # [DRAFT] Intercepting and modifying Linux system calls with ptrace
 ## October 1, 2023
-###### linux,x86/amd64,databases,zig,draft
+###### linux,x86/amd64,databases,zig,fault-injection,draft
 
 How software fails is incredibly interesting. But real-world errors
-can be infrequent to manifest. Jepsen and ChaosMonkey help to
-instigate process and network failure, but what about disk and
-filesystem errors?
+can be infrequent to manifest. "Fault injection" is a technique in
+software development that explicitly triggers errors in the hopes of
+discovering bad logic, typically during automated tests. Jepsen and
+ChaosMonkey help to instigate process and network failure, but what
+about disk and filesystem errors?
 
 I've been thinking about how to instigate file IO errors in programs
 and three solutions seem apparent: 1) a custom FUSE filesystem, 2) an
 LD_PRELOAD interception layer or 3) a ptrace system call interception
 layer.
+
+<p class="note">
+  From a cursory look, while eBPF seems great for tracing system
+  calls, it doesn't seem to be able to much in terms of modifying the
+  system call other
+  than <a href="https://github.com/iovisor/bpftrace/discussions/2280">altering
+  a return value</a> and even then only if the kernel has been
+  configured with this ability on.
+</p>
 
 I would like to try out FUSE sometime. But LD_PRELOAD layer only works
 if IO goes through libc, which won't be the case for all programs. And
@@ -30,6 +41,44 @@ should probably be handled with retries in production code.
 This post corresponds roughly to [this
 commit](https://github.com/eatonphil/badio/tree/720c3ee0482e6dcb1dd49d1789bccf86747b7776)
 on GitHub.
+
+### A bad program
+
+To begin with, I wanted an example of an error I could try to trigger
+and thus catch in a bad program.
+
+For short writes this is easy, we just try to write some text to disk
+but we don't make sure we've written the whole thing. This is
+extremely common code; or at least I've written it often.
+
+```go
+package main
+
+import (
+        "os"
+)
+
+func main() {
+        f, err := os.OpenFile("test.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+        if err != nil {
+                panic(err)
+        }
+
+        text := "some great stuff"
+        _, _ = f.Write([]byte(text))
+
+        _ = f.Close()
+}
+```
+
+Most importantly here, if the `Write()` call doesn't write everything,
+we won't know that. And the file will contain less than all of `some
+great stuff`.
+
+This logical mistake will happen rarely, if ever, on a normal disk.
+
+Now that we've got an example program in main, let's see if we can
+trigger this error.
 
 ### ptrace
 
@@ -142,10 +191,10 @@ calls a hook for the sytem call if it exists.
 const ChildManager = struct {
     arena: *std.heap.ArenaAllocator,
     childPid: std.os.pid_t,
-	
-	// TODO //
-	
-	fn childInterceptSyscalls(
+    
+    // TODO //
+    
+    fn childInterceptSyscalls(
         cm: *ChildManager,
     ) !void {
         while (true) {
@@ -340,5 +389,118 @@ So if we shorten the data length, we should be creating a short
             entryArgs.setNth(2, dataLength);
             cm.setABIArguments(entryArgs);
         }
-	}
+    }
 ```
+
+In a more sophisticated version of this program, we could randomly
+decide when to truncate data and randomly decide how much data to
+truncate. However, for our purposes this is sufficient.
+
+But there's are some real problems with this code. I started off with
+something like this and when I ran this program against a basic Go
+program, I saw duplicate requests.
+
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">Ah ok, PTRACE_SYSCALL gets hit when you both enter and exit a syscall.<br><br>So each time you call PTRACE_SYSCALL and you do stuff, you just call it again afterwards to handle/wait for the exit. <a href="https://t.co/PjmNwcMepG">pic.twitter.com/PjmNwcMepG</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1707846783035183267?ref_src=twsrc%5Etfw">September 29, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+So the deal with `PTRACE_SYSCALL` is that for (most?) syscalls, you
+get to modify data before the data actually is handled by the
+kernel. And you get to modify data after the kernel has finished the
+syscall too.
+
+This makes sense because `PTRACE_SYSCALL` (unlike `PTRACE_SYSEMU`)
+still allows the syscall to actually happen. And if we wanted to, for
+example, modify the syscall exit code, we'd have to do that after the
+syscall was done not before it started. We are modifying registers
+directly after all.
+
+All this means for our Zig code is that when we handle `sys_write`, we
+need to call `PTRACE_SYSCALL` again to process the syscall
+exit. Otherwise we'd reach this `writeHandler` for both entries and
+exists, which would require some additional way of disambiguating
+entrances from exits.
+
+```zig
+    fn writeHandler(cm: ChildManager, entryArgs: *ABIArguments) anyerror!void {
+        const fd = entryArgs.nth(0);
+        const dataAddress = entryArgs.nth(1);
+        var dataLength = entryArgs.nth(2);
+
+        // Truncate some bytes
+        if (dataLength > 2) {
+            dataLength -= 2;
+            entryArgs.setNth(2, dataLength);
+            cm.setABIArguments(entryArgs);
+        }
+
+        const data = try cm.childReadData(dataAddress, dataLength);
+        defer data.deinit();
+        std.debug.print("Got a write on {}: {s}\n", .{ fd, data.items });
+
+        // Handle syscall exit
+        _ = cm.childWaitForSyscall();
+    }
+```
+
+<p class="note">
+  We could put the <code>cm.childWaitForSyscall()</code> waiting for
+  the syscall exit in the main loop and I did try that at
+  first. However, not all syscalls seemed to have the same entry and
+  exit hook and this resulted in the hooks sometimes starting with a
+  syscall exit rather than a syscall entry. So rather than making the
+  code more complicated, I decided to only wait for the exit on
+  syscalls I knew had an exit (by observation at least), like
+  <code>sys_write</code>.
+</p>
+
+### Multiple writes? No bad logic?
+
+So I had this code as is, correctly handling syscall entrances and
+exits, but I was seeing multiple write calls. And the text file I was
+writing to had the complete text I wanted to write. There was no short
+write even though I truncated the data length.
+
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">Ok so what happens in this Go program if I truncate the amount of data?<br><br>I assumed Go would do nothing since all I did was call `f.Write()` once and `f.Write()` returns a number of bytes written.<br><br>But actually, it still writes everything! <a href="https://t.co/OSalKEbERM">pic.twitter.com/OSalKEbERM</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1707854642250408119?ref_src=twsrc%5Etfw">September 29, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+This took some digging into Go source code to understand. If you trace
+what `os.File.Write()` does on Linux you eventually get to
+[src/internal/poll/fd_unix.go](https://cs.opensource.google/go/go/+/refs/tags/go1.21.1:src/internal/poll/fd_unix.go):
+
+```go
+// Write implements io.Writer.
+func (fd *FD) Write(p []byte) (int, error) {
+        if err := fd.writeLock(); err != nil {
+                return 0, err
+        }
+        defer fd.writeUnlock()
+        if err := fd.pd.prepareWrite(fd.isFile); err != nil {
+                return 0, err
+        }
+        var nn int
+        for {
+                max := len(p)
+                if fd.IsStream && max-nn > maxRW {
+                        max = nn + maxRW
+                }
+                n, err := ignoringEINTRIO(syscall.Write, fd.Sysfd, p[nn:max])
+                if n > 0 {
+                        nn += n
+                }
+                if nn == len(p) {
+                        return nn, err
+                }
+                if err == syscall.EAGAIN && fd.pd.pollable() {
+                        if err = fd.pd.waitWrite(fd.isFile); err == nil {
+                                continue
+                        }
+                }
+                if err != nil {
+                        return nn, err
+                }
+                if n == 0 {
+                        return nn, io.ErrUnexpectedEOF
+                }
+        }
+}
+```
+
+Credits: Thanks Charlie Cummings for reviewing a draft of this post!
