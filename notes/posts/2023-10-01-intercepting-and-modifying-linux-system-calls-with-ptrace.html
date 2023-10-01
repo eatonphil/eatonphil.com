@@ -35,8 +35,11 @@ able to detect bad workloads but it also isn't fault injection. Maybe
 it's the better idea but fault injection just sounds more fun.
 
 So this particular post will cover intercepting system calls
-(syscalls) using ptrace with code written in Zig (since I think Zig is
-easier to both read and write than C).
+(syscalls) using ptrace with code written in Zig. Not because readers
+will likely write their own code in Zig but because hopefully the Zig
+code will be easier for you to read and adapt to your language
+compared to if we had to deal with the verbosity and inconvenience of
+C.
 
 In the end, we'll be able to intercept and force short (incomplete)
 writes in a Go, Python, and C program. Emulating a disk that is having
