@@ -392,7 +392,7 @@ takes three arguments
 
 1. The file descriptor (fd) to write to
 2. The address to start writing data from
-3. And he number of bytes to write
+3. And the number of bytes to write
 
 Going back to the [calling
 convention](https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f)
@@ -440,7 +440,7 @@ directly after all.
 All this means for our Zig code is that when we handle `sys_write`, we
 need to call `PTRACE_SYSCALL` again to process the syscall
 exit. Otherwise we'd reach this `writeHandler` for both entries and
-exists, which would require some additional way of disambiguating
+exits, which would require some additional way of disambiguating
 entrances from exits.
 
 ```zig

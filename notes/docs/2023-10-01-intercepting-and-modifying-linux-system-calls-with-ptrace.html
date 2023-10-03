@@ -371,7 +371,7 @@ takes three arguments</p>
 <ol>
 <li>The file descriptor (fd) to write to</li>
 <li>The address to start writing data from</li>
-<li>And he number of bytes to write</li>
+<li>And the number of bytes to write</li>
 </ol>
 <p>Going back to the <a href="https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f">calling
 convention</a>
@@ -410,7 +410,7 @@ directly after all.</p>
 <p>All this means for our Zig code is that when we handle <code>sys_write</code>, we
 need to call <code>PTRACE_SYSCALL</code> again to process the syscall
 exit. Otherwise we'd reach this <code>writeHandler</code> for both entries and
-exists, which would require some additional way of disambiguating
+exits, which would require some additional way of disambiguating
 entrances from exits.</p>
 <div class="highlight"><pre><span></span><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="n">writeHandler</span><span class="p">(</span><span class="n">cm</span><span class="o">:</span><span class="w"> </span><span class="n">ChildManager</span><span class="p">,</span><span class="w"> </span><span class="n">entryArgs</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">ABIArguments</span><span class="p">)</span><span class="w"> </span><span class="kt">anyerror</span><span class="o">!</span><span class="kt">void</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="kr">const</span><span class="w"> </span><span class="n">fd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entryArgs</span><span class="p">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
