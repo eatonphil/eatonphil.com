@@ -29,20 +29,15 @@ repo for details that will help you reproduce or correct me.
 
 ### INSERT workload
 
-In this workload, there are no indexes. Two different data sizes are
-tested:
+In this workload, the data is random and there are no indexes. Neither
+of these aspects matter for this post though because we're comparing
+behavior within the same database among different drivers. This was
+just a workload I already had.
+
+Two different data sizes are tested:
 
 1. 10M rows with 16 columns, each column is 32 bytes
 2. 10M rows with 3 columns, each column is 8 bytes
-
-Completely random data is generated for each cell. This is not
-necessarily representative of a production workload. Nor is it the
-worst-case scenario since another worst-case scenario could be of
-repeated values.
-
-Not using indexes makes this workload not representative of a
-production scenario, but that doesn't matter when comparing drivers
-for the same language and same database as we'll do in this post.
 
 Each test is run 10 times and we record median, standard deviation,
 min, max and throughput.

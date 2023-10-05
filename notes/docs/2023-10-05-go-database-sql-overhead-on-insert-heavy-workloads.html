@@ -73,19 +73,15 @@ post</a>.</p>
 methodology in my <a href="https://github.com/eatonphil/databases-intuition">databases-intuition repo on
 GitHub</a>. See the
 repo for details that will help you reproduce or correct me.</p>
-<h3 id="insert-workload">INSERT workload</h3><p>In this workload, there are no indexes. Two different data sizes are
-tested:</p>
+<h3 id="insert-workload">INSERT workload</h3><p>In this workload, the data is random and there are no indexes. Neither
+of these aspects matter for this post though because we're comparing
+behavior within the same database among different drivers. This was
+just a workload I already had.</p>
+<p>Two different data sizes are tested:</p>
 <ol>
 <li>10M rows with 16 columns, each column is 32 bytes</li>
 <li>10M rows with 3 columns, each column is 8 bytes</li>
 </ol>
-<p>Completely random data is generated for each cell. This is not
-necessarily representative of a production workload. Nor is it the
-worst-case scenario since another worst-case scenario could be of
-repeated values.</p>
-<p>Not using indexes makes this workload not representative of a
-production scenario, but that doesn't matter when comparing drivers
-for the same language and same database as we'll do in this post.</p>
 <p>Each test is run 10 times and we record median, standard deviation,
 min, max and throughput.</p>
 <h3 id="sqlite">SQLite</h3><p>Both variations presented here load 10M rows using a single prepared
