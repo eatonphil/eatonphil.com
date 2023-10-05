@@ -1,0 +1,157 @@
+# Go database/sql overhead on insert-heavy workloads
+## October 5, 2023
+###### sqlite,postgres,go
+
+Go's builtin `database/sql` interface seems to have a (roughly) 12-76%
+overhead on insert-heavy benchmarks. This post will demonstrate it
+with SQLite and PostgreSQL drivers.
+
+But aside from what I've measured, `database/sql`
+[issues](https://github.com/lib/pq/issues/771) are
+[basically](https://github.com/jackc/pgx#choosing-between-the-pgx-and-databasesql-interfaces)
+[well-known](https://github.com/ClickHouse/clickhouse-go/tree/main#benchmar).
+
+So if you are bulk-inserting data with Go (and potentially also
+bulk-retrieving data with Go), you may want to consider not using the
+`database/sql` interface. And you may even have to switch drivers
+since the most popular drivers do not allow you to avoid the
+`database/sql` interface.
+
+Other frontends like sqlc, sqlx, and
+GORM seem only to be worse than `database/sql` according to [this
+JetBrains
+post](https://blog.jetbrains.com/go/2023/04/27/comparing-db-packages/).
+
+This post is built on the workload, environment, libraries, and
+methodology in my [databases-intuition repo on
+GitHub](https://github.com/eatonphil/databases-intuition). See the
+repo for details that will help you reproduce or correct me.
+
+### INSERT workload
+
+In this workload, there are no indexes. Two different data sizes are
+tested:
+
+1. 10M rows with 16 columns, each column is 32 bytes
+2. 10M rows with 3 columns, each column is 8 bytes
+
+Completely random data is generated for each cell. This is not
+necessarily representative of a production workload. Nor is it the
+worst-case scenario since another worst-case scenario could be of
+repeated values.
+
+Not using indexes makes this workload not representative of a
+production scenario, but that doesn't matter when comparing drivers
+for the same language and same database as we'll do in this post.
+
+Each test is run 10 times and we record median, standard deviation,
+min, max and throughput.
+
+### SQLite
+
+Both variations presented here load 10M rows using a single prepared
+statement called for each row within a single transaction.
+
+The most popular driver is
+[mattn/go-sqlite3](https://github.com/mattn/go-sqlite3). It is 12-40%
+slower than another driver that avoids `database/sql`.
+
+10M Rows, 16 columns, each column 32 bytes:
+
+```
+Timing: 56.53 ± 1.26s, Min: 55.05s, Max: 59.62s
+Throughput: 176,893.65 ± 3,853.90 rows/s, Min: 167,719.97 rows/s, Max: 181,646.02 rows/s
+```
+
+10M Rows, 3 columns, each column 8 bytes:
+
+```
+Timing: 15.92 ± 0.25s, Min: 15.69s, Max: 16.67s
+Throughput: 628,044.37 ± 9,703.92 rows/s, Min: 599,852.91 rows/s, Max: 637,435.60 rows/s
+```
+
+The other driver I tested is my own fork of
+[bvinc/go-sqlite-lite](https://github.com/bvinc/go-sqlite-lite) called
+[eatonphil/gosqlite](https://github.com/eatonphil/gosqlite). I forked
+it because it is unmaintained and I wanted to bring it up-to-date for
+tests like this.
+
+10M Rows, 16 columns, each column 32 bytes:
+
+```
+Timing: 45.51 ± 0.70s, Min: 43.72s, Max: 45.93s
+Throughput: 219,729.65 ± 3,447.56 rows/s, Min: 217,742.98 rows/s, Max: 228,711.51 rows/s
+```
+
+10M Rows, 3 columns, each column 8 bytes:
+
+```
+Timing: 10.44 ± 0.20s, Min: 10.02s, Max: 10.68s
+Throughput: 957,939.60 ± 18,879.43 rows/s, Min: 936,114.60 rows/s, Max: 998,426.62 rows/s
+```
+
+### PostgreSQL
+
+Both variations presented use PostgreSQL's [`COPY
+FROM`](https://www.postgresql.org/docs/current/sql-copy.html)
+support. This is significantly faster for PostgreSQL than doing the
+prepared statement we do in
+SQLite. ([Here](https://github.com/eatonphil/databases-intuition#postgresql-prepared-insert)
+are my results for doing prepared statement INSERTs in PostgreSQL if
+you are curious.)
+
+The most popular PostgreSQL driver is
+[lib/pq](https://github.com/lib/pq). The [performance
+issues](https://github.com/lib/pq/issues/771) with lib/pq are
+[well-known](https://github.com/jackc/pgx#choosing-between-the-pgx-and-databasesql-interfaces),
+and the [repo itself](https://github.com/lib/pq#status) is marked as
+no longer developed.
+
+10M Rows, 16 columns, each column 32 bytes:
+
+```
+Timing: 104.53 ± 2.40s, Min: 102.57s, Max: 110.08s
+Throughput: 95,665.37 ± 2,129.25 rows/s, Min: 90,847.08 rows/s, Max: 97,490.96 rows/s
+```
+
+10M Rows, 3 columns, each column 8 bytes:
+
+```
+Timing: 8.16 ± 0.43s, Min: 7.44s, Max: 8.80s
+Throughput: 1,225,986.47 ± 66,631.53 rows/s, Min: 1,136,581.82 rows/s, Max: 1,343,441.37 rows
+```
+
+The other driver I tested is
+[jackc/pgx](https://github.com/jackc/pgx), without `database/sql`.
+
+10M Rows, 16 columns, each column 32 bytes:
+
+```
+Timing: 46.54 ± 1.60s, Min: 44.09s, Max: 49.51s
+Throughput: 214,869.42 ± 7,265.10 rows/s, Min: 201,991.37 rows/s, Max: 226,801.07 rows/s
+```
+
+10M Rows, 3 columns, each column 8 bytes:
+
+```
+Timing: 5.20 ± 0.44s, Min: 4.71s, Max: 5.96s
+Throughput: 1,923,722.79 ± 156,820.46 rows/s, Min: 1,676,894.32 rows/s, Max: 2,124,966.60 rows/
+```
+
+The discrepancies here are even greater than with the different SQLite
+drivers.
+
+### Analytics workload
+
+I won't go into them in detail but if you're doing analytics queries
+that don't return many rows, the difference between drivers is
+negligible.
+
+See [here](https://github.com/eatonphil/databases-intuition#selects) for details.
+
+### Conclusion
+
+If you are doing INSERT-heavy workloads, or you are processing large
+number of rows returned from your SQL database, you might want to try
+benchmarking the same workload with a driver that does not require
+`database/sql`.
