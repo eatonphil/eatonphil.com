@@ -46,7 +46,7 @@
           <h2>October 5, 2023</h2>
           <h1>Go database/sql overhead on insert-heavy workloads</h1>
           <div class="row" style="padding-bottom: 5px">
-            <div class="tags"><a href="/tags/sqlite.html" class="tag">sqlite</a><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/go.html" class="tag">go</a></div>
+            <div class="tags"><a href="/tags/sqlite.html" class="tag">sqlite</a><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/go.html" class="tag">go</a><a href="/tags/benchmark.html" class="tag">benchmark</a></div>
           </div>
 	</div>
       </div>
@@ -155,6 +155,7 @@ negligible.</p>
 number of rows returned from your SQL database, you might want to try
 benchmarking the same workload with a driver that does not require
 <code>database/sql</code>.</p>
+<p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">If you are using Go&#39;s database/sql interface for INSERT-heavy workloads, you may want to consider switching drivers to avoid database/sql.<br><br>In my tests, database/sql is roughly 20-76% slower, depending on the size of data and the database.<a href="https://t.co/NLVp0P2uiV">https://t.co/NLVp0P2uiV</a> <a href="https://t.co/Nes7awbVsj">pic.twitter.com/Nes7awbVsj</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1710051432076849594?ref_src=twsrc%5Etfw">October 5, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
 	<div class="feedback">
 	  <h4>Feedback</h4>
