@@ -92,8 +92,9 @@ min, max and throughput.</p>
 <h3 id="sqlite">SQLite</h3><p>Both variations presented here load 10M rows using a single prepared
 statement called for each row within a single transaction.</p>
 <p>The most popular driver is
-<a href="https://github.com/mattn/go-sqlite3">mattn/go-sqlite3</a>. It is 12-40%
-slower than another driver that avoids <code>database/sql</code>.</p>
+<a href="https://github.com/mattn/go-sqlite3">mattn/go-sqlite3</a>.</p>
+<p>It is roughly 20-40% slower than another driver that avoids
+<code>database/sql</code>.</p>
 <p>10M Rows, 16 columns, each column 32 bytes:</p>
 <div class="highlight"><pre><span></span><span class="n">Timing</span><span class="o">:</span><span class="w"> </span><span class="mf">56.53</span><span class="w"> </span><span class="err">±</span><span class="w"> </span><span class="mf">1.26</span><span class="n">s</span><span class="o">,</span><span class="w"> </span><span class="n">Min</span><span class="o">:</span><span class="w"> </span><span class="mf">55.05</span><span class="n">s</span><span class="o">,</span><span class="w"> </span><span class="n">Max</span><span class="o">:</span><span class="w"> </span><span class="mf">59.62</span><span class="n">s</span>
 <span class="n">Throughput</span><span class="o">:</span><span class="w"> </span><span class="mi">176</span><span class="o">,</span><span class="mf">893.65</span><span class="w"> </span><span class="err">±</span><span class="w"> </span><span class="mi">3</span><span class="o">,</span><span class="mf">853.90</span><span class="w"> </span><span class="n">rows</span><span class="sr">/s, Min: 167,719.97 rows/s, Max: 181,646.02 rows/s</span>
@@ -128,6 +129,8 @@ issues</a> with lib/pq are
 <a href="https://github.com/jackc/pgx#choosing-between-the-pgx-and-databasesql-interfaces">well-known</a>,
 and the <a href="https://github.com/lib/pq#status">repo itself</a> is marked as
 no longer developed.</p>
+<p>It is roughly 44-76% slower than an alternative driver that avoids
+<code>database/sql</code>.</p>
 <p>10M Rows, 16 columns, each column 32 bytes:</p>
 <div class="highlight"><pre><span></span><span class="n">Timing</span><span class="o">:</span><span class="w"> </span><span class="mf">104.53</span><span class="w"> </span><span class="err">±</span><span class="w"> </span><span class="mf">2.40</span><span class="n">s</span><span class="o">,</span><span class="w"> </span><span class="n">Min</span><span class="o">:</span><span class="w"> </span><span class="mf">102.57</span><span class="n">s</span><span class="o">,</span><span class="w"> </span><span class="n">Max</span><span class="o">:</span><span class="w"> </span><span class="mf">110.08</span><span class="n">s</span>
 <span class="n">Throughput</span><span class="o">:</span><span class="w"> </span><span class="mi">95</span><span class="o">,</span><span class="mf">665.37</span><span class="w"> </span><span class="err">±</span><span class="w"> </span><span class="mi">2</span><span class="o">,</span><span class="mf">129.25</span><span class="w"> </span><span class="n">rows</span><span class="sr">/s, Min: 90,847.08 rows/s, Max: 97,490.96 rows/s</span>
@@ -154,6 +157,8 @@ return many rows, the difference between drivers is negligible.</p>
 <h3 id="conclusion">Conclusion</h3><p>If you are doing INSERT-heavy workloads, or you are processing large
 number of rows returned from your SQL database, you might want to try
 benchmarking the same workload with different drivers.</p>
+<p>And specifically, there is likely no good reason to use <code>lib/pq</code>
+anymore for accessing PostgreSQL from Go. Just use jackc/pgx.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">For INSERT-heavy workloads in Go, you may want to switch database drivers. For PostgreSQL and SQLite, the popular drivers are 20-76% slower for this workload in my tests.<br><br>Some driver developers have reported issues with database/sql as an interface.<a href="https://t.co/NLVp0P2uiV">https://t.co/NLVp0P2uiV</a> <a href="https://t.co/RxTbgMZ1MG">pic.twitter.com/RxTbgMZ1MG</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1710249941904351718?ref_src=twsrc%5Etfw">October 6, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
 	<div class="feedback">
