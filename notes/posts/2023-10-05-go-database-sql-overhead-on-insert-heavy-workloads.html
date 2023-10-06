@@ -1,21 +1,20 @@
-# Go database/sql overhead on insert-heavy workloads
+# Go database driver overhead on insert-heavy workloads
 ## October 5, 2023
 ###### sqlite,postgres,go,benchmark
 
-Go's builtin `database/sql` interface seems to have a (roughly) 20-76%
-overhead on insert-heavy benchmarks. This post will demonstrate it
-with SQLite and PostgreSQL drivers.
+The most popular SQLite and PostgreSQL database drivers in Go have a
+(roughly) 20-76% overhead on insert-heavy benchmarks. So if you are
+bulk-inserting data with Go (and potentially also bulk-retrieving data
+with Go), you may want to consider the driver carefully.
 
-But aside from what I've measured, `database/sql`
-[issues](https://github.com/lib/pq/issues/771) are
-[basically](https://github.com/jackc/pgx#choosing-between-the-pgx-and-databasesql-interfaces)
-[well-known](https://github.com/ClickHouse/clickhouse-go/tree/main#benchmar).
+Other driver authors have noted and
+[benchmarked](https://github.com/ClickHouse/clickhouse-go/tree/main#benchmark)
+[issues](https://github.com/lib/pq/issues/771) with
+[database/sql](https://github.com/jackc/pgx#choosing-between-the-pgx-and-databasesql-interfaces).
 
-So if you are bulk-inserting data with Go (and potentially also
-bulk-retrieving data with Go), you may want to consider not using the
-`database/sql` interface. And you may even have to switch drivers
-since the most popular drivers do not allow you to avoid the
-`database/sql` interface.
+So it may be the case that `database/sql` is responsible for some of
+this overhead. Though I won't investigate further if that is the
+precise case in this post.
 
 Other frontends like sqlc, sqlx, and
 GORM seem only to be worse than `database/sql` according to [this
@@ -136,11 +135,10 @@ Throughput: 1,923,722.79 ± 156,820.46 rows/s, Min: 1,676,894.32 rows/s, Max: 2,
 The discrepancies here are even greater than with the different SQLite
 drivers.
 
-### Analytics workload
+### Workloads with small resultset
 
-I won't go into them in detail but if you're doing analytics queries
-that don't return many rows, the difference between drivers is
-negligible.
+I won't go into as much detail but if you're doing queries that don't
+return many rows, the difference between drivers is negligible.
 
 See [here](https://github.com/eatonphil/databases-intuition#selects) for details.
 
@@ -148,7 +146,4 @@ See [here](https://github.com/eatonphil/databases-intuition#selects) for details
 
 If you are doing INSERT-heavy workloads, or you are processing large
 number of rows returned from your SQL database, you might want to try
-benchmarking the same workload with a driver that does not require
-`database/sql`.
-
-<blockquote class="twitter-tweet"><p lang="en" dir="ltr">If you are using Go&#39;s database/sql interface for INSERT-heavy workloads, you may want to consider switching drivers to avoid database/sql.<br><br>In my tests, database/sql is roughly 20-76% slower, depending on the size of data and the database.<a href="https://t.co/NLVp0P2uiV">https://t.co/NLVp0P2uiV</a> <a href="https://t.co/Nes7awbVsj">pic.twitter.com/Nes7awbVsj</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1710051432076849594?ref_src=twsrc%5Etfw">October 5, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+benchmarking the same workload with different drivers.

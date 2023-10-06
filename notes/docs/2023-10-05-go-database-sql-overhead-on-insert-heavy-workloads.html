@@ -3,8 +3,8 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <link rel="canonical" href="https://notes.eatonphil.com/2023-10-05-go-database-sql-overhead-on-insert-heavy-workloads.html">
-    <title>Go database/sql overhead on insert-heavy workloads | notes.eatonphil.com</title>
-    <meta name="description" content="Go database/sql overhead on insert-heavy workloads" />
+    <title>Go database driver overhead on insert-heavy workloads | notes.eatonphil.com</title>
+    <meta name="description" content="Go database driver overhead on insert-heavy workloads" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
@@ -44,7 +44,7 @@
 	  </div>
 	  <hr />
           <h2>October 5, 2023</h2>
-          <h1>Go database/sql overhead on insert-heavy workloads</h1>
+          <h1>Go database driver overhead on insert-heavy workloads</h1>
           <div class="row" style="padding-bottom: 5px">
             <div class="tags"><a href="/tags/sqlite.html" class="tag">sqlite</a><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/go.html" class="tag">go</a><a href="/tags/benchmark.html" class="tag">benchmark</a></div>
           </div>
@@ -53,18 +53,17 @@
     </header>
     <div class="container">
       <div class="col-6">
-        <p>Go's builtin <code>database/sql</code> interface seems to have a (roughly) 20-76%
-overhead on insert-heavy benchmarks. This post will demonstrate it
-with SQLite and PostgreSQL drivers.</p>
-<p>But aside from what I've measured, <code>database/sql</code>
-<a href="https://github.com/lib/pq/issues/771">issues</a> are
-<a href="https://github.com/jackc/pgx#choosing-between-the-pgx-and-databasesql-interfaces">basically</a>
-<a href="https://github.com/ClickHouse/clickhouse-go/tree/main#benchmar">well-known</a>.</p>
-<p>So if you are bulk-inserting data with Go (and potentially also
-bulk-retrieving data with Go), you may want to consider not using the
-<code>database/sql</code> interface. And you may even have to switch drivers
-since the most popular drivers do not allow you to avoid the
-<code>database/sql</code> interface.</p>
+        <p>The most popular SQLite and PostgreSQL database drivers in Go have a
+(roughly) 20-76% overhead on insert-heavy benchmarks. So if you are
+bulk-inserting data with Go (and potentially also bulk-retrieving data
+with Go), you may want to consider the driver carefully.</p>
+<p>Other driver authors have noted and
+<a href="https://github.com/ClickHouse/clickhouse-go/tree/main#benchmark">benchmarked</a>
+<a href="https://github.com/lib/pq/issues/771">issues</a> with
+<a href="https://github.com/jackc/pgx#choosing-between-the-pgx-and-databasesql-interfaces">database/sql</a>.</p>
+<p>So it may be the case that <code>database/sql</code> is responsible for some of
+this overhead. Though I won't investigate further if that is the
+precise case in this post.</p>
 <p>Other frontends like sqlc, sqlx, and
 GORM seem only to be worse than <code>database/sql</code> according to <a href="https://blog.jetbrains.com/go/2023/04/27/comparing-db-packages/">this
 JetBrains
@@ -143,15 +142,12 @@ no longer developed.</p>
 </pre></div>
 <p>The discrepancies here are even greater than with the different SQLite
 drivers.</p>
-<h3 id="analytics-workload">Analytics workload</h3><p>I won't go into them in detail but if you're doing analytics queries
-that don't return many rows, the difference between drivers is
-negligible.</p>
+<h3 id="workloads-with-small-resultset">Workloads with small resultset</h3><p>I won't go into as much detail but if you're doing queries that don't
+return many rows, the difference between drivers is negligible.</p>
 <p>See <a href="https://github.com/eatonphil/databases-intuition#selects">here</a> for details.</p>
 <h3 id="conclusion">Conclusion</h3><p>If you are doing INSERT-heavy workloads, or you are processing large
 number of rows returned from your SQL database, you might want to try
-benchmarking the same workload with a driver that does not require
-<code>database/sql</code>.</p>
-<p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">If you are using Go&#39;s database/sql interface for INSERT-heavy workloads, you may want to consider switching drivers to avoid database/sql.<br><br>In my tests, database/sql is roughly 20-76% slower, depending on the size of data and the database.<a href="https://t.co/NLVp0P2uiV">https://t.co/NLVp0P2uiV</a> <a href="https://t.co/Nes7awbVsj">pic.twitter.com/Nes7awbVsj</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1710051432076849594?ref_src=twsrc%5Etfw">October 5, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
+benchmarking the same workload with different drivers.</p>
 <style>.feedback{display:initial;}</style>
 	<div class="feedback">
 	  <h4>Feedback</h4>
