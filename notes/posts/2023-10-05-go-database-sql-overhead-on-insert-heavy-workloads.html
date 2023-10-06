@@ -5,18 +5,20 @@
 The most popular SQLite and PostgreSQL database drivers in Go have a
 (roughly) 20-76% overhead on insert-heavy benchmarks. So if you are
 bulk-inserting data with Go (and potentially also bulk-retrieving data
-with Go), you may want to consider the driver carefully.
+with Go), you may want to consider the driver carefully. And you may
+want to consider avoiding `database/sql`.
 
-Other driver authors have noted and
+Other driver authors have
+[noted](https://github.com/lib/pq/issues/771) and
 [benchmarked](https://github.com/ClickHouse/clickhouse-go/tree/main#benchmark)
-[issues](https://github.com/lib/pq/issues/771) with
+issues with
 [database/sql](https://github.com/jackc/pgx#choosing-between-the-pgx-and-databasesql-interfaces).
 
 So it may be the case that `database/sql` is responsible for some of
 this overhead. And indeed the variations between drivers in this post
-will be demonstrated by using `database/sql` and avoid it. Though this
-post won't specifically prove that the variation is due to the
-`database/sql` interface.
+will be demonstrated by using `database/sql` and avoid it. This post
+won't specifically prove that the variation is due to the
+`database/sql` interface. But that doesn't change the premise.
 
 <p class="note">
   Not covered in this post but something to consider:
