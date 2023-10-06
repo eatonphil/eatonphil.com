@@ -54,12 +54,12 @@
     <div class="container">
       <div class="col-6">
         <p>The most popular SQLite and PostgreSQL database drivers in Go are
-(roughly) 20-76% slower than alternatives on insert-heavy benchmarks
-of mine. So if you are bulk-inserting data with Go (and potentially
-also bulk-retrieving data with Go), you may want to consider the
-driver carefully. And you may want to consider avoiding
+(roughly) 20-76% slower than alternative Go drivers on insert-heavy
+benchmarks of mine. So if you are bulk-inserting data with Go (and
+potentially also bulk-retrieving data with Go), you may want to
+consider the driver carefully. And you may want to consider avoiding
 <code>database/sql</code>.</p>
-<p>Other driver authors have
+<p>Some driver authors have
 <a href="https://github.com/lib/pq/issues/771">noted</a> and
 <a href="https://github.com/ClickHouse/clickhouse-go/tree/main#benchmark">benchmarked</a>
 issues with
