@@ -67,11 +67,10 @@ will be demonstrated by using <code>database/sql</code> and avoid it. Though thi
 post won't specifically prove that the variation is due to the
 <code>database/sql</code> interface.</p>
 <p class="note">
-  Not covered in this post but something to consider: other frontends
-  like sqlc, sqlx, and GORM seem only to be worse than `database/sql`
-  according
-  to <a href="https://blog.jetbrains.com/go/2023/04/27/comparing-db-packages/">this
-  JetBrains post</a>.
+  Not covered in this post but something to consider:
+  JetBrains <a href="https://blog.jetbrains.com/go/2023/04/27/comparing-db-packages/">has
+  suggested</a> that other frontends like sqlc, sqlx, and GORM do
+  worse than <code>database/sql</code>.
 </p><p>This post is built on the workload, environment, libraries, and
 methodology in my <a href="https://github.com/eatonphil/databases-intuition">databases-intuition repo on
 GitHub</a>. See the
