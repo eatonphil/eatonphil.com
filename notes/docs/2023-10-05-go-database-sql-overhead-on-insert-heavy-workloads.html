@@ -148,6 +148,7 @@ return many rows, the difference between drivers is negligible.</p>
 <h3 id="conclusion">Conclusion</h3><p>If you are doing INSERT-heavy workloads, or you are processing large
 number of rows returned from your SQL database, you might want to try
 benchmarking the same workload with different drivers.</p>
+<p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">For INSERT-heavy workloads in Go, you may want to switch database drivers. For PostgreSQL and SQLite, the popular drivers are 20-76% slower for this workload in my tests.<br><br>Some driver developers have reported issues with database/sql as an interface.<a href="https://t.co/NLVp0P2uiV">https://t.co/NLVp0P2uiV</a> <a href="https://t.co/RxTbgMZ1MG">pic.twitter.com/RxTbgMZ1MG</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1710249941904351718?ref_src=twsrc%5Etfw">October 6, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
 	<div class="feedback">
 	  <h4>Feedback</h4>
