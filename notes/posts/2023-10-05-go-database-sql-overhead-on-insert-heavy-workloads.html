@@ -3,10 +3,10 @@
 ###### sqlite,postgres,go,benchmark
 
 The most popular SQLite and PostgreSQL database drivers in Go have a
-(roughly) 20-76% overhead on insert-heavy benchmarks. So if you are
-bulk-inserting data with Go (and potentially also bulk-retrieving data
-with Go), you may want to consider the driver carefully. And you may
-want to consider avoiding `database/sql`.
+(roughly) 20-76% overhead on insert-heavy benchmarks of mine. So if
+you are bulk-inserting data with Go (and potentially also
+bulk-retrieving data with Go), you may want to consider the driver
+carefully. And you may want to consider avoiding `database/sql`.
 
 Other driver authors have
 [noted](https://github.com/lib/pq/issues/771) and
