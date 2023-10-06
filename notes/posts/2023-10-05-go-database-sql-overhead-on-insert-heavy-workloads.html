@@ -13,13 +13,18 @@ Other driver authors have noted and
 [database/sql](https://github.com/jackc/pgx#choosing-between-the-pgx-and-databasesql-interfaces).
 
 So it may be the case that `database/sql` is responsible for some of
-this overhead. Though I won't investigate further if that is the
-precise case in this post.
+this overhead. And indeed the variations between drivers in this post
+will be demonstrated by using `database/sql` and avoid it. Though this
+post won't specifically prove that the variation is due to the
+`database/sql` interface.
 
-Other frontends like sqlc, sqlx, and
-GORM seem only to be worse than `database/sql` according to [this
-JetBrains
-post](https://blog.jetbrains.com/go/2023/04/27/comparing-db-packages/).
+<p class="note">
+  Not covered in this post but something to consider: other frontends
+  like sqlc, sqlx, and GORM seem only to be worse than `database/sql`
+  according
+  to <a href="https://blog.jetbrains.com/go/2023/04/27/comparing-db-packages/">this
+  JetBrains post</a>.
+</p>
 
 This post is built on the workload, environment, libraries, and
 methodology in my [databases-intuition repo on
