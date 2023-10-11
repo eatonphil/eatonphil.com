@@ -1,7 +1,15 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://eatonphil.com/2023-database-internals.html</loc>
-    <lastmod>2023-10-09</lastmod>
+    <lastmod>2023-10-11</lastmod>
+  </url>
+  <url>
+    <loc>https://eatonphil.com/2023-ddia.html</loc>
+    <lastmod>2023-10-11</lastmod>
+  </url>
+  <url>
+    <loc>https://eatonphil.com/2023-ddia.html~</loc>
+    <lastmod>2023-10-11</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/discord.html</loc>
@@ -13,7 +21,7 @@
   </url>
   <url>
     <loc>https://eatonphil.com</loc>
-    <lastmod>2023-09-03</lastmod>
+    <lastmod>2023-10-11</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/nsg.html</loc>
