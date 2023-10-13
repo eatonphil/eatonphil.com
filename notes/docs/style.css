@@ -73,7 +73,7 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
 .highlight .vm { color: #19177C } /* Name.Variable.Magic */
 .highlight .il { color: #666666 } /* Literal.Number.Integer.Long */
 :root {
-    --primary: #0081b0;
+    --primary: #EBA123;
 }
 
 * {
@@ -85,12 +85,13 @@ body {
     padding: 0;
     color: black;
     font-size: 1.1rem;
-    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: sans-serif;
 }
 
 hr {
-    border-style: solid;
-    border-color: var(--primary);
+    border: 0 none;
+    background: var(--primary);
+    height: 1px;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -107,7 +108,7 @@ h2 {
     font-size: 1rem;
     line-height: 1.1rem;
     margin: 0;
-    padding-top: 15px;
+    padding-top: 50px;
     margin-bottom: -10px;
 }
 
@@ -147,10 +148,12 @@ ul + h6 {
 }
 
 p, li {
+    font-family: serif;
     font-style: normal;
     font-variant: normal;
     font-weight: 400;
-    line-height: 1.7rem;
+    line-height: 2rem;
+    color: #334;
 }
 
 li p {
@@ -247,16 +250,31 @@ header .container {
 }
 
 .subscribe a {
-    font-size: 1rem;
-    border: 3px solid var(--primary);
-    background: var(--primary);
-    padding: 5px;
-    color: white;
+    font-size: .8rem;
+    border: 1px solid var(--primary);
+    padding: 5px 10px;
+    border-radius: 2px;
 }
 
-.subscribe a:hover {
+.subscribe a.hire-me {
+    color: #06D6A0;
+    margin-right: 10px;
+    background: rgb(6,214,160);
+    background: linear-gradient(90deg, rgba(6,214,160,1) 35%, rgba(27,154,170,1) 100%);
+    border: 0;
+    position: relative;
+}
+
+.subscribe a.hire-me:after {
     background: white;
-    color: black;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    bottom: 2px;
+    right: 2px;
+    content: 'Hire me';
+    padding: 3px 8px;
+    color: #1B9AAA;
 }
 
 aside {
@@ -306,9 +324,9 @@ aside p {
     margin-right: 10px;
     margin-bottom: 5px;
     padding: 3px 5px;
-    background: #e8f1ef;
+    background: #f1f0e8;
     color: #777;
-    font-size: .9rem;
+    font-size: .8rem;
 }
 
 .about img {
@@ -318,12 +336,12 @@ aside p {
     margin-right: 15px;
 }
 
-.summary .tags {
-    padding: 5px 0;
+.summary > a {
+    color: #333;
 }
 
-.summary .tag {
-    font-size: .9rem;
+.summary .tags {
+    padding: 5px 0;
 }
 
 .fp-project, .summary {
@@ -332,7 +350,8 @@ aside p {
 
 .summary-subtitle {
     color: #333;
-    font-size: .9rem;
+    font-size: .8rem;
+    margin-bottom: 5px;
 }
 
 .sm-link {
@@ -340,17 +359,28 @@ aside p {
     padding: 10px 0;
     padding-right: 15px;
     font-size: small;
+    color: #333;
 }
 
 .note {
     line-height: 1.4rem;
-    border: 1px solid #f0f0f0;
-    border-left: 1px solid var(--primary);
-    padding: 15px;
+    background: #f4f7f9e6;
+    padding: 30px 10px 10px 10px;
+    position: relative;
+}
+
+.note::after {
+    display: block;
+    content: 'NOTE';
+    position: absolute;
+    top: 5px;
+    font-family: sans-serif;
+    font-size: .7rem;
+    font-weight: bold;
 }
 
 .note, .note p, .note a {
-    font-size: .8rem;
+    font-size: 1rem;
 }
 
 .note-header {
@@ -367,7 +397,7 @@ aside p {
 }
 
 .fp-section:first-of-type {
-    margin-top: 2rem;
+    margin-top: 0rem;
 }
 
 .fp-section:last-of-type {
@@ -479,4 +509,8 @@ header .lfw .container > div {
 
 header .lfw .container a {
     color: #333;
+}
+
+.hide-on-index {
+    display: none;
 }
