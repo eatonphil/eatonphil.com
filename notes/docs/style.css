@@ -256,23 +256,23 @@ header .container {
     border-radius: 2px;
 }
 
-.subscribe a.hire-me {
+.subscribe a.fancy {
     color: #06D6A0;
-    margin-right: 10px;
+    margin-left: 10px;
     background: rgb(6,214,160);
     background: linear-gradient(90deg, rgba(6,214,160,1) 35%, rgba(27,154,170,1) 100%);
     border: 0;
     position: relative;
 }
 
-.subscribe a.hire-me:after {
+.subscribe a.fancy:after {
     background: white;
     position: absolute;
     top: 2px;
     left: 2px;
     bottom: 2px;
     right: 2px;
-    content: 'Hire me';
+    content: 'Subscribe';
     padding: 3px 8px;
     color: #1B9AAA;
 }
