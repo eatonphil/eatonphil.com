@@ -183,9 +183,9 @@ blockquote {
     margin-bottom: -1.5em;
 }
 
-p code {
+p:not(.note) code {
     background: #f0f0f0;
-    color: #1f7199;
+    font-size: 1rem;
 }
 
 code {
