@@ -487,6 +487,10 @@ th, td {
 	width: 100%;
 	margin-left: 0;
     }
+
+    .hide-mobile {
+	display: none;
+    }
 }
 
 #share {
