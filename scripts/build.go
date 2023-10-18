@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"os"
 	"path"
@@ -83,6 +81,133 @@ type Doc struct {
 	CanonicalURL string
 }
 
+func transform(body []rune) string {
+	outWriter := &strings.Builder{}
+	var prev rune
+	var i int
+
+outer:
+	for i < len(body) {
+		if i > 0 {
+			prev = body[i-1]
+		}
+
+		c := body[i]
+		// Support for headers
+		if (i == 0 || prev == '\n') && c == '#' {
+			var headerNumber = 0
+			for c == '#' {
+				i++
+				headerNumber++
+				c = body[i]
+			}
+
+			var header []rune
+			for !(c == '\r' || c == '\n') {
+				i++
+				header = append(header, c)
+				c = body[i]
+			}
+
+			transformed := strings.TrimSpace(transform(header))
+
+			fmt.Fprintf(outWriter, "<h%d>%s</h%d>", headerNumber, transformed, headerNumber)
+			continue
+		}
+
+		// Support for lists
+		// if (c == '-') {
+		// 	tmpI := i
+		// 	tmpC := body[tmpI]
+		// 	allSpaces := true
+		// 	for tmpC != '\n' && tmpI >= 0 {
+		// 		tmpI--
+		// 		tmpC = body[tmpI]
+		// 		if !unicode.IsSpace(tmpC) {
+		// 			allSpaces = false
+		// 			break
+		// 		}
+		// 	}
+
+		// 	// In a list
+		// 	if allSpaces {
+		// 		inList = true
+		// 	}
+		// 	i++
+		// 	c = body[i]
+			
+			
+		// 	fmt.Fprintf(outWriter, "<ul>%s</ul>")
+		// }
+
+
+		// Support for inline code
+		if (c == '`') {
+			i++
+			start := i
+			c = body[i]
+			for c != '`' {
+				i++
+				c = body[i]
+			}
+			i++
+
+			fmt.Fprintf(outWriter, "<code>%s</code>", string(body[start:i-1]))
+			continue
+		}
+
+		// Support for links
+		if (c == '[') {
+			tmpI := i
+			tmpC := body[tmpI]
+
+			oldI := tmpI
+			for tmpC != ']' {
+				tmpI++
+				tmpC = body[tmpI]
+			}
+			linkText := body[oldI+1:tmpI]
+
+			// Found ending ], now look for (
+			tmpI++
+			tmpC = body[tmpI]
+			if tmpC == '(' {
+				oldI = tmpI
+				for tmpC != ')' {
+					tmpI++
+					tmpC = body[tmpI]
+				}
+				linkHref := body[oldI+1: tmpI]
+
+				fmt.Fprintf(outWriter, `<a href="%s">%s</a>`, string(linkHref), transform(linkText))
+				i = tmpI + 1
+				continue outer
+			}
+		}
+
+		outWriter.WriteRune(c)
+		i++
+	}
+
+	return outWriter.String()
+}
+
+func assert[T comparable](a, b T) {
+	if a != b {
+		panic(fmt.Sprintf("Expected %v to equal %v", a, b))
+	}
+}
+
+func test() {
+	assert(transform([]rune(`
+# Hey
+
+[`+"`"+`hello`+"`"+`](google.com)`)), `
+<h1>Hey</h1>
+
+<a href="google.com"><code>hello</code></a>`)
+}
+
 // Returns the doc and the last modified time
 func parseDoc(docPath string) (Doc, string) {
 	file, err := os.Stat(docPath)
@@ -119,73 +244,7 @@ func parseDoc(docPath string) (Doc, string) {
 		}
 	}
 
-	var out bytes.Buffer
-	outWriter := bufio.NewWriter(&out)
-	bodyRunes := []rune(body)
-	var prev rune
-	var i int
-
-outer:
-	for i < len(bodyRunes) {
-		if i > 0 {
-			prev = bodyRunes[i-1]
-		}
-
-		c := bodyRunes[i]
-		// Support for headers
-		if (i == 0 || prev == '\n') && c == '#' {
-			var headerNumber = 0
-			for c == '#' {
-				i++
-				headerNumber++
-				c = bodyRunes[i]
-			}
-
-			var header []rune
-			for !(c == '\r' || c == '\n') {
-				i++
-				header = append(header, c)
-				c = bodyRunes[i]
-			}
-
-			fmt.Fprintf(outWriter, "<h%d>%s</h%d>", headerNumber, string(header), headerNumber)
-			continue
-		}
-
-		// Support for links
-		if (c == '[') {
-			tmpI := i
-			tmpC := bodyRunes[tmpI]
-
-			oldI := tmpI
-			for tmpC != ']' {
-				tmpI++
-				tmpC = bodyRunes[tmpI]
-			}
-			linkText := string(bodyRunes[oldI+1:tmpI])
-
-			// Found ending ], now look for (
-			tmpI++
-			tmpC = bodyRunes[tmpI]
-			if tmpC == '(' {
-				oldI = tmpI
-				for tmpC != ')' {
-					tmpI++
-					tmpC = bodyRunes[tmpI]
-				}
-				linkHref := string(bodyRunes[oldI+1: tmpI])
-
-				fmt.Fprintf(outWriter, `<a href="%s">%s</a>`, linkHref, linkText)
-				i = tmpI + 1
-				continue outer
-			}
-		}
-
-		outWriter.WriteRune(c)
-		i++
-	}
-	outWriter.Flush()
-	d.Body = string(out.Bytes())
+	d.Body = transform([]rune(body))
 
 	return d, lastModified
 }
@@ -256,11 +315,13 @@ Sitemap: https://%s/sitemap.xml
 }
 
 func main() {
+	test()
+
 	mailFile, err := os.ReadFile("mail.html")
 	if err != nil {
 		panic(err)
 	}
-
+	
 	templateFile, err := os.ReadFile("template.html")
 	if err != nil {
 		panic(err)
