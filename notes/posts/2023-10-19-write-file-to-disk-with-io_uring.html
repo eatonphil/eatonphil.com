@@ -1,0 +1,858 @@
+# io_uring basics: Writing a file to disk
+## October 19, 2023
+###### go,zig,io_uring
+
+King and I [wrote a blog
+post](https://tigerbeetle.com/blog/a-friendly-abstraction-over-iouring-and-kqueue/)
+about building an event-driven cross-platform IO library that used
+io_uring on Linux. We sketched out how it works at a high level but I
+hadn't yet internalized how you actually code with io_uring. So I
+strapped myself down this week and wrote [some
+benchmarks](https://github.com/eatonphil/io-playground) to build my
+intuition about io_uring and other IO models.
+
+I started with implementations in Go and ported them to Zig to make
+sure I had done the Go versions decently. And I got some help from
+King and other internetters to find some inefficiencies in my code.
+
+This post will walk through increasingly efficient (and a little
+increasingly complex) ways to write an entire file to disk with
+io_uring, from Go and Zig. That is, this won't be about streaming
+writes.
+
+<p class="note">
+  This code is going to indirectly show some differences in timing
+  between Go and Zig. I could care less about benchmarketing. And I
+  hope something about Zig vs Go is not what you take away from this
+  post either. All I want to do is build an intuition and be generally
+  correct. Observing the same relative behavior between
+  implementations across two languages helps me gain confidence what
+  I'm doing is correct.
+</p>
+
+### io_uring
+
+With normal blocking syscalls you just call read() or write() and wait
+for the results. io_uring is one of Linux's most powerful asynchronous
+IO offerings. Unlike epoll, you can use io_uring with both files and
+network connections. And unlike epoll you can even have the syscall
+run in the kernel.
+
+To interact with io_uring, you register a submission queue for syscalls
+and their arguments. And you register a completion queue for syscall
+results.
+
+You can batch many syscalls in one single call to io_uring,
+effectively turning up to N (4096 at most) syscalls into just one
+syscall. The kernel still does all the work of the N syscalls but you
+avoid some overhead.
+
+As you check the completion queue and handle completed submissions,
+the submission queue is also freed all or somewhat, and you can now
+add more submissions.
+
+For a more complete understanding, check out the kernel document
+[Efficient IO with io_uring](https://kernel.dk/io_uring.pdf).
+
+### io_uring vs liburing
+
+io_uring is a complex, low-level interface. Shuveb Hussain has [an
+excellent
+series](https://unixism.net/2020/04/io-uring-by-example-part-1-introduction/)
+on programming io_uring. But that was too low-level for me as I was
+trying to figure out how to just get something working.
+
+Instead, most people use [liburing](https://github.com/axboe/liburing)
+or a ported version of it like [the Zig standard library's
+io_uring.zig](https://github.com/ziglang/zig/blob/master/lib/std/os/linux/io_uring.zig)
+or [Iceber's iouring-go](https://github.com/Iceber/iouring-go).
+
+io_uring started clicking for me when I tried out the iouring-go
+library. So we'll start there.
+
+### Boilerplate
+
+First off, let's set up some boilerplate for the Go and Zig code.
+
+In main.go add:
+
+```go
+package main
+
+import (
+  "bytes"
+  "fmt"
+  "os"
+  "time"
+)
+
+func assert(b bool) {
+  if !b {
+    panic("assert")
+  }
+}
+
+const BUFFER_SIZE = 4096
+
+func readNBytes(fn string, n int) []byte {
+  f, err := os.Open(fn)
+  if err != nil {
+    panic(err)
+  }
+  defer f.Close()
+
+  data := make([]byte, 0, n)
+
+  var buffer = make([]byte, BUFFER_SIZE)
+  for len(data) < n {
+    read, err := f.Read(buffer)
+    if err != nil {
+      panic(err)
+    }
+
+    data = append(data, buffer[:read]...)
+  }
+
+  assert(len(data) == n)
+
+  return data
+}
+
+func benchmark(name string, data []byte, fn func(*os.File)) {
+  fmt.Printf("%s", name)
+  f, err := os.OpenFile("out.bin", os.O_RDWR | os.O_CREATE | os.O_TRUNC, 0755)
+  if err != nil {
+    panic(err)
+  }
+
+  t1 := time.Now()
+
+  fn(f)
+
+  s := time.Now().Sub(t1).Seconds()
+  fmt.Printf(",%f,%f\n", s, float64(len(data))/s)
+
+  if err := f.Close(); err != nil {
+    panic(err)
+  }
+
+  assert(bytes.Equal(readNBytes("out.bin", len(data)), data))
+}
+```
+
+And in main.zig add:
+
+```zig
+const std = @import("std");
+
+const OUT_FILE = "out.bin";
+const BUFFER_SIZE: u64 = 4096;
+
+fn readNBytes(
+  allocator: *const std.mem.Allocator,
+  filename: []const u8,
+  n: usize,
+) ![]const u8 {
+  const file = try std.fs.cwd().openFile(filename, .{});
+  defer file.close();
+
+  var data = try allocator.alloc(u8, n);
+  var buf = try allocator.alloc(u8, BUFFER_SIZE);
+
+  var written: usize = 0;
+  while (data.len < n) {
+    var nwritten = try file.read(buf);
+    @memcpy(data[written..], buf[0..nwritten]);
+    written += nwritten;
+  }
+
+  std.debug.assert(data.len == n);
+  return data;
+}
+
+const Benchmark = struct {
+  t: std.time.Timer,
+  file: std.fs.File,
+  data: []const u8,
+  allocator: *const std.mem.Allocator,
+
+  fn init(
+    allocator: *const std.mem.Allocator,
+    name: []const u8,
+    data: []const u8,
+  ) !Benchmark {
+    try std.io.getStdOut().writer().print("{s}", .{name});
+    
+    var file = try std.fs.cwd().createFile(OUT_FILE, .{
+      .truncate = true,
+    });
+    
+    return Benchmark{
+      .t = try std.time.Timer.start(),
+      .file = file,
+      .data = data,
+      .allocator = allocator,
+    };
+  }
+
+  fn stop(b: *Benchmark) void {
+    const s = @as(f64, @floatFromInt(b.t.read())) / std.time.ns_per_s;
+    std.io.getStdOut().writer().print(
+      ",{d},{d}\n",
+      .{ s, @as(f64, @floatFromInt(b.data.len)) / s },
+    ) catch unreachable;
+    
+    b.file.close();
+    
+    var in = readNBytes(b.allocator, OUT_FILE, b.data.len) catch unreachable;
+    std.debug.assert(std.mem.eql(u8, in, b.data));
+    b.allocator.free(in);
+  }
+};
+```
+
+### Keep it simple: write()
+
+Now let's add the naive version of writing bytes to disk: calling
+`write()` repeatedly until all data has been written to disk.
+
+In `main.go`:
+
+```go
+func main() {
+  size := 104857600 // 100MiB
+  data := readNBytes("/dev/random", size)
+
+  const RUNS = 10
+  for i := 0; i < RUNS; i++ {
+    benchmark("blocking", data, func(f *os.File) {
+      for i := 0; i < len(data); i += BUFFER_SIZE {
+        size := min(BUFFER_SIZE, len(data)-i)
+        n, err := f.Write(data[i : i+size])
+        if err != nil {
+          panic(err)
+        }
+
+        assert(n == BUFFER_SIZE)
+      }
+    })
+  }
+}
+
+```
+
+And in `main.zig`:
+
+```zig
+pub fn main() !void {
+  var allocator = &std.heap.page_allocator;
+
+  const SIZE = 104857600; // 100MiB
+  var data = try readNBytes(allocator, "/dev/random", SIZE);
+  defer allocator.free(data);
+
+  const RUNS = 10;
+  var run: usize = 0;
+  while (run < RUNS) : (run += 1) {
+    {
+      var b = try Benchmark.init(allocator, "blocking", data);
+      defer b.stop();
+    
+      var i: usize = 0;
+      while (i < data.len) : (i += BUFFER_SIZE) {
+        const size = @min(BUFFER_SIZE, data.len - i);
+        const n = try b.file.write(data[i .. i + size]);
+        std.debug.assert(n == size);
+      }
+    }
+  }
+}
+```
+
+And let's build and run these programs and store the results to CSV we
+can analyze with DuckDB.
+
+Go first:
+
+```
+$ go build main.go -o gomain
+$ ./gomain > go.csv
+$ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'go.csv' group by column0 order by avg(cast(column1 as double)) asc"
+┌──────────┬──────────────────────┬────────────────┐
+│  method  │       avg_time       │ avg_throughput │
+│ varchar  │       varchar        │    varchar     │
+├──────────┼──────────────────────┼────────────────┤
+│ blocking │ 0.07251540000000001s │ 1.4GB/s        │
+└──────────┴──────────────────────┴────────────────┘
+```
+
+And Zig:
+
+```
+$ zig build-exe main.zig
+$ ./main > zig.csv
+duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'zig.csv' group by column0 order by avg(cast(column1 as double)) asc"
+┌──────────┬───────────────┬────────────────┐
+│  method  │   avg_time    │ avg_throughput │
+│ varchar  │    varchar    │    varchar     │
+├──────────┼───────────────┼────────────────┤
+│ blocking │ 0.0656907669s │ 1.5GB/s        │
+└──────────┴───────────────┴────────────────┘
+```
+
+Alright, we've got a baseline now and both language implementations
+are in the same ballpark.
+
+Let's add a simple io_uring version!
+
+### io_uring, 1 entry, Go
+
+The [iouring-go](https://github.com/Iceber/iouring-go#quickstart)
+library has really excellent documentation for getting started.
+
+So we use io_uring with only 1 entry to keep things simple. Add the
+following to `func main()` after the existing `benchmark()` call in
+`main.go`:
+
+```
+benchmark("io_uring", data, func(f * os.File) {
+  iour, err := iouring.New(1)
+  if err != nil {
+    panic(err)
+  }
+  defer iour.Close()
+
+  for i := 0; i < len(data); i += BUFFER_SIZE {
+    size := min(BUFFER_SIZE, len(data)-i)
+    prepRequest := iouring.Pwrite(int(f.Fd()), data[i : i+size], uint64(i))
+    res, err := iour.SubmitRequest(prepRequest, nil)
+    if err != nil {
+      panic(err)
+    }
+
+    <-res.Done()
+    i, err := res.ReturnInt()
+    if err != nil {
+      panic(err)
+    }
+    assert(size == i)
+  }
+})
+```
+
+Note that `benchmark` takes care of `f.Seek(0)` before each run. And
+it also validates that the file contents are equivalent to the input
+`data`. So it validates the benchmark for correctness.
+
+Alright, let's run this new Go implementation with io_uring!
+
+```
+$ go mod init gomain
+$ go mod tidy
+$ go build main.go -o gomain
+$ ./gomain > go.csv
+$ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'go.csv' group by column0 order by avg(cast(column1 as double)) asc"
+┌──────────┬─────────────────────┬────────────────┐
+│  method  │      avg_time       │ avg_throughput │
+│ varchar  │       varchar       │    varchar     │
+├──────────┼─────────────────────┼────────────────┤
+│ blocking │ 0.0811486s          │ 1.3GB/s        │
+│ io_uring │ 0.5083049999999999s │ 213.2MB/s      │
+└──────────┴─────────────────────┴────────────────┘
+```
+
+Well that looks terrible.
+
+Let's port it to Zig to see if we notice the same behavior there.
+
+### io_uring, 1 entry, Zig
+
+There isn't an official Zig tutorial on io_uring I'm aware of. But
+[io_uring.zig](https://github.com/ziglang/zig/blob/master/lib/std/os/linux/io_uring.zig)
+is easy enough to browse through. And there are tests in that file
+that also show how to use it.
+
+And now that we've explored a bit in Go the basic gist should be
+similar:
+
+- initialize io_uring
+- submit an entry
+- wait for it to finish
+- move on
+
+Add the following to `fn main()` after the existing benchmark block in
+`main.zig`:
+
+```zig
+{
+  var b = try Benchmark.init(allocator, "iouring", data);
+  defer b.stop();
+
+  const entries = 1;
+  var ring = try std.os.linux.IO_Uring.init(entries, 0);
+  defer ring.deinit();
+
+  var i: usize = 0;
+  while (i < data.len) : (i += BUFFER_SIZE) {
+    const size = @min(BUFFER_SIZE, data.len - i);
+    _ = try ring.write(0, b.file.handle, data[i .. i + size], i);
+
+    const submitted = try ring.submit_and_wait(1);
+    std.debug.assert(submitted == 1);
+
+    const cqe = try ring.copy_cqe();
+    std.debug.assert(cqe.err() == .SUCCESS);
+    std.debug.assert(cqe.res >= 0);
+    const n = @as(usize, @intCast(cqe.res));
+    std.debug.assert(n <= BUFFER_SIZE);
+  }
+}
+```
+
+Now build and run:
+
+```
+$ zig build-exe main.zig
+$ ./main > zig.csv
+$ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'zig.csv' group by column0 order by avg(cast(column1 as double)) asc"
+┌──────────┬──────────────────────┬────────────────┐
+│  method  │       avg_time       │ avg_throughput │
+│ varchar  │       varchar        │    varchar     │
+├──────────┼──────────────────────┼────────────────┤
+│ blocking │ 0.06650093630000001s │ 1.5GB/s        │
+│ io_uring │ 0.17542890139999998s │ 597.7MB/s      │
+└──────────┴──────────────────────┴────────────────┘
+```
+
+Well it's similarly pretty bad. But our implementation ignores one
+major aspect of io_uring: batching requests.
+
+Let's do some refactoring!
+
+### io_uring, N entries, Go
+
+To support submitting N entries, we're going to have an inner loop
+running up to N that fills up N entries to io_uring.
+
+Then we'll wait for the N submissions to complete and check their
+results.
+
+We'll keep going until we write the entire file.
+
+All of this can stay inside the loop in `main`, I'm just dropping
+preceding whitespace for nicer formatting here:
+
+```go
+benchmarkIOUringNEntries := func (nEntries int) {
+  benchmark(fmt.Sprintf("io_uring_%d_entries", nEntries), data, func(f * os.File) {
+    iour, err := iouring.New(uint(nEntries))
+    if err != nil {
+      panic(err)
+    }
+    defer iour.Close()
+
+    requests := make([]iouring.PrepRequest, nEntries)
+
+    for i := 0; i < len(data); i += BUFFER_SIZE * nEntries {
+      submittedEntries := 0
+      for j := 0; j < nEntries; j++ {
+        base := i + j * BUFFER_SIZE
+        if base >= len(data) {
+          break
+        }
+        submittedEntries++
+        size := min(BUFFER_SIZE, len(data)-i)
+        requests[j] = iouring.Pwrite(int(f.Fd()), data[base : base+size], uint64(base))
+      }
+
+      if submittedEntries == 0 {
+        break
+      }
+
+      res, err := iour.SubmitRequests(requests[:submittedEntries], nil)
+      if err != nil {
+        panic(err)
+      }
+
+      <-res.Done()
+
+      for _, result := range res.ErrResults() {
+        _, err := result.ReturnInt()
+        if err != nil {
+          panic(err)
+        }
+      }
+    }
+  })
+}
+benchmarkIOUringNEntries(1)
+benchmarkIOUringNEntries(128)
+```
+
+There are some specific things in there to notice.
+
+First, toward the end of the file we may not have `N` entries to
+submit. We may have `1` or even `0`.
+
+If we have `0` to submit, we need to not even submit anything
+otherwise the Go library hangs. Similarly, if we don't slice
+`requests` to `requests[:submittedEntries]`, the Go library will
+segfault if `submittedEntries < N`.
+
+Other than that, let's build and run this!
+
+```
+$ go build -o gomain
+$ ./gomain > go.csv
+$ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'go.csv' group by column0 order by avg(cast(column1 as double)) asc"
+┌──────────────────────┬──────────────────────┬────────────────┐
+│        method        │       avg_time       │ avg_throughput │
+│       varchar        │       varchar        │    varchar     │
+├──────────────────────┼──────────────────────┼────────────────┤
+│ blocking             │ 0.0740368s           │ 1.4GB/s        │
+│ io_uring_128_entries │ 0.127519s            │ 836.6MB/s      │
+│ io_uring_1_entries   │ 0.46831579999999995s │ 226.9MB/s      │
+└──────────────────────┴──────────────────────┴────────────────┘
+```
+
+Now we're getting somewhere! Still half the throughput but a 4x
+improvement from using only a single entry.
+
+Let's port the N entry code to Zig.
+
+### io_uring, N entries, Zig
+
+Unlike Go we can't do closures, so we'll have to make
+`benchmarkIOUringNEntries` a top-level function and keep the calls to
+it in the loop in `main`:
+
+```zig
+pub fn main() !void {
+    var allocator = &std.heap.page_allocator;
+
+    const SIZE = 104857600; // 100MiB
+    var data = try readNBytes(allocator, "/dev/random", SIZE);
+    defer allocator.free(data);
+
+    const RUNS = 10;
+    var run: usize = 0;
+    while (run < RUNS) : (run += 1) {
+        {
+            var b = try Benchmark.init(allocator, "blocking", data);
+            defer b.stop();
+
+            var i: usize = 0;
+            while (i < data.len) : (i += BUFFER_SIZE) {
+                const size = @min(BUFFER_SIZE, data.len - i);
+                const n = try b.file.write(data[i .. i + size]);
+                std.debug.assert(n == size);
+            }
+        }
+
+        try benchmarkIOUringNEntries(allocator, data, 1);
+        try benchmarkIOUringNEntries(allocator, data, 128);
+    }
+}
+```
+
+And for the implementation itself, the only two big differences from
+the first version are that we'll bulk-read completion events (`cqe`s)
+and that we'll create and wait for many submissions at once.
+
+```zig
+fn benchmarkIOUringNEntries(
+  allocator: *const std.mem.Allocator,
+  data: []const u8,
+  nEntries: u13,
+) !void {
+  const name = try std.fmt.allocPrint(allocator.*, "iouring_{}_entries", .{nEntries});
+  defer allocator.free(name);
+
+  var b = try Benchmark.init(allocator, name, data);
+  defer b.stop();
+
+  var ring = try std.os.linux.IO_Uring.init(nEntries, 0);
+  defer ring.deinit();
+
+  var cqes = try allocator.alloc(std.os.linux.io_uring_cqe, nEntries);
+  defer allocator.free(cqes);
+
+  var i: usize = 0;
+  while (i < data.len) : (i += BUFFER_SIZE * nEntries) {
+    var submittedEntries: u32 = 0;
+    var j: usize = 0;
+    while (j < nEntries) : (j += 1) {
+      const base = i + j * BUFFER_SIZE;
+      if (base >= data.len) {
+        break;
+      }
+      submittedEntries += 1;
+      const size = @min(BUFFER_SIZE, data.len - base);
+      _ = try ring.write(0, b.file.handle, data[base .. base + size], base);
+    }
+
+    const submitted = try ring.submit_and_wait(submittedEntries);
+    std.debug.assert(submitted == submittedEntries);
+
+    const waited = try ring.copy_cqes(cqes[0..submitted], submitted);
+    std.debug.assert(waited == submitted);
+
+    for (cqes[0..submitted]) |*cqe| {
+      std.debug.assert(cqe.err() == .SUCCESS);
+      std.debug.assert(cqe.res >= 0);
+      const n = @as(usize, @intCast(cqe.res));
+      std.debug.assert(n <= BUFFER_SIZE);
+    }
+  }
+}
+```
+
+Let's build and run:
+
+```
+$ zig build-exe main.zig
+$ ./main > zig.csv
+$ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'zig.csv' group by column0 order by avg(cast(column1 as double)) asc"
+┌─────────────────────┬──────────────────────┬────────────────┐
+│       method        │       avg_time       │ avg_throughput │
+│       varchar       │       varchar        │    varchar     │
+├─────────────────────┼──────────────────────┼────────────────┤
+│ blocking            │ 0.0674331114s        │ 1.5GB/s        │
+│ iouring_128_entries │ 0.06773539590000001s │ 1.5GB/s        │
+│ iouring_1_entries   │ 0.1855542556s        │ 569.9MB/s      │
+└─────────────────────┴──────────────────────┴────────────────┘
+```
+
+Huh, that's surprising! We caught up to blocking writes with io_uring
+in Zig, but not in Go, even though we made good progress in Go.
+
+### Ring buffers
+
+But we can do a bit better. We're doing batching, but the API is
+called "io_uring" not "io_batch". We're not even making use of the
+ring buffer behavior io_uring gives us!
+
+We are waiting for all submitted results complete. But there's no
+reason to do that. Instead we should submit as much as we can. But we
+should not block waiting for completions. We handle completions when
+they happen. And we just retry submissions until we're done
+reading. Retrying if there's no space for the moment.
+
+Unfortunately the Go library doesn't seem to expose this ring behavior
+of io_uring. Or I've missed it.
+
+But we can do it in Zig. Let's go.
+
+### io_uring, ring buffer, Zig
+
+We mostly need to change the way we track which offsets we need to
+submit so far.
+
+And we go from blocking on the number we submitted to never blocking
+at all.
+
+```zig
+fn benchmarkIOUringNEntries(
+  allocator: *const std.mem.Allocator,
+  data: []const u8,
+  nEntries: u13,
+) !void {
+  const name = try std.fmt.allocPrint(allocator.*, "iouring_{}_entries", .{nEntries});
+  defer allocator.free(name);
+
+  var b = try Benchmark.init(allocator, name, data);
+  defer b.stop();
+
+  var ring = try std.os.linux.IO_Uring.init(nEntries, 0);
+  defer ring.deinit();
+
+  var cqes = try allocator.alloc(std.os.linux.io_uring_cqe, nEntries);
+  defer allocator.free(cqes);
+
+  var written: usize = 0;
+  var i: usize = 0;
+  while (i < data.len or written < data.len) {
+    var submittedEntries: u32 = 0;
+    var j: usize = 0;
+    while (true) {
+      const base = i + j * BUFFER_SIZE;
+      if (base >= data.len) {
+        break;
+      }
+      const size = @min(BUFFER_SIZE, data.len - base);
+      _ = ring.write(0, b.file.handle, data[base .. base + size], base) catch |e| switch (e) {
+        error.SubmissionQueueFull => break,
+        else => unreachable,
+      };
+      submittedEntries += 1;
+      i += size;
+    }
+
+    _ = try ring.submit_and_wait(0);
+    const cqesDone = try ring.copy_cqes(cqes, 0);
+
+    for (cqes[0..cqesDone]) |*cqe| {
+      std.debug.assert(cqe.err() == .SUCCESS);
+      std.debug.assert(cqe.res >= 0);
+      const n = @as(usize, @intCast(cqe.res));
+      std.debug.assert(n <= BUFFER_SIZE);
+      written += n;
+    }
+  }
+}
+```
+
+The code got a bit simpler! Granted, we're omitting error handling.
+
+Build and run:
+
+```zig
+$ zig build-exe main.zig
+$ ./main > zig.csv
+$ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'zig.csv' group by column0 order by avg(cast(column1 as double)) asc"
+┌─────────────────────┬──────────────────────┬────────────────┐
+│       method        │       avg_time       │ avg_throughput │
+│       varchar       │       varchar        │    varchar     │
+├─────────────────────┼──────────────────────┼────────────────┤
+│ iouring_128_entries │ 0.06035423609999999s │ 1.7GB/s        │
+│ iouring_1_entries   │ 0.0610197624s        │ 1.7GB/s        │
+│ blocking            │ 0.0671628515s        │ 1.5GB/s        │
+└─────────────────────┴──────────────────────┴────────────────┘
+```
+
+Not bad!
+
+### Crank it up
+
+We've been inserting 100MiB of data. Let's go up to 1GiB to see how
+that affects things. Ideally the more data we write the more we
+reflect realistic long-term results.
+
+In `main.zig` just change `SIZE` to `1073741824`. Rebuild and run:
+
+```
+$ zig build-exe main.zig
+$ ./main > zig.csv
+$ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'out.csv' group by column0 order by avg(cast(column1 as double)) asc"
+┌─────────────────────┬─────────────────────┬────────────────┐
+│       method        │      avg_time       │ avg_throughput │
+│       varchar       │       varchar       │    varchar     │
+├─────────────────────┼─────────────────────┼────────────────┤
+│ iouring_128_entries │ 0.6063814535s       │ 1.7GB/s        │
+│ iouring_1_entries   │ 0.6167537295000001s │ 1.7GB/s        │
+│ blocking            │ 0.6831747749s       │ 1.5GB/s        │
+└─────────────────────┴─────────────────────┴────────────────┘
+```
+
+No real difference, perfect!
+
+Let's make one more change though. Let's up the `BUFFER_SIZE` from
+4KiB to 1MiB.
+
+```
+$ zig build-exe main.zig
+$ ./main > zig.csv
+$ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'out.csv' group by column0 order by avg(cast(column1 as double)) asc"
+┌─────────────────────┬──────────────────────┬────────────────┐
+│       method        │       avg_time       │ avg_throughput │
+│       varchar       │       varchar        │    varchar     │
+├─────────────────────┼──────────────────────┼────────────────┤
+│ iouring_128_entries │ 0.2756831357s        │ 3.8GB/s        │
+│ iouring_1_entries   │ 0.27575404880000004s │ 3.8GB/s        │
+│ blocking            │ 0.2833337046s        │ 3.7GB/s        │
+└─────────────────────┴──────────────────────┴────────────────┘
+```
+
+Hey that's an improvement!
+
+### Control
+
+All these numbers are machine-specific obviously. So what does an
+existing tool like
+[fio](https://fio.readthedocs.io/en/latest/fio_doc.html) say?
+(Assuming I'm using it correctly. I await your corrections!)
+
+With a 4KiB buffer size:
+
+```
+$ fio --name=fiotest --rw=write --size=1G --bs=4k --group_reporting --ioengine=sync
+fiotest: (g=0): rw=write, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=sync, iodepth=1
+fio-3.33
+Starting 1 process
+Jobs: 1 (f=1)
+fiotest: (groupid=0, jobs=1): err= 0: pid=2437359: Thu Oct 19 23:33:42 2023
+  write: IOPS=282k, BW=1102MiB/s (1156MB/s)(1024MiB/929msec); 0 zone resets
+    clat (nsec): min=2349, max=54099, avg=2709.48, stdev=1325.83
+     lat (nsec): min=2390, max=54139, avg=2752.89, stdev=1334.62
+    clat percentiles (nsec):
+     |  1.00th=[ 2416],  5.00th=[ 2416], 10.00th=[ 2416], 20.00th=[ 2448],
+     | 30.00th=[ 2448], 40.00th=[ 2448], 50.00th=[ 2448], 60.00th=[ 2480],
+     | 70.00th=[ 2512], 80.00th=[ 2544], 90.00th=[ 2832], 95.00th=[ 3504],
+     | 99.00th=[ 5792], 99.50th=[15296], 99.90th=[19584], 99.95th=[20096],
+     | 99.99th=[22656]
+   bw (  KiB/s): min=940856, max=940856, per=83.36%, avg=940856.00, stdev= 0.00, samples=1
+   iops        : min=235214, max=235214, avg=235214.00, stdev= 0.00, samples=1
+  lat (usec)   : 4=97.22%, 10=2.03%, 20=0.71%, 50=0.04%, 100=0.01%
+  cpu          : usr=17.35%, sys=82.11%, ctx=26, majf=0, minf=11
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,262144,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=1102MiB/s (1156MB/s), 1102MiB/s-1102MiB/s (1156MB/s-1156MB/s), io=1024MiB (1074MB), run=929-929msec
+```
+
+1.2GB/s is about in the ballpark of what we got.
+
+And with a 1MiB buffer size?
+
+```
+$ fio --name=fiotest --rw=write --size=1G --bs=1M --group_reporting --ioengine=sync
+fiotest: (g=0): rw=write, bs=(R) 1024KiB-1024KiB, (W) 1024KiB-1024KiB, (T) 1024KiB-1024KiB, ioengine=sync, iodepth=1
+fio-3.33
+Starting 1 process
+fiotest: Laying out IO file (1 file / 1024MiB)
+
+fiotest: (groupid=0, jobs=1): err= 0: pid=2437239: Thu Oct 19 23:32:09 2023
+  write: IOPS=3953, BW=3954MiB/s (4146MB/s)(1024MiB/259msec); 0 zone resets
+    clat (usec): min=221, max=1205, avg=241.83, stdev=43.93
+     lat (usec): min=228, max=1250, avg=251.68, stdev=45.80
+    clat percentiles (usec):
+     |  1.00th=[  225],  5.00th=[  225], 10.00th=[  227], 20.00th=[  227],
+     | 30.00th=[  231], 40.00th=[  233], 50.00th=[  235], 60.00th=[  239],
+     | 70.00th=[  243], 80.00th=[  249], 90.00th=[  262], 95.00th=[  269],
+     | 99.00th=[  302], 99.50th=[  318], 99.90th=[ 1074], 99.95th=[ 1205],
+     | 99.99th=[ 1205]
+  lat (usec)   : 250=80.96%, 500=18.85%
+  lat (msec)   : 2=0.20%
+  cpu          : usr=4.26%, sys=94.96%, ctx=3, majf=0, minf=10
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,1024,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=3954MiB/s (4146MB/s), 3954MiB/s-3954MiB/s (4146MB/s-4146MB/s), io=1024MiB (1074MB), run=259-259msec
+```
+
+3.9GB/s is also roughly in the same ballpark we got.
+
+Our code seems reasonable!
+
+### What's next?
+
+None of this is original. `fio` is a similar tool, written in C, with
+many different IO engines including `libaio` and `writev` support. And
+it has many different IO workloads.
+
+But it's been enjoyable to learn more about these APIs. How to program
+them and how they compare to eachother.
+
+So next steps could include adding additional IO engines or IO
+workloads.
+
+Keep an eye out here and on my [io-playground
+repo](https://github.com/eatonphil/io-playground)!

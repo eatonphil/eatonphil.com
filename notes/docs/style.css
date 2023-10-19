@@ -291,7 +291,7 @@ aside p {
 .highlight {
     overflow: auto;
     padding: 1.5rem;
-    max-height: 1000px;
+    max-height: 500px;
     border: 1px solid #ddd;
     background: white;
     width: 800px;
