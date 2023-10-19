@@ -20,6 +20,9 @@ increasingly complex) ways to write an entire file to disk with
 io_uring, from Go and Zig. That is, this won't be about streaming
 writes.
 
+All code for this post is [available on
+GitHub](https://github.com/eatonphil/io_uring-basics-writing-file).
+
 <p class="note">
   This code is going to indirectly show some differences in timing
   between Go and Zig. I could care less about benchmarketing. And I
@@ -706,7 +709,7 @@ The code got a bit simpler! Granted, we're omitting error handling.
 
 Build and run:
 
-```zig
+```
 $ zig build-exe main.zig
 $ ./main > zig.csv
 $ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'zig.csv' group by column0 order by avg(cast(column1 as double)) asc"
@@ -853,6 +856,10 @@ them and how they compare to eachother.
 
 So next steps could include adding additional IO engines or IO
 workloads.
+
+Also, either I need to understand Iceber's Go library better or its
+API needs to be loosened up a little bit so we can get that awesome
+ring buffer behavior we could use from Zig.
 
 Keep an eye out here and on my [io-playground
 repo](https://github.com/eatonphil/io-playground)!
