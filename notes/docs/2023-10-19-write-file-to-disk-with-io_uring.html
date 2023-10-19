@@ -67,10 +67,9 @@ intuition about io_uring and other IO models.</p>
 <p>I started with implementations in Go and ported them to Zig to make
 sure I had done the Go versions decently. And I got some help from
 King and other internetters to find some inefficiencies in my code.</p>
-<p>This post will walk through increasingly efficient (and a little
-increasingly complex) ways to write an entire file to disk with
-io_uring, from Go and Zig. That is, this won't be about streaming
-writes.</p>
+<p>This post will walk through my process, getting increasingly efficient
+(and a little increasingly complex) ways to write an entire file to
+disk with io_uring, from Go and Zig.</p>
 <p>All code for this post is <a href="https://github.com/eatonphil/io_uring-basics-writing-file">available on
 GitHub</a>.</p>
 <p class="note">
