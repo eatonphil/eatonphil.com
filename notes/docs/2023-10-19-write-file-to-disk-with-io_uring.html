@@ -70,6 +70,11 @@ King and other internetters to find some inefficiencies in my code.</p>
 <p>This post will walk through my process, getting increasingly efficient
 (and a little increasingly complex) ways to write an entire file to
 disk with io_uring, from Go and Zig.</p>
+<p>Notably, we're not going to <code>fsync()</code> and we're not going to use
+<code>O_DIRECT</code>. So we won't be testing the entire IO pipeline from
+userland to disk hardware but just how fast IO gets to the kernel. If
+you want to see these other more inclusive tests, follow <a href="https://github.com/eatonphil/io-playground">my
+io-playground repo</a>.</p>
 <p>All code for this post is <a href="https://github.com/eatonphil/io_uring-basics-writing-file">available on
 GitHub</a>.</p>
 <p class="note">
@@ -905,6 +910,13 @@ API needs to be loosened up a little bit so we can get that awesome
 ring buffer behavior we could use from Zig.</p>
 <p>Keep an eye out here and on my <a href="https://github.com/eatonphil/io-playground">io-playground
 repo</a>!</p>
+<h3 id="selected-responses">Selected Responses</h3><ul>
+<li>wizeman on lobsters
+<a href="https://lobste.rs/s/rimkv3/io_uring_basics_writing_file_disk#c_qvlx5u">suggests</a>
+measuring at least 30 seconds worth of writing data and
+<code>fsync()</code>-ing if you want to test the entire IO subsystem and not
+just hitting the kernel cache.</li>
+</ul>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Digging into io_uring has been on my list for a long time now! This week I finally made made some progress.<br><br>Let&#39;s go on a little journey through a few increasingly complex (and useful) implementations of writing a file to disk with io_uring.<a href="https://t.co/gR9K2OQs2R">https://t.co/gR9K2OQs2R</a> <a href="https://t.co/TMaC8QYL6k">pic.twitter.com/TMaC8QYL6k</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1715151609615773965?ref_src=twsrc%5Etfw">October 19, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
 	<div class="feedback">

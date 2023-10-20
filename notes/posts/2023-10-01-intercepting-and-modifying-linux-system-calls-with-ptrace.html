@@ -700,5 +700,12 @@ that explores ptrace with seccomp filters.
 
 Credits: Thank you Charlie Cummings and Paul Khuong for reviewing a draft
 of this post!
+
+### Selected Responses
+
+- oscooter on Reddit [gave some
+  tips](https://www.reddit.com/r/linux/comments/16x32l3/comment/k380m9q/?utm_source=reddit&utm_medium=web2x&context=3)
+  on using ptrace, including using `process_vm_readv` instead of
+  `PTRACE_PEEKDATA` to read memory from the tracee process.
     
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">Fault injection is a scary-sounding term. Intercepting and modifying Linux system calls sounds scary too.<br><br>But it&#39;s a neat way to trigger logical errors in programs, to build confidence we wrote code correctly.<br><br>Let&#39;s trigger short writes to disk in Zig!<a href="https://t.co/0C3tWt3vtT">https://t.co/0C3tWt3vtT</a> <a href="https://t.co/OS7auDe8jR">pic.twitter.com/OS7auDe8jR</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1708482934863180004?ref_src=twsrc%5Etfw">October 1, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
