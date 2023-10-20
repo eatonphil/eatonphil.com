@@ -21,16 +21,22 @@ with smtplib.SMTP(smtp_server, port) as server:
     server.starttls(context=context)
     server.login(sender_email, password)
 
-    with open("sent.log", "w") as sentlog:
-        with open(args.subscribers, newline='') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                who = row["Subscriber"]
-                message = EmailMessage()
-                message["Subject"] = args.subject
-                message["From"] = f"Phil Eaton <{sender_email}>"
-                message["To"] = who
-                with open(args.message) as f:
-                    message.set_content(f.read(), subtype="html")
-                server.send_message(message)
-                sentlog.write(who+"\n")
+    with open("failed.log", "w") as failedlog:
+        with open("sent.log", "w") as sentlog:
+            with open(args.subscribers, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    try:
+                        who = row["Subscriber"]
+                        message = EmailMessage()
+                        message["Subject"] = args.subject
+                        message["From"] = f"Phil Eaton <{sender_email}>"
+                        message["To"] = who
+                        with open(args.message) as f:
+                            message.set_content(f.read(), subtype="html")
+                        server.send_message(message)
+                        sentlog.write(who+"\n")
+                    except Exception as e:
+                        print(e)
+                        failedlog.write(who+"\n")
+                    
