@@ -72,9 +72,11 @@ King and other internetters to find some inefficiencies in my code.</p>
 disk with io_uring, from Go and Zig.</p>
 <p>Notably, we're not going to <code>fsync()</code> and we're not going to use
 <code>O_DIRECT</code>. So we won't be testing the entire IO pipeline from
-userland to disk hardware but just how fast IO gets to the kernel. If
-you want to see these other more inclusive tests, follow <a href="https://github.com/eatonphil/io-playground">my
-io-playground repo</a>.</p>
+userland to disk hardware but just how fast IO gets to the
+kernel. We'll just look at different IO methods and not focus on
+absoluate numbers. If you want to see these other more inclusive
+tests, follow <a href="https://github.com/eatonphil/io-playground">my io-playground
+repo</a>.</p>
 <p>All code for this post is <a href="https://github.com/eatonphil/io_uring-basics-writing-file">available on
 GitHub</a>.</p>
 <p class="note">
