@@ -80,11 +80,11 @@ GitHub</a>.</p>
   correct. Observing the same relative behavior between
   implementations across two languages helps me gain confidence what
   I'm doing is correct.
-</p><h3 id="io_uring">io_uring</h3><p>With normal blocking syscalls you just call read() or write() and wait
-for the results. io_uring is one of Linux's most powerful asynchronous
-IO offerings. Unlike epoll, you can use io_uring with both files and
-network connections. And unlike epoll you can even have the syscall
-run in the kernel.</p>
+</p><h3 id="io_uring">io_uring</h3><p>With normal blocking syscalls you just call <code>read()</code> or <code>write()</code> and
+wait for the results. io_uring is one of Linux's most powerful
+<em>asynchronous</em> IO offerings. Unlike epoll, you can use io_uring with
+both files and network connections. And unlike epoll you can even have
+the syscall run in the kernel.</p>
 <p>To interact with io_uring, you register a submission queue for syscalls
 and their arguments. And you register a completion queue for syscall
 results.</p>
