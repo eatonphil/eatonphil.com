@@ -294,7 +294,7 @@ And Zig:
 ```
 $ zig build-exe main.zig
 $ ./main > zig.csv
-duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'zig.csv' group by column0 order by avg(cast(column1 as double)) asc"
+$ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'zig.csv' group by column0 order by avg(cast(column1 as double)) asc"
 ```
 
 | method   | avg_time      | avg_throughput |

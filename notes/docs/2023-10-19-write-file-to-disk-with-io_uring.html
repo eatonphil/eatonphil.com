@@ -316,7 +316,7 @@ $<span class="w"> </span>duckdb<span class="w"> </span>-c<span class="w"> </span
 <p>And Zig:</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>zig<span class="w"> </span>build-exe<span class="w"> </span>main.zig
 $<span class="w"> </span>./main<span class="w"> </span>&gt;<span class="w"> </span>zig.csv
-duckdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;select column0 as method, avg(cast(column1 as double)) || &#39;s&#39; avg_time, format_bytes(avg(column2::double)::bigint) || &#39;/s&#39; as avg_throughput from &#39;zig.csv&#39; group by column0 order by avg(cast(column1 as double)) asc&quot;</span>
+$<span class="w"> </span>duckdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;select column0 as method, avg(cast(column1 as double)) || &#39;s&#39; avg_time, format_bytes(avg(column2::double)::bigint) || &#39;/s&#39; as avg_throughput from &#39;zig.csv&#39; group by column0 order by avg(cast(column1 as double)) asc&quot;</span>
 </pre></div>
 <table>
 <thead><tr>
