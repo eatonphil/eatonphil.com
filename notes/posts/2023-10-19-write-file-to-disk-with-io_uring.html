@@ -280,7 +280,7 @@ pub fn main() !void {
 }
 ```
 
-And let's build and run these programs and store the results to CSV we
+Let's build and run these programs and store the results to CSV we
 can analyze with DuckDB.
 
 Go first:
@@ -317,7 +317,7 @@ Let's add a simple io_uring version!
 The [iouring-go](https://github.com/Iceber/iouring-go#quickstart)
 library has really excellent documentation for getting started.
 
-So we use io_uring with only 1 entry to keep things simple. Add the
+To keep it simple, we'll use io_uring with only 1 entry. Add the
 following to `func main()` after the existing `benchmark()` call in
 `main.go`:
 

@@ -296,7 +296,7 @@ library. So we'll start there.</p>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
-<p>And let's build and run these programs and store the results to CSV we
+<p>Let's build and run these programs and store the results to CSV we
 can analyze with DuckDB.</p>
 <p>Go first:</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>main.go<span class="w"> </span>-o<span class="w"> </span>gomain
@@ -343,7 +343,7 @@ are in the same ballpark.</p>
 <p>Let's add a simple io_uring version!</p>
 <h3 id="io_uring,-1-entry,-go">io_uring, 1 entry, Go</h3><p>The <a href="https://github.com/Iceber/iouring-go#quickstart">iouring-go</a>
 library has really excellent documentation for getting started.</p>
-<p>So we use io_uring with only 1 entry to keep things simple. Add the
+<p>To keep it simple, we'll use io_uring with only 1 entry. Add the
 following to <code>func main()</code> after the existing <code>benchmark()</code> call in
 <code>main.go</code>:</p>
 <div class="highlight"><pre><span></span><span class="n">benchmark</span><span class="p">(</span><span class="s">&quot;io_uring&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">func</span><span class="p">(</span><span class="n">f</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">os</span><span class="p">.</span><span class="n">File</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
