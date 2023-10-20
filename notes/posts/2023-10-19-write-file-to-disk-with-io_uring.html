@@ -187,11 +187,11 @@ const Benchmark = struct {
     data: []const u8,
   ) !Benchmark {
     try std.io.getStdOut().writer().print("{s}", .{name});
-    
+
     var file = try std.fs.cwd().createFile(OUT_FILE, .{
       .truncate = true,
     });
-    
+
     return Benchmark{
       .t = try std.time.Timer.start(),
       .file = file,
@@ -206,9 +206,9 @@ const Benchmark = struct {
       ",{d},{d}\n",
       .{ s, @as(f64, @floatFromInt(b.data.len)) / s },
     ) catch unreachable;
-    
+
     b.file.close();
-    
+
     var in = readNBytes(b.allocator, OUT_FILE, b.data.len) catch unreachable;
     std.debug.assert(std.mem.eql(u8, in, b.data));
     b.allocator.free(in);
@@ -262,7 +262,7 @@ pub fn main() !void {
     {
       var b = try Benchmark.init(allocator, "blocking", data);
       defer b.stop();
-    
+
       var i: usize = 0;
       while (i < data.len) : (i += BUFFER_SIZE) {
         const size = @min(BUFFER_SIZE, data.len - i);
@@ -283,13 +283,11 @@ Go first:
 $ go build main.go -o gomain
 $ ./gomain > go.csv
 $ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'go.csv' group by column0 order by avg(cast(column1 as double)) asc"
-┌──────────┬──────────────────────┬────────────────┐
-│  method  │       avg_time       │ avg_throughput │
-│ varchar  │       varchar        │    varchar     │
-├──────────┼──────────────────────┼────────────────┤
-│ blocking │ 0.07251540000000001s │ 1.4GB/s        │
-└──────────┴──────────────────────┴────────────────┘
 ```
+
+| method   | avg_time             | avg_throughput |
+|----------|----------------------|----------------|
+| blocking | 0.07251540000000001s | 1.4GB/s        |
 
 And Zig:
 
@@ -297,13 +295,11 @@ And Zig:
 $ zig build-exe main.zig
 $ ./main > zig.csv
 duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'zig.csv' group by column0 order by avg(cast(column1 as double)) asc"
-┌──────────┬───────────────┬────────────────┐
-│  method  │   avg_time    │ avg_throughput │
-│ varchar  │    varchar    │    varchar     │
-├──────────┼───────────────┼────────────────┤
-│ blocking │ 0.0656907669s │ 1.5GB/s        │
-└──────────┴───────────────┴────────────────┘
 ```
+
+| method   | avg_time      | avg_throughput |
+|----------|---------------|----------------|
+| blocking | 0.0656907669s | 1.5GB/s        |
 
 Alright, we've got a baseline now and both language implementations
 are in the same ballpark.
@@ -357,14 +353,12 @@ $ go mod tidy
 $ go build main.go -o gomain
 $ ./gomain > go.csv
 $ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'go.csv' group by column0 order by avg(cast(column1 as double)) asc"
-┌──────────┬─────────────────────┬────────────────┐
-│  method  │      avg_time       │ avg_throughput │
-│ varchar  │       varchar       │    varchar     │
-├──────────┼─────────────────────┼────────────────┤
-│ blocking │ 0.0811486s          │ 1.3GB/s        │
-│ io_uring │ 0.5083049999999999s │ 213.2MB/s      │
-└──────────┴─────────────────────┴────────────────┘
 ```
+
+| method   | avg_time            | avg_throughput |
+|----------|---------------------|----------------|
+| blocking | 0.0811486s          | 1.3GB/s        |
+| io_uring | 0.5083049999999999s | 213.2MB/s      |
 
 Well that looks terrible.
 
@@ -420,14 +414,12 @@ Now build and run:
 $ zig build-exe main.zig
 $ ./main > zig.csv
 $ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'zig.csv' group by column0 order by avg(cast(column1 as double)) asc"
-┌──────────┬──────────────────────┬────────────────┐
-│  method  │       avg_time       │ avg_throughput │
-│ varchar  │       varchar        │    varchar     │
-├──────────┼──────────────────────┼────────────────┤
-│ blocking │ 0.06650093630000001s │ 1.5GB/s        │
-│ io_uring │ 0.17542890139999998s │ 597.7MB/s      │
-└──────────┴──────────────────────┴────────────────┘
 ```
+
+| method   | avg_time             | avg_throughput |
+|----------|----------------------|----------------|
+| blocking | 0.06650093630000001s | 1.5GB/s        |
+| io_uring | 0.17542890139999998s | 597.7MB/s      |
 
 Well it's similarly pretty bad. But our implementation ignores one
 major aspect of io_uring: batching requests.
@@ -510,15 +502,13 @@ Other than that, let's build and run this!
 $ go build -o gomain
 $ ./gomain > go.csv
 $ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'go.csv' group by column0 order by avg(cast(column1 as double)) asc"
-┌──────────────────────┬──────────────────────┬────────────────┐
-│        method        │       avg_time       │ avg_throughput │
-│       varchar        │       varchar        │    varchar     │
-├──────────────────────┼──────────────────────┼────────────────┤
-│ blocking             │ 0.0740368s           │ 1.4GB/s        │
-│ io_uring_128_entries │ 0.127519s            │ 836.6MB/s      │
-│ io_uring_1_entries   │ 0.46831579999999995s │ 226.9MB/s      │
-└──────────────────────┴──────────────────────┴────────────────┘
 ```
+
+| method               | avg_time             | avg_throughput |
+|----------------------|----------------------|----------------|
+| blocking             | 0.0740368s           | 1.4GB/s        |
+| io_uring_128_entries | 0.127519s            | 836.6MB/s      |
+| io_uring_1_entries   | 0.46831579999999995s | 226.9MB/s      |
 
 Now we're getting somewhere! Still half the throughput but a 4x
 improvement from using only a single entry.
@@ -618,15 +608,13 @@ Let's build and run:
 $ zig build-exe main.zig
 $ ./main > zig.csv
 $ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'zig.csv' group by column0 order by avg(cast(column1 as double)) asc"
-┌─────────────────────┬──────────────────────┬────────────────┐
-│       method        │       avg_time       │ avg_throughput │
-│       varchar       │       varchar        │    varchar     │
-├─────────────────────┼──────────────────────┼────────────────┤
-│ blocking            │ 0.0674331114s        │ 1.5GB/s        │
-│ iouring_128_entries │ 0.06773539590000001s │ 1.5GB/s        │
-│ iouring_1_entries   │ 0.1855542556s        │ 569.9MB/s      │
-└─────────────────────┴──────────────────────┴────────────────┘
 ```
+
+| method              | avg_time             | avg_throughput |
+|---------------------|----------------------|----------------|
+| blocking            | 0.0674331114s        | 1.5GB/s        |
+| iouring_128_entries | 0.06773539590000001s | 1.5GB/s        |
+| iouring_1_entries   | 0.1855542556s        | 569.9MB/s      |
 
 Huh, that's surprising! We caught up to blocking writes with io_uring
 in Zig, but not in Go, even though we made good progress in Go.
@@ -639,8 +627,8 @@ ring buffer behavior io_uring gives us!
 
 We are waiting for all submitted results complete. But there's no
 reason to do that. Instead we should submit as much as we can. But we
-should not block waiting for completions. We handle completions when
-they happen. And we just retry submissions until we're done
+should not block waiting for completions. We should handle completions
+when they happen. And we should retry submissions until we're done
 reading. Retrying if there's no space for the moment.
 
 Unfortunately the Go library doesn't seem to expose this ring behavior
@@ -650,11 +638,10 @@ But we can do it in Zig. Let's go.
 
 ### io_uring, ring buffer, Zig
 
-We mostly need to change the way we track which offsets we need to
-submit so far.
-
-And we go from blocking on the number we submitted to never blocking
-at all.
+We need to change the way we track which offsets we need to submit so
+far. We also need to keep the loop going until we are sure we have
+*written* all data. And we need to stop blocking on the number we
+submitted; never blocking at all.
 
 ```zig
 fn benchmarkIOUringNEntries(
@@ -715,15 +702,13 @@ Build and run:
 $ zig build-exe main.zig
 $ ./main > zig.csv
 $ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'zig.csv' group by column0 order by avg(cast(column1 as double)) asc"
-┌─────────────────────┬──────────────────────┬────────────────┐
-│       method        │       avg_time       │ avg_throughput │
-│       varchar       │       varchar        │    varchar     │
-├─────────────────────┼──────────────────────┼────────────────┤
-│ iouring_128_entries │ 0.06035423609999999s │ 1.7GB/s        │
-│ iouring_1_entries   │ 0.0610197624s        │ 1.7GB/s        │
-│ blocking            │ 0.0671628515s        │ 1.5GB/s        │
-└─────────────────────┴──────────────────────┴────────────────┘
 ```
+
+| method              | avg_time             | avg_throughput |
+|---------------------|----------------------|----------------|
+| iouring_128_entries | 0.06035423609999999s | 1.7GB/s        |
+| iouring_1_entries   | 0.0610197624s        | 1.7GB/s        |
+| blocking            | 0.0671628515s        | 1.5GB/s        |
 
 Not bad!
 
@@ -739,15 +724,13 @@ In `main.zig` just change `SIZE` to `1073741824`. Rebuild and run:
 $ zig build-exe main.zig
 $ ./main > zig.csv
 $ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'out.csv' group by column0 order by avg(cast(column1 as double)) asc"
-┌─────────────────────┬─────────────────────┬────────────────┐
-│       method        │      avg_time       │ avg_throughput │
-│       varchar       │       varchar       │    varchar     │
-├─────────────────────┼─────────────────────┼────────────────┤
-│ iouring_128_entries │ 0.6063814535s       │ 1.7GB/s        │
-│ iouring_1_entries   │ 0.6167537295000001s │ 1.7GB/s        │
-│ blocking            │ 0.6831747749s       │ 1.5GB/s        │
-└─────────────────────┴─────────────────────┴────────────────┘
 ```
+
+| method              | avg_time            | avg_throughput |
+|---------------------|---------------------|----------------|
+| iouring_128_entries | 0.6063814535s       | 1.7GB/s        |
+| iouring_1_entries   | 0.6167537295000001s | 1.7GB/s        |
+| blocking            | 0.6831747749s       | 1.5GB/s        |
 
 No real difference, perfect!
 
@@ -758,15 +741,13 @@ Let's make one more change though. Let's up the `BUFFER_SIZE` from
 $ zig build-exe main.zig
 $ ./main > zig.csv
 $ duckdb -c "select column0 as method, avg(cast(column1 as double)) || 's' avg_time, format_bytes(avg(column2::double)::bigint) || '/s' as avg_throughput from 'out.csv' group by column0 order by avg(cast(column1 as double)) asc"
-┌─────────────────────┬──────────────────────┬────────────────┐
-│       method        │       avg_time       │ avg_throughput │
-│       varchar       │       varchar        │    varchar     │
-├─────────────────────┼──────────────────────┼────────────────┤
-│ iouring_128_entries │ 0.2756831357s        │ 3.8GB/s        │
-│ iouring_1_entries   │ 0.27575404880000004s │ 3.8GB/s        │
-│ blocking            │ 0.2833337046s        │ 3.7GB/s        │
-└─────────────────────┴──────────────────────┴────────────────┘
 ```
+
+| method              | avg_time             | avg_throughput |
+|---------------------|----------------------|----------------|
+| iouring_128_entries | 0.2756831357s        | 3.8GB/s        |
+| iouring_1_entries   | 0.27575404880000004s | 3.8GB/s        |
+| blocking            | 0.2833337046s        | 3.7GB/s        |
 
 Hey that's an improvement!
 

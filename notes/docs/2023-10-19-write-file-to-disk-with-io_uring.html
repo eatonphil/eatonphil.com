@@ -297,24 +297,42 @@ can analyze with DuckDB.</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>main.go<span class="w"> </span>-o<span class="w"> </span>gomain
 $<span class="w"> </span>./gomain<span class="w"> </span>&gt;<span class="w"> </span>go.csv
 $<span class="w"> </span>duckdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;select column0 as method, avg(cast(column1 as double)) || &#39;s&#39; avg_time, format_bytes(avg(column2::double)::bigint) || &#39;/s&#39; as avg_throughput from &#39;go.csv&#39; group by column0 order by avg(cast(column1 as double)) asc&quot;</span>
-┌──────────┬──────────────────────┬────────────────┐
-│<span class="w">  </span>method<span class="w">  </span>│<span class="w">       </span>avg_time<span class="w">       </span>│<span class="w"> </span>avg_throughput<span class="w"> </span>│
-│<span class="w"> </span>varchar<span class="w">  </span>│<span class="w">       </span>varchar<span class="w">        </span>│<span class="w">    </span>varchar<span class="w">     </span>│
-├──────────┼──────────────────────┼────────────────┤
-│<span class="w"> </span>blocking<span class="w"> </span>│<span class="w"> </span><span class="m">0</span>.07251540000000001s<span class="w"> </span>│<span class="w"> </span><span class="m">1</span>.4GB/s<span class="w">        </span>│
-└──────────┴──────────────────────┴────────────────┘
 </pre></div>
+<table>
+<thead><tr>
+<th>method</th>
+<th>avg_time</th>
+<th>avg_throughput</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>blocking</td>
+<td>0.07251540000000001s</td>
+<td>1.4GB/s</td>
+</tr>
+</tbody>
+</table>
 <p>And Zig:</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>zig<span class="w"> </span>build-exe<span class="w"> </span>main.zig
 $<span class="w"> </span>./main<span class="w"> </span>&gt;<span class="w"> </span>zig.csv
 duckdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;select column0 as method, avg(cast(column1 as double)) || &#39;s&#39; avg_time, format_bytes(avg(column2::double)::bigint) || &#39;/s&#39; as avg_throughput from &#39;zig.csv&#39; group by column0 order by avg(cast(column1 as double)) asc&quot;</span>
-┌──────────┬───────────────┬────────────────┐
-│<span class="w">  </span>method<span class="w">  </span>│<span class="w">   </span>avg_time<span class="w">    </span>│<span class="w"> </span>avg_throughput<span class="w"> </span>│
-│<span class="w"> </span>varchar<span class="w">  </span>│<span class="w">    </span>varchar<span class="w">    </span>│<span class="w">    </span>varchar<span class="w">     </span>│
-├──────────┼───────────────┼────────────────┤
-│<span class="w"> </span>blocking<span class="w"> </span>│<span class="w"> </span><span class="m">0</span>.0656907669s<span class="w"> </span>│<span class="w"> </span><span class="m">1</span>.5GB/s<span class="w">        </span>│
-└──────────┴───────────────┴────────────────┘
 </pre></div>
+<table>
+<thead><tr>
+<th>method</th>
+<th>avg_time</th>
+<th>avg_throughput</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>blocking</td>
+<td>0.0656907669s</td>
+<td>1.5GB/s</td>
+</tr>
+</tbody>
+</table>
 <p>Alright, we've got a baseline now and both language implementations
 are in the same ballpark.</p>
 <p>Let's add a simple io_uring version!</p>
@@ -356,14 +374,27 @@ $<span class="w"> </span>go<span class="w"> </span>mod<span class="w"> </span>ti
 $<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>main.go<span class="w"> </span>-o<span class="w"> </span>gomain
 $<span class="w"> </span>./gomain<span class="w"> </span>&gt;<span class="w"> </span>go.csv
 $<span class="w"> </span>duckdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;select column0 as method, avg(cast(column1 as double)) || &#39;s&#39; avg_time, format_bytes(avg(column2::double)::bigint) || &#39;/s&#39; as avg_throughput from &#39;go.csv&#39; group by column0 order by avg(cast(column1 as double)) asc&quot;</span>
-┌──────────┬─────────────────────┬────────────────┐
-│<span class="w">  </span>method<span class="w">  </span>│<span class="w">      </span>avg_time<span class="w">       </span>│<span class="w"> </span>avg_throughput<span class="w"> </span>│
-│<span class="w"> </span>varchar<span class="w">  </span>│<span class="w">       </span>varchar<span class="w">       </span>│<span class="w">    </span>varchar<span class="w">     </span>│
-├──────────┼─────────────────────┼────────────────┤
-│<span class="w"> </span>blocking<span class="w"> </span>│<span class="w"> </span><span class="m">0</span>.0811486s<span class="w">          </span>│<span class="w"> </span><span class="m">1</span>.3GB/s<span class="w">        </span>│
-│<span class="w"> </span>io_uring<span class="w"> </span>│<span class="w"> </span><span class="m">0</span>.5083049999999999s<span class="w"> </span>│<span class="w"> </span><span class="m">213</span>.2MB/s<span class="w">      </span>│
-└──────────┴─────────────────────┴────────────────┘
 </pre></div>
+<table>
+<thead><tr>
+<th>method</th>
+<th>avg_time</th>
+<th>avg_throughput</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>blocking</td>
+<td>0.0811486s</td>
+<td>1.3GB/s</td>
+</tr>
+<tr>
+<td>io_uring</td>
+<td>0.5083049999999999s</td>
+<td>213.2MB/s</td>
+</tr>
+</tbody>
+</table>
 <p>Well that looks terrible.</p>
 <p>Let's port it to Zig to see if we notice the same behavior there.</p>
 <h3 id="io_uring,-1-entry,-zig">io_uring, 1 entry, Zig</h3><p>There isn't an official Zig tutorial on io_uring I'm aware of. But
@@ -408,14 +439,27 @@ similar:</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>zig<span class="w"> </span>build-exe<span class="w"> </span>main.zig
 $<span class="w"> </span>./main<span class="w"> </span>&gt;<span class="w"> </span>zig.csv
 $<span class="w"> </span>duckdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;select column0 as method, avg(cast(column1 as double)) || &#39;s&#39; avg_time, format_bytes(avg(column2::double)::bigint) || &#39;/s&#39; as avg_throughput from &#39;zig.csv&#39; group by column0 order by avg(cast(column1 as double)) asc&quot;</span>
-┌──────────┬──────────────────────┬────────────────┐
-│<span class="w">  </span>method<span class="w">  </span>│<span class="w">       </span>avg_time<span class="w">       </span>│<span class="w"> </span>avg_throughput<span class="w"> </span>│
-│<span class="w"> </span>varchar<span class="w">  </span>│<span class="w">       </span>varchar<span class="w">        </span>│<span class="w">    </span>varchar<span class="w">     </span>│
-├──────────┼──────────────────────┼────────────────┤
-│<span class="w"> </span>blocking<span class="w"> </span>│<span class="w"> </span><span class="m">0</span>.06650093630000001s<span class="w"> </span>│<span class="w"> </span><span class="m">1</span>.5GB/s<span class="w">        </span>│
-│<span class="w"> </span>io_uring<span class="w"> </span>│<span class="w"> </span><span class="m">0</span>.17542890139999998s<span class="w"> </span>│<span class="w"> </span><span class="m">597</span>.7MB/s<span class="w">      </span>│
-└──────────┴──────────────────────┴────────────────┘
 </pre></div>
+<table>
+<thead><tr>
+<th>method</th>
+<th>avg_time</th>
+<th>avg_throughput</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>blocking</td>
+<td>0.06650093630000001s</td>
+<td>1.5GB/s</td>
+</tr>
+<tr>
+<td>io_uring</td>
+<td>0.17542890139999998s</td>
+<td>597.7MB/s</td>
+</tr>
+</tbody>
+</table>
 <p>Well it's similarly pretty bad. But our implementation ignores one
 major aspect of io_uring: batching requests.</p>
 <p>Let's do some refactoring!</p>
@@ -482,15 +526,32 @@ segfault if <code>submittedEntries &lt; N</code>.</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>gomain
 $<span class="w"> </span>./gomain<span class="w"> </span>&gt;<span class="w"> </span>go.csv
 $<span class="w"> </span>duckdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;select column0 as method, avg(cast(column1 as double)) || &#39;s&#39; avg_time, format_bytes(avg(column2::double)::bigint) || &#39;/s&#39; as avg_throughput from &#39;go.csv&#39; group by column0 order by avg(cast(column1 as double)) asc&quot;</span>
-┌──────────────────────┬──────────────────────┬────────────────┐
-│<span class="w">        </span>method<span class="w">        </span>│<span class="w">       </span>avg_time<span class="w">       </span>│<span class="w"> </span>avg_throughput<span class="w"> </span>│
-│<span class="w">       </span>varchar<span class="w">        </span>│<span class="w">       </span>varchar<span class="w">        </span>│<span class="w">    </span>varchar<span class="w">     </span>│
-├──────────────────────┼──────────────────────┼────────────────┤
-│<span class="w"> </span>blocking<span class="w">             </span>│<span class="w"> </span><span class="m">0</span>.0740368s<span class="w">           </span>│<span class="w"> </span><span class="m">1</span>.4GB/s<span class="w">        </span>│
-│<span class="w"> </span>io_uring_128_entries<span class="w"> </span>│<span class="w"> </span><span class="m">0</span>.127519s<span class="w">            </span>│<span class="w"> </span><span class="m">836</span>.6MB/s<span class="w">      </span>│
-│<span class="w"> </span>io_uring_1_entries<span class="w">   </span>│<span class="w"> </span><span class="m">0</span>.46831579999999995s<span class="w"> </span>│<span class="w"> </span><span class="m">226</span>.9MB/s<span class="w">      </span>│
-└──────────────────────┴──────────────────────┴────────────────┘
 </pre></div>
+<table>
+<thead><tr>
+<th>method</th>
+<th>avg_time</th>
+<th>avg_throughput</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>blocking</td>
+<td>0.0740368s</td>
+<td>1.4GB/s</td>
+</tr>
+<tr>
+<td>io_uring_128_entries</td>
+<td>0.127519s</td>
+<td>836.6MB/s</td>
+</tr>
+<tr>
+<td>io_uring_1_entries</td>
+<td>0.46831579999999995s</td>
+<td>226.9MB/s</td>
+</tr>
+</tbody>
+</table>
 <p>Now we're getting somewhere! Still half the throughput but a 4x
 improvement from using only a single entry.</p>
 <p>Let's port the N entry code to Zig.</p>
@@ -577,15 +638,32 @@ and that we'll create and wait for many submissions at once.</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>zig<span class="w"> </span>build-exe<span class="w"> </span>main.zig
 $<span class="w"> </span>./main<span class="w"> </span>&gt;<span class="w"> </span>zig.csv
 $<span class="w"> </span>duckdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;select column0 as method, avg(cast(column1 as double)) || &#39;s&#39; avg_time, format_bytes(avg(column2::double)::bigint) || &#39;/s&#39; as avg_throughput from &#39;zig.csv&#39; group by column0 order by avg(cast(column1 as double)) asc&quot;</span>
-┌─────────────────────┬──────────────────────┬────────────────┐
-│<span class="w">       </span>method<span class="w">        </span>│<span class="w">       </span>avg_time<span class="w">       </span>│<span class="w"> </span>avg_throughput<span class="w"> </span>│
-│<span class="w">       </span>varchar<span class="w">       </span>│<span class="w">       </span>varchar<span class="w">        </span>│<span class="w">    </span>varchar<span class="w">     </span>│
-├─────────────────────┼──────────────────────┼────────────────┤
-│<span class="w"> </span>blocking<span class="w">            </span>│<span class="w"> </span><span class="m">0</span>.0674331114s<span class="w">        </span>│<span class="w"> </span><span class="m">1</span>.5GB/s<span class="w">        </span>│
-│<span class="w"> </span>iouring_128_entries<span class="w"> </span>│<span class="w"> </span><span class="m">0</span>.06773539590000001s<span class="w"> </span>│<span class="w"> </span><span class="m">1</span>.5GB/s<span class="w">        </span>│
-│<span class="w"> </span>iouring_1_entries<span class="w">   </span>│<span class="w"> </span><span class="m">0</span>.1855542556s<span class="w">        </span>│<span class="w"> </span><span class="m">569</span>.9MB/s<span class="w">      </span>│
-└─────────────────────┴──────────────────────┴────────────────┘
 </pre></div>
+<table>
+<thead><tr>
+<th>method</th>
+<th>avg_time</th>
+<th>avg_throughput</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>blocking</td>
+<td>0.0674331114s</td>
+<td>1.5GB/s</td>
+</tr>
+<tr>
+<td>iouring_128_entries</td>
+<td>0.06773539590000001s</td>
+<td>1.5GB/s</td>
+</tr>
+<tr>
+<td>iouring_1_entries</td>
+<td>0.1855542556s</td>
+<td>569.9MB/s</td>
+</tr>
+</tbody>
+</table>
 <p>Huh, that's surprising! We caught up to blocking writes with io_uring
 in Zig, but not in Go, even though we made good progress in Go.</p>
 <h3 id="ring-buffers">Ring buffers</h3><p>But we can do a bit better. We're doing batching, but the API is
@@ -593,16 +671,16 @@ called "io_uring" not "io_batch". We're not even making use of the
 ring buffer behavior io_uring gives us!</p>
 <p>We are waiting for all submitted results complete. But there's no
 reason to do that. Instead we should submit as much as we can. But we
-should not block waiting for completions. We handle completions when
-they happen. And we just retry submissions until we're done
+should not block waiting for completions. We should handle completions
+when they happen. And we should retry submissions until we're done
 reading. Retrying if there's no space for the moment.</p>
 <p>Unfortunately the Go library doesn't seem to expose this ring behavior
 of io_uring. Or I've missed it.</p>
 <p>But we can do it in Zig. Let's go.</p>
-<h3 id="io_uring,-ring-buffer,-zig">io_uring, ring buffer, Zig</h3><p>We mostly need to change the way we track which offsets we need to
-submit so far.</p>
-<p>And we go from blocking on the number we submitted to never blocking
-at all.</p>
+<h3 id="io_uring,-ring-buffer,-zig">io_uring, ring buffer, Zig</h3><p>We need to change the way we track which offsets we need to submit so
+far. We also need to keep the loop going until we are sure we have
+<em>written</em> all data. And we need to stop blocking on the number we
+submitted; never blocking at all.</p>
 <div class="highlight"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="n">benchmarkIOUringNEntries</span><span class="p">(</span>
 <span class="w">  </span><span class="n">allocator</span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="kr">const</span><span class="w"> </span><span class="n">std</span><span class="p">.</span><span class="n">mem</span><span class="p">.</span><span class="n">Allocator</span><span class="p">,</span>
 <span class="w">  </span><span class="n">data</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="kr">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
@@ -657,15 +735,32 @@ at all.</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>zig<span class="w"> </span>build-exe<span class="w"> </span>main.zig
 $<span class="w"> </span>./main<span class="w"> </span>&gt;<span class="w"> </span>zig.csv
 $<span class="w"> </span>duckdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;select column0 as method, avg(cast(column1 as double)) || &#39;s&#39; avg_time, format_bytes(avg(column2::double)::bigint) || &#39;/s&#39; as avg_throughput from &#39;zig.csv&#39; group by column0 order by avg(cast(column1 as double)) asc&quot;</span>
-┌─────────────────────┬──────────────────────┬────────────────┐
-│<span class="w">       </span>method<span class="w">        </span>│<span class="w">       </span>avg_time<span class="w">       </span>│<span class="w"> </span>avg_throughput<span class="w"> </span>│
-│<span class="w">       </span>varchar<span class="w">       </span>│<span class="w">       </span>varchar<span class="w">        </span>│<span class="w">    </span>varchar<span class="w">     </span>│
-├─────────────────────┼──────────────────────┼────────────────┤
-│<span class="w"> </span>iouring_128_entries<span class="w"> </span>│<span class="w"> </span><span class="m">0</span>.06035423609999999s<span class="w"> </span>│<span class="w"> </span><span class="m">1</span>.7GB/s<span class="w">        </span>│
-│<span class="w"> </span>iouring_1_entries<span class="w">   </span>│<span class="w"> </span><span class="m">0</span>.0610197624s<span class="w">        </span>│<span class="w"> </span><span class="m">1</span>.7GB/s<span class="w">        </span>│
-│<span class="w"> </span>blocking<span class="w">            </span>│<span class="w"> </span><span class="m">0</span>.0671628515s<span class="w">        </span>│<span class="w"> </span><span class="m">1</span>.5GB/s<span class="w">        </span>│
-└─────────────────────┴──────────────────────┴────────────────┘
 </pre></div>
+<table>
+<thead><tr>
+<th>method</th>
+<th>avg_time</th>
+<th>avg_throughput</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>iouring_128_entries</td>
+<td>0.06035423609999999s</td>
+<td>1.7GB/s</td>
+</tr>
+<tr>
+<td>iouring_1_entries</td>
+<td>0.0610197624s</td>
+<td>1.7GB/s</td>
+</tr>
+<tr>
+<td>blocking</td>
+<td>0.0671628515s</td>
+<td>1.5GB/s</td>
+</tr>
+</tbody>
+</table>
 <p>Not bad!</p>
 <h3 id="crank-it-up">Crank it up</h3><p>We've been inserting 100MiB of data. Let's go up to 1GiB to see how
 that affects things. Ideally the more data we write the more we
@@ -674,30 +769,64 @@ reflect realistic long-term results.</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>zig<span class="w"> </span>build-exe<span class="w"> </span>main.zig
 $<span class="w"> </span>./main<span class="w"> </span>&gt;<span class="w"> </span>zig.csv
 $<span class="w"> </span>duckdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;select column0 as method, avg(cast(column1 as double)) || &#39;s&#39; avg_time, format_bytes(avg(column2::double)::bigint) || &#39;/s&#39; as avg_throughput from &#39;out.csv&#39; group by column0 order by avg(cast(column1 as double)) asc&quot;</span>
-┌─────────────────────┬─────────────────────┬────────────────┐
-│<span class="w">       </span>method<span class="w">        </span>│<span class="w">      </span>avg_time<span class="w">       </span>│<span class="w"> </span>avg_throughput<span class="w"> </span>│
-│<span class="w">       </span>varchar<span class="w">       </span>│<span class="w">       </span>varchar<span class="w">       </span>│<span class="w">    </span>varchar<span class="w">     </span>│
-├─────────────────────┼─────────────────────┼────────────────┤
-│<span class="w"> </span>iouring_128_entries<span class="w"> </span>│<span class="w"> </span><span class="m">0</span>.6063814535s<span class="w">       </span>│<span class="w"> </span><span class="m">1</span>.7GB/s<span class="w">        </span>│
-│<span class="w"> </span>iouring_1_entries<span class="w">   </span>│<span class="w"> </span><span class="m">0</span>.6167537295000001s<span class="w"> </span>│<span class="w"> </span><span class="m">1</span>.7GB/s<span class="w">        </span>│
-│<span class="w"> </span>blocking<span class="w">            </span>│<span class="w"> </span><span class="m">0</span>.6831747749s<span class="w">       </span>│<span class="w"> </span><span class="m">1</span>.5GB/s<span class="w">        </span>│
-└─────────────────────┴─────────────────────┴────────────────┘
 </pre></div>
+<table>
+<thead><tr>
+<th>method</th>
+<th>avg_time</th>
+<th>avg_throughput</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>iouring_128_entries</td>
+<td>0.6063814535s</td>
+<td>1.7GB/s</td>
+</tr>
+<tr>
+<td>iouring_1_entries</td>
+<td>0.6167537295000001s</td>
+<td>1.7GB/s</td>
+</tr>
+<tr>
+<td>blocking</td>
+<td>0.6831747749s</td>
+<td>1.5GB/s</td>
+</tr>
+</tbody>
+</table>
 <p>No real difference, perfect!</p>
 <p>Let's make one more change though. Let's up the <code>BUFFER_SIZE</code> from
 4KiB to 1MiB.</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>zig<span class="w"> </span>build-exe<span class="w"> </span>main.zig
 $<span class="w"> </span>./main<span class="w"> </span>&gt;<span class="w"> </span>zig.csv
 $<span class="w"> </span>duckdb<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;select column0 as method, avg(cast(column1 as double)) || &#39;s&#39; avg_time, format_bytes(avg(column2::double)::bigint) || &#39;/s&#39; as avg_throughput from &#39;out.csv&#39; group by column0 order by avg(cast(column1 as double)) asc&quot;</span>
-┌─────────────────────┬──────────────────────┬────────────────┐
-│<span class="w">       </span>method<span class="w">        </span>│<span class="w">       </span>avg_time<span class="w">       </span>│<span class="w"> </span>avg_throughput<span class="w"> </span>│
-│<span class="w">       </span>varchar<span class="w">       </span>│<span class="w">       </span>varchar<span class="w">        </span>│<span class="w">    </span>varchar<span class="w">     </span>│
-├─────────────────────┼──────────────────────┼────────────────┤
-│<span class="w"> </span>iouring_128_entries<span class="w"> </span>│<span class="w"> </span><span class="m">0</span>.2756831357s<span class="w">        </span>│<span class="w"> </span><span class="m">3</span>.8GB/s<span class="w">        </span>│
-│<span class="w"> </span>iouring_1_entries<span class="w">   </span>│<span class="w"> </span><span class="m">0</span>.27575404880000004s<span class="w"> </span>│<span class="w"> </span><span class="m">3</span>.8GB/s<span class="w">        </span>│
-│<span class="w"> </span>blocking<span class="w">            </span>│<span class="w"> </span><span class="m">0</span>.2833337046s<span class="w">        </span>│<span class="w"> </span><span class="m">3</span>.7GB/s<span class="w">        </span>│
-└─────────────────────┴──────────────────────┴────────────────┘
 </pre></div>
+<table>
+<thead><tr>
+<th>method</th>
+<th>avg_time</th>
+<th>avg_throughput</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>iouring_128_entries</td>
+<td>0.2756831357s</td>
+<td>3.8GB/s</td>
+</tr>
+<tr>
+<td>iouring_1_entries</td>
+<td>0.27575404880000004s</td>
+<td>3.8GB/s</td>
+</tr>
+<tr>
+<td>blocking</td>
+<td>0.2833337046s</td>
+<td>3.7GB/s</td>
+</tr>
+</tbody>
+</table>
 <p>Hey that's an improvement!</p>
 <h3 id="control">Control</h3><p>All these numbers are machine-specific obviously. So what does an
 existing tool like
