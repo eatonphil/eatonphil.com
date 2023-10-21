@@ -60,7 +60,7 @@ p + h3,
 p + h4,                                             
 p + h5,
 p + h6,                                             
-pre + h2,           
+pre + h2,        
 pre + h3,
 pre + h4,
 pre + h5,
@@ -217,7 +217,7 @@ aside p {
 .highlight {
     overflow: auto;
     padding: 1.5rem;
-    max-height: 1000px;
+    max-height: 500px;
     border: 1px solid #ddd;
     background: white;
     width: 800px;
@@ -358,6 +358,10 @@ aside p {
 
 .feedback {
     display: none;
+}
+
+.highlight + table {
+    margin-top: 1rem;
 }
 
 table {
