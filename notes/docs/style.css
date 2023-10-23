@@ -134,7 +134,7 @@ p + h3,
 p + h4,                                             
 p + h5,
 p + h6,                                             
-pre + h2,           
+pre + h2,        
 pre + h3,
 pre + h4,
 pre + h5,
@@ -432,6 +432,10 @@ aside p {
 
 .feedback {
     display: none;
+}
+
+.highlight + table {
+    margin-top: 1rem;
 }
 
 table {
