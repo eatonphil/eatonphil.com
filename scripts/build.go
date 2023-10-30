@@ -115,6 +115,28 @@ outer:
 			continue
 		}
 
+		// Support for strikethough
+		if (c == '~' && i < len(body)-4 && body[i+1] == '~') {
+			i = i + 2
+			start := i
+			var prev rune = body[i]
+			c = body[i+1]
+			for i < len(body) {
+				if prev == '~' && c == '~' {
+					break
+				}
+				prev = c
+				i++
+				c = body[i] 
+			}
+			// Skip past final ~
+			i++
+
+			transformed := strings.TrimSpace(transform(body[start:i-2]))
+			fmt.Fprintf(outWriter, "<s>%s</s>", transformed)
+			continue
+		}
+
 		// Support for lists
 		// if (c == '-') {
 		// 	tmpI := i
@@ -206,6 +228,12 @@ func test() {
 <h1>Hey</h1>
 
 <a href="google.com"><code>hello</code></a>`)
+
+	assert(transform([]rune(`
+~~ a~~
+`)), `
+<s>a</s>
+`)
 }
 
 // Returns the doc and the last modified time
