@@ -1447,7 +1447,7 @@ for each row to insert. Perfect.</p>
 <span class="w">  </span><span class="n">BulkInsertState</span><span class="w"> </span><span class="n">bistate</span>
 <span class="p">);</span>
 </pre></div>
-<p>We can get the table name from <code>relation</code> and instead of writing to
+<p>We can get the table name from <code>relation</code>, and instead of writing to
 <code>slot</code> we can read from <code>slot-&gt;tts_values</code> instead.</p>
 <div class="highlight"><pre><span></span><span class="gu">@@ -141,7 +141,38 @@</span>
 <span class="w"> </span>  int options,
@@ -1618,10 +1618,9 @@ which row we're on. So <code>beginscan</code> will also need to change slightly.
 </pre></div>
 <p>And there we have it. :)</p>
 <h3 id="awesome-sql-power">Awesome SQL power</h3><p>So we tried one table and we tried a <code>SELECT</code> without anything else.</p>
-<p>What happens if we use more of SQL? Let's create another table with
-and let's try a more complex query.</p>
-<div class="highlight"><pre><span></span><span class="err">$</span><span class="w"> </span><span class="n">cat</span><span class="w"> </span><span class="n">test</span><span class="p">.</span><span class="k">sql</span>
-<span class="k">DROP</span><span class="w"> </span><span class="n">EXTENSION</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">pgtam</span><span class="w"> </span><span class="k">CASCADE</span><span class="p">;</span>
+<p>What happens if we use more of SQL? Let's create another table
+and try some more complex queries. Edit <code>test.sql</code>:</p>
+<div class="highlight"><pre><span></span><span class="k">DROP</span><span class="w"> </span><span class="n">EXTENSION</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">pgtam</span><span class="w"> </span><span class="k">CASCADE</span><span class="p">;</span>
 <span class="k">CREATE</span><span class="w"> </span><span class="n">EXTENSION</span><span class="w"> </span><span class="n">pgtam</span><span class="p">;</span>
 <span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">x</span><span class="p">(</span><span class="n">a</span><span class="w"> </span><span class="nb">INT</span><span class="p">)</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">mem</span><span class="p">;</span>
 <span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">y</span><span class="p">(</span><span class="n">b</span><span class="w"> </span><span class="nb">INT</span><span class="p">)</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">mem</span><span class="p">;</span>

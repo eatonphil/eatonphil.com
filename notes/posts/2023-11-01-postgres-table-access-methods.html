@@ -1609,7 +1609,7 @@ void memam_tuple_insert(
 );
 ```
 
-We can get the table name from `relation` and instead of writing to
+We can get the table name from `relation`, and instead of writing to
 `slot` we can read from `slot->tts_values` instead.
 
 ```diff
@@ -1802,11 +1802,10 @@ And there we have it. :)
 
 So we tried one table and we tried a `SELECT` without anything else.
 
-What happens if we use more of SQL? Let's create another table with
-and let's try a more complex query.
+What happens if we use more of SQL? Let's create another table
+and try some more complex queries. Edit `test.sql`:
 
 ```sql
-$ cat test.sql
 DROP EXTENSION IF EXISTS pgtam CASCADE;
 CREATE EXTENSION pgtam;
 CREATE TABLE x(a INT) USING mem;
