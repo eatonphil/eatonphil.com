@@ -183,7 +183,7 @@ table of table access methods.</p>
 <p>Then you must run <code>CREATE ACCESS METHOD mem TYPE TABLE HANDLER
 mem_tableam_handler</code>. And finally you can use the access method when
 creating a table with <code>USING mem</code>: <code>CREATE TABLE x(a INT) USING mem</code>.</p>
-<h4 id="<code>pgtam.control</code>"><code>pgtam.control</code></h4><p>This is file contains extension metadata. At a minimum, the version of
+<h4 id="<code>pgtam.control</code>"><code>pgtam.control</code></h4><p>This file contains extension metadata. At a minimum, the version of
 the extension and the filename for the extension where it should be
 installed.</p>
 <div class="highlight"><pre><span></span>default_version = &#39;0.0.1&#39;
