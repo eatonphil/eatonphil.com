@@ -433,11 +433,11 @@
     <lastmod>2023-03-21</lastmod>
  </url>
   <url>
-    <loc>https://notes.eatonphil.com/high-quality-subreddits-you-should-be-following.html</loc>
+    <loc>https://notes.eatonphil.com/books-developers-should-read.html</loc>
     <lastmod>2023-05-16</lastmod>
  </url>
   <url>
-    <loc>https://notes.eatonphil.com/books-developers-should-read.html</loc>
+    <loc>https://notes.eatonphil.com/high-quality-subreddits-you-should-be-following.html</loc>
     <lastmod>2023-05-16</lastmod>
  </url>
   <url>
@@ -475,5 +475,9 @@
   <url>
     <loc>https://notes.eatonphil.com/2023-10-19-write-file-to-disk-with-io_uring.html</loc>
     <lastmod>2023-10-19</lastmod>
+ </url>
+  <url>
+    <loc>https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html</loc>
+    <lastmod>2023-11-01</lastmod>
  </url>
 </urlset>

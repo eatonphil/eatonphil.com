@@ -1,0 +1,1859 @@
+# Writing a storage engine for Postgres: an in-memory Table Access Method
+## November 1, 2023
+###### c,postgres
+
+With [Postgres 12](https://www.postgresql.org/docs/release/12.0/),
+released in 2019, it became possible to [swap out Postgres's storage
+engine](https://www.pgcon.org/2019/schedule/attachments/536_pgcon2019_pluggable_table_AM_V1.3.pdf).
+
+This is a feature MySQL has supported for a long time. There are at
+least [8 different](https://github.com/eatonphil/pgtam) *built-in*
+engines you can pick from. [MyRocks](https://myrocks.io/), MySQL on
+RocksDB, is another popular third-party distribution.
+
+I assume there will be a renaissance of Postgres storage
+engines. To date, the efforts are nascent.
+
+### Why alternative storage engines?
+
+The ability to swap storage engines is useful because different
+workloads sometimes benefit from different storage
+approaches. Analytics workloads and columnar storage layouts [go well
+together](https://docs.aws.amazon.com/redshift/latest/dg/c_columnar_storage_disk_mem_mgmnt.html). Write-heavy
+workloads and LSM trees [go well
+together](https://github.com/wiredtiger/wiredtiger/wiki/Btree-vs-LSM). And
+some people like in-memory storage for running integration tests.
+
+By swapping out only the storage engine, you get the benefit of the
+rest of the Postgres or MySQL infrastructure. The query language, the
+wire protocol, the ecosystem, etc.
+
+### Why not foreign data wrappers?
+
+Very little has been written about the difference between foreign data
+wrappers and table access methods. Table access methods seems to be
+the lower-level layer where presumably you get better performance and
+cleaner integration. But there is clearly overlap between these two
+extension options.
+
+For example there is a [FDW for
+ClickHouse](https://github.com/ildus/clickhouse_fdw) so when you
+create tables and rows and query the tables you are really creating
+and querying rows in a ClickHouse server. Similarly there's a [FDW for
+RocksDB](https://github.com/vidardb/pgrocks-fdw). And Citus's columnar
+engine works [either as a foreign data wrapper or a table access
+method](https://www.citusdata.com/blog/2021/03/06/citus-10-columnar-compression-for-postgres/#:~:text=What%20About%20cstore_fdw%3F).
+
+The Citus page draws the clearest distinction between FDWs and table
+access methods but even that page is vague. Performance doesn't seem
+to be the main difference. Closer integration, and thus the ability to
+look more like vanilla Postgres from the outside, seems to be the
+gist.
+
+In any case, I wanted to explore the table access method API.
+
+### Digging in
+
+I haven't written Postgres extensions before and I've never written C
+professionally. If you're familiar with Postgres internals or C and
+notice something funky, please [let me know](mailto:me@eatonphil.com)!
+
+But it turns out that almost no one has written how to
+implement the minimal APIs for various storage engine operations. So
+after quite a bit of stumbling to get the basics of an in-memory
+storage engine working, I'm going to walk you through my approach.
+
+This is prototype-quality code which hopefully will be a useful base
+for further exploration.
+
+All code for this post is [available on
+GitHub](https://github.com/eatonphil/pgtam).
+
+### A debug Postgres build
+
+First off, let's make a [debug
+build](https://wiki.postgresql.org/wiki/Developer_FAQ#Compile-time) of
+Postgres.
+
+```
+$ git clone https://github.com/postgres/postgres
+$ git checkout 849172ff4883d44168f96f39d3fde96d0aa34c99 # An arbitrary commit from `master` after Postgres 16 I am on
+$ cd postgres
+$ ./configure --enable-cassert --enable-debug CFLAGS="-ggdb -Og -g3 -fno-omit-frame-pointer"
+$ make -j8
+$ sudo make install
+```
+
+This will install Postgres binaries (e.g. `psql`, `pg_ctl`, `initdb`,
+`pg_config`) into `/usr/local/pgsql/bin`.
+
+I'm going to reference those absolute paths throughout this post
+because you might have a system (package manager) install of Postgres
+already.
+
+Let's create a database and start up this debug build:
+
+```console
+$ /usr/local/pgsql/bin/initdb test-db
+$ /usr/local/pgsql/bin/pg_ctl -D test-db -l logfile start
+```
+
+### Extension infrastructure
+
+Since we installed Postgres from scratch,
+`/usr/local/pgsql/bin/pg_config` will supply all of the infrastructure
+we need.
+
+Mostly, the "infrastructure" is
+[PGXS](https://www.postgresql.org/docs/current/extend-pgxs.html),
+Postgres Makefile utilities.
+
+So in a new `Makefile` we'll specify:
+
+1. `MODULES`: Any C sources to build, without the `.c` file extension
+2. `EXTENSION`: Extension metadata file, without the `.control` file extension
+3. `DATA`: A SQL file that is executed when the extension is loaded, this time with the `.sql` extension
+
+```make
+MODULES = pgtam
+EXTENSION = pgtam
+DATA = pgtam--0.0.1.sql
+
+PG_CONFIG = /usr/local/pgsql/bin/pg_config
+PGXS := $(shell $(PG_CONFIG) --pgxs)
+include $(PGXS)
+```
+
+The final three lines set up the PGXS Makefile library based on the
+particular installed Postgres build we want to build against and
+install extensions to.
+
+This gives us a few important targets like `make distclean`, `make`,
+and `make install`.
+
+#### `pgtam.c`
+
+A minimal C file that registers a function with Postgres
+([documented
+here](https://www.postgresql.org/docs/current/xfunc-c.html)) is:
+
+```c
+#include "postgres.h"
+#include "fmgr.h"
+#include "access/tableam.h"
+
+PG_MODULE_MAGIC;
+
+const TableAmRoutine memam_methods = {
+  .type = T_TableAmRoutine,
+};
+
+PG_FUNCTION_INFO_V1(mem_tableam_handler);
+Datum mem_tableam_handler(PG_FUNCTION_ARGS) {
+  PG_RETURN_POINTER(&memam_methods);
+}
+```
+
+The workflow for registering a table access method is to first `CREATE
+EXTENSION pgtam` an extension that has a function that returns a table
+of methods. And then call `CREATE ACCESS METHOD mem TYPE TABLE HANDLER
+mem_tableam_handler`. Then finally you can use the access method when
+creating a table with `USING mem`: `CREATE TABLE x(a INT) USING mem`.
+
+#### `pgtam.control`
+
+At a minimum, you need to specify a version for the extension. So in
+pgtam.control:
+
+```
+default_version = '0.0.1'
+module_pathname = '$libdir/pgtam'
+```
+
+#### `pgtam--0.0.1.sql`
+
+Finally, in `pgtam--0.0.1.sql` (which is executed when we call `CREATE
+EXTENSION pgtam`), we register the handler function as a foreign
+function, and then we register the function as an access method.
+
+```sql
+CREATE OR REPLACE FUNCTION mem_tableam_handler(internal)
+RETURNS table_am_handler AS 'pgtam', 'mem_tableam_handler'
+LANGUAGE C STRICT;
+
+CREATE ACCESS METHOD mem TYPE TABLE HANDLER mem_tableam_handler;
+```
+
+#### Build
+
+Now that we've got all the pieces in place, we can build and install
+the extension.
+
+```
+$ make
+$ sudo make install
+```
+
+Let's add a `test.sql` script to exercise the extension:
+
+```sql
+DROP EXTENSION IF EXISTS pgtam CASCADE;
+CREATE EXTENSION pgtam;
+CREATE TABLE x(a INT) USING mem;
+```
+
+And run it:
+
+```console
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+DROP EXTENSION
+CREATE EXTENSION
+psql:test.sql:3: server closed the connection unexpectedly
+        This probably means the server terminated abnormally
+        before or while processing the request.
+psql:test.sql:3: error: connection to server was lost
+```
+
+Ok, so `psql` crashed! Let's look at the server logs. When we started
+Postgres with `pg_ctl` we specified the log file as `logfile` in the
+directory where we ran `pg_ctl`.
+
+If we look through it we'll spot an assertion failure:
+
+```console
+$ grep Assert logfile
+TRAP: failed Assert("routine->scan_begin != NULL"), File: "tableamapi.c", Line: 52, PID: 2906922
+```
+
+That's a great sign! This is Postgres's debug infrastructure helping
+to make sure the table access method is correctly implemented.
+
+<p class="note">
+  For further reading on extension basics, you can find a complete,
+  minimal Postgres extension I wrote to validate the
+  infrastructure <a href="https://github.com/eatonphil/pgext-101">here</a>. Or
+  you can follow a
+  <a href="https://github.com/IshaanAdarsh/Postgres-extension-tutorial/blob/main/SGML/intro_and_toc.md">larger
+    tutorial</a>.
+</p>
+
+### Table access method stubs
+
+The next step is to add function stubs for all the non-optional
+methods of the [`TableAmRoutine`
+struct](https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/include/access/tableam.h#L282).
+
+I've done all the work for you already so you can just copy these
+stubs. It's a big file, but don't worry. There's nothing to
+explain. Just a bunch of blank functions returning default values
+when required.
+
+```c
+#include "postgres.h"
+#include "fmgr.h"
+#include "access/tableam.h"
+#include "access/heapam.h"
+#include "nodes/execnodes.h"
+#include "catalog/index.h"
+#include "commands/vacuum.h"
+#include "utils/builtins.h"
+#include "executor/tuptable.h"
+
+PG_MODULE_MAGIC;
+
+const TableAmRoutine memam_methods;
+
+static const TupleTableSlotOps* memam_slot_callbacks(
+  Relation relation
+) {
+  return NULL;
+}
+
+static TableScanDesc memam_beginscan(
+  Relation relation,
+  Snapshot snapshot,
+  int nkeys,
+  struct ScanKeyData *key,
+  ParallelTableScanDesc parallel_scan,
+  uint32 flags
+) {
+  return NULL;
+}
+
+static void memam_rescan(
+  TableScanDesc sscan,
+  struct ScanKeyData *key,
+  bool set_params,
+  bool allow_strat,
+  bool allow_sync,
+  bool allow_pagemode
+) {
+}
+
+static void memam_endscan(TableScanDesc sscan) {
+}
+
+static bool memam_getnextslot(
+  TableScanDesc sscan,
+  ScanDirection direction,
+  TupleTableSlot *slot
+) {
+  return false;
+}
+
+static IndexFetchTableData* memam_index_fetch_begin(Relation rel) {
+  return NULL;
+}
+
+static void memam_index_fetch_reset(IndexFetchTableData *scan) {
+}
+
+static void memam_index_fetch_end(IndexFetchTableData *scan) {
+}
+
+static bool memam_index_fetch_tuple(
+  struct IndexFetchTableData *scan,
+  ItemPointer tid,
+  Snapshot snapshot,
+  TupleTableSlot *slot,
+  bool *call_again,
+  bool *all_dead
+) {
+  return false;
+}
+
+static void memam_tuple_insert(
+  Relation relation,
+  TupleTableSlot *slot,
+  CommandId cid,
+  int options,
+  BulkInsertState bistate
+) {
+}
+
+static void memam_tuple_insert_speculative(
+  Relation relation,
+  TupleTableSlot *slot,
+  CommandId cid,
+  int options,
+  BulkInsertState bistate,
+  uint32 specToken) {
+}
+
+static void memam_tuple_complete_speculative(
+  Relation relation,
+  TupleTableSlot *slot,
+  uint32 specToken,
+  bool succeeded) {
+}
+
+static void memam_multi_insert(
+  Relation relation,
+  TupleTableSlot **slots,
+  int ntuples,
+  CommandId cid,
+  int options,
+  BulkInsertState bistate
+) {
+}
+
+static TM_Result memam_tuple_delete(
+  Relation relation,
+  ItemPointer tid,
+  CommandId cid,
+  Snapshot snapshot,
+  Snapshot crosscheck,
+  bool wait,
+  TM_FailureData *tmfd,
+  bool changingPart
+) {
+  TM_Result result = {};
+  return result;
+}
+
+static TM_Result memam_tuple_update(
+  Relation relation,
+  ItemPointer otid,
+  TupleTableSlot *slot,
+  CommandId cid,
+  Snapshot snapshot,
+  Snapshot crosscheck,
+  bool wait,
+  TM_FailureData *tmfd,
+  LockTupleMode *lockmode,
+  TU_UpdateIndexes *update_indexes
+) {
+  TM_Result result = {};
+  return result;
+}
+
+static TM_Result memam_tuple_lock(
+  Relation relation,
+  ItemPointer tid,
+  Snapshot snapshot,
+  TupleTableSlot *slot,
+  CommandId cid,
+  LockTupleMode mode,
+  LockWaitPolicy wait_policy,
+  uint8 flags,
+  TM_FailureData *tmfd)
+{
+  TM_Result result = {};
+  return result;
+}
+
+static bool memam_fetch_row_version(
+  Relation relation,
+  ItemPointer tid,
+  Snapshot snapshot,
+  TupleTableSlot *slot
+) {
+  return false;
+}
+
+static void memam_get_latest_tid(
+  TableScanDesc sscan,
+  ItemPointer tid
+) {
+}
+
+static bool memam_tuple_tid_valid(TableScanDesc scan, ItemPointer tid) {
+  return false;
+}
+
+static bool memam_tuple_satisfies_snapshot(
+  Relation rel,
+  TupleTableSlot *slot,
+  Snapshot snapshot
+) {
+  return false;
+}
+
+static TransactionId memam_index_delete_tuples(
+  Relation rel,
+  TM_IndexDeleteOp *delstate
+) {
+  TransactionId id = {};
+  return id;
+}
+
+static void memam_relation_set_new_filelocator(
+  Relation rel,
+  const RelFileLocator *newrlocator,
+  char persistence,
+  TransactionId *freezeXid,
+  MultiXactId *minmulti
+) {
+}
+
+static void memam_relation_nontransactional_truncate(
+  Relation rel
+) {
+}
+
+static void memam_relation_copy_data(
+  Relation rel,
+  const RelFileLocator *newrlocator
+) {
+}
+
+static void memam_relation_copy_for_cluster(
+  Relation OldHeap,
+  Relation NewHeap,
+  Relation OldIndex,
+  bool use_sort,
+  TransactionId OldestXmin,
+  TransactionId *xid_cutoff,
+  MultiXactId *multi_cutoff,
+  double *num_tuples,
+  double *tups_vacuumed,
+  double *tups_recently_dead
+) {
+}
+
+static void memam_vacuum_rel(
+  Relation rel,
+  VacuumParams *params,
+  BufferAccessStrategy bstrategy
+) {
+}
+
+static bool memam_scan_analyze_next_block(
+  TableScanDesc scan,
+  BlockNumber blockno,
+  BufferAccessStrategy bstrategy
+) {
+  return false;
+}
+
+static bool memam_scan_analyze_next_tuple(
+  TableScanDesc scan,
+  TransactionId OldestXmin,
+  double *liverows,
+  double *deadrows,
+  TupleTableSlot *slot
+) {
+  return false;
+}
+
+static double memam_index_build_range_scan(
+  Relation heapRelation,
+  Relation indexRelation,
+  IndexInfo *indexInfo,
+  bool allow_sync,
+  bool anyvisible,
+  bool progress,
+  BlockNumber start_blockno,
+  BlockNumber numblocks,
+  IndexBuildCallback callback,
+  void *callback_state,
+  TableScanDesc scan
+) {
+  return 0;
+}
+
+static void memam_index_validate_scan(
+  Relation heapRelation,
+  Relation indexRelation,
+  IndexInfo *indexInfo,
+  Snapshot snapshot,
+  ValidateIndexState *state
+) {
+}
+
+static bool memam_relation_needs_toast_table(Relation rel) {
+  return false;
+}
+
+static Oid memam_relation_toast_am(Relation rel) {
+  Oid oid = {};
+  return oid;
+}
+
+static void memam_fetch_toast_slice(
+  Relation toastrel,
+  Oid valueid,
+  int32 attrsize,
+  int32 sliceoffset,
+  int32 slicelength,
+  struct varlena *result
+) {
+}
+
+static void memam_estimate_rel_size(
+  Relation rel,
+  int32 *attr_widths,
+  BlockNumber *pages,
+  double *tuples,
+  double *allvisfrac
+) {
+}
+
+static bool memam_scan_sample_next_block(
+  TableScanDesc scan, SampleScanState *scanstate
+) {
+  return false;
+}
+
+static bool memam_scan_sample_next_tuple(
+  TableScanDesc scan,
+  SampleScanState *scanstate,
+  TupleTableSlot *slot
+) {
+  return false;
+}
+
+const TableAmRoutine memam_methods = {
+  .type = T_TableAmRoutine,
+
+  .slot_callbacks = memam_slot_callbacks,
+
+  .scan_begin = memam_beginscan,
+  .scan_end = memam_endscan,
+  .scan_rescan = memam_rescan,
+  .scan_getnextslot = memam_getnextslot,
+
+  .parallelscan_estimate = table_block_parallelscan_estimate,
+  .parallelscan_initialize = table_block_parallelscan_initialize,
+  .parallelscan_reinitialize = table_block_parallelscan_reinitialize,
+
+  .index_fetch_begin = memam_index_fetch_begin,
+  .index_fetch_reset = memam_index_fetch_reset,
+  .index_fetch_end = memam_index_fetch_end,
+  .index_fetch_tuple = memam_index_fetch_tuple,
+
+  .tuple_insert = memam_tuple_insert,
+  .tuple_insert_speculative = memam_tuple_insert_speculative,
+  .tuple_complete_speculative = memam_tuple_complete_speculative,
+  .multi_insert = memam_multi_insert,
+  .tuple_delete = memam_tuple_delete,
+  .tuple_update = memam_tuple_update,
+  .tuple_lock = memam_tuple_lock,
+
+  .tuple_fetch_row_version = memam_fetch_row_version,
+  .tuple_get_latest_tid = memam_get_latest_tid,
+  .tuple_tid_valid = memam_tuple_tid_valid,
+  .tuple_satisfies_snapshot = memam_tuple_satisfies_snapshot,
+  .index_delete_tuples = memam_index_delete_tuples,
+
+  .relation_set_new_filelocator = memam_relation_set_new_filelocator,
+  .relation_nontransactional_truncate = memam_relation_nontransactional_truncate,
+  .relation_copy_data = memam_relation_copy_data,
+  .relation_copy_for_cluster = memam_relation_copy_for_cluster,
+  .relation_vacuum = memam_vacuum_rel,
+  .scan_analyze_next_block = memam_scan_analyze_next_block,
+  .scan_analyze_next_tuple = memam_scan_analyze_next_tuple,
+  .index_build_range_scan = memam_index_build_range_scan,
+  .index_validate_scan = memam_index_validate_scan,
+
+  .relation_size = table_block_relation_size,
+  .relation_needs_toast_table = memam_relation_needs_toast_table,
+  .relation_toast_am = memam_relation_toast_am,
+  .relation_fetch_toast_slice = memam_fetch_toast_slice,
+
+  .relation_estimate_size = memam_estimate_rel_size,
+
+  .scan_sample_next_block = memam_scan_sample_next_block,
+  .scan_sample_next_tuple = memam_scan_sample_next_tuple
+};
+
+PG_FUNCTION_INFO_V1(mem_tableam_handler);
+
+Datum mem_tableam_handler(PG_FUNCTION_ARGS) {
+  PG_RETURN_POINTER(&memam_methods);
+}
+```
+
+Let's build and test it!
+
+```console
+$ make && sudo make install
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to table x
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+```
+
+Hey we're getting somewhere! It successfully created the table with
+our custom table access method.
+
+### Querying rows
+
+Next, let's try querying the table by adding a `SELECT a FROM x` to
+`test.sql` and running it:
+
+```console
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to table x
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+psql:test.sql:6: server closed the connection unexpectedly
+        This probably means the server terminated abnormally
+        before or while processing the request.
+psql:test.sql:6: error: connection to server was lost
+```
+
+This time there's nothing in `logfile` that helps:
+
+```console
+$ tail -n15 logfile
+2023-11-01 18:43:32.449 UTC [2906199] LOG:  database system is ready to accept connections
+2023-11-01 18:58:32.572 UTC [2907997] LOG:  checkpoint starting: time
+2023-11-01 18:58:35.305 UTC [2907997] LOG:  checkpoint complete: wrote 28 buffers (0.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=2.712 s, sync=0.015 s, total=2.733 s; sync files=23, longest=0.004 s, average=0.001 s; distance=128 kB, estimate=150 kB; lsn=0/15F88E0, redo lsn=0/15F8888
+2023-11-01 19:08:14.485 UTC [2906199] LOG:  server process (PID 2908242) was terminated by signal 11: Segmentation fault
+2023-11-01 19:08:14.485 UTC [2906199] DETAIL:  Failed process was running: SELECT a FROM x;
+2023-11-01 19:08:14.485 UTC [2906199] LOG:  terminating any other active server processes
+2023-11-01 19:08:14.486 UTC [2906199] LOG:  all server processes terminated; reinitializing
+2023-11-01 19:08:14.508 UTC [2908253] LOG:  database system was interrupted; last known up at 2023-11-01 18:58:35 UTC
+2023-11-01 19:08:14.518 UTC [2908253] LOG:  database system was not properly shut down; automatic recovery in progress
+2023-11-01 19:08:14.519 UTC [2908253] LOG:  redo starts at 0/15F8888
+2023-11-01 19:08:14.520 UTC [2908253] LOG:  invalid record length at 0/161DE70: expected at least 24, got 0
+2023-11-01 19:08:14.520 UTC [2908253] LOG:  redo done at 0/161DE38 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+2023-11-01 19:08:14.521 UTC [2908254] LOG:  checkpoint starting: end-of-recovery immediate wait
+2023-11-01 19:08:14.532 UTC [2908254] LOG:  checkpoint complete: wrote 35 buffers (0.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.010 s, total=0.012 s; sync files=27, longest=0.003 s, average=0.001 s; distance=149 kB, estimate=149 kB; lsn=0/161DE70, redo lsn=0/161DE70
+2023-11-01 19:08:14.533 UTC [2906199] LOG:  database system is ready to accept connections
+```
+
+This was the first place I got stuck. How on earth do I figure out
+what methods to implement? I mean, it's clearly one or more of these
+methods from the struct. But there are so many methods.
+
+I tried setting a breakpoint in `gdb` on the process returned by
+`SELECT pg_backend_pid()` for a `psql` session, but the breakpoint
+never seemed to be hit for any of my methods.
+
+So I did the low-tech solution and opened a file, `/tmp/pgtam.log`,
+turned off buffering on it, and added a log to every method on the
+`TableAmRoutine` struct:
+
+```diff
+@@ -12,9 +12,13 @@
+
+ const TableAmRoutine memam_methods;
+
++FILE* fd;
++#define DEBUG_FUNC() fprintf(fd, "in %s\n", __func__);
++
+ static const TupleTableSlotOps* memam_slot_callbacks(
+   Relation relation
+ ) {
++  DEBUG_FUNC();
+   return NULL;
+ }
+
+@@ -26,6 +30,7 @@
+   ParallelTableScanDesc parallel_scan,
+   uint32 flags
+ ) {
++  DEBUG_FUNC();
+   return NULL;
+ }
+
+@@ -37,9 +42,11 @@
+   bool allow_sync,
+   bool allow_pagemode
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static void memam_endscan(TableScanDesc sscan) {
++  DEBUG_FUNC();
+ }
+
+ static bool memam_getnextslot(
+@@ -47,17 +54,21 @@
+   ScanDirection direction,
+   TupleTableSlot *slot
+ ) {
++  DEBUG_FUNC();
+   return false;
+ }
+
+ static IndexFetchTableData* memam_index_fetch_begin(Relation rel) {
++  DEBUG_FUNC();
+   return NULL;
+ }
+
+ static void memam_index_fetch_reset(IndexFetchTableData *scan) {
++  DEBUG_FUNC();
+ }
+
+ static void memam_index_fetch_end(IndexFetchTableData *scan) {
++  DEBUG_FUNC();
+ }
+
+ static bool memam_index_fetch_tuple(
+@@ -68,6 +79,7 @@
+   bool *call_again,
+   bool *all_dead
+ ) {
++  DEBUG_FUNC();
+   return false;
+ }
+
+@@ -78,6 +90,7 @@
+   int options,
+   BulkInsertState bistate
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static void memam_tuple_insert_speculative(
+@@ -87,6 +100,7 @@
+   int options,
+   BulkInsertState bistate,
+   uint32 specToken) {
++  DEBUG_FUNC();
+ }
+
+ static void memam_tuple_complete_speculative(
+@@ -94,6 +108,7 @@
+   TupleTableSlot *slot,
+   uint32 specToken,
+   bool succeeded) {
++  DEBUG_FUNC();
+ }
+
+ static void memam_multi_insert(
+@@ -104,6 +119,7 @@
+   int options,
+   BulkInsertState bistate
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static TM_Result memam_tuple_delete(
+@@ -117,6 +133,7 @@
+   bool changingPart
+ ) {
+   TM_Result result = {};
++  DEBUG_FUNC();
+   return result;
+ }
+
+@@ -133,6 +150,7 @@
+   TU_UpdateIndexes *update_indexes
+ ) {
+   TM_Result result = {};
++  DEBUG_FUNC();
+   return result;
+ }
+
+@@ -148,6 +166,7 @@
+   TM_FailureData *tmfd)
+ {
+   TM_Result result = {};
++  DEBUG_FUNC();
+   return result;
+ }
+
+@@ -157,6 +176,7 @@
+   Snapshot snapshot,
+   TupleTableSlot *slot
+ ) {
++  DEBUG_FUNC();
+   return false;
+ }
+
+@@ -164,9 +184,11 @@
+   TableScanDesc sscan,
+   ItemPointer tid
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static bool memam_tuple_tid_valid(TableScanDesc scan, ItemPointer tid) {
++  DEBUG_FUNC();
+   return false;
+ }
+
+@@ -175,6 +197,7 @@
+   TupleTableSlot *slot,
+   Snapshot snapshot
+ ) {
++  DEBUG_FUNC();
+   return false;
+ }
+
+@@ -183,6 +206,7 @@
+   TM_IndexDeleteOp *delstate
+ ) {
+   TransactionId id = {};
++  DEBUG_FUNC();
+   return id;
+ }
+
+@@ -193,17 +217,20 @@
+   TransactionId *freezeXid,
+   MultiXactId *minmulti
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static void memam_relation_nontransactional_truncate(
+   Relation rel
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static void memam_relation_copy_data(
+   Relation rel,
+   const RelFileLocator *newrlocator
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static void memam_relation_copy_for_cluster(
+@@ -218,6 +245,7 @@
+   double *tups_vacuumed,
+   double *tups_recently_dead
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static void memam_vacuum_rel(
+@@ -225,6 +253,7 @@
+   VacuumParams *params,
+   BufferAccessStrategy bstrategy
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static bool memam_scan_analyze_next_block(
+@@ -232,6 +261,7 @@
+   BlockNumber blockno,
+   BufferAccessStrategy bstrategy
+ ) {
++  DEBUG_FUNC();
+   return false;
+ }
+
+@@ -242,6 +272,7 @@
+   double *deadrows,
+   TupleTableSlot *slot
+ ) {
++  DEBUG_FUNC();
+   return false;
+ }
+
+@@ -258,6 +289,7 @@
+   void *callback_state,
+   TableScanDesc scan
+ ) {
++  DEBUG_FUNC();
+   return 0;
+ }
+
+@@ -268,14 +300,17 @@
+   Snapshot snapshot,
+   ValidateIndexState *state
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static bool memam_relation_needs_toast_table(Relation rel) {
++  DEBUG_FUNC();
+   return false;
+ }
+
+ static Oid memam_relation_toast_am(Relation rel) {
+   Oid oid = {};
++  DEBUG_FUNC();
+   return oid;
+ }
+
+@@ -287,6 +322,7 @@
+   int32 slicelength,
+   struct varlena *result
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static void memam_estimate_rel_size(
+@@ -296,11 +332,13 @@
+   double *tuples,
+   double *allvisfrac
+ ) {
++  DEBUG_FUNC();
+ }
+
+ static bool memam_scan_sample_next_block(
+   TableScanDesc scan, SampleScanState *scanstate
+ ) {
++  DEBUG_FUNC();
+   return false;
+ }
+
+@@ -309,6 +347,7 @@
+   SampleScanState *scanstate,
+   TupleTableSlot *slot
+ ) {
++  DEBUG_FUNC();
+   return false;
+ }
+```
+
+And then in the entrypoint, initialize the file for logging.
+
+```diff
+@@ -369,5 +408,9 @@
+ PG_FUNCTION_INFO_V1(mem_tableam_handler);
+
+ Datum mem_tableam_handler(PG_FUNCTION_ARGS) {
++  fd = fopen("/tmp/pgtam.log", "a");
++  setvbuf(fd, NULL, _IONBF, 0); // Prevent buffering
++  fprintf(fd, "\n\nmem_tableam handler loaded\n");
++
+   PG_RETURN_POINTER(&memam_methods);
+ }
+```
+
+Let's give it a shot!
+
+```console
+$ make && sudo make install
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to table x
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+psql:test.sql:6: server closed the connection unexpectedly
+        This probably means the server terminated abnormally
+        before or while processing the request.
+psql:test.sql:6: error: connection to server was lost
+```
+
+And let's check our log file:
+
+```
+$ cat /tmp/pgtam.log
+
+
+mem_tableam handler loaded
+
+
+mem_tableam handler loaded
+in memam_relation_set_new_filelocator
+
+
+mem_tableam handler loaded
+in memam_relation_needs_toast_table
+
+
+mem_tableam handler loaded
+in memam_estimate_rel_size
+in memam_slot_callbacks
+```
+
+Now we're getting somewhere!
+
+<p class="note">
+  I later realized <code>elog()</code> is the way most people log
+  within Postgres/within extensions. I didn't know that when I was
+  getting started though. This separate logging was a simple way to
+  get the info out.
+</p>
+
+#### `slot_callbacks`
+
+Since the request crashes and the last logged function is
+`memam_slot_callbacks`, it seems like that is where we should
+concentrate. The [Table Access Method
+docs](https://www.postgresql.org/docs/current/tableam.html) suggest
+looking at the default `heap` access method for inspiration.
+
+Its
+[version](https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/backend/access/heap/heapam_handler.c#L67)
+of `slot_callbacks` returns `&TTSOpsBufferHeapTuple`:
+
+```c
+static const TupleTableSlotOps *
+heapam_slot_callbacks(Relation relation)
+{
+	return &TTSOpsBufferHeapTuple;
+}
+```
+
+I have no idea what that means, but since it is defined in
+[`src/backend/executor/execTuples.c`](https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/backend/executor/execTuples.c#L1080)
+it doesn't seem to be tied to the `heap` access method
+implementation. Let's try it.
+
+<p class="note">
+  While it works initially, I noticed later on that
+  <code>TTSOpsBufferHeapTuple</code> turns out not to be the right
+  choice here. But <code>TTSOpsVirtual</code> works.
+</p>
+
+```diff
+@@ -19,7 +19,7 @@
+   Relation relation
+ ) {
+   DEBUG_FUNC();
+-  return NULL;
++  return &TTSOpsVirtual;
+ }
+
+ static TableScanDesc memam_beginscan(
+```
+
+Build and run:
+
+```console
+$ make && sudo make install
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to table x
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+psql:test.sql:6: server closed the connection unexpectedly
+        This probably means the server terminated abnormally
+        before or while processing the request.
+psql:test.sql:6: error: connection to server was lost
+```
+
+It still crashes. But this time in `/tmp/pgtam.log` we made it into a
+new method!
+
+```c
+$ cat /tmp/pgtam.log
+
+
+mem_tableam handler loaded
+
+
+mem_tableam handler loaded
+in memam_relation_set_new_filelocator
+
+
+mem_tableam handler loaded
+in memam_relation_needs_toast_table
+
+
+mem_tableam handler loaded
+in memam_estimate_rel_size
+in memam_slot_callbacks
+in memam_beginscan
+```
+
+#### `scan_begin`
+
+The function signature is:
+
+```c
+TableScanDesc heap_beginscan(
+  Relation relation,
+  Snapshot snapshot,
+  int nkeys,
+  ScanKey key,
+  ParallelTableScanDesc parallel_scan,
+  uint32 flags
+);
+```
+
+And we've been returning `NULL`. Since we're failing in this function,
+maybe we should try returning something that isn't `NULL`.
+
+By looking at the definition of `TableScanDesc`, we can see it is a
+pointer to the `TableScanDescData` struct defined in
+[`src/include/access/relscan.h`](https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/include/access/relscan.h#L52).
+
+Let's `malloc` a `TableScanDescData`, free it in `endscan`, and return
+the `TableScanDescData` instance in `beginscan`:
+
+```diff
+@@ -30,8 +30,12 @@
+   ParallelTableScanDesc parallel_scan,
+   uint32 flags
+ ) {
++  TableScanDescData* scan = {};
+   DEBUG_FUNC();
+-  return NULL;
++
++  scan = (TableScanDescData*)malloc(sizeof(TableScanDescData));
++
++  return (TableScanDesc)scan;
+ }
+
+ static void memam_rescan(
+@@ -87,6 +87,7 @@
+ 
+ static void memam_endscan(TableScanDesc sscan) {
+   DEBUG_FUNC();
++  free(sscan);
+ }
+
+```
+
+Build and run (you can do it on your own). No difference.
+
+I got stuck for a while here too. Clearly something must be filled out
+in this struct but it could be anything. Through trial and error I
+realized the one field that must be filled out is `scan->rs_rd`.
+
+```diff
+@@ -34,6 +34,7 @@
+   DEBUG_FUNC();
+
+   scan = (TableScanDescData*)malloc(sizeof(TableScanDescData));
++  scan->rs_rd = relation;
+
+   return (TableScanDesc)scan;
+ }
+```
+
+We build and run:
+
+```
+$ make && sudo make install
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to table x
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+ a
+---
+(0 rows)
+```
+
+And it works! It doesn't return anything but that's correct. There's
+nothing to return.
+
+So what if we actually want to return something? Let's check our logs
+in `/tmp/pgtam.log`.
+
+```
+$ cat /tmp/pgtam.log
+
+
+mem_tableam handler loaded
+
+
+mem_tableam handler loaded
+in memam_relation_set_new_filelocator
+
+
+mem_tableam handler loaded
+in memam_relation_needs_toast_table
+
+
+mem_tableam handler loaded
+in memam_estimate_rel_size
+in memam_slot_callbacks
+in memam_beginscan
+in memam_getnextslot
+in memam_endscan
+```
+
+Ok, I'm getting the gist of the API. A full table scan (which this is,
+because there are no indexes at play), starts with an initialization
+for a slot, then the scan begins, then `getnextslot` is called for
+each row, and then `endscan` is called to allow for cleanup.
+
+So let's try returning a row in `getnextslot`.
+
+#### `getnextslot`
+
+The `getnextslot` signature is:
+
+```c
+bool memam_getnextslot(
+  TableScanDesc sscan,
+  ScanDirection direction,
+  TupleTableSlot *slot
+);
+```
+
+So the `TableScanDesc` should be what we returned from `beginscan` and
+the [interface
+docs](https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/include/access/tableam.h#L341)
+say the current row gets stored in `slot`.
+
+<p class="note">
+  The return value seems to indicate whether or not we've reached the
+  end of the scan. However, the scan will still end even if you
+  <code>return true</code> if the <code>slot</code> is not filled out correctly. If the
+  <code>slot</code> is filled out correctly and you unconditionally <code>return
+  true</code>, you will crash the process.
+</p>
+
+Let's take a look at the
+[definition](https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/include/executor/tuptable.h#L114)
+of `TupleTableSlot`:
+
+```c
+typedef struct TupleTableSlot
+{
+	NodeTag		type;
+#define FIELDNO_TUPLETABLESLOT_FLAGS 1
+	uint16		tts_flags;		/* Boolean states */
+#define FIELDNO_TUPLETABLESLOT_NVALID 2
+	AttrNumber	tts_nvalid;		/* # of valid values in tts_values */
+	const TupleTableSlotOps *const tts_ops; /* implementation of slot */
+#define FIELDNO_TUPLETABLESLOT_TUPLEDESCRIPTOR 4
+	TupleDesc	tts_tupleDescriptor;	/* slot's tuple descriptor */
+#define FIELDNO_TUPLETABLESLOT_VALUES 5
+	Datum	   *tts_values;		/* current per-attribute values */
+#define FIELDNO_TUPLETABLESLOT_ISNULL 6
+	bool	   *tts_isnull;		/* current per-attribute isnull flags */
+	MemoryContext tts_mcxt;		/* slot itself is in this context */
+	ItemPointerData tts_tid;	/* stored tuple's tid */
+	Oid			tts_tableOid;	/* table oid of tuple */
+} TupleTableSlot;
+```
+
+`tts_values` sounds like an array of `Datum` (which is a Postgres
+value). So that sounds like the actually values of the row. The
+`tts_isnull` field also looks important since that seems to be whether
+each value in the row is null or not. And `tts_nvalid` sounds
+important too since presumably it's the length of the `tts_isnull` and
+`tts_values` arrays.
+
+The rest of it may or may not be important. Let's try filling out
+these three fields though and see what happens.
+
+#### Datum
+
+Back in the [Postgres C extension
+documentation](https://www.postgresql.org/docs/current/xfunc-c.html),
+we can see some simple examples of converting between C types and
+Postgres's Datum type.
+
+For example:
+
+```c
+Datum
+add_one(PG_FUNCTION_ARGS)
+{
+    int32   arg = PG_GETARG_INT32(0);
+
+    PG_RETURN_INT32(arg + 1);
+}
+```
+
+If we look at the definition of `PG_RETURN_INT32` in
+[`src/include/fmgr.h`](https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/include/fmgr.h#L354),
+we see:
+
+```c
+#define PG_RETURN_INT32(x)	 return Int32GetDatum(x)
+```
+
+So `Int32GetDatum()` is the function we'll use to set a `Datum` for a
+cell in a row.
+
+```
+@@ -54,13 +54,26 @@
+   DEBUG_FUNC();
+ }
+
++static bool done = false;
+ static bool memam_getnextslot(
+   TableScanDesc sscan,
+   ScanDirection direction,
+   TupleTableSlot *slot
+ ) {
+   DEBUG_FUNC();
+-  return false;
++
++  if (done) {
++    return false;
++  }
++
++  slot->tts_nvalid = 1;
++  slot->tts_values = (Datum*)malloc(sizeof(Datum) * slot->tts_nvalid);
++  slot->tts_values[0] = Int32GetDatum(314 /* Some unique-looking value */);
++  slot->tts_isnull = (bool*)malloc(sizeof(bool) * slot->tts_nvalid);
++  slot->tts_isnull[0] = false;
++  done = true;
++
++  return true;
+ }
+
+ static IndexFetchTableData* memam_index_fetch_begin(Relation rel) {
+```
+
+The goal is that we return a single row and then exit the scan. It
+will have one 32-bit integer cell (remember we created the table
+`CREATE TABLE x (a INT)`; `INT` is shorthand for `INT4` which is a
+32-bit integer) that will have the value `314`.
+
+But if we build and run this, we get no rows.
+
+```console
+$ make && sudo make install
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to table x
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+ a
+---
+(0 rows)
+
+```
+
+I got stuck for a while here. Plugging my `getnextslot` code into
+ChatGPT helped. One thing it gave me to try was calling
+`ExecStoreVirtualTuple` on the `slot`. I noticed that the built-in
+`heap` access method [also called a function like
+this](https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/backend/access/heap/heapam.c#L1159)
+in `getnextslot`.
+
+And I realized that `tts_nvalid` is already set up and the memory for
+`tts_values` and `tts_isnull` is already allocated. So the code became
+a little simpler.
+
+```diff
+@@ -66,11 +66,9 @@
+     return false;
+   }
+
+-  slot->tts_nvalid = 1;
+-  slot->tts_values = (Datum*)malloc(sizeof(Datum) * slot->tts_nvalid);
+   slot->tts_values[0] = Int32GetDatum(314 /* Some unique-looking value */);
+-  slot->tts_isnull = (bool*)malloc(sizeof(bool) * slot->tts_nvalid);
+   slot->tts_isnull[0] = false;
++  ExecStoreVirtualTuple(slot);
+   done = true;
+
+   return true;
+```
+
+Build and run:
+
+```console
+$ make && sudo make install
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to table x
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+  a
+-----
+ 314
+(1 row)
+```
+
+Fantastic!
+
+### Creating a table
+
+Now that we've proven we can return random data, let's set up
+infrastructure for storing tables in memory.
+
+```diff
+@@ -15,6 +15,41 @@
+ FILE* fd;
+ #define DEBUG_FUNC() fprintf(fd, "in %s\n", __func__);
+
++
++struct Column {
++  int value;
++};
++
++struct Row {
++  struct Column* columns;
++  size_t ncolumns;
++};
++
++#define MAX_ROWS 100
++struct Table {
++  char* name;
++  struct Row* rows;
++  size_t nrows;
++};
++
++#define MAX_TABLES 100
++struct Database {
++  struct Table* tables;
++  size_t ntables;
++};
++
++struct Database* database;
++
++static void get_table(struct Table** table, Relation relation) {
++  char* this_name = NameStr(relation->rd_rel->relname);
++  for (size_t i = 0; i < database->ntables; i++) {
++    if (strcmp(database->tables[i].name, this_name) == 0) {
++      *table = &database->tables[i];
++      return;
++    }
++  }
++}
++
+ static const TupleTableSlotOps* memam_slot_callbacks(
+   Relation relation
+ ) {
+```
+
+Based on what we logged in `/tmp/pgtam.log` it seems like
+`memam_relation_set_new_filelocator` is called when a new table is
+created. So let's handle adding a new table there.
+
+```diff
+@@ -233,7 +268,16 @@
+   TransactionId *freezeXid,
+   MultiXactId *minmulti
+ ) {
++  struct Table table = {};
+   DEBUG_FUNC();
++
++  table.name = strdup(NameStr(rel->rd_rel->relname));
++  fprintf(fd, "Created table: [%s]\n", table.name);
++  table.rows = (struct Row*)malloc(sizeof(struct Row) * MAX_ROWS);
++  table.nrows = 0;
++
++  database->tables[database->ntables] = table;
++  database->ntables++;
+ }
+
+ static void memam_relation_nontransactional_truncate(
+```
+
+Finally, we'll initalize the in-memory `Database*` when the handler is
+loaded.
+
+```diff
+@@ -428,5 +472,11 @@
+   setvbuf(fd, NULL, _IONBF, 0); // Prevent buffering
+   fprintf(fd, "\n\nmem_tableam handler loaded\n");
+
++  if (database == NULL) {
++    database = (struct Database*)malloc(sizeof(struct Database));
++    database->ntables = 0;
++    database->tables = (struct Table*)malloc(sizeof(struct Table) * MAX_TABLES);
++  }
++
+   PG_RETURN_POINTER(&memam_methods);
+ }
+```
+
+If we build and run, we won't notice anything new.
+
+```console
+$ make && sudo make install
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to table x
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+  a
+-----
+ 314
+(1 row)
+```
+
+But we should see a message in `/tmp/pgtam.log` about the new table
+being created.
+
+```console
+$ cat /tmp/pgtam.log
+
+
+mem_tableam handler loaded
+
+
+mem_tableam handler loaded
+in memam_relation_set_new_filelocator
+Created table: [x]
+
+
+mem_tableam handler loaded
+in memam_relation_needs_toast_table
+
+
+mem_tableam handler loaded
+in memam_estimate_rel_size
+in memam_slot_callbacks
+in memam_beginscan
+in memam_getnextslot
+in memam_getnextslot
+in memam_endscan
+```
+
+And there it is! Creation looks good.
+
+### Inserting rows
+
+Let's add `INSERT INTO x VALUES (23), (101);` to `test.sql` and run
+the SQL script.
+
+```console
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to table x
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+INSERT 0 2
+  a
+-----
+ 314
+(1 row)
+```
+
+And let's check the log to see what method is called when we try to
+`INSERT`.
+
+```console
+$ cat /tmp/pgtam.log
+
+
+mem_tableam handler loaded
+
+
+mem_tableam handler loaded
+in memam_relation_set_new_filelocator
+Created table: [x]
+
+
+mem_tableam handler loaded
+in memam_relation_needs_toast_table
+
+
+mem_tableam handler loaded
+in memam_slot_callbacks
+in memam_tuple_insert
+in memam_tuple_insert
+in memam_estimate_rel_size
+in memam_slot_callbacks
+in memam_beginscan
+in memam_getnextslot
+in memam_getnextslot
+in memam_endscan
+```
+
+`tuple_insert` seems to be the method! It seems to get called once for
+each row to insert. Perfect.
+
+The signature for `tuple_insert` is:
+
+```c
+void memam_tuple_insert(
+  Relation relation,
+  TupleTableSlot *slot,
+  CommandId cid,
+  int options,
+  BulkInsertState bistate
+);
+```
+
+We can get the table name from `relation` and instead of writing to
+`slot` we should be able to read from `slot->tts_values` instead.
+
+```diff
+@@ -141,7 +141,38 @@
+   int options,
+   BulkInsertState bistate
+ ) {
++  TupleDesc desc = RelationGetDescr(relation);
++  struct Table* table = NULL;
++  struct Column column = {};
++  struct Row row = {};
++
+   DEBUG_FUNC();
++
++  get_table(&table, relation);
++  if (table == NULL) {
++    elog(ERROR, "table not found");
++    return;
++  }
++
++  if (table->nrows == MAX_ROWS) {
++    elog(ERROR, "cannot insert more rows");
++    return;
++  }
++
++  row.ncolumns = desc->natts;
++  Assert(slot->tts_nvalid == row.ncolumns);
++  Assert(row.ncolumns > 0);
++
++  row.columns = (struct Column*)malloc(sizeof(struct Column) * row.ncolumns);
++  for (size_t i = 0; i < row.ncolumns; i++) {
++    Assert(desc->attrs[i].atttypid == INT4OID);
++    column.value = DatumGetInt32(slot->tts_values[i]);
++    row.columns[i] = column;
++    fprintf(fd, "Got value: %d\n", column.value);
++  }
++
++  table->rows[table->nrows] = row;
++  table->nrows++;
+ }
+
+ static void memam_tuple_insert_speculative(
+```
+
+Build and run and again we won't notice anything new.
+
+```console
+$ make && sudo make install
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to table x
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+INSERT 0 2
+  a
+-----
+ 314
+(1 row)
+```
+
+But if we check the logs, we should see the two column values we
+inserted, one for each row.
+
+```console
+$ cat /tmp/pgtam.log
+
+
+mem_tableam handler loaded
+
+
+mem_tableam handler loaded
+in memam_relation_set_new_filelocator
+Created table: [x]
+
+
+mem_tableam handler loaded
+in memam_relation_needs_toast_table
+
+
+mem_tableam handler loaded
+in memam_slot_callbacks
+in memam_tuple_insert
+Got value: 23
+in memam_tuple_insert
+Got value: 101
+in memam_estimate_rel_size
+in memam_slot_callbacks
+in memam_beginscan
+in memam_getnextslot
+in memam_getnextslot
+in memam_endscan
+```
+
+Woohoo!
+
+### Un-hardcoding the scan
+
+The final thing we need to do is drop the hardcoded `314` we returned
+from `getnextslot` and instead we need to look up the current table
+and return rows from it. This also means we need to keep track of
+which row we're on. So `beginscan` will also need to change slightly.
+
+```diff
+@@ -57,6 +56,14 @@
+   return &TTSOpsVirtual;
+ }
+
++
++struct MemScanDesc {
++  TableScanDescData rs_base; // Base class from access/relscan.h.
++
++  // Custom data.
++  uint32 cursor;
++};
++
+ static TableScanDesc memam_beginscan(
+   Relation relation,
+   Snapshot snapshot,
+@@ -65,11 +72,13 @@
+   ParallelTableScanDesc parallel_scan,
+   uint32 flags
+ ) {
+-  TableScanDescData* scan = {};
+-  DEBUG_FUNC();
++  struct MemScanDesc* scan;
+
+-  scan = (TableScanDescData*)malloc(sizeof(TableScanDescData));
+-  scan->rs_rd = relation;
++  DEBUG_FUNC();
++
++  scan = (struct MemScanDesc*)malloc(sizeof(struct MemScanDesc));
++  scan->rs_base.rs_rd = relation;
++  scan->cursor = 0;
+
+   return (TableScanDesc)scan;
+ }
+@@ -89,23 +97,26 @@
+   DEBUG_FUNC();
+ }
+
+-static bool done = false;
+ static bool memam_getnextslot(
+   TableScanDesc sscan,
+   ScanDirection direction,
+   TupleTableSlot *slot
+ ) {
++  struct MemScanDesc* mscan = (struct MemScanDesc*)sscan;
++  struct Table* table = NULL;
+   DEBUG_FUNC();
+
+-  if (done) {
++  ExecClearTuple(slot);
++
++  get_table(&table, mscan->rs_base.rs_rd);
++  if (table == NULL || mscan->cursor == table->nrows) {
+     return false;
+   }
+
+-  slot->tts_values[0] = Int32GetDatum(314 /* Some unique-looking value */);
++  slot->tts_values[0] = Int32GetDatum(table->rows[mscan->cursor].columns[0].value);
+   slot->tts_isnull[0] = false;
+   ExecStoreVirtualTuple(slot);
+-  done = true;
+-
++  mscan->cursor++;
+   return true;
+ }
+```
+
+Let's try it out.
+
+```console
+$ make && sudo make install
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to table x
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+INSERT 0 2
+  a
+-----
+  23
+ 101
+(2 rows)
+```
+
+And there we have it. :)
+
+### Awesome SQL power
+
+So we tried one table and we tried a `SELECT` without anything else.
+
+What happens if we use more of SQL? Let's create another table with
+and let's try a more complex query.
+
+```sql
+$ cat test.sql
+DROP EXTENSION IF EXISTS pgtam CASCADE;
+CREATE EXTENSION pgtam;
+CREATE TABLE x(a INT) USING mem;
+CREATE TABLE y(b INT) USING mem;
+INSERT INTO x VALUES (23), (101);
+SELECT a FROM x;
+SELECT a + 100 FROM x WHERE a = 23;
+SELECT a, COUNT(1) FROM x GROUP BY a ORDER BY COUNT(1) DESC;
+SELECT b FROM y;
+```
+
+Run it:
+
+```console
+$ /usr/local/pgsql/bin/psql postgres -f test.sql
+psql:test.sql:1: NOTICE:  drop cascades to 2 other objects
+DETAIL:  drop cascades to table x
+drop cascades to table y
+DROP EXTENSION
+CREATE EXTENSION
+CREATE TABLE
+CREATE TABLE
+INSERT 0 2
+  a
+-----
+  23
+ 101
+(2 rows)
+
+ ?column?
+----------
+      123
+(1 row)
+
+  a  | count
+-----+-------
+  23 |     1
+ 101 |     1
+(2 rows)
+
+ b
+---
+(0 rows)
+```
+
+Pretty sweet!
+
+### Next steps
+
+It would be neat to build a storage engine that reads from and writes
+to a CSV a la MySQL's CSV storage engine. Or a storage engine that
+uses RocksDB.
+
+It would also be good to figure out how indexes work, how deletions
+work, how updates and DDL beyond `CREATE` works.
+
+And I should probably contribute some of this to the [Table Access
+Method](https://www.postgresql.org/docs/current/tableam.html) docs
+which are pretty sparse at the moment.

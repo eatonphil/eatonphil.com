@@ -73,7 +73,7 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
 .highlight .vm { color: #19177C } /* Name.Variable.Magic */
 .highlight .il { color: #666666 } /* Literal.Number.Integer.Long */
 :root {
-    --primary: #EBA123;
+    --primary: #d38305;
 }
 
 * {
@@ -143,7 +143,12 @@ ul + h2,
 ul + h3,
 ul + h4,
 ul + h5,
-ul + h6 {
+ul + h6,
+ul + h2,
+ol + h3,
+ol + h4,
+ol + h5,
+ol + h6{
     margin-top: 50px;
 }
 
@@ -170,6 +175,10 @@ a {
     text-decoration: none;
 }
 
+p a {
+    text-decoration: underline;
+}
+
 blockquote {
     background: #efefef;
     padding: 1px 15px 15px 15px;
@@ -181,15 +190,6 @@ blockquote {
     color: #777;
     display: block;
     margin-bottom: -1.5em;
-}
-
-p:not(.note) code {
-    background: #f0f0f0;
-    font-size: 1rem;
-}
-
-code {
-    font-family: monospace;
 }
 
 img {
@@ -302,6 +302,19 @@ aside p {
     margin: 0;
 }
 
+p code, li code {
+    background: #f0f0f0;
+}
+
+table,
+p code,
+li code,
+.highlight pre {
+    font-family: monospace;
+    font-size: .95rem;
+    line-height: 1.35rem;
+}
+
 .title {
     color: #333;
     margin: 0;
@@ -364,7 +377,8 @@ aside p {
 
 .note {
     line-height: 1.4rem;
-    background: #f4f7f9e6;
+    background: #fbfcfe;
+    border: 1px solid #ebecee;
     padding: 30px 10px 10px 10px;
     position: relative;
 }
