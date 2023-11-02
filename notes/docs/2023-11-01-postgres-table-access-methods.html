@@ -63,8 +63,12 @@ engine</a>.</p>
 least <a href="https://github.com/eatonphil/pgtam">8 different</a> <em>built-in</em>
 engines you can pick from. <a href="https://myrocks.io/">MyRocks</a>, MySQL on
 RocksDB, is another popular third-party distribution.</p>
-<p>I assume there will be a renaissance of Postgres storage
-engines. To date, the efforts are nascent.</p>
+<p>I assume there will be a renaissance of Postgres storage engines. To
+date, the efforts are
+nascent. <a href="https://github.com/orioledb/orioledb">OrioleDB</a> and <a href="https://github.com/citusdata/citus/blob/main/src/backend/columnar/README.md">Citus
+Columnar</a>
+are two promising third-party table access methods being actively
+developed.</p>
 <h3 id="why-alternative-storage-engines?">Why alternative storage engines?</h3><p>The ability to swap storage engines is useful because different
 workloads sometimes benefit from different storage
 approaches. Analytics workloads and columnar storage layouts <a href="https://docs.aws.amazon.com/redshift/latest/dg/c_columnar_storage_disk_mem_mgmnt.html">go well
