@@ -31,21 +31,22 @@ wire protocol, the ecosystem, etc.
 ### Why not foreign data wrappers?
 
 Very little has been written about the difference between foreign data
-wrappers and table access methods. Table access methods seems to be
-the lower-level layer where presumably you get better performance and
-cleaner integration. But there is clearly overlap between these two
-extension options.
+wrappers (FDWs) and table access methods. Table access methods seems
+to be the lower-level layer where presumably you get better
+performance and cleaner integration. But there is clearly overlap
+between these two extension options.
 
 For example there is a [FDW for
 ClickHouse](https://github.com/ildus/clickhouse_fdw) so when you
 create tables and rows and query the tables you are really creating
 and querying rows in a ClickHouse server. Similarly there's a [FDW for
 RocksDB](https://github.com/vidardb/pgrocks-fdw). And Citus's columnar
-engine works [either as a foreign data wrapper or a table access
-method](https://www.citusdata.com/blog/2021/03/06/citus-10-columnar-compression-for-postgres/#:~:text=What%20About%20cstore_fdw%3F).
+engine works
+[either](https://www.citusdata.com/blog/2021/03/06/citus-10-columnar-compression-for-postgres/#:~:text=What%20About%20cstore_fdw%3F)
+as a foreign data wrapper or a table access method.
 
 The Citus page draws the clearest distinction between FDWs and table
-access methods but even that page is vague. Performance doesn't seem
+access methods, but even that page is vague. Performance doesn't seem
 to be the main difference. Closer integration, and thus the ability to
 look more like vanilla Postgres from the outside, seems to be the
 gist.
@@ -58,8 +59,8 @@ I haven't written Postgres extensions before and I've never written C
 professionally. If you're familiar with Postgres internals or C and
 notice something funky, please [let me know](mailto:me@eatonphil.com)!
 
-But it turns out that almost no one has written how to
-implement the minimal APIs for various storage engine operations. So
+It turns out that almost no one has written how to implement the
+minimal table access methods for various storage engine operations. So
 after quite a bit of stumbling to get the basics of an in-memory
 storage engine working, I'm going to walk you through my approach.
 
@@ -77,7 +78,8 @@ Postgres.
 
 ```
 $ git clone https://github.com/postgres/postgres
-$ git checkout 849172ff4883d44168f96f39d3fde96d0aa34c99 # An arbitrary commit from `master` after Postgres 16 I am on
+$ # An arbitrary commit from `master` after Postgres 16 I am on
+$ git checkout 849172ff4883d44168f96f39d3fde96d0aa34c99
 $ cd postgres
 $ ./configure --enable-cassert --enable-debug CFLAGS="-ggdb -Og -g3 -fno-omit-frame-pointer"
 $ make -j8
@@ -104,11 +106,12 @@ Since we installed Postgres from scratch,
 `/usr/local/pgsql/bin/pg_config` will supply all of the infrastructure
 we need.
 
-Mostly, the "infrastructure" is
-[PGXS](https://www.postgresql.org/docs/current/extend-pgxs.html),
+The "infrastructure" is basically just
+[PGXS](https://www.postgresql.org/docs/current/extend-pgxs.html):
 Postgres Makefile utilities.
 
-So in a new `Makefile` we'll specify:
+It's convention-heavy. So in a new `Makefile` for this project we'll
+specify:
 
 1. `MODULES`: Any C sources to build, without the `.c` file extension
 2. `EXTENSION`: Extension metadata file, without the `.control` file extension
@@ -125,17 +128,16 @@ include $(PGXS)
 ```
 
 The final three lines set up the PGXS Makefile library based on the
-particular installed Postgres build we want to build against and
-install extensions to.
+particular installed Postgres build we want to build the extension
+against and install the extension to.
 
-This gives us a few important targets like `make distclean`, `make`,
-and `make install`.
+PGXS gives us a few important targets like `make distclean`, `make`,
+and `make install` we'll use later on.
 
 #### `pgtam.c`
 
-A minimal C file that registers a function with Postgres
-([documented
-here](https://www.postgresql.org/docs/current/xfunc-c.html)) is:
+A minimal C file that registers a function capable of serving as a
+table access method is:
 
 ```c
 #include "postgres.h"
@@ -154,16 +156,30 @@ Datum mem_tableam_handler(PG_FUNCTION_ARGS) {
 }
 ```
 
-The workflow for registering a table access method is to first `CREATE
-EXTENSION pgtam` an extension that has a function that returns a table
-of methods. And then call `CREATE ACCESS METHOD mem TYPE TABLE HANDLER
-mem_tableam_handler`. Then finally you can use the access method when
+<p class="note">
+  If you want to read about extension basics without the complexity of
+  table access methods, you can find a complete, minimal Postgres
+  extension I wrote to validate the
+  infrastructure <a href="https://github.com/eatonphil/pgext-101">here</a>. Or
+  you can follow a
+  <a href="https://github.com/IshaanAdarsh/Postgres-extension-tutorial/blob/main/SGML/intro_and_toc.md">larger
+    tutorial</a>.
+</p>
+
+The workflow for registering a table access method is to first run
+`CREATE EXTENSION pgtam`. This assumes `pgtam` is an extension that
+has a function that returns a `TableAmRoutine` struct instance, a
+table of table access methods.
+
+Then you must run `CREATE ACCESS METHOD mem TYPE TABLE HANDLER
+mem_tableam_handler`. And finally you can use the access method when
 creating a table with `USING mem`: `CREATE TABLE x(a INT) USING mem`.
 
 #### `pgtam.control`
 
-At a minimum, you need to specify a version for the extension. So in
-pgtam.control:
+This is file contains extension metadata. At a minimum, the version of
+the extension and the filename for the extension where it should be
+installed.
 
 ```
 default_version = '0.0.1'
@@ -228,25 +244,16 @@ TRAP: failed Assert("routine->scan_begin != NULL"), File: "tableamapi.c", Line: 
 That's a great sign! This is Postgres's debug infrastructure helping
 to make sure the table access method is correctly implemented.
 
-<p class="note">
-  For further reading on extension basics, you can find a complete,
-  minimal Postgres extension I wrote to validate the
-  infrastructure <a href="https://github.com/eatonphil/pgext-101">here</a>. Or
-  you can follow a
-  <a href="https://github.com/IshaanAdarsh/Postgres-extension-tutorial/blob/main/SGML/intro_and_toc.md">larger
-    tutorial</a>.
-</p>
-
 ### Table access method stubs
 
 The next step is to add function stubs for all the non-optional
 methods of the [`TableAmRoutine`
 struct](https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/include/access/tableam.h#L282).
 
-I've done all the work for you already so you can just copy these
-stubs. It's a big file, but don't worry. There's nothing to
-explain. Just a bunch of blank functions returning default values
-when required.
+I've done all the work for you already so you can just copy this over
+the existing `pgtam.c`. It's a big file, but don't worry. There's
+nothing to explain. Just a bunch of blank functions returning default
+values when required.
 
 ```c
 #include "postgres.h"
@@ -1020,7 +1027,7 @@ Now we're getting somewhere!
 
 Since the request crashes and the last logged function is
 `memam_slot_callbacks`, it seems like that is where we should
-concentrate. The [Table Access Method
+concentrate. The [table access method
 docs](https://www.postgresql.org/docs/current/tableam.html) suggest
 looking at the default `heap` access method for inspiration.
 
@@ -1044,7 +1051,8 @@ implementation. Let's try it.
 <p class="note">
   While it works initially, I noticed later on that
   <code>TTSOpsBufferHeapTuple</code> turns out not to be the right
-  choice here. But <code>TTSOpsVirtual</code> works.
+  choice here. <code>TTSOpsVirtual</code> seems to be the right
+  implementation.
 </p>
 
 ```diff
@@ -1113,8 +1121,9 @@ TableScanDesc heap_beginscan(
 );
 ```
 
-And we've been returning `NULL`. Since we're failing in this function,
-maybe we should try returning something that isn't `NULL`.
+Since we just implemented stub versions of all the methods, we've been
+returning `NULL`. Since we're failing in this function, maybe we
+should try returning something that isn't `NULL`.
 
 By looking at the definition of `TableScanDesc`, we can see it is a
 pointer to the `TableScanDescData` struct defined in
@@ -1208,7 +1217,7 @@ in memam_endscan
 ```
 
 Ok, I'm getting the gist of the API. A full table scan (which this is,
-because there are no indexes at play), starts with an initialization
+because there are no indexes at play) starts with an initialization
 for a slot, then the scan begins, then `getnextslot` is called for
 each row, and then `endscan` is called to allow for cleanup.
 
@@ -1226,8 +1235,8 @@ bool memam_getnextslot(
 );
 ```
 
-So the `TableScanDesc` should be what we returned from `beginscan` and
-the [interface
+So the `sscan` should be what we returned from `beginscan` and the
+[interface
 docs](https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/include/access/tableam.h#L341)
 say the current row gets stored in `slot`.
 
@@ -1264,12 +1273,12 @@ typedef struct TupleTableSlot
 } TupleTableSlot;
 ```
 
-`tts_values` sounds like an array of `Datum` (which is a Postgres
-value). So that sounds like the actually values of the row. The
-`tts_isnull` field also looks important since that seems to be whether
-each value in the row is null or not. And `tts_nvalid` sounds
-important too since presumably it's the length of the `tts_isnull` and
-`tts_values` arrays.
+`tts_values` is an array of `Datum` (which is a Postgres value). So
+that sounds like the actual values of the row. The `tts_isnull` field
+also looks important since that seems to be whether each value in the
+row is null or not. And `tts_nvalid` sounds important too since
+presumably it's the length of the `tts_isnull` and `tts_values`
+arrays.
 
 The rest of it may or may not be important. Let's try filling out
 these three fields though and see what happens.
@@ -1304,7 +1313,7 @@ we see:
 So `Int32GetDatum()` is the function we'll use to set a `Datum` for a
 cell in a row.
 
-```
+```diff
 @@ -54,13 +54,26 @@
    DEBUG_FUNC();
  }
@@ -1473,7 +1482,7 @@ created. So let's handle adding a new table there.
  static void memam_relation_nontransactional_truncate(
 ```
 
-Finally, we'll initalize the in-memory `Database*` when the handler is
+Finally, we'll initialize the in-memory `Database*` when the handler is
 loaded.
 
 ```diff
@@ -1585,8 +1594,8 @@ in memam_getnextslot
 in memam_endscan
 ```
 
-`tuple_insert` seems to be the method! It seems to get called once for
-each row to insert. Perfect.
+`tuple_insert` seems to be the method! Looks like it gets called once
+for each row to insert. Perfect.
 
 The signature for `tuple_insert` is:
 
@@ -1601,7 +1610,7 @@ void memam_tuple_insert(
 ```
 
 We can get the table name from `relation` and instead of writing to
-`slot` we should be able to read from `slot->tts_values` instead.
+`slot` we can read from `slot->tts_values` instead.
 
 ```diff
 @@ -141,7 +141,38 @@
@@ -1854,8 +1863,8 @@ uses RocksDB.
 It would also be good to figure out how indexes work, how deletions
 work, how updates and DDL beyond `CREATE` works.
 
-And I should probably contribute some of this to the [Table Access
-Method](https://www.postgresql.org/docs/current/tableam.html) docs
+And I should probably contribute some of this to the [table access
+method](https://www.postgresql.org/docs/current/tableam.html) docs
 which are pretty sparse at the moment.
 
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I&#39;ve been working this week to understand Postgres Table Access Methods for alternative storage engines.<br><br>Especially challenging because the documentation is pretty sparse and few minimal implementations exist.<br><br>I wrote up my approach!<a href="https://t.co/LQGglRkev5">https://t.co/LQGglRkev5</a> <a href="https://t.co/v0MeOu4Hbr">pic.twitter.com/v0MeOu4Hbr</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1719873793693221157?ref_src=twsrc%5Etfw">November 2, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>

@@ -76,19 +76,20 @@ some people like in-memory storage for running integration tests.</p>
 rest of the Postgres or MySQL infrastructure. The query language, the
 wire protocol, the ecosystem, etc.</p>
 <h3 id="why-not-foreign-data-wrappers?">Why not foreign data wrappers?</h3><p>Very little has been written about the difference between foreign data
-wrappers and table access methods. Table access methods seems to be
-the lower-level layer where presumably you get better performance and
-cleaner integration. But there is clearly overlap between these two
-extension options.</p>
+wrappers (FDWs) and table access methods. Table access methods seems
+to be the lower-level layer where presumably you get better
+performance and cleaner integration. But there is clearly overlap
+between these two extension options.</p>
 <p>For example there is a <a href="https://github.com/ildus/clickhouse_fdw">FDW for
 ClickHouse</a> so when you
 create tables and rows and query the tables you are really creating
 and querying rows in a ClickHouse server. Similarly there's a <a href="https://github.com/vidardb/pgrocks-fdw">FDW for
 RocksDB</a>. And Citus's columnar
-engine works <a href="https://www.citusdata.com/blog/2021/03/06/citus-10-columnar-compression-for-postgres/#:~:text=What%20About%20cstore_fdw%3F">either as a foreign data wrapper or a table access
-method</a>.</p>
+engine works
+<a href="https://www.citusdata.com/blog/2021/03/06/citus-10-columnar-compression-for-postgres/#:~:text=What%20About%20cstore_fdw%3F">either</a>
+as a foreign data wrapper or a table access method.</p>
 <p>The Citus page draws the clearest distinction between FDWs and table
-access methods but even that page is vague. Performance doesn't seem
+access methods, but even that page is vague. Performance doesn't seem
 to be the main difference. Closer integration, and thus the ability to
 look more like vanilla Postgres from the outside, seems to be the
 gist.</p>
@@ -96,8 +97,8 @@ gist.</p>
 <h3 id="digging-in">Digging in</h3><p>I haven't written Postgres extensions before and I've never written C
 professionally. If you're familiar with Postgres internals or C and
 notice something funky, please <a href="mailto:me@eatonphil.com">let me know</a>!</p>
-<p>But it turns out that almost no one has written how to
-implement the minimal APIs for various storage engine operations. So
+<p>It turns out that almost no one has written how to implement the
+minimal table access methods for various storage engine operations. So
 after quite a bit of stumbling to get the basics of an in-memory
 storage engine working, I'm going to walk you through my approach.</p>
 <p>This is prototype-quality code which hopefully will be a useful base
@@ -108,7 +109,8 @@ GitHub</a>.</p>
 build</a> of
 Postgres.</p>
 <div class="highlight"><pre><span></span><span class="n">$</span><span class="w"> </span><span class="n">git</span><span class="w"> </span><span class="k">clone</span><span class="w"> </span><span class="n">https</span><span class="o">://</span><span class="n">github</span><span class="p">.</span><span class="n">com</span><span class="o">/</span><span class="n">postgres</span><span class="o">/</span><span class="n">postgres</span>
-<span class="n">$</span><span class="w"> </span><span class="n">git</span><span class="w"> </span><span class="n">checkout</span><span class="w"> </span><span class="n">849172ff4883d44168f96f39d3fde96d0aa34c99</span><span class="w"> </span><span class="c1"># An arbitrary commit from `master` after Postgres 16 I am on</span>
+<span class="n">$</span><span class="w"> </span><span class="c1"># An arbitrary commit from `master` after Postgres 16 I am on</span>
+<span class="n">$</span><span class="w"> </span><span class="n">git</span><span class="w"> </span><span class="n">checkout</span><span class="w"> </span><span class="n">849172ff4883d44168f96f39d3fde96d0aa34c99</span>
 <span class="n">$</span><span class="w"> </span><span class="n">cd</span><span class="w"> </span><span class="n">postgres</span>
 <span class="n">$</span><span class="w"> </span><span class="p">.</span><span class="o">/</span><span class="n">configure</span><span class="w"> </span><span class="o">--</span><span class="k">enable</span><span class="o">-</span><span class="n">cassert</span><span class="w"> </span><span class="o">--</span><span class="k">enable</span><span class="o">-</span><span class="n">debug</span><span class="w"> </span><span class="n">CFLAGS</span><span class="o">=</span><span class="s2">&quot;-ggdb -Og -g3 -fno-omit-frame-pointer&quot;</span>
 <span class="n">$</span><span class="w"> </span><span class="n">make</span><span class="w"> </span><span class="o">-</span><span class="n">j8</span>
@@ -126,10 +128,11 @@ already.</p>
 <h3 id="extension-infrastructure">Extension infrastructure</h3><p>Since we installed Postgres from scratch,
 <code>/usr/local/pgsql/bin/pg_config</code> will supply all of the infrastructure
 we need.</p>
-<p>Mostly, the "infrastructure" is
-<a href="https://www.postgresql.org/docs/current/extend-pgxs.html">PGXS</a>,
+<p>The "infrastructure" is basically just
+<a href="https://www.postgresql.org/docs/current/extend-pgxs.html">PGXS</a>:
 Postgres Makefile utilities.</p>
-<p>So in a new <code>Makefile</code> we'll specify:</p>
+<p>It's convention-heavy. So in a new <code>Makefile</code> for this project we'll
+specify:</p>
 <ol>
 <li><code>MODULES</code>: Any C sources to build, without the <code>.c</code> file extension</li>
 <li><code>EXTENSION</code>: Extension metadata file, without the <code>.control</code> file extension</li>
@@ -144,13 +147,12 @@ Postgres Makefile utilities.</p>
 <span class="cp">include $(PGXS)</span>
 </pre></div>
 <p>The final three lines set up the PGXS Makefile library based on the
-particular installed Postgres build we want to build against and
-install extensions to.</p>
-<p>This gives us a few important targets like <code>make distclean</code>, <code>make</code>,
-and <code>make install</code>.</p>
-<h4 id="<code>pgtam.c</code>"><code>pgtam.c</code></h4><p>A minimal C file that registers a function with Postgres
-(<a href="https://www.postgresql.org/docs/current/xfunc-c.html">documented
-here</a>) is:</p>
+particular installed Postgres build we want to build the extension
+against and install the extension to.</p>
+<p>PGXS gives us a few important targets like <code>make distclean</code>, <code>make</code>,
+and <code>make install</code> we'll use later on.</p>
+<h4 id="<code>pgtam.c</code>"><code>pgtam.c</code></h4><p>A minimal C file that registers a function capable of serving as a
+table access method is:</p>
 <div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;postgres.h&quot;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;fmgr.h&quot;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;access/tableam.h&quot;</span>
@@ -166,13 +168,24 @@ here</a>) is:</p>
 <span class="w">  </span><span class="n">PG_RETURN_POINTER</span><span class="p">(</span><span class="o">&amp;</span><span class="n">memam_methods</span><span class="p">);</span>
 <span class="p">}</span>
 </pre></div>
-<p>The workflow for registering a table access method is to first <code>CREATE
-EXTENSION pgtam</code> an extension that has a function that returns a table
-of methods. And then call <code>CREATE ACCESS METHOD mem TYPE TABLE HANDLER
-mem_tableam_handler</code>. Then finally you can use the access method when
+<p class="note">
+  If you want to read about extension basics without the complexity of
+  table access methods, you can find a complete, minimal Postgres
+  extension I wrote to validate the
+  infrastructure <a href="https://github.com/eatonphil/pgext-101">here</a>. Or
+  you can follow a
+  <a href="https://github.com/IshaanAdarsh/Postgres-extension-tutorial/blob/main/SGML/intro_and_toc.md">larger
+    tutorial</a>.
+</p><p>The workflow for registering a table access method is to first run
+<code>CREATE EXTENSION pgtam</code>. This assumes <code>pgtam</code> is an extension that
+has a function that returns a <code>TableAmRoutine</code> struct instance, a
+table of table access methods.</p>
+<p>Then you must run <code>CREATE ACCESS METHOD mem TYPE TABLE HANDLER
+mem_tableam_handler</code>. And finally you can use the access method when
 creating a table with <code>USING mem</code>: <code>CREATE TABLE x(a INT) USING mem</code>.</p>
-<h4 id="<code>pgtam.control</code>"><code>pgtam.control</code></h4><p>At a minimum, you need to specify a version for the extension. So in
-pgtam.control:</p>
+<h4 id="<code>pgtam.control</code>"><code>pgtam.control</code></h4><p>This is file contains extension metadata. At a minimum, the version of
+the extension and the filename for the extension where it should be
+installed.</p>
 <div class="highlight"><pre><span></span>default_version = &#39;0.0.1&#39;
 module_pathname = &#39;$libdir/pgtam&#39;
 </pre></div>
@@ -213,20 +226,13 @@ directory where we ran <code>pg_ctl</code>.</p>
 </pre></div>
 <p>That's a great sign! This is Postgres's debug infrastructure helping
 to make sure the table access method is correctly implemented.</p>
-<p class="note">
-  For further reading on extension basics, you can find a complete,
-  minimal Postgres extension I wrote to validate the
-  infrastructure <a href="https://github.com/eatonphil/pgext-101">here</a>. Or
-  you can follow a
-  <a href="https://github.com/IshaanAdarsh/Postgres-extension-tutorial/blob/main/SGML/intro_and_toc.md">larger
-    tutorial</a>.
-</p><h3 id="table-access-method-stubs">Table access method stubs</h3><p>The next step is to add function stubs for all the non-optional
+<h3 id="table-access-method-stubs">Table access method stubs</h3><p>The next step is to add function stubs for all the non-optional
 methods of the <a href="https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/include/access/tableam.h#L282"><code>TableAmRoutine</code>
 struct</a>.</p>
-<p>I've done all the work for you already so you can just copy these
-stubs. It's a big file, but don't worry. There's nothing to
-explain. Just a bunch of blank functions returning default values
-when required.</p>
+<p>I've done all the work for you already so you can just copy this over
+the existing <code>pgtam.c</code>. It's a big file, but don't worry. There's
+nothing to explain. Just a bunch of blank functions returning default
+values when required.</p>
 <div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;postgres.h&quot;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;fmgr.h&quot;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;access/tableam.h&quot;</span>
@@ -966,7 +972,7 @@ turned off buffering on it, and added a log to every method on the
   get the info out.
 </p><h4 id="<code>slot_callbacks</code>"><code>slot_callbacks</code></h4><p>Since the request crashes and the last logged function is
 <code>memam_slot_callbacks</code>, it seems like that is where we should
-concentrate. The <a href="https://www.postgresql.org/docs/current/tableam.html">Table Access Method
+concentrate. The <a href="https://www.postgresql.org/docs/current/tableam.html">table access method
 docs</a> suggest
 looking at the default <code>heap</code> access method for inspiration.</p>
 <p>Its
@@ -985,7 +991,8 @@ implementation. Let's try it.</p>
 <p class="note">
   While it works initially, I noticed later on that
   <code>TTSOpsBufferHeapTuple</code> turns out not to be the right
-  choice here. But <code>TTSOpsVirtual</code> works.
+  choice here. <code>TTSOpsVirtual</code> seems to be the right
+  implementation.
 </p><div class="highlight"><pre><span></span><span class="gu">@@ -19,7 +19,7 @@</span>
 <span class="w"> </span>  Relation relation
 <span class="w"> </span>) {
@@ -1039,8 +1046,9 @@ new method!</p>
 <span class="w">  </span><span class="n">uint32</span><span class="w"> </span><span class="n">flags</span>
 <span class="p">);</span>
 </pre></div>
-<p>And we've been returning <code>NULL</code>. Since we're failing in this function,
-maybe we should try returning something that isn't <code>NULL</code>.</p>
+<p>Since we just implemented stub versions of all the methods, we've been
+returning <code>NULL</code>. Since we're failing in this function, maybe we
+should try returning something that isn't <code>NULL</code>.</p>
 <p>By looking at the definition of <code>TableScanDesc</code>, we can see it is a
 pointer to the <code>TableScanDescData</code> struct defined in
 <a href="https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/include/access/relscan.h#L52"><code>src/include/access/relscan.h</code></a>.</p>
@@ -1117,7 +1125,7 @@ in <code>/tmp/pgtam.log</code>.</p>
 <span class="ow">in</span><span class="w"> </span><span class="n">memam_endscan</span>
 </pre></div>
 <p>Ok, I'm getting the gist of the API. A full table scan (which this is,
-because there are no indexes at play), starts with an initialization
+because there are no indexes at play) starts with an initialization
 for a slot, then the scan begins, then <code>getnextslot</code> is called for
 each row, and then <code>endscan</code> is called to allow for cleanup.</p>
 <p>So let's try returning a row in <code>getnextslot</code>.</p>
@@ -1128,8 +1136,8 @@ each row, and then <code>endscan</code> is called to allow for cleanup.</p>
 <span class="w">  </span><span class="n">TupleTableSlot</span><span class="w"> </span><span class="o">*</span><span class="n">slot</span>
 <span class="p">);</span>
 </pre></div>
-<p>So the <code>TableScanDesc</code> should be what we returned from <code>beginscan</code> and
-the <a href="https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/include/access/tableam.h#L341">interface
+<p>So the <code>sscan</code> should be what we returned from <code>beginscan</code> and the
+<a href="https://github.com/postgres/postgres/blob/849172ff4883d44168f96f39d3fde96d0aa34c99/src/include/access/tableam.h#L341">interface
 docs</a>
 say the current row gets stored in <code>slot</code>.</p>
 <p class="note">
@@ -1160,12 +1168,12 @@ of <code>TupleTableSlot</code>:</p>
 <span class="w">    </span><span class="n">Oid</span><span class="w">         </span><span class="n">tts_tableOid</span><span class="p">;</span><span class="w">   </span><span class="cm">/* table oid of tuple */</span>
 <span class="p">}</span><span class="w"> </span><span class="n">TupleTableSlot</span><span class="p">;</span>
 </pre></div>
-<p><code>tts_values</code> sounds like an array of <code>Datum</code> (which is a Postgres
-value). So that sounds like the actually values of the row. The
-<code>tts_isnull</code> field also looks important since that seems to be whether
-each value in the row is null or not. And <code>tts_nvalid</code> sounds
-important too since presumably it's the length of the <code>tts_isnull</code> and
-<code>tts_values</code> arrays.</p>
+<p><code>tts_values</code> is an array of <code>Datum</code> (which is a Postgres value). So
+that sounds like the actual values of the row. The <code>tts_isnull</code> field
+also looks important since that seems to be whether each value in the
+row is null or not. And <code>tts_nvalid</code> sounds important too since
+presumably it's the length of the <code>tts_isnull</code> and <code>tts_values</code>
+arrays.</p>
 <p>The rest of it may or may not be important. Let's try filling out
 these three fields though and see what happens.</p>
 <h4 id="datum">Datum</h4><p>Back in the <a href="https://www.postgresql.org/docs/current/xfunc-c.html">Postgres C extension
@@ -1188,34 +1196,34 @@ we see:</p>
 </pre></div>
 <p>So <code>Int32GetDatum()</code> is the function we'll use to set a <code>Datum</code> for a
 cell in a row.</p>
-<div class="highlight"><pre><span></span><span class="err">@@</span><span class="w"> </span><span class="o">-</span><span class="mi">54</span><span class="p">,</span><span class="mi">13</span><span class="w"> </span><span class="o">+</span><span class="mi">54</span><span class="p">,</span><span class="mi">26</span><span class="w"> </span><span class="err">@@</span>
-<span class="w">   </span><span class="n">DEBUG_FUNC</span><span class="p">();</span>
-<span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><span class="gu">@@ -54,13 +54,26 @@</span>
+<span class="w"> </span>  DEBUG_FUNC();
+<span class="w"> </span>}
 
-<span class="o">+</span><span class="n">static</span><span class="w"> </span><span class="n">bool</span><span class="w"> </span><span class="n">done</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kr">false</span><span class="p">;</span>
-<span class="w"> </span><span class="n">static</span><span class="w"> </span><span class="n">bool</span><span class="w"> </span><span class="n">memam_getnextslot</span><span class="p">(</span>
-<span class="w">   </span><span class="n">TableScanDesc</span><span class="w"> </span><span class="n">sscan</span><span class="p">,</span>
-<span class="w">   </span><span class="n">ScanDirection</span><span class="w"> </span><span class="n">direction</span><span class="p">,</span>
-<span class="w">   </span><span class="n">TupleTableSlot</span><span class="w"> </span><span class="o">*</span><span class="n">slot</span>
-<span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">   </span><span class="n">DEBUG_FUNC</span><span class="p">();</span>
-<span class="o">-</span><span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="kr">false</span><span class="p">;</span>
-<span class="o">+</span>
-<span class="o">+</span><span class="w">  </span><span class="nf">if</span><span class="w"> </span><span class="p">(</span><span class="n">done</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="o">+</span><span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="kr">false</span><span class="p">;</span>
-<span class="o">+</span><span class="w">  </span><span class="p">}</span>
-<span class="o">+</span>
-<span class="o">+</span><span class="w">  </span><span class="n">slot</span><span class="o">-&gt;</span><span class="n">tts_nvalid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
-<span class="o">+</span><span class="w">  </span><span class="n">slot</span><span class="o">-&gt;</span><span class="n">tts_values</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">Datum</span><span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="nf">sizeof</span><span class="p">(</span><span class="n">Datum</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">slot</span><span class="o">-&gt;</span><span class="n">tts_nvalid</span><span class="p">);</span>
-<span class="o">+</span><span class="w">  </span><span class="n">slot</span><span class="o">-&gt;</span><span class="n">tts_values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Int32GetDatum</span><span class="p">(</span><span class="mi">314</span><span class="w"> </span><span class="cm">/* Some unique-looking value */</span><span class="p">);</span>
-<span class="o">+</span><span class="w">  </span><span class="n">slot</span><span class="o">-&gt;</span><span class="n">tts_isnull</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">bool</span><span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="nf">sizeof</span><span class="p">(</span><span class="n">bool</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">slot</span><span class="o">-&gt;</span><span class="n">tts_nvalid</span><span class="p">);</span>
-<span class="o">+</span><span class="w">  </span><span class="n">slot</span><span class="o">-&gt;</span><span class="n">tts_isnull</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kr">false</span><span class="p">;</span>
-<span class="o">+</span><span class="w">  </span><span class="n">done</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kr">true</span><span class="p">;</span>
-<span class="o">+</span>
-<span class="o">+</span><span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="kr">true</span><span class="p">;</span>
-<span class="w"> </span><span class="p">}</span>
+<span class="gi">+static bool done = false;</span>
+<span class="w"> </span>static bool memam_getnextslot(
+<span class="w"> </span>  TableScanDesc sscan,
+<span class="w"> </span>  ScanDirection direction,
+<span class="w"> </span>  TupleTableSlot *slot
+<span class="w"> </span>) {
+<span class="w"> </span>  DEBUG_FUNC();
+<span class="gd">-  return false;</span>
+<span class="gi">+</span>
+<span class="gi">+  if (done) {</span>
+<span class="gi">+    return false;</span>
+<span class="gi">+  }</span>
+<span class="gi">+</span>
+<span class="gi">+  slot-&gt;tts_nvalid = 1;</span>
+<span class="gi">+  slot-&gt;tts_values = (Datum*)malloc(sizeof(Datum) * slot-&gt;tts_nvalid);</span>
+<span class="gi">+  slot-&gt;tts_values[0] = Int32GetDatum(314 /* Some unique-looking value */);</span>
+<span class="gi">+  slot-&gt;tts_isnull = (bool*)malloc(sizeof(bool) * slot-&gt;tts_nvalid);</span>
+<span class="gi">+  slot-&gt;tts_isnull[0] = false;</span>
+<span class="gi">+  done = true;</span>
+<span class="gi">+</span>
+<span class="gi">+  return true;</span>
+<span class="w"> </span>}
 
-<span class="w"> </span><span class="n">static</span><span class="w"> </span><span class="n">IndexFetchTableData</span><span class="o">*</span><span class="w"> </span><span class="n">memam_index_fetch_begin</span><span class="p">(</span><span class="n">Relation</span><span class="w"> </span><span class="n">rel</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w"> </span>static IndexFetchTableData* memam_index_fetch_begin(Relation rel) {
 </pre></div>
 <p>The goal is that we return a single row and then exit the scan. It
 will have one 32-bit integer cell (remember we created the table
@@ -1334,7 +1342,7 @@ created. So let's handle adding a new table there.</p>
 
 <span class="w"> </span>static void memam_relation_nontransactional_truncate(
 </pre></div>
-<p>Finally, we'll initalize the in-memory <code>Database*</code> when the handler is
+<p>Finally, we'll initialize the in-memory <code>Database*</code> when the handler is
 loaded.</p>
 <div class="highlight"><pre><span></span><span class="gu">@@ -428,5 +472,11 @@</span>
 <span class="w"> </span>  setvbuf(fd, NULL, _IONBF, 0); // Prevent buffering
@@ -1428,8 +1436,8 @@ the SQL script.</p>
 <span class="go">in memam_getnextslot</span>
 <span class="go">in memam_endscan</span>
 </pre></div>
-<p><code>tuple_insert</code> seems to be the method! It seems to get called once for
-each row to insert. Perfect.</p>
+<p><code>tuple_insert</code> seems to be the method! Looks like it gets called once
+for each row to insert. Perfect.</p>
 <p>The signature for <code>tuple_insert</code> is:</p>
 <div class="highlight"><pre><span></span><span class="kt">void</span><span class="w"> </span><span class="nf">memam_tuple_insert</span><span class="p">(</span>
 <span class="w">  </span><span class="n">Relation</span><span class="w"> </span><span class="n">relation</span><span class="p">,</span>
@@ -1440,7 +1448,7 @@ each row to insert. Perfect.</p>
 <span class="p">);</span>
 </pre></div>
 <p>We can get the table name from <code>relation</code> and instead of writing to
-<code>slot</code> we should be able to read from <code>slot-&gt;tts_values</code> instead.</p>
+<code>slot</code> we can read from <code>slot-&gt;tts_values</code> instead.</p>
 <div class="highlight"><pre><span></span><span class="gu">@@ -141,7 +141,38 @@</span>
 <span class="w"> </span>  int options,
 <span class="w"> </span>  BulkInsertState bistate
@@ -1660,8 +1668,8 @@ to a CSV a la MySQL's CSV storage engine. Or a storage engine that
 uses RocksDB.</p>
 <p>It would also be good to figure out how indexes work, how deletions
 work, how updates and DDL beyond <code>CREATE</code> works.</p>
-<p>And I should probably contribute some of this to the <a href="https://www.postgresql.org/docs/current/tableam.html">Table Access
-Method</a> docs
+<p>And I should probably contribute some of this to the <a href="https://www.postgresql.org/docs/current/tableam.html">table access
+method</a> docs
 which are pretty sparse at the moment.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">I&#39;ve been working this week to understand Postgres Table Access Methods for alternative storage engines.<br><br>Especially challenging because the documentation is pretty sparse and few minimal implementations exist.<br><br>I wrote up my approach!<a href="https://t.co/LQGglRkev5">https://t.co/LQGglRkev5</a> <a href="https://t.co/v0MeOu4Hbr">pic.twitter.com/v0MeOu4Hbr</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1719873793693221157?ref_src=twsrc%5Etfw">November 2, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
