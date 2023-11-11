@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 	"text/template"
+	"unicode"
 )
 
 func copyFile(in, out string) {
@@ -110,8 +111,14 @@ outer:
 			}
 
 			transformed := strings.TrimSpace(transform(header))
+			headerId := ""
+			for _, c := range transformed {
+				if unicode.IsLetter(c) || unicode.IsNumber(c) {
+					headerId += string(c)
+				}
+			}
 
-			fmt.Fprintf(outWriter, "<h%d>%s</h%d>", headerNumber, transformed, headerNumber)
+			fmt.Fprintf(outWriter, "<h%d id=\"%s\">%s</h%d>", headerNumber, headerId, transformed, headerNumber)
 			continue
 		}
 
@@ -225,7 +232,7 @@ func test() {
 # Hey
 
 [`+"`"+`hello`+"`"+`](google.com)`)), `
-<h1>Hey</h1>
+<h1 id="Hey">Hey</h1>
 
 <a href="google.com"><code>hello</code></a>`)
 

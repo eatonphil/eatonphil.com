@@ -78,12 +78,17 @@ ol + h6{
     margin-top: 50px;
 }
 
+ul {
+    padding: 0;
+    list-style-position: inside;
+}
+
 p, li {
     font-family: serif;
     font-style: normal;
     font-variant: normal;
     font-weight: 400;
-    line-height: 1.5rem;
+    line-height: 1.75rem;
     color: #334;
 }
 
