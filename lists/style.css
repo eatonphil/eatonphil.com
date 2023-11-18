@@ -78,12 +78,16 @@ ol + h6{
     margin-top: 50px;
 }
 
+ul {
+    padding: 0;
+}
+
 p, li {
     font-family: serif;
     font-style: normal;
     font-variant: normal;
     font-weight: 400;
-    line-height: 1.5rem;
+    line-height: 1.75rem;
     color: #334;
 }
 
@@ -269,10 +273,8 @@ li code,
 }
 
 .about img {
-    float: left;
-    height: 200px;
-    width: 200px;
-    margin-right: 15px;
+    height: 125px;
+    width: 125px;
 }
 
 .summary > a {

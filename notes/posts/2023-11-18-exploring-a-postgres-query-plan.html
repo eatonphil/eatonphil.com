@@ -1,0 +1,226 @@
+<!-- -*- mode: markdown -*- -->
+# Exploring a Postgres query plan
+## November 18, 2023
+###### c,postgres
+
+I learned from [a friend](https://twitter.com/philippemnoel) this week
+that you can intercept and redirect Postgres query execution. You can
+hook into the execution layer so you're given a query plan and you
+decide what to do with it. What rows to return, if any, and where they
+come from.
+
+That's very interesting and I started writing code to explore
+execution hooks. However, I got stuck interpreting the query
+plan. Either there's no query plan walking infrastructure or I just
+didn't find it.
+
+So this post is a digression into walking a Postgres query plan that
+I'll use as the basis for future work on something like redirecting
+Postgres query execution to read from a CSV or translate a query plan
+into SQLite to query a SQLite file.
+
+By the end of the post we'll be able to run the query `psql -c 'SELECT
+a FROM x WHERE a > 1'` and reconstruct the entire SQL string from a
+Postgres `QueryDesc*` object.
+
+With that query plan walking infrastructure in place, we'd be in a
+good state to not just print out the query plan while walking it but
+instead to translate the query plan or evaluate it in our own way
+(e.g. over column-wise data, or [vectorized execution over row-wise
+data](https://github.com/citusdata/postgres_vectorization_test)).
+
+### What is a query plan?
+
+If you're familiar with parsers and compilers, a query plan is like an
+intermediate representation of a program. It is not as raw as an AST;
+it's already been optimized.
+
+If that doesn't mean anything to you, consider a query plan to be a
+structured and optimized version of the SQL query you submit to your
+database.
+
+Check out Justin Jaffray's [article on the
+subject](https://justinjaffray.com/what-is-a-query-optimizer-for/) for
+more detail.
+
+### Development environment
+
+Before we get to walking the query plan, let's set up the
+infrastructure to intercept query execution where we can eventually
+add in our print debugging of the query plan reconstructed as a SQL
+string.
+
+Once you've got [Postgres build
+dependencies](https://wiki.postgresql.org/wiki/Compile_and_Install_from_source_code),
+build and install a debug version of Postgres:
+
+```
+$ git clone https://github.com/postgres/postgres && cd postgres
+$ # Make sure you're on the same commit I'm on, just to be safe.
+$ git checkout b218fbb7a35fcf31539bfad12732038fe082a2eb
+$ ./configure --enable-cassert --enable-debug CFLAGS="-ggdb -Og -g3 -fno-omit-frame-pointer"
+$ make -j8
+# Installs to to /usr/local/pgsql/bin.
+$ sudo make install
+```
+
+I'm not going to cover Postgres extension infrastructure in detail. I
+wrote a bit about it in [my last
+post](https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html)
+which you can catch up on if you'd like (the first half, not the
+actual Table Access Method implementation).
+
+It will be even simpler here because Postgres hooks are extensions but
+not an extension you install with `CREATE EXTENSION`. (If you want to
+read about the different kinds of Postgres extensions, check out [this
+article](https://tembo.io/blog/four-types-of-extensions/) by Steven
+Miller.)
+
+The minimum we do need aside from the hook code itself is a Makefile
+that uses
+[PGXS](https://www.postgresql.org/docs/current/extend-pgxs.html):
+
+```Make
+MODULES = pgexec
+
+PG_CONFIG = /usr/local/pgsql/bin/pg_config
+PGXS := $(shell $(PG_CONFIG) --pgxs)
+include $(PGXS)
+```
+
+The `MODULES` value there corresponds to the C file we'll write
+shortly, `pgexec.c`.
+
+<p class="note">
+  This <code>pg_config</code> binary path is important because you
+  might have different versions of Postgres installed, for example by
+  your package manager. It is important that the extension is built
+  against the same version of Postgres which will load the extension.
+</p>
+
+Now we're ready for some hook code.
+
+### Intercepting query execution
+
+You can find the basic structure of a hook (and which hooks are
+available) in Tamika Nomara's [unofficial Postgres hooks
+docs](https://github.com/taminomara/psql-hooks).
+
+<p class="note">
+  There is no official central place describing all hooks I could find
+  in Postgres docs. Some hooks are described in various places
+  throughout the docs though.
+<p>
+
+Based on that page, we can write a bare minimum hook that will
+intercept all queries, log when we've done so, and pass control back
+to the standard execution path for the actual query. In `pgexec.c`:
+
+```c
+#include "postgres.h"
+#include "fmgr.h"
+#include "executor/executor.h"
+
+PG_MODULE_MAGIC;
+
+static ExecutorRun_hook_type prev_executor_run_hook = NULL;
+
+static void pgexec_run_hook(
+  QueryDesc* queryDesc,
+  ScanDirection direction,
+  uint64 count,
+  bool execute_once
+) {
+  elog(LOG, "HOOKED SUCCESSFULLY!");
+  return prev_executor_run_hook(queryDesc, direction, count, execute_once);
+}
+
+void _PG_init(void) {
+  prev_executor_run_hook = ExecutorRun_hook;
+  if (prev_executor_run_hook == NULL) {
+    prev_executor_run_hook = standard_ExecutorRun;
+  }
+  ExecutorRun_hook = pgexec_run_hook;
+}
+
+void _PG_fini(void) {
+  ExecutorRun_hook = prev_executor_run_hook;
+}
+```
+
+I learned about the `standard_ExectutorRun` hook from a quick `git
+grep ExecutorRun_hook` in the Postgres source which leads to
+[src/backend/executor/execMain.c#L306](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/backend/executor/execMain.c#L306):
+
+```c
+void
+ExecutorRun(QueryDesc *queryDesc,
+			ScanDirection direction, uint64 count,
+			bool execute_once)
+{
+	if (ExecutorRun_hook)
+		(*ExecutorRun_hook) (queryDesc, direction, count, execute_once);
+	else
+		standard_ExecutorRun(queryDesc, direction, count, execute_once);
+}
+```
+
+So our hook will just log and pass back execution to the existing
+execution hook. Let's build and install the extension.
+
+```console
+$ make
+$ sudo make install
+```
+
+Now we'll create a new database and tell it to load the extension.
+
+```console
+$ /usr/local/pgsql/bin/initdb test-db
+$ echo "shared_preload_libraries = 'pgexec'" > test-db/postgresql.conf
+```
+
+And start the server in the foreground:
+
+```console
+$ /usr/local/pgsql/bin/postgres \
+  --config-file=$(pwd)/test-db/postgresql.conf \
+  -D $(pwd)/test-db
+  -k $(pwd)/test-db
+2023-11-18 19:35:16.680 GMT [3215547] LOG:  starting PostgreSQL 17devel on x86_64-pc-linux-gnu, compiled by gcc (GCC) 13.2.1 20230728 (Red Hat 13.2.1-1), 64-bit
+2023-11-18 19:35:16.681 GMT [3215547] LOG:  listening on IPv6 address "::1", port 5432
+2023-11-18 19:35:16.681 GMT [3215547] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2023-11-18 19:35:16.681 GMT [3215547] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2023-11-18 19:35:16.682 GMT [3215550] LOG:  database system was shut down at 2023-11-18 19:20:16 GMT
+2023-11-18 19:35:16.684 GMT [3215547] LOG:  database system is ready to accept connections
+```
+
+Keep an eye on this foreground process since this is where `elog(LOG,
+...)` calls will show up.
+
+Now in a new window, run `psql` and let's get something to log:
+
+```console
+$ /usr/local/pgsql/bin/psql -h localhost postgres
+psql (17devel)
+Type "help" for help.
+
+postgres=# SELECT 1;
+ ?column?
+----------
+        1
+(1 row)
+```
+
+And in the `postgres` foreground process you should see a log:
+
+```
+2023-11-18 19:38:56.990 GMT [3216394] LOG:  HOOKED SUCCESSFULLY!
+2023-11-18 19:38:56.990 GMT [3216394] STATEMENT:  SELECT 1;
+```
+
+That's our hook! Now let's see if we can reconstruct the query text
+from that first argument, the `QueryDesc*` that `pgexec_run_hook`
+receives.
+
+### `QueryDesc*`
