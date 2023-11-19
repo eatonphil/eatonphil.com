@@ -28,12 +28,6 @@ instead to translate the query plan or evaluate it in our own way
 (e.g. over column-wise data, or [vectorized execution over row-wise
 data](https://github.com/citusdata/postgres_vectorization_test)).
 
-<p class="note">
-  The methodology here is archaelogy and experimentation. There may be
-  better ways to do what I've done and I'd love to hear from you if
-  that's the case.
-</p>
-
 Code for this project is [available on
 Github](https://github.com/eatonphil/pgexec).
 
@@ -195,11 +189,11 @@ $ echo "shared_preload_libraries = 'pgexec'" > test-db/postgresql.conf
 ```
 
 <p class="note">
-  Remember, hooks are not `CREATE EXTENSION` extensions. As far as I
-  can tell they can't be dynamically loaded (without some additional
-  dynamic loading infrastructure one could potentially write). So
-  every time you make a change you need to rebuild the extension,
-  reinstall it, and restart the Postgres server.
+  Remember, hooks are not <code>CREATE EXTENSION</code> extensions. As
+  far as I can tell they can't be dynamically loaded (without some
+  additional dynamic loading infrastructure one could potentially
+  write). So every time you make a change you need to rebuild the
+  extension, reinstall it, and restart the Postgres server.
 </p>
 
 And start the server in the foreground:

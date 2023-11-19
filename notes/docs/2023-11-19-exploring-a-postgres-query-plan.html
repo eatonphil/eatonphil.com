@@ -77,11 +77,7 @@ good state to not just print out the query plan while walking it but
 instead to translate the query plan or evaluate it in our own way
 (e.g. over column-wise data, or <a href="https://github.com/citusdata/postgres_vectorization_test">vectorized execution over row-wise
 data</a>).</p>
-<p class="note">
-  The methodology here is archaelogy and experimentation. There may be
-  better ways to do what I've done and I'd love to hear from you if
-  that's the case.
-</p><p>Code for this project is <a href="https://github.com/eatonphil/pgexec">available on
+<p>Code for this project is <a href="https://github.com/eatonphil/pgexec">available on
 Github</a>.</p>
 <h3 id="what-is-a-query-plan?">What is a query plan?</h3><p>If you're familiar with parsers and compilers, a query plan is like an
 intermediate representation (IR) of a program. It is not as raw as an
@@ -204,11 +200,11 @@ execution hook. Let's build and install the extension.</p>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;shared_preload_libraries = &#39;pgexec&#39;&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>test-db/postgresql.conf
 </pre></div>
 <p class="note">
-  Remember, hooks are not `CREATE EXTENSION` extensions. As far as I
-  can tell they can't be dynamically loaded (without some additional
-  dynamic loading infrastructure one could potentially write). So
-  every time you make a change you need to rebuild the extension,
-  reinstall it, and restart the Postgres server.
+  Remember, hooks are not <code>CREATE EXTENSION</code> extensions. As
+  far as I can tell they can't be dynamically loaded (without some
+  additional dynamic loading infrastructure one could potentially
+  write). So every time you make a change you need to rebuild the
+  extension, reinstall it, and restart the Postgres server.
 </p><p>And start the server in the foreground:</p>
 <div class="highlight"><pre><span></span><span class="gp">$ </span>/usr/local/pgsql/bin/postgres<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--config-file<span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/test-db/postgresql.conf<span class="w"> </span><span class="se">\</span>
