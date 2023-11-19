@@ -230,7 +230,7 @@ to exercise the hook.</p>
 <span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="mi">309</span><span class="p">);</span>
 <span class="k">SELECT</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
 </pre></div>
-<p>run <code>psql</code> and let's trigger the hook:</p>
+<p>Run <code>psql</code> so we can trigger the hook:</p>
 <div class="highlight"><pre><span></span><span class="gp">$ </span>/usr/local/pgsql/bin/psql<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>postgres<span class="w"> </span>-f<span class="w"> </span>test.sql
 <span class="go">DROP TABLE</span>
 <span class="go">CREATE TABLE</span>
