@@ -907,7 +907,7 @@ $ grep ' = 15,' src/include/nodes/nodetags.h
 Woot! That is exactly what I'd expect the `WHERE` clause here to be.
 
 Now that we know `qual` is a `List` of `Node`s, let's do a bit of
-abstraction since `targetlist` will probably also be a `List` of
+refactoring since `targetlist` will probably also be a `List` of
 `Node`s. Back in `pgexec.c`:
 
 ```c
@@ -953,7 +953,7 @@ static void buffer_print_where(PGExec_Buffer* buf, QueryDesc* queryDesc, Plan* p
 }
 ```
 
-Let's walk `OpExpr`!
+And let's check out `OpExpr`!
 
 ### Walking `OpExpr`
 

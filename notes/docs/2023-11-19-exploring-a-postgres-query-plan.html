@@ -797,7 +797,7 @@ Postgres repo:</p>
 </pre></div>
 <p>Woot! That is exactly what I'd expect the <code>WHERE</code> clause here to be.</p>
 <p>Now that we know <code>qual</code> is a <code>List</code> of <code>Node</code>s, let's do a bit of
-abstraction since <code>targetlist</code> will probably also be a <code>List</code> of
+refactoring since <code>targetlist</code> will probably also be a <code>List</code> of
 <code>Node</code>s. Back in <code>pgexec.c</code>:</p>
 <div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">buffer_print_expr</span><span class="p">(</span><span class="n">PGExec_Buffer</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">Node</span><span class="o">*</span><span class="p">);</span>
 <span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">buffer_print_list</span><span class="p">(</span><span class="n">PGExec_Buffer</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">List</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="p">);</span>
@@ -840,7 +840,7 @@ abstraction since <code>targetlist</code> will probably also be a <code>List</co
 <span class="w">  </span><span class="n">buffer_print_list</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">plan</span><span class="o">-&gt;</span><span class="n">qual</span><span class="p">,</span><span class="w"> </span><span class="s">&quot; AND &quot;</span><span class="p">);</span>
 <span class="p">}</span>
 </pre></div>
-<p>Let's walk <code>OpExpr</code>!</p>
+<p>And let's check out <code>OpExpr</code>!</p>
 <h3 id="walking-<code>opexpr</code>">Walking <code>OpExpr</code></h3><p>Taking a look at the definition of
 <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/primnodes.h#L748"><code>OpExpr</code></a>:</p>
 <div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">OpExpr</span>
