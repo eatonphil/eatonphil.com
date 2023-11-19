@@ -957,7 +957,7 @@ And let's check out `OpExpr`!
 
 ### Walking `OpExpr`
 
-Taking a look at the definition of
+Take a look at the definition of
 [`OpExpr`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/primnodes.h#L748):
 
 ```c
@@ -1000,7 +1000,7 @@ infrastructure like `RelationIdGetRelation` that takes an `Oid` and
 gets us an operator object.
 
 Well I got stuck here as well. Again, thankfully, ChatGPT gave me some
-suggestions. There's no great path for how I got it working. So here's
+suggestions. There's no great story for how I got it working. So here's
 `buffer_print_opexpr`.
 
 ```c
@@ -1040,7 +1040,7 @@ Rebuild and reinstall the extension, and restart Postgres. Re-run the
 And we continue to make progress! Let's look up the type of these two
 unknown nodes.
 
-```c
+```console
 $ grep ' = 6,' src/include/nodes/nodetags.h
         T_Var = 6,
 $ grep ' = 7,' src/include/nodes/nodetags.h

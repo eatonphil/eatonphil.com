@@ -841,7 +841,7 @@ refactoring since <code>targetlist</code> will probably also be a <code>List</co
 <span class="p">}</span>
 </pre></div>
 <p>And let's check out <code>OpExpr</code>!</p>
-<h3 id="walking-<code>opexpr</code>">Walking <code>OpExpr</code></h3><p>Taking a look at the definition of
+<h3 id="walking-<code>opexpr</code>">Walking <code>OpExpr</code></h3><p>Take a look at the definition of
 <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/primnodes.h#L748"><code>OpExpr</code></a>:</p>
 <div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">OpExpr</span>
 <span class="p">{</span>
@@ -879,7 +879,7 @@ how to handle that.</p>
 infrastructure like <code>RelationIdGetRelation</code> that takes an <code>Oid</code> and
 gets us an operator object.</p>
 <p>Well I got stuck here as well. Again, thankfully, ChatGPT gave me some
-suggestions. There's no great path for how I got it working. So here's
+suggestions. There's no great story for how I got it working. So here's
 <code>buffer_print_opexpr</code>.</p>
 <div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">buffer_print_op</span><span class="p">(</span><span class="n">PGExec_Buffer</span><span class="o">*</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">OpExpr</span><span class="o">*</span><span class="w"> </span><span class="n">op</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="n">HeapTuple</span><span class="w"> </span><span class="n">opertup</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SearchSysCache1</span><span class="p">(</span><span class="n">OPEROID</span><span class="p">,</span><span class="w"> </span><span class="n">ObjectIdGetDatum</span><span class="p">(</span><span class="n">op</span><span class="o">-&gt;</span><span class="n">opno</span><span class="p">));</span>
@@ -909,10 +909,10 @@ suggestions. There's no great path for how I got it working. So here's
 </pre></div>
 <p>And we continue to make progress! Let's look up the type of these two
 unknown nodes.</p>
-<div class="highlight"><pre><span></span><span class="n">$</span><span class="w"> </span><span class="n">grep</span><span class="w"> </span><span class="err">&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="err">&#39;</span><span class="w"> </span><span class="n">src</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">nodetags</span><span class="p">.</span><span class="n">h</span>
-<span class="w">        </span><span class="n">T_Var</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
-<span class="n">$</span><span class="w"> </span><span class="n">grep</span><span class="w"> </span><span class="err">&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="err">&#39;</span><span class="w"> </span><span class="n">src</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">nodetags</span><span class="p">.</span><span class="n">h</span>
-<span class="w">        </span><span class="n">T_Const</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>grep<span class="w"> </span><span class="s1">&#39; = 6,&#39;</span><span class="w"> </span>src/include/nodes/nodetags.h
+<span class="go">        T_Var = 6,</span>
+<span class="gp">$ </span>grep<span class="w"> </span><span class="s1">&#39; = 7,&#39;</span><span class="w"> </span>src/include/nodes/nodetags.h
+<span class="go">        T_Const = 7,</span>
 </pre></div>
 <p>Let's deal with <code>Const</code> first.</p>
 <h3 id="walking-<code>const</code>">Walking <code>Const</code></h3><p>If we take a look at the
