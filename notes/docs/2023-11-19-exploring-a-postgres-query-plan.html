@@ -103,15 +103,15 @@ $<span class="w"> </span>sudo<span class="w"> </span>make<span class="w"> </span
 </pre></div>
 <p>I'm not going to cover Postgres extension infrastructure in detail. I
 wrote a bit about it in <a href="https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html">my last
-post</a>
-(you need only read the first half, not the actual Table Access Method
-implementation).</p>
+post</a>.
+You need only read the first half, if at all; not the actual Table
+Access Method implementation.</p>
 <p>It will be even simpler in this post because Postgres hooks are
-extensions but not an extension you install with <code>CREATE
-EXTENSION</code>. (If you want to read about the different kinds of Postgres
-extensions, check out <a href="https://tembo.io/blog/four-types-of-extensions/">this
+extensions but not extensions you install with <code>CREATE EXTENSION</code>. If
+you want to read about the different kinds of Postgres extensions,
+check out <a href="https://tembo.io/blog/four-types-of-extensions/">this
 article</a> by Steven
-Miller.)</p>
+Miller.</p>
 <p>The minimum we need, aside from the hook code itself, is a Makefile
 that uses
 <a href="https://www.postgresql.org/docs/current/extend-pgxs.html">PGXS</a>:</p>
@@ -121,7 +121,7 @@ that uses
 <span class="nv">PGXS</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">$(</span>shell<span class="w"> </span><span class="k">$(</span>PG_CONFIG<span class="k">)</span><span class="w"> </span>--pgxs<span class="k">)</span>
 <span class="cp">include $(PGXS)</span>
 </pre></div>
-<p>The <code>MODULES</code> value there corresponds to the C file we'll write
+<p>The <code>MODULES</code> value there corresponds to the C file we'll create
 shortly, <code>pgexec.c</code>.</p>
 <p class="note">
   This <code>pg_config</code> binary path is important because you
@@ -137,7 +137,7 @@ docs</a>.</p>
   in Postgres docs. Some hooks are described in various places
   throughout the docs though.
 </p><p>Based on that page, we can write a bare minimum hook that will
-intercept all queries, log when we've done so, and pass control back
+intercept queries, log when we've done so, and pass control back
 to the standard execution path for the actual query. In <code>pgexec.c</code>:</p>
 <div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;postgres.h&quot;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;fmgr.h&quot;</span>
@@ -216,8 +216,8 @@ execution hook. Let's build and install the extension.</p>
 </pre></div>
 <p>Keep an eye on this foreground process since this is where <code>elog(LOG,
 ...)</code> calls will show up.</p>
-<p>Now in a new window, let's write a <code>test.sql</code> script that we can use
-to exercise the hook.</p>
+<p>Now in a new window, create a <code>test.sql</code> script that we can use to
+exercise the hook:</p>
 <div class="highlight"><pre><span></span><span class="k">DROP</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">x</span><span class="p">;</span>
 <span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="w"> </span><span class="nb">INT</span><span class="p">);</span>
 <span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="mi">309</span><span class="p">);</span>
@@ -254,7 +254,7 @@ values in Postgres that are exposed to users of Postgres are
 <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/postgres.h#L64"><code>Datum</code></a>s.</p>
 <p>Each node has a type,
 <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/nodes.h#L26"><code>NodeTag</code></a>,
-that you can switch on to decide what to do. In contrast, <code>Datum</code> has
+that we can switch on to decide what to do. In contrast, <code>Datum</code> has
 no type. The type of the <code>Datum</code> must be known by context before using
 one of the transform functions like
 <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/postgres.h#L90"><code>DatumGetBool</code></a>
@@ -281,7 +281,7 @@ like this:</p>
 step. (Don't look if <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/backend/nodes/gen_node_support.pl">regex in
 Perl</a>
 worries you).</p>
-<p>We'll get back to this later.</p>
+<p>We'll get back to <code>Node</code>s later.</p>
 <h3 id="what's-in-a-<code>querydesc</code>?">What's in a <code>QueryDesc</code>?</h3><p>Let's take a look at the
 <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/executor/execdesc.h#L33"><code>QueryDesc</code></a>
 struct:</p>
@@ -312,9 +312,7 @@ struct:</p>
 </pre></div>
 <p>The
 <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/plannodes.h#L46"><code>PlannedStmt</code></a>
-and
-<a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/execnodes.h#L1030"><code>PlanState</code></a>
-fields both look interesting. Let's take a look at <code>PlannedStmt</code>:</p>
+field looks interesting. Let's take a look:</p>
 <div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">PlannedStmt</span>
 <span class="p">{</span>
 <span class="w">    </span><span class="n">pg_node_attr</span><span class="p">(</span><span class="n">no_equal</span><span class="p">,</span><span class="w"> </span><span class="n">no_query_jumble</span><span class="p">)</span>
@@ -402,15 +400,16 @@ is abstract:</p>
 <span class="go">2023-11-18 19:35:16.684 GMT [3215547] LOG:  database system is ready to accept connections</span>
 </pre></div>
 <p>And in another window run <code>psql</code>:</p>
-<div class="highlight"><pre><span></span><span class="gp">$ </span>/usr/local/pgsql/bin/psql<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>postgres<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;SELECT 1;&#39;</span>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>/usr/local/pgsql/bin/psql<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>postgres<span class="w"> </span>-f<span class="w"> </span>test.sql
 </pre></div>
 <p>And check the logs from the <code>postgres</code> process we just started and you
 should notice:</p>
 <div class="highlight"><pre><span></span><span class="go">2023-11-19 17:46:18.834 GMT [3242495] LOG:  [pgexec] HOOKED SUCCESSFULLY! 322</span>
 <span class="go">2023-11-19 17:46:18.834 GMT [3242495] STATEMENT:  SELECT a FROM x WHERE a &gt; 1;</span>
 </pre></div>
-<p>So <code>322</code> in the <code>NodeTag</code> for the <code>Plan</code>. If we look that up in
-<code>src/include/nodes/nodetags.h</code>:</p>
+<p>So <code>322</code> is the <code>NodeTag</code> for the <code>Plan</code>. If we look that up in
+Postgres's <code>src/include/nodes/nodetags.h</code> (remember, this is generated
+after <code>./configure &amp;&amp; make</code> so I can't link you to it):</p>
 <div class="highlight"><pre><span></span><span class="gp">$ </span>grep<span class="w"> </span><span class="s1">&#39; = 322&#39;</span><span class="w"> </span>src/include/nodes/nodetags.h
 <span class="go">        T_SeqScan = 322,</span>
 </pre></div>
@@ -437,13 +436,13 @@ then:</p>
 </pre></div>
 <p>That's interesting! <code>scanrelid</code> represents the table we're scanning. I
 don't know what "range table" means exactly. But there was a field on
-the <code>PlannedStmt</code> called <code>rtable</code> looks relevant. It is a <code>List</code> of
+the <code>PlannedStmt</code> called <code>rtable</code> that seems relevant.</p>
+<p><code>rtable</code> was described as a
+<a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/pg_list.h#L53"><code>List</code></a>
+of
 <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/parsenodes.h#L1019"><code>RangeTblEntry</code></a>
-nodes.</p>
-<p><code>rtable</code> is a
-<a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/pg_list.h#L53"><code>List</code></a>. And
-browsing around the file where it's defined we can see some nice
-methods for working with <code>List</code>s, like <code>list_length()</code>.</p>
+nodes. And browsing around the file where <code>List</code> is defined we can see
+some nice methods for working with <code>List</code>s, like <code>list_length()</code>.</p>
 <p>Let's print out the <code>scanrelid</code> and let's check out the length of the
 <code>rtable</code> and see if it's filled out. Let's also restrict our
 <code>print_plan</code> code to only look at <code>SeqScan</code> nodes. In <code>pgexec.c</code>:</p>
@@ -469,7 +468,7 @@ find the instructions for this above if you've forgotten.) Re-run the
 <p>Awesome! So <code>rtable</code> does have data in it. There's only one table in
 this query so its length makes sense to be <code>1</code>. The <code>scanrelid</code> being
 <code>1</code> also though is weird. Let's fetch the nth value from the <code>rtable</code>
-list and using <code>scanrelid-1</code> as the index.</p>
+list using <code>scanrelid-1</code> as the index.</p>
 <p>For the
 <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/parsenodes.h#L1019"><code>RangeTblEntry</code></a>
 itself, let's take a look:</p>
@@ -539,11 +538,11 @@ itself, let's take a look:</p>
 <span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">TableSampleClause</span><span class="w"> </span><span class="o">*</span><span class="n">tablesample</span><span class="p">;</span><span class="w">  </span><span class="cm">/* sampling info, or NULL */</span>
 <span class="w">    </span><span class="n">Index</span><span class="w">       </span><span class="n">perminfoindex</span><span class="p">;</span>
 </pre></div>
-<p>Well ours will be a plain relation RTE so we can add a guard that
-validates that. But we don't get a <code>Relation</code>. You might remember from
-my <a href="https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html">previous
+<p>In <code>SELECT a FROM x</code>, <code>x</code> should be a plain relation RTE (to use the
+terminology there). So we can add a guard that validates that. But we
+don't get a <code>Relation</code>. (You might remember from my <a href="https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html">previous
 post</a>
-that <code>Relation</code> is where we can finally see the table name.</p>
+that <code>Relation</code> is where we can finally see the table name.)</p>
 <p>We get an <code>Oid</code> for the <code>Relation</code>. So we need to find a way to lookup
 a <code>Relation</code> from an <code>Oid</code>. And by grepping around in Postgres (or via
 judicious use of ChatGPT, I confess), we can notice
@@ -579,10 +578,9 @@ previous post), we can print out the table name.</p>
 <span class="w">  </span><span class="n">RelationClose</span><span class="p">(</span><span class="n">relation</span><span class="p">);</span>
 <span class="p">}</span>
 </pre></div>
-<p class="note">
-  You'll also need to add a new <code>#include</code> for
-  <code>utils/rel.h</code>.
-</p><p>Rebuild and reinstall the extension, and restart Postgres. Re-run the
+<p>You'll also need to add a new <code>#include</code> for
+<code>utils/rel.h</code>.</p>
+<p>Rebuild and reinstall the extension, and restart Postgres. Re-run the
 <code>test.sql</code> script. Check the Postgres server logs and you should see:</p>
 <div class="highlight"><pre><span></span><span class="go">2023-11-19 18:36:03.986 GMT [3246777] LOG:  [pgexec] SELECT [todo] FROM x</span>
 <span class="go">2023-11-19 18:36:03.986 GMT [3246777] STATEMENT:  SELECT a FROM x WHERE a &gt; 1;</span>
@@ -684,7 +682,7 @@ aren't relevant.</p>
 <span class="w">  </span><span class="n">free</span><span class="p">(</span><span class="n">buf</span><span class="o">-&gt;</span><span class="n">mem</span><span class="p">);</span>
 <span class="p">}</span>
 </pre></div>
-<p>Now we'll modify <code>print_plan()</code> in <code>pgexec.c</code> to use it, and add stubs
+<p>Next we'll modify <code>print_plan()</code> in <code>pgexec.c</code> to use it, and add stubs
 for printing the <code>SELECT</code> columns and <code>WHERE</code> clauses.</p>
 <div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">buffer_print_where</span><span class="p">(</span><span class="n">PGExec_Buffer</span><span class="o">*</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">QueryDesc</span><span class="o">*</span><span class="w"> </span><span class="n">queryDesc</span><span class="p">,</span><span class="w"> </span><span class="n">Plan</span><span class="o">*</span><span class="w"> </span><span class="n">plan</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="n">buffer_appendz</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="s">&quot; [where todo]&quot;</span><span class="p">);</span>
@@ -739,8 +737,9 @@ the <code>SELECT</code> info must be in the <code>Plan</code> since it wasn't in
 <p>Let's look at
 <a href="https://github.com/postgres/postgres/blob/master/src/include/nodes/plannodes.h#L119"><code>Plan</code></a>
 again. One part that stands out is:</p>
-<div class="highlight"><pre><span></span><span class="w">     </span><span class="o">*</span><span class="w"> </span><span class="n">Common</span><span class="w"> </span><span class="n">structural</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">all</span><span class="w"> </span><span class="n">Plan</span><span class="w"> </span><span class="n">types</span><span class="p">.</span>
-<span class="w">     </span><span class="o">*/</span>
+<div class="highlight"><pre><span></span><span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Common structural data for all Plan types.</span>
+<span class="cm">     */</span>
 <span class="w">    </span><span class="kt">int</span><span class="w">         </span><span class="n">plan_node_id</span><span class="p">;</span><span class="w">   </span><span class="cm">/* unique across entire final plan tree */</span>
 <span class="w">    </span><span class="n">List</span><span class="w">       </span><span class="o">*</span><span class="n">targetlist</span><span class="p">;</span><span class="w">     </span><span class="cm">/* target list to be computed at this node */</span>
 <span class="w">    </span><span class="n">List</span><span class="w">       </span><span class="o">*</span><span class="n">qual</span><span class="p">;</span><span class="w">           </span><span class="cm">/* implicitly-ANDed qual conditions */</span>

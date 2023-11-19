@@ -65,16 +65,16 @@ $ sudo make install
 
 I'm not going to cover Postgres extension infrastructure in detail. I
 wrote a bit about it in [my last
-post](https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html)
-(you need only read the first half, not the actual Table Access Method
-implementation).
+post](https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html).
+You need only read the first half, if at all; not the actual Table
+Access Method implementation.
 
 It will be even simpler in this post because Postgres hooks are
-extensions but not an extension you install with `CREATE
-EXTENSION`. (If you want to read about the different kinds of Postgres
-extensions, check out [this
+extensions but not extensions you install with `CREATE EXTENSION`. If
+you want to read about the different kinds of Postgres extensions,
+check out [this
 article](https://tembo.io/blog/four-types-of-extensions/) by Steven
-Miller.)
+Miller.
 
 The minimum we need, aside from the hook code itself, is a Makefile
 that uses
@@ -88,7 +88,7 @@ PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 ```
 
-The `MODULES` value there corresponds to the C file we'll write
+The `MODULES` value there corresponds to the C file we'll create
 shortly, `pgexec.c`.
 
 <p class="note">
@@ -113,7 +113,7 @@ docs](https://github.com/taminomara/psql-hooks).
 </p>
 
 Based on that page, we can write a bare minimum hook that will
-intercept all queries, log when we've done so, and pass control back
+intercept queries, log when we've done so, and pass control back
 to the standard execution path for the actual query. In `pgexec.c`:
 
 ```c
@@ -210,8 +210,8 @@ $ /usr/local/pgsql/bin/postgres \
 Keep an eye on this foreground process since this is where `elog(LOG,
 ...)` calls will show up.
 
-Now in a new window, let's write a `test.sql` script that we can use
-to exercise the hook.
+Now in a new window, create a `test.sql` script that we can use to
+exercise the hook:
 
 ```sql
 DROP TABLE IF EXISTS x;
@@ -263,7 +263,7 @@ values in Postgres that are exposed to users of Postgres are
 
 Each node has a type,
 [`NodeTag`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/nodes.h#L26),
-that you can switch on to decide what to do. In contrast, `Datum` has
+that we can switch on to decide what to do. In contrast, `Datum` has
 no type. The type of the `Datum` must be known by context before using
 one of the transform functions like
 [`DatumGetBool`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/postgres.h#L90)
@@ -300,7 +300,7 @@ step. (Don't look if [regex in
 Perl](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/backend/nodes/gen_node_support.pl)
 worries you).
 
-We'll get back to this later.
+We'll get back to `Node`s later.
 
 ### What's in a `QueryDesc`?
 
@@ -337,9 +337,7 @@ typedef struct QueryDesc
 
 The
 [`PlannedStmt`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/plannodes.h#L46)
-and
-[`PlanState`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/execnodes.h#L1030)
-fields both look interesting. Let's take a look at `PlannedStmt`:
+field looks interesting. Let's take a look:
 
 ```c
 typedef struct PlannedStmt
@@ -441,7 +439,7 @@ $ /usr/local/pgsql/bin/postgres \
 And in another window run `psql`:
 
 ```console
-$ /usr/local/pgsql/bin/psql -h localhost postgres -c 'SELECT 1;'
+$ /usr/local/pgsql/bin/psql -h localhost postgres -f test.sql
 ```
 
 And check the logs from the `postgres` process we just started and you
@@ -452,8 +450,9 @@ should notice:
 2023-11-19 17:46:18.834 GMT [3242495] STATEMENT:  SELECT a FROM x WHERE a > 1;
 ```
 
-So `322` in the `NodeTag` for the `Plan`. If we look that up in
-`src/include/nodes/nodetags.h`:
+So `322` is the `NodeTag` for the `Plan`. If we look that up in
+Postgres's `src/include/nodes/nodetags.h` (remember, this is generated
+after `./configure && make` so I can't link you to it):
 
 ```console
 $ grep ' = 322' src/include/nodes/nodetags.h
@@ -492,14 +491,14 @@ typedef struct Scan
 
 That's interesting! `scanrelid` represents the table we're scanning. I
 don't know what "range table" means exactly. But there was a field on
-the `PlannedStmt` called `rtable` looks relevant. It is a `List` of
-[`RangeTblEntry`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/parsenodes.h#L1019)
-nodes.
+the `PlannedStmt` called `rtable` that seems relevant.
 
-`rtable` is a
-[`List`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/pg_list.h#L53). And
-browsing around the file where it's defined we can see some nice
-methods for working with `List`s, like `list_length()`.
+`rtable` was described as a
+[`List`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/pg_list.h#L53)
+of
+[`RangeTblEntry`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/parsenodes.h#L1019)
+nodes. And browsing around the file where `List` is defined we can see
+some nice methods for working with `List`s, like `list_length()`.
 
 Let's print out the `scanrelid` and let's check out the length of the
 `rtable` and see if it's filled out. Let's also restrict our
@@ -532,7 +531,7 @@ find the instructions for this above if you've forgotten.) Re-run the
 Awesome! So `rtable` does have data in it. There's only one table in
 this query so its length makes sense to be `1`. The `scanrelid` being
 `1` also though is weird. Let's fetch the nth value from the `rtable`
-list and using `scanrelid-1` as the index.
+list using `scanrelid-1` as the index.
 
 For the
 [`RangeTblEntry`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/parsenodes.h#L1019)
@@ -606,11 +605,11 @@ typedef struct RangeTblEntry
 	Index		perminfoindex;
 ```
 
-Well ours will be a plain relation RTE so we can add a guard that
-validates that. But we don't get a `Relation`. You might remember from
-my [previous
+In `SELECT a FROM x`, `x` should be a plain relation RTE (to use the
+terminology there). So we can add a guard that validates that. But we
+don't get a `Relation`. (You might remember from my [previous
 post](https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html)
-that `Relation` is where we can finally see the table name.
+that `Relation` is where we can finally see the table name.)
 
 We get an `Oid` for the `Relation`. So we need to find a way to lookup
 a `Relation` from an `Oid`. And by grepping around in Postgres (or via
@@ -651,10 +650,8 @@ static void print_plan(QueryDesc* queryDesc) {
 }
 ```
 
-<p class="note">
-  You'll also need to add a new <code>#include</code> for
-  <code>utils/rel.h</code>.
-</p>
+You'll also need to add a new <code>#include</code> for
+<code>utils/rel.h</code>.
 
 Rebuild and reinstall the extension, and restart Postgres. Re-run the
 `test.sql` script. Check the Postgres server logs and you should see:
@@ -769,7 +766,7 @@ static void buffer_free(PGExec_Buffer* buf) {
 }
 ```
 
-Now we'll modify `print_plan()` in `pgexec.c` to use it, and add stubs
+Next we'll modify `print_plan()` in `pgexec.c` to use it, and add stubs
 for printing the `SELECT` columns and `WHERE` clauses.
 
 ```c
@@ -833,6 +830,7 @@ Let's look at
 again. One part that stands out is:
 
 ```c
+    /*
 	 * Common structural data for all Plan types.
 	 */
 	int			plan_node_id;	/* unique across entire final plan tree */
