@@ -1,0 +1,1460 @@
+<!-- -*- mode: markdown -*- -->
+# Exploring a Postgres query plan
+## November 19, 2023
+###### c,postgres
+
+I learned this week that you can intercept and redirect Postgres query
+execution. You can hook into the execution layer so you're given a
+query plan and you get to decide what to do with it. What rows to
+return, if any, and where they come from.
+
+That's very interesting. So I started writing code to explore execution
+hooks. However, I got stuck interpreting the query plan. Either
+there's no query plan walking infrastructure or I just didn't find it.
+
+So this post is a digression into walking a Postgres query plan that
+I'll use as the basis for future work on something like redirecting
+Postgres query execution to read from a CSV or translate a query plan
+into SQLite to query a SQLite file.
+
+By the end of the post we'll be able to run `psql -c 'SELECT a FROM x
+WHERE a > 1'` and reconstruct the entire SQL string from a Postgres
+[`QueryDesc`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/executor/execdesc.h#L33)
+object, the query plan object Postgres builds.
+
+With that query plan walking infrastructure in place, we'll be in a
+good state to not just print out the query plan while walking it but
+instead to translate the query plan or evaluate it in our own way
+(e.g. over column-wise data, or [vectorized execution over row-wise
+data](https://github.com/citusdata/postgres_vectorization_test)).
+
+<p class="note">
+  The methodology here is archaelogy and experimentation. There may be
+  better ways to do what I've done and I'd love to hear from you if
+  that's the case.
+</p>
+
+Code for this project is [available on
+Github](https://github.com/eatonphil/pgexec).
+
+### What is a query plan?
+
+If you're familiar with parsers and compilers, a query plan is like an
+intermediate representation (IR) of a program. It is not as raw as an
+abstract syntax tree (AST); it has already been optimized.
+
+If that doesn't mean anything to you, think of a query plan as a
+structured and optimized version of the SQL query you submit to your
+database. It isn't text anymore. It is [probably a
+tree](https://buttondown.email/jaffray/archive/why-are-query-plans-trees/).
+
+Check out another Justin Jaffray [article on the
+subject](https://justinjaffray.com/what-is-a-query-optimizer-for/) for
+more detail.
+
+### Development environment
+
+Before we get to walking the query plan, let's set up the
+infrastructure to intercept query execution where we can eventually
+add in our print debugging of the query plan reconstructed as a SQL
+string.
+
+Once you've got [Postgres build
+dependencies](https://wiki.postgresql.org/wiki/Compile_and_Install_from_source_code),
+build and install a debug version of Postgres:
+
+```
+$ git clone https://github.com/postgres/postgres && cd postgres
+$ # Make sure you're on the same commit I'm on, just to be safe.
+$ git checkout b218fbb7a35fcf31539bfad12732038fe082a2eb
+$ ./configure --enable-cassert --enable-debug CFLAGS="-ggdb -Og -g3 -fno-omit-frame-pointer"
+$ make -j8
+$ # Installs to to /usr/local/pgsql/bin.
+$ sudo make install
+```
+
+I'm not going to cover Postgres extension infrastructure in detail. I
+wrote a bit about it in [my last
+post](https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html)
+(you need only read the first half, not the actual Table Access Method
+implementation).
+
+It will be even simpler in this post because Postgres hooks are
+extensions but not an extension you install with `CREATE
+EXTENSION`. (If you want to read about the different kinds of Postgres
+extensions, check out [this
+article](https://tembo.io/blog/four-types-of-extensions/) by Steven
+Miller.)
+
+The minimum we need, aside from the hook code itself, is a Makefile
+that uses
+[PGXS](https://www.postgresql.org/docs/current/extend-pgxs.html):
+
+```Make
+MODULES = pgexec
+
+PG_CONFIG = /usr/local/pgsql/bin/pg_config
+PGXS := $(shell $(PG_CONFIG) --pgxs)
+include $(PGXS)
+```
+
+The `MODULES` value there corresponds to the C file we'll write
+shortly, `pgexec.c`.
+
+<p class="note">
+  This <code>pg_config</code> binary path is important because you
+  might have different versions of Postgres installed, for example by
+  your package manager. It is important that the extension is built
+  against the same version of Postgres which will load the extension.
+</p>
+
+Now we're ready for some hook code.
+
+### Intercepting query execution
+
+You can find the basic structure of a hook (and which hooks are
+available) in Tamika Nomara's [unofficial Postgres hooks
+docs](https://github.com/taminomara/psql-hooks).
+
+<p class="note">
+  There is no official central place describing all hooks I could find
+  in Postgres docs. Some hooks are described in various places
+  throughout the docs though.
+</p>
+
+Based on that page, we can write a bare minimum hook that will
+intercept all queries, log when we've done so, and pass control back
+to the standard execution path for the actual query. In `pgexec.c`:
+
+```c
+#include "postgres.h"
+#include "fmgr.h"
+#include "executor/executor.h"
+
+PG_MODULE_MAGIC;
+
+static ExecutorRun_hook_type prev_executor_run_hook = NULL;
+
+static void print_plan(QueryDesc* queryDesc) {
+  elog(LOG, "[pgexec] HOOKED SUCCESSFULLY!");
+}
+
+static void pgexec_run_hook(
+  QueryDesc* queryDesc,
+  ScanDirection direction,
+  uint64 count,
+  bool execute_once
+) {
+  print_plan(queryDesc);
+  return prev_executor_run_hook(queryDesc, direction, count, execute_once);
+}
+
+void _PG_init(void) {
+  prev_executor_run_hook = ExecutorRun_hook;
+  if (prev_executor_run_hook == NULL) {
+    prev_executor_run_hook = standard_ExecutorRun;
+  }
+  ExecutorRun_hook = pgexec_run_hook;
+}
+
+void _PG_fini(void) {
+  ExecutorRun_hook = prev_executor_run_hook;
+}
+```
+
+You can discover the `standard_ExectutorRun` function from a quick
+`git grep ExecutorRun_hook` in the Postgres source which leads to
+[src/backend/executor/execMain.c#L306](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/backend/executor/execMain.c#L306):
+
+```c
+void
+ExecutorRun(QueryDesc *queryDesc,
+			ScanDirection direction, uint64 count,
+			bool execute_once)
+{
+	if (ExecutorRun_hook)
+		(*ExecutorRun_hook) (queryDesc, direction, count, execute_once);
+	else
+		standard_ExecutorRun(queryDesc, direction, count, execute_once);
+}
+```
+
+So our hook will just log and pass back execution to the existing
+execution hook. Let's build and install the extension.
+
+```console
+$ make
+$ sudo make install
+```
+
+Now we'll create a new database and tell it to load the extension.
+
+```console
+$ /usr/local/pgsql/bin/initdb test-db
+$ echo "shared_preload_libraries = 'pgexec'" > test-db/postgresql.conf
+```
+
+<p class="note">
+  Remember, hooks are not `CREATE EXTENSION` extensions. As far as I
+  can tell they can't be dynamically loaded (without some additional
+  dynamic loading infrastructure one could potentially write). So
+  every time you make a change you need to rebuild the extension,
+  reinstall it, and restart the Postgres server.
+</p>
+
+And start the server in the foreground:
+
+```console
+$ /usr/local/pgsql/bin/postgres \
+  --config-file=$(pwd)/test-db/postgresql.conf \
+  -D $(pwd)/test-db
+  -k $(pwd)/test-db
+2023-11-18 19:35:16.680 GMT [3215547] LOG:  starting PostgreSQL 17devel on x86_64-pc-linux-gnu, compiled by gcc (GCC) 13.2.1 20230728 (Red Hat 13.2.1-1), 64-bit
+2023-11-18 19:35:16.681 GMT [3215547] LOG:  listening on IPv6 address "::1", port 5432
+2023-11-18 19:35:16.681 GMT [3215547] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2023-11-18 19:35:16.681 GMT [3215547] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2023-11-18 19:35:16.682 GMT [3215550] LOG:  database system was shut down at 2023-11-18 19:20:16 GMT
+2023-11-18 19:35:16.684 GMT [3215547] LOG:  database system is ready to accept connections
+```
+
+Keep an eye on this foreground process since this is where `elog(LOG,
+...)` calls will show up.
+
+Now in a new window, let's write a `test.sql` script that we can use
+to exercise the hook.
+
+```sql
+DROP TABLE IF EXISTS x;
+CREATE TABLE x (a INT);
+INSERT INTO x VALUES (309);
+SELECT a FROM x WHERE a > 1;
+```
+
+run `psql` and let's trigger the hook:
+
+```console
+$ /usr/local/pgsql/bin/psql -h localhost postgres -f test.sql
+DROP TABLE
+CREATE TABLE
+INSERT 0 1
+  a
+-----
+ 309
+(1 row)
+```
+
+And in the `postgres` foreground process you should see a log:
+
+```console
+2023-11-19 17:42:03.045 GMT [3242321] LOG:  [pgexec] HOOKED SUCCESSFULLY!
+2023-11-19 17:42:03.045 GMT [3242321] STATEMENT:  INSERT INTO x VALUES (309);
+2023-11-19 17:42:03.045 GMT [3242321] LOG:  [pgexec] HOOKED SUCCESSFULLY!
+2023-11-19 17:42:03.045 GMT [3242321] STATEMENT:  SELECT a FROM x WHERE a > 1;
+```
+
+That's our hook! Interestingly only the `INSERT` and `CREATE`
+statements show up, not the `DROP` and `CREATE`.
+
+Now let's see if we can reconstruct the query text from that first
+argument, the `QueryDesc*` that `pgexec_run_hook` receives. And let's
+simplify things for ourselves and only worry about reconstructing a
+`SELECT` query.
+
+### `Node`s and `Datum`s
+
+But first, let's talk about two fundemental ways data in Postgres
+(code) is organized.
+
+Postgres code is extremely dynamic and, maybe relatedly,
+fairly object-oriented. Almost every entity in Postgres is a
+[`Node`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/nodes.h#L128). While
+values in Postgres that are exposed to users of Postgres are
+[`Datum`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/postgres.h#L64)s.
+
+Each node has a type,
+[`NodeTag`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/nodes.h#L26),
+that you can switch on to decide what to do. In contrast, `Datum` has
+no type. The type of the `Datum` must be known by context before using
+one of the transform functions like
+[`DatumGetBool`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/postgres.h#L90)
+to retrieve a C value from a `Datum`.
+
+A table is a `Node`. A query plan is a `Node`. A sequential scan is a
+`Node`. A join is a `Node`. A literal in a query is a `Node`. The
+value for the literal in a query is a `Datum`.
+
+Here is how The Internals of PostgreSQL book [visualizes](The
+Internals of PostgreSQL) a query plan for example:
+
+![https://www.interdb.jp/pg/img/fig-3-04.png](https://www.interdb.jp/pg/img/fig-3-04.png)
+
+Every box in that image is a `Node`.
+
+And all `Node`s in code I've seen share a common definition prefix
+like this:
+
+```c
+typedef struct SomeThing {
+  pg_node_attr(abstract) // If the node is indeed abstract in the OOP sense.
+  NodeTag type;
+}
+```
+
+Many `Node`s you'll see are abstract, like `Plan`. But by printing out
+`NodeTag` and checking the value printed in
+`src/include/nodes/nodetags.h`, you can find the concrete type of the
+`Node`.
+
+`src/include/nodes/nodetags.h` is generated during a preprocessing
+step. (Don't look if [regex in
+Perl](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/backend/nodes/gen_node_support.pl)
+worries you).
+
+We'll get back to this later.
+
+### What's in a `QueryDesc`?
+
+Let's take a look at the
+[`QueryDesc`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/executor/execdesc.h#L33)
+struct:
+
+```c
+typedef struct QueryDesc
+{
+	/* These fields are provided by CreateQueryDesc */
+	CmdType		operation;		/* CMD_SELECT, CMD_UPDATE, etc. */
+	PlannedStmt *plannedstmt;	/* planner's output (could be utility, too) */
+	const char *sourceText;		/* source text of the query */
+	Snapshot	snapshot;		/* snapshot to use for query */
+	Snapshot	crosscheck_snapshot;	/* crosscheck for RI update/delete */
+	DestReceiver *dest;			/* the destination for tuple output */
+	ParamListInfo params;		/* param values being passed in */
+	QueryEnvironment *queryEnv; /* query environment passed in */
+	int			instrument_options; /* OR of InstrumentOption flags */
+
+	/* These fields are set by ExecutorStart */
+	TupleDesc	tupDesc;		/* descriptor for result tuples */
+	EState	   *estate;			/* executor's query-wide state */
+	PlanState  *planstate;		/* tree of per-plan-node state */
+
+	/* This field is set by ExecutorRun */
+	bool		already_executed;	/* true if previously executed */
+
+	/* This is always set NULL by the core system, but plugins can change it */
+	struct Instrumentation *totaltime;	/* total time spent in ExecutorRun */
+} QueryDesc;
+```
+
+The
+[`PlannedStmt`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/plannodes.h#L46)
+and
+[`PlanState`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/execnodes.h#L1030)
+fields both look interesting. Let's take a look at `PlannedStmt`:
+
+```c
+typedef struct PlannedStmt
+{
+	pg_node_attr(no_equal, no_query_jumble)
+
+	NodeTag		type;
+
+	CmdType		commandType;	/* select|insert|update|delete|merge|utility */
+
+	uint64		queryId;		/* query identifier (copied from Query) */
+
+	bool		hasReturning;	/* is it insert|update|delete RETURNING? */
+
+	bool		hasModifyingCTE;	/* has insert|update|delete in WITH? */
+
+	bool		canSetTag;		/* do I set the command result tag? */
+
+	bool		transientPlan;	/* redo plan when TransactionXmin changes? */
+
+	bool		dependsOnRole;	/* is plan specific to current role? */
+
+	bool		parallelModeNeeded; /* parallel mode required to execute? */
+
+	int			jitFlags;		/* which forms of JIT should be performed */
+
+	struct Plan *planTree;		/* tree of Plan nodes */
+
+	List	   *rtable;			/* list of RangeTblEntry nodes */
+
+	List	   *permInfos;		/* list of RTEPermissionInfo nodes for rtable
+								 * entries needing one */
+
+	/* rtable indexes of target relations for INSERT/UPDATE/DELETE/MERGE */
+	List	   *resultRelations;	/* integer list of RT indexes, or NIL */
+
+	List	   *appendRelations;	/* list of AppendRelInfo nodes */
+
+	List	   *subplans;		/* Plan trees for SubPlan expressions; note
+								 * that some could be NULL */
+
+	Bitmapset  *rewindPlanIDs;	/* indices of subplans that require REWIND */
+
+	List	   *rowMarks;		/* a list of PlanRowMark's */
+
+	List	   *relationOids;	/* OIDs of relations the plan depends on */
+
+	List	   *invalItems;		/* other dependencies, as PlanInvalItems */
+
+	List	   *paramExecTypes; /* type OIDs for PARAM_EXEC Params */
+
+	Node	   *utilityStmt;	/* non-null if this is utility stmt */
+
+	/* statement location in source string (copied from Query) */
+	int			stmt_location;	/* start location, or -1 if unknown */
+	int			stmt_len;		/* length in bytes; 0 means "rest of string" */
+} PlannedStmt;
+```
+
+The `struct Plan* planTree` field in there looks like what we'd want. But
+[`Plan`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/plannodes.h#L119)
+is abstract:
+
+```c
+typedef struct Plan
+{
+	pg_node_attr(abstract, no_equal, no_query_jumble)
+
+	NodeTag		type;
+```
+
+So let's try printing out the `planTree->type` field and find the
+`Node` it is concretely. In `pgexec.c` change the definition of
+`print_plan`:
+
+```c
+static void print_plan(QueryDesc* queryDesc) {
+  elog(LOG, "[pgexec] HOOKED SUCCESSFULLY! %d", queryDesc->plannedstmt->planTree->type);
+}
+```
+
+Rebuild and reinstall the extension, and restart Postgres:
+
+```console
+$ make
+$ sudo make install
+$ /usr/local/pgsql/bin/postgres \
+  --config-file=$(pwd)/test-db/postgresql.conf \
+  -D $(pwd)/test-db
+  -k $(pwd)/test-db
+2023-11-18 19:35:16.680 GMT [3215547] LOG:  starting PostgreSQL 17devel on x86_64-pc-linux-gnu, compiled by gcc (GCC) 13.2.1 20230728 (Red Hat 13.2.1-1), 64-bit
+2023-11-18 19:35:16.681 GMT [3215547] LOG:  listening on IPv6 address "::1", port 5432
+2023-11-18 19:35:16.681 GMT [3215547] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2023-11-18 19:35:16.681 GMT [3215547] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2023-11-18 19:35:16.682 GMT [3215550] LOG:  database system was shut down at 2023-11-18 19:20:16 GMT
+2023-11-18 19:35:16.684 GMT [3215547] LOG:  database system is ready to accept connections
+```
+
+And in another window run `psql`:
+
+```console
+$ /usr/local/pgsql/bin/psql -h localhost postgres -c 'SELECT 1;'
+```
+
+And check the logs from the `postgres` process we just started and you
+should notice:
+
+```console
+2023-11-19 17:46:18.834 GMT [3242495] LOG:  [pgexec] HOOKED SUCCESSFULLY! 322
+2023-11-19 17:46:18.834 GMT [3242495] STATEMENT:  SELECT a FROM x WHERE a > 1;
+```
+
+So `322` in the `NodeTag` for the `Plan`. If we look that up in
+`src/include/nodes/nodetags.h`:
+
+```console
+$ grep ' = 322' src/include/nodes/nodetags.h
+        T_SeqScan = 322,
+```
+
+Hey, that makes sense! A `SELECT` without any indexes definitely
+sounds like a sequential scan!
+
+### Walking a sequential scan
+
+Let's take a look at the
+[`SeqScan`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/plannodes.h#L394)
+struct:
+
+```c
+typedef struct SeqScan
+{
+	Scan		scan;
+} SeqScan;
+```
+
+Ok, that's not very interesting. Let's look at
+[`Scan`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/plannodes.h#L382)
+then:
+
+```c
+typedef struct Scan
+{
+	pg_node_attr(abstract)
+
+	Plan		plan;
+	Index		scanrelid;		/* relid is index into the range table */
+} Scan;
+```
+
+That's interesting! `scanrelid` represents the table we're scanning. I
+don't know what "range table" means exactly. But there was a field on
+the `PlannedStmt` called `rtable` looks relevant. It is a `List` of
+[`RangeTblEntry`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/parsenodes.h#L1019)
+nodes.
+
+`rtable` is a
+[`List`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/pg_list.h#L53). And
+browsing around the file where it's defined we can see some nice
+methods for working with `List`s, like `list_length()`.
+
+Let's print out the `scanrelid` and let's check out the length of the
+`rtable` and see if it's filled out. Let's also restrict our
+`print_plan` code to only look at `SeqScan` nodes. In `pgexec.c`:
+
+```c
+static void print_plan(QueryDesc* queryDesc) {
+  SeqScan* scan = NULL;
+  Plan* plan = queryDesc->plannedstmt->planTree;
+  if (plan->type != T_SeqScan) {
+    elog(LOG, "[pgexec] Unsupported plan type.");
+    return;
+  }
+
+  scan = (SeqScan*)plan;
+
+  elog(LOG, "[pgexec] relid: %d, rtable length: %d", scan->scan.scanrelid, list_length(queryDesc->plannedstmt->rtable));
+}
+```
+
+Rebuild and reinstall the extension, and restart Postgres. (You can
+find the instructions for this above if you've forgotten.) Re-run the
+`test.sql` script. And check the Postgres server logs. You should see:
+
+```console
+2023-11-19 18:00:34.184 GMT [3244438] LOG:  [pgexec] relid: 1, rtable length: 1
+2023-11-19 18:00:34.184 GMT [3244438] STATEMENT:  SELECT a FROM x WHERE a > 1;
+```
+
+Awesome! So `rtable` does have data in it. There's only one table in
+this query so its length makes sense to be `1`. The `scanrelid` being
+`1` also though is weird. Let's fetch the nth value from the `rtable`
+list and using `scanrelid-1` as the index.
+
+For the
+[`RangeTblEntry`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/parsenodes.h#L1019)
+itself, let's take a look:
+
+```c
+typedef enum RTEKind
+{
+	RTE_RELATION,				/* ordinary relation reference */
+	RTE_SUBQUERY,				/* subquery in FROM */
+	RTE_JOIN,					/* join */
+	RTE_FUNCTION,				/* function in FROM */
+	RTE_TABLEFUNC,				/* TableFunc(.., column list) */
+	RTE_VALUES,					/* VALUES (<exprlist>), (<exprlist>), ... */
+	RTE_CTE,					/* common table expr (WITH list element) */
+	RTE_NAMEDTUPLESTORE,		/* tuplestore, e.g. for AFTER triggers */
+	RTE_RESULT,					/* RTE represents an empty FROM clause; such
+								 * RTEs are added by the planner, they're not
+								 * present during parsing or rewriting */
+} RTEKind;
+
+typedef struct RangeTblEntry
+{
+	pg_node_attr(custom_read_write, custom_query_jumble)
+
+	NodeTag		type;
+
+	RTEKind		rtekind;		/* see above */
+
+	/*
+	 * XXX the fields applicable to only some rte kinds should be merged into
+	 * a union.  I didn't do this yet because the diffs would impact a lot of
+	 * code that is being actively worked on.  FIXME someday.
+	 */
+
+	/*
+	 * Fields valid for a plain relation RTE (else zero):
+	 *
+	 * rellockmode is really LOCKMODE, but it's declared int to avoid having
+	 * to include lock-related headers here.  It must be RowExclusiveLock if
+	 * the RTE is an INSERT/UPDATE/DELETE/MERGE target, else RowShareLock if
+	 * the RTE is a SELECT FOR UPDATE/FOR SHARE target, else AccessShareLock.
+	 *
+	 * Note: in some cases, rule expansion may result in RTEs that are marked
+	 * with RowExclusiveLock even though they are not the target of the
+	 * current query; this happens if a DO ALSO rule simply scans the original
+	 * target table.  We leave such RTEs with their original lockmode so as to
+	 * avoid getting an additional, lesser lock.
+	 *
+	 * perminfoindex is 1-based index of the RTEPermissionInfo belonging to
+	 * this RTE in the containing struct's list of same; 0 if permissions need
+	 * not be checked for this RTE.
+	 *
+	 * As a special case, relid, relkind, rellockmode, and perminfoindex can
+	 * also be set (nonzero) in an RTE_SUBQUERY RTE.  This occurs when we
+	 * convert an RTE_RELATION RTE naming a view into an RTE_SUBQUERY
+	 * containing the view's query.  We still need to perform run-time locking
+	 * and permission checks on the view, even though it's not directly used
+	 * in the query anymore, and the most expedient way to do that is to
+	 * retain these fields from the old state of the RTE.
+	 *
+	 * As a special case, RTE_NAMEDTUPLESTORE can also set relid to indicate
+	 * that the tuple format of the tuplestore is the same as the referenced
+	 * relation.  This allows plans referencing AFTER trigger transition
+	 * tables to be invalidated if the underlying table is altered.
+	 */
+	Oid			relid;			/* OID of the relation */
+	char		relkind;		/* relation kind (see pg_class.relkind) */
+	int			rellockmode;	/* lock level that query requires on the rel */
+	struct TableSampleClause *tablesample;	/* sampling info, or NULL */
+	Index		perminfoindex;
+```
+
+Well ours will be a plain relation RTE so we can add a guard that
+validates that. But we don't get a `Relation`. You might remember from
+my [previous
+post](https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html)
+that `Relation` is where we can finally see the table name.
+
+We get an `Oid` for the `Relation`. So we need to find a way to lookup
+a `Relation` from an `Oid`. And by grepping around in Postgres (or via
+judicious use of ChatGPT, I confess), we can notice
+[`RelationIdGetRelation`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/backend/utils/cache/relcache.c#L2056)
+that takes an `Oid` and returns a `Relation`. Notice also that the
+comment says we should close the relation when we're done with
+`RelationClose`.
+
+So putting it altogether (and again, reusing some kind from that
+previous post), we can print out the table name.
+
+```c
+static void print_plan(QueryDesc* queryDesc) {
+  SeqScan* scan = NULL;
+  RangeTblEntry* rte = NULL;
+  Relation relation = {};
+  char* tablename = NULL;
+  Plan* plan = queryDesc->plannedstmt->planTree;
+  if (plan->type != T_SeqScan) {
+    elog(LOG, "[pgexec] Unsupported plan type.");
+    return;
+  }
+
+  scan = (SeqScan*)plan;
+  rte = list_nth(queryDesc->plannedstmt->rtable, scan->scan.scanrelid-1);
+  if (rte->rtekind != RTE_RELATION) {
+    elog(LOG, "[pgexec] Unsupported FROM type: %d.", rte->rtekind);
+    return;
+  }
+
+  relation = RelationIdGetRelation(rte->relid);
+  tablename = NameStr(relation->rd_rel->relname);
+
+  elog(LOG, "[pgexec] SELECT [todo] FROM %s", tablename);
+  
+  RelationClose(relation);
+}
+```
+
+<p class="note">
+  You'll also need to add a new <code>#include</code> for
+  <code>utils/rel.h</code>.
+</p>
+
+Rebuild and reinstall the extension, and restart Postgres. Re-run the
+`test.sql` script. Check the Postgres server logs and you should see:
+
+```console
+2023-11-19 18:36:03.986 GMT [3246777] LOG:  [pgexec] SELECT [todo] FROM x
+2023-11-19 18:36:03.986 GMT [3246777] STATEMENT:  SELECT a FROM x WHERE a > 1;
+```
+
+Fantastic! Before we get into walking the `SELECT` columns and the
+(optional) `WHERE` clause, let's do some quick refactoring.
+
+### A string builder
+
+Let's add a little string builder library so we can emit a single
+string we build up to a single `elog()` call.
+
+I wrote this ahead of time and won't explain it here since the details
+aren't relevant.
+
+Just copy this and paste near the top of `pgexec.c`:
+
+```c
+typedef struct {
+  char* mem;
+  size_t len;
+  size_t offset;
+} PGExec_Buffer;
+
+static void buffer_init(PGExec_Buffer* buf) {
+  buf->offset = 0;
+  buf->len = 8;
+  buf->mem = (char*)malloc(sizeof(char) * buf->len);
+}
+
+static void buffer_resize_to_fit_additional(PGExec_Buffer* buf, size_t additional) {
+  char* new = {};
+  size_t newsize = 0;
+
+  Assert(additional >= 0);
+
+  if (buf->offset + additional < buf->len) {
+    return;
+  }
+
+  newsize = (buf->offset + additional) * 2;
+  new = (char*)malloc(sizeof(char) * newsize);
+  Assert(new != NULL);
+  memcpy(new, buf->mem, buf->len * sizeof(char));
+  free(buf->mem);
+  buf->len = newsize;
+  buf->mem = new;
+}
+
+static void buffer_append(PGExec_Buffer*, char*, size_t);
+
+static void buffer_appendz(PGExec_Buffer* buf, char* c) {
+  buffer_append(buf, c, strlen(c));
+}
+
+static void buffer_append(PGExec_Buffer* buf, char* c, size_t chars) {
+  buffer_resize_to_fit_additional(buf, chars);
+  memcpy(buf->mem + buf->offset, c, chars);
+  buf->offset += chars;
+}
+
+static void buffer_appendf(
+  PGExec_Buffer *,
+  const char* restrict,
+  ...
+) __attribute__ ((format (gnu_printf, 2, 3)));
+
+static void buffer_appendf(PGExec_Buffer *buf, const char* restrict fmt, ...) {
+  // First figure out how long the result will be.
+  size_t chars = 0;
+  va_list arglist;
+  va_start(arglist, fmt);
+  chars = vsnprintf(0, 0, fmt, arglist);
+  Assert(chars >= 0); // TODO: error handling.
+
+  // Resize to fit result.
+  buffer_resize_to_fit_additional(buf, chars);
+
+  // Actually do the printf into buf.
+  va_end(arglist);
+  va_start(arglist, fmt);
+  chars = vsprintf(buf->mem + buf->offset, fmt, arglist);
+  Assert(chars >= 0); // TODO: error handling.
+  buf->offset += chars;
+  va_end(arglist);
+}
+
+static char* buffer_cstring(PGExec_Buffer* buf) {
+  char zero = 0;
+  const size_t prev_offset = buf->offset;
+
+  if (buf->offset == buf->len) {
+    buffer_append(buf, &zero, 1);
+    buf->offset--;
+  } else {
+    buf->mem[buf->offset] = 0;
+  }
+
+  // Offset should stay the same. This is a fake NULL.
+  Assert(buf->offset == prev_offset);
+
+  return buf->mem;
+}
+
+static void buffer_free(PGExec_Buffer* buf) {
+  free(buf->mem);
+}
+```
+
+Now we'll modify `print_plan()` in `pgexec.c` to use it, and add stubs
+for printing the `SELECT` columns and `WHERE` clauses.
+
+```c
+static void buffer_print_where(PGExec_Buffer* buf, QueryDesc* queryDesc, Plan* plan) {
+  buffer_appendz(buf, " [where todo]");
+}
+
+static void buffer_print_select_columns(PGExec_Buffer* buf, QueryDesc* queryDesc, Plan* plan) {
+  buffer_appendz(buf, "[columns todo]");
+}
+
+static void print_plan(QueryDesc* queryDesc) {
+  SeqScan* scan = NULL;
+  RangeTblEntry* rte = NULL;
+  Relation relation = {};
+  char* tablename = NULL;
+  Plan* plan = queryDesc->plannedstmt->planTree;
+  PGExec_Buffer buf = {};
+  
+  if (plan->type != T_SeqScan) {
+    elog(LOG, "[pgexec] Unsupported plan type.");
+    return;
+  }
+
+  scan = (SeqScan*)plan;
+  rte = list_nth(queryDesc->plannedstmt->rtable, scan->scan.scanrelid-1);
+  if (rte->rtekind != RTE_RELATION) {
+    elog(LOG, "[pgexec] Unsupported FROM type: %d.", rte->rtekind);
+    return;
+  }
+
+  buffer_init(&buf);
+
+  relation = RelationIdGetRelation(rte->relid);
+  tablename = NameStr(relation->rd_rel->relname);
+
+  buffer_appendz(&buf, "SELECT ");
+  buffer_print_select_columns(&buf, queryDesc, plan);
+  buffer_appendf(&buf, " FROM %s", tablename);
+  buffer_print_where(&buf, queryDesc, plan);
+
+  elog(LOG, "[pgexec] %s", buffer_cstring(&buf));
+
+  RelationClose(relation);
+  buffer_free(&buf);
+}
+```
+
+Now we just need to implement the `buffer_print_where` and
+`buffer_print_select_columns` functions and our walking infrastructure
+will be done! For now. :)
+
+### Walking the `WHERE` clause
+
+If you remember back to the `SeqScan` and `Scan` nodes, they were both
+basically empty. They had a `Plan` and a `scanrelid`. So the rest of
+the `SELECT` info must be in the `Plan` since it wasn't in the `Scan`.
+
+Let's look at
+[`Plan`](https://github.com/postgres/postgres/blob/master/src/include/nodes/plannodes.h#L119)
+again. One part that stands out is:
+
+```c
+	 * Common structural data for all Plan types.
+	 */
+	int			plan_node_id;	/* unique across entire final plan tree */
+	List	   *targetlist;		/* target list to be computed at this node */
+	List	   *qual;			/* implicitly-ANDed qual conditions */
+	struct Plan *lefttree;		/* input plan tree(s) */
+	struct Plan *righttree;
+	List	   *initPlan;		/* Init Plan nodes (un-correlated expr
+								 * subselects) */
+```
+
+`qual` kinda looks like a `WHERE` clause. (And `targetlist` kinda
+looks like the columns the `SELECT` pulls).
+
+[`List`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/pg_list.h#L53)s
+just contain void pointers, so we can't tell what the type of `qual`
+or `targetlist` children are. But I'm going to make a wild guess they
+are `Node`s.
+
+There's even a nice helper that casts void pointers to `Node*` and
+pulls out the type,
+[`nodeTag()`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/nodes.h#L133).
+
+And reading around `pg_list.h` shows some interesting helper utilities
+like
+[`foreach`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/pg_list.h#L373)
+that we can use to iterate the list.
+
+Let's try printing out the type of `qual`'s members.
+
+```c
+static void buffer_print_where(PGExec_Buffer* buf, QueryDesc* queryDesc, Plan* plan) {
+  ListCell* cell = NULL;
+  bool first = true;
+  if (plan->qual == NULL) {
+    return;
+  }
+ 
+  buffer_appendz(buf, " WHERE ");
+  foreach(cell, plan->qual) {
+    if (!first) {
+      buffer_appendz(buf, " AND ");
+    }
+	
+	first = false;
+    buffer_appendf(buf, "[node: %d]", nodeTag(lfirst(cell)));
+  }
+}
+```
+
+<p class="note">
+  Notice any <a
+  href="https://twitter.com/eatonphil/status/1726265982094819631">vestiges
+  of LISP</a>?
+</p>
+
+Rebuild and reinstall the extension, and restart Postgres. Re-run the
+`test.sql` script. Check the Postgres server logs and you should see:
+
+```console
+2023-11-19 19:17:00.879 GMT [3250850] LOG:  [pgexec] SELECT [columns todo] FROM x WHERE [node: 15]
+2023-11-19 19:17:00.879 GMT [3250850] STATEMENT:  SELECT a FROM x WHERE a > 1;
+```
+
+Well, our code didn't crash! So the guess about `qual` `List` entries
+being `Node`s seems right. Let's look up that node type in the
+Postgres repo (again, after at least running `./configure && make`).
+
+```console
+$ grep ' = 15,' src/include/nodes/nodetags.h
+        T_OpExpr = 15,
+```
+
+Woot! That is exactly what I'd expect the `WHERE` clause here to be.
+
+Now that we know `qual` is a `List` of `Node`s, let's do a bit of
+abstraction since `targetlist` will probably also be a `List` of
+`Node`s. Back in `pgexec.c`:
+
+```c
+static void buffer_print_expr(PGExec_Buffer*, Node*);
+static void buffer_print_list(PGExec_Buffer*, List*, char*);
+
+static void buffer_print_opexpr(PGExec_Buffer* buf, OpExpr* op) {
+  buffer_appendf(buf, "[opexpr: todo]");
+}
+
+static void buffer_print_expr(PGExec_Buffer* buf, Node* expr) {
+  switch (nodeTag(expr)) {
+  case T_OpExpr:
+    buffer_print_opexpr(buf, (OpExpr*)expr);
+    break;
+
+  default:
+    buffer_appendf(buf, "[Unknown: %d]", nodeTag(expr));
+  }
+}
+
+static void buffer_print_list(PGExec_Buffer* buf, List* list, char* sep) {
+  ListCell* cell = NULL;
+  bool first = true;
+
+  foreach(cell, list) {
+    if (!first) {
+      buffer_appendz(buf, sep);
+    }
+
+    first = false;
+    buffer_print_expr(buf, (Node*)lfirst(cell));
+  }
+}
+
+static void buffer_print_where(PGExec_Buffer* buf, QueryDesc* queryDesc, Plan* plan) {
+  if (plan->qual == NULL) {
+    return;
+  }
+
+  buffer_appendz(buf, " WHERE ");
+  buffer_print_list(buf, plan->qual, " AND ");
+}
+```
+
+Let's walk `OpExpr`!
+
+### Walking `OpExpr`
+
+Taking a look at the definition of
+[`OpExpr`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/primnodes.h#L748):
+
+```c
+typedef struct OpExpr
+{
+	Expr		xpr;
+
+	/* PG_OPERATOR OID of the operator */
+	Oid			opno;
+
+	/* PG_PROC OID of underlying function */
+	Oid			opfuncid pg_node_attr(equal_ignore_if_zero, query_jumble_ignore);
+
+	/* PG_TYPE OID of result value */
+	Oid			opresulttype pg_node_attr(query_jumble_ignore);
+
+	/* true if operator returns set */
+	bool		opretset pg_node_attr(query_jumble_ignore);
+
+	/* OID of collation of result */
+	Oid			opcollid pg_node_attr(query_jumble_ignore);
+
+	/* OID of collation that operator should use */
+	Oid			inputcollid pg_node_attr(query_jumble_ignore);
+
+	/* arguments to the operator (1 or 2) */
+	List	   *args;
+
+	/* token location, or -1 if unknown */
+	int			location;
+} OpExpr;
+```
+
+The important fields are `opno`, the `Oid` of the operator, and
+`args`. `args` looks like another `List` of `Node`s so we already know
+how to handle that.
+
+But how do we find the string name of the operator? Presumably there's
+infrastructure like `RelationIdGetRelation` that takes an `Oid` and
+gets us an operator object.
+
+Well I got stuck here as well. Again, thankfully, ChatGPT gave me some
+suggestions. There's no great path for how I got it working. So here's
+`buffer_print_opexpr`.
+
+```c
+static void buffer_print_op(PGExec_Buffer* buf, OpExpr* op) {
+  HeapTuple opertup = SearchSysCache1(OPEROID, ObjectIdGetDatum(op->opno));
+
+  buffer_print_expr(buf, lfirst(list_nth_cell(op->args, 0)));
+
+  if (HeapTupleIsValid(opertup)) {
+    Form_pg_operator operator = (Form_pg_operator)GETSTRUCT(opertup);
+    buffer_appendf(buf, " %s ", NameStr(operator->oprname));
+    ReleaseSysCache(opertup);
+  } else {
+    buffer_appendf(buf, "[Unknown operation: %d]", op->opno);
+  }
+
+  // TODO: Support single operand operations.
+  buffer_print_expr(buf, lfirst(list_nth_cell(op->args, 1)));
+}
+```
+
+And add the following two includes to the top of `pgexec.c`:
+
+```c
+#include "catalog/pg_operator.h"
+#include "utils/syscache.h"
+```
+
+Rebuild and reinstall the extension, and restart Postgres. Re-run the
+`test.sql` script. Check the Postgres server logs and you should see:
+
+```console
+2023-11-19 19:42:52.916 GMT [3252974] LOG:  [pgexec] SELECT [columns todo] FROM x WHERE [Unknown: 6] > [Unknown: 7]
+2023-11-19 19:42:52.916 GMT [3252974] STATEMENT:  SELECT a FROM x WHERE a > 1;
+```
+
+And we continue to make progress! Let's look up the type of these two
+unknown nodes.
+
+```c
+$ grep ' = 6,' src/include/nodes/nodetags.h
+        T_Var = 6,
+$ grep ' = 7,' src/include/nodes/nodetags.h
+        T_Const = 7,
+```
+
+Let's deal with `Const` first.
+
+### Walking `Const`
+
+If we take a look at the
+[`Const`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/primnodes.h#L292)
+definition:
+
+```c
+typedef struct Const
+{
+	pg_node_attr(custom_copy_equal, custom_read_write)
+
+	Expr		xpr;
+	/* pg_type OID of the constant's datatype */
+	Oid			consttype;
+	/* typmod value, if any */
+	int32		consttypmod pg_node_attr(query_jumble_ignore);
+	/* OID of collation, or InvalidOid if none */
+	Oid			constcollid pg_node_attr(query_jumble_ignore);
+	/* typlen of the constant's datatype */
+	int			constlen pg_node_attr(query_jumble_ignore);
+	/* the constant's value */
+	Datum		constvalue pg_node_attr(query_jumble_ignore);
+	/* whether the constant is null (if true, constvalue is undefined) */
+	bool		constisnull pg_node_attr(query_jumble_ignore);
+
+	/*
+	 * Whether this datatype is passed by value.  If true, then all the
+	 * information is stored in the Datum.  If false, then the Datum contains
+	 * a pointer to the information.
+	 */
+	bool		constbyval pg_node_attr(query_jumble_ignore);
+
+	/*
+	 * token location, or -1 if unknown.  All constants are tracked as
+	 * locations in query jumbling, to be marked as parameters.
+	 */
+	int			location pg_node_attr(query_jumble_location);
+} Const;
+```
+
+It looks like we need to switch on the `consttype` (an `Oid`) to
+figure out how to interpret the `constvalue` (a `Datum`). Remember I
+mentioned earlier that how to interpret a `Datum` is dependent on
+context. `consttype` is the context here.
+
+In this case, although `consttype` is an `Oid` and we had to use
+Postgres infrastructure to look up the `Oid`'s corresponding object,
+there are some builtin types and the literals we've queried with are
+among them.
+
+We can simply check if `consttype == INT4OID` and the interpret the
+`Datum` as an `int32` if so. `DatumGetInt32` will get us that `int32`
+in that case.
+
+To support the new `Const` type, we'll add a hook in
+`buffer_print_expr` to look for a `T_Const`.
+
+```c
+static void buffer_print_expr(PGExec_Buffer* buf, Node* expr) {
+  switch (nodeTag(expr)) {
+  case T_Const:
+    buffer_print_const(buf, (Const*)expr);
+    break;
+
+  case T_OpExpr:
+    buffer_print_opexpr(buf, (OpExpr*)expr);
+    break;
+
+  default:
+    buffer_appendf(buf, "[Unknown: %d]", nodeTag(expr));
+  }
+}
+```
+
+And add a new function, `buffer_print_const`:
+
+```c
+
+static void buffer_print_const(PGExec_Buffer* buf, Const* cnst) {
+  switch (cnst->consttype) {
+  case INT4OID:
+    int32 val = DatumGetInt32(cnst->constvalue);
+    buffer_appendf(buf, "%d", val);
+    break;
+
+  default:
+    buffer_appendf(buf, "[Unknown consttype oid: %d]", cnst->consttype);
+  }
+}
+```
+
+Rebuild and reinstall the extension, and restart Postgres. Re-run the
+`test.sql` script. Check the Postgres server logs and you should see:
+
+```console
+2023-11-19 19:53:47.922 GMT [3253746] LOG:  [pgexec] SELECT [columns todo] FROM x WHERE [Unknown: 6] > 1
+2023-11-19 19:53:47.922 GMT [3253746] STATEMENT:  SELECT a FROM x WHERE a > 1;
+```
+
+Great! Now we just have to tackle `T_Var`.
+
+### Walking `Var`
+
+Let's take a look at the definition of [`Var`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/primnodes.h#L233):
+
+```c
+typedef struct Var
+{
+	Expr		xpr;
+
+	/*
+	 * index of this var's relation in the range table, or
+	 * INNER_VAR/OUTER_VAR/etc
+	 */
+	int			varno;
+
+	/*
+	 * attribute number of this var, or zero for all attrs ("whole-row Var")
+	 */
+	AttrNumber	varattno;
+
+	/* pg_type OID for the type of this var */
+	Oid			vartype pg_node_attr(query_jumble_ignore);
+	/* pg_attribute typmod value */
+	int32		vartypmod pg_node_attr(query_jumble_ignore);
+	/* OID of collation, or InvalidOid if none */
+	Oid			varcollid pg_node_attr(query_jumble_ignore);
+
+	/*
+	 * RT indexes of outer joins that can replace the Var's value with null.
+	 * We can omit varnullingrels in the query jumble, because it's fully
+	 * determined by varno/varlevelsup plus the Var's query location.
+	 */
+	Bitmapset  *varnullingrels pg_node_attr(query_jumble_ignore);
+
+	/*
+	 * for subquery variables referencing outer relations; 0 in a normal var,
+	 * >0 means N levels up
+	 */
+	Index		varlevelsup;
+
+	/*
+	 * varnosyn/varattnosyn are ignored for equality, because Vars with
+	 * different syntactic identifiers are semantically the same as long as
+	 * their varno/varattno match.
+	 */
+	/* syntactic relation index (0 if unknown) */
+	Index		varnosyn pg_node_attr(equal_ignore, query_jumble_ignore);
+	/* syntactic attribute number */
+	AttrNumber	varattnosyn pg_node_attr(equal_ignore, query_jumble_ignore);
+
+	/* token location, or -1 if unknown */
+	int			location;
+} Var;
+```
+
+Ok so it looks like this refers to a relation in the range table list
+again. So this means we need to have access to the full `PlannedStmt`
+so we can read its `rtable` field again to find the table. Then we
+need to look up the `Relation` for the table and then we can use the
+`Var`'s `varattno` field to pick the nth attribute from the relation
+and get its string representation.
+
+However, ChatGPT found a slightly higher-level function:
+[`get_attname()`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/backend/utils/cache/lsyscache.c#L826)
+takes a relation `Oid` and an attribute index and returns the string
+name of the column.
+
+So here's what `buffer_print_var` looks like:
+
+```c
+static void buffer_print_var(PGExec_Buffer* buf, PlannedStmt* stmt, Var* var) {
+  char* name = NULL;
+  RangeTblEntry* rte = list_nth(stmt->rtable, var->varno-1);
+  if (rte->rtekind != RTE_RELATION) {
+    elog(LOG, "[Unsupported relation type for var: %d].", rte->rtekind);
+    return;
+  }
+
+  name = get_attname(rte->relid, var->varattno, false);
+  buffer_appendz(buf, name);
+  pfree(name);
+}
+```
+
+You'll also need to add another `#include` for `utils/lsyscache.h`.
+
+Let's add the `case T_Var:` check in `buffer_print_expr`, and also
+feed the `PlannedStmt*` through all the necessary `buffer_print_X`
+functions:
+
+```c
+static void buffer_print_expr(PGExec_Buffer*, PlannedStmt*, Node*);
+static void buffer_print_list(PGExec_Buffer*, PlannedStmt*, List*, char*);
+
+static void buffer_print_opexpr(PGExec_Buffer* buf, PlannedStmt* stmt, OpExpr* op) {
+  HeapTuple opertup = SearchSysCache1(OPEROID, ObjectIdGetDatum(op->opno));
+
+  buffer_print_expr(buf, stmt, lfirst(list_nth_cell(op->args, 0)));
+
+  if (HeapTupleIsValid(opertup)) {
+    Form_pg_operator operator = (Form_pg_operator)GETSTRUCT(opertup);
+    buffer_appendf(buf, " %s ", NameStr(operator->oprname));
+    ReleaseSysCache(opertup);
+  } else {
+    buffer_appendf(buf, "[Unknown operation: %d]", op->opno);
+  }
+
+  // TODO: Support single operand operations.
+  buffer_print_expr(buf, stmt, lfirst(list_nth_cell(op->args, 1)));
+}
+
+static void buffer_print_const(PGExec_Buffer* buf, Const* cnst) {
+  switch (cnst->consttype) {
+  case INT4OID:
+    int32 val = DatumGetInt32(cnst->constvalue);
+    buffer_appendf(buf, "%d", val);
+    break;
+
+  default:
+    buffer_appendf(buf, "[Unknown consttype oid: %d]", cnst->consttype);
+  }
+}
+
+static void buffer_print_var(PGExec_Buffer* buf, PlannedStmt* stmt, Var* var) {
+  char* name = NULL;
+  RangeTblEntry* rte = list_nth(stmt->rtable, var->varno-1);
+  if (rte->rtekind != RTE_RELATION) {
+    elog(LOG, "[Unsupported relation type for var: %d].", rte->rtekind);
+    return;
+  }
+
+  name = get_attname(rte->relid, var->varattno, false);
+  buffer_appendz(buf, name);
+  pfree(name);
+}
+
+static void buffer_print_expr(PGExec_Buffer* buf, PlannedStmt* stmt, Node* expr) {
+  switch (nodeTag(expr)) {
+  case T_Const:
+    buffer_print_const(buf, (Const*)expr);
+    break;
+
+  case T_Var:
+    buffer_print_var(buf, stmt, (Var*)expr);
+    break;
+
+  case T_OpExpr:
+    buffer_print_opexpr(buf, stmt, (OpExpr*)expr);
+    break;
+
+  default:
+    buffer_appendf(buf, "[Unknown: %d]", nodeTag(expr));
+  }
+}
+
+static void buffer_print_list(PGExec_Buffer* buf, PlannedStmt* stmt, List* list, char* sep) {
+  ListCell* cell = NULL;
+  bool first = true;
+
+  foreach(cell, list) {
+    if (!first) {
+      buffer_appendz(buf, sep);
+    }
+
+    first = false;
+    buffer_print_expr(buf, stmt, (Node*)lfirst(cell));
+  }
+}
+
+static void buffer_print_where(PGExec_Buffer* buf, QueryDesc* queryDesc, Plan* plan) {
+  if (plan->qual == NULL) {
+    return;
+  }
+
+  buffer_appendz(buf, " WHERE ");
+  buffer_print_list(buf, queryDesc->plannedstmt, plan->qual, " AND ");
+}
+```
+
+Rebuild and reinstall the extension, and restart Postgres. Re-run the
+`test.sql` script. Check the Postgres server logs and you should see:
+
+```console
+2023-11-19 20:03:14.351 GMT [3254458] LOG:  [pgexec] SELECT [columns todo] FROM x WHERE a > 1
+2023-11-19 20:03:14.351 GMT [3254458] STATEMENT:  SELECT a FROM x WHERE a > 1;
+```
+
+Huzzah!
+
+### Walking the column list
+
+Let's get rid of `[columns todo]`. We already had the idea that `List*
+targetlist` on the `Plan` struct was a list of expression
+`Node`s. Let's try it.
+
+```c
+static void buffer_print_select_columns(PGExec_Buffer* buf, QueryDesc* queryDesc, Plan* plan) {
+  if (plan->targetlist == NULL) {
+    return;
+  }
+
+  buffer_print_list(buf, queryDesc->plannedstmt, plan->targetlist, ", ");
+}
+```
+
+Rebuild and reinstall the extension, and restart Postgres. Re-run the
+`test.sql` script. Check the Postgres server logs and you should see:
+
+```console
+2023-11-19 20:12:48.091 GMT [3255398] LOG:  [pgexec] SELECT [Unknown: 53] FROM x WHERE a > 1
+2023-11-19 20:12:48.091 GMT [3255398] STATEMENT:  SELECT a FROM x WHERE a > 1;
+```
+
+Hmm. Let's look up `Node` `53` in Postgres:
+
+```console
+$ grep ' = 53,' src/include/nodes/nodetags.h
+        T_TargetEntry = 53,
+```
+
+Based on the definition of
+[`TargetEntry`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/nodes/primnodes.h#L1918),
+it looks like we can ignore most of the fields (because we don't need
+to handle `SELECT a AS b` yet) and just proxy the child `expr` field.
+
+Let's add a `case T_TargetEntry` to `buffer_print_expr`:
+
+```c
+static void buffer_print_expr(PGExec_Buffer* buf, PlannedStmt* stmt, Node* expr) {
+  switch (nodeTag(expr)) {
+  case T_Const:
+    buffer_print_const(buf, (Const*)expr);
+    break;
+
+  case T_Var:
+    buffer_print_var(buf, stmt, (Var*)expr);
+    break;
+
+  case T_TargetEntry:
+    buffer_print_expr(buf, stmt, (Node*)((TargetEntry*)expr)->expr);
+    break;
+
+  case T_OpExpr:
+    buffer_print_opexpr(buf, stmt, (OpExpr*)expr);
+    break;
+
+  default:
+    buffer_appendf(buf, "[Unknown: %d]", nodeTag(expr));
+  }
+}
+```
+
+Rebuild and reinstall the extension, and restart Postgres. Re-run the
+`test.sql` script. Check the Postgres server logs and:
+
+```console
+2023-11-19 20:17:51.114 GMT [3257827] LOG:  [pgexec] SELECT a FROM x WHERE a > 1
+2023-11-19 20:17:51.114 GMT [3257827] STATEMENT:  SELECT a FROM x WHERE a > 1;
+```
+
+We did it!
+
+### Variations
+
+Let's try out some other queries to make sure this wasn't just luck.
+
+```console
+$ /usr/local/pgsql/bin/psql -h localhost postgres -c 'SELECT a + 1 FROM x'
+ ?column?
+----------
+      310
+(1 row)
+
+$ /usr/local/pgsql/bin/psql -h localhost postgres -c 'SELECT a + 1 FROM x WHERE 2 > a'
+ ?column?
+----------
+(0 rows)
+```
+
+And back in the Postgres server logs:
+
+```console
+2023-11-19 20:19:28.057 GMT [3257874] LOG:  [pgexec] SELECT a + 1 FROM x
+2023-11-19 20:19:28.057 GMT [3257874] STATEMENT:  SELECT a + 1 FROM x
+2023-11-19 20:19:30.474 GMT [3257878] LOG:  [pgexec] SELECT a + 1 FROM x WHERE 2 > a
+2023-11-19 20:19:30.474 GMT [3257878] STATEMENT:  SELECT a + 1 FROM x WHERE 2 > a
+```
+
+Not bad!
+
+### Next steps
+
+Printing out the statement here isn't incredibly useful. But it
+establishes a basis for future work that might avoid Postgres's query
+execution engine and do the execution ourselves, or to proxy execution
+to another system.
