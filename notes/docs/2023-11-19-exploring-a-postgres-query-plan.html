@@ -791,7 +791,7 @@ that we can use to iterate the list.</p>
 </pre></div>
 <p>Well, our code didn't crash! So the guess about <code>qual</code> <code>List</code> entries
 being <code>Node</code>s seems right. Let's look up that node type in the
-Postgres repo (again, after at least running <code>./configure &amp;&amp; make</code>).</p>
+Postgres repo:</p>
 <div class="highlight"><pre><span></span><span class="gp">$ </span>grep<span class="w"> </span><span class="s1">&#39; = 15,&#39;</span><span class="w"> </span>src/include/nodes/nodetags.h
 <span class="go">        T_OpExpr = 15,</span>
 </pre></div>

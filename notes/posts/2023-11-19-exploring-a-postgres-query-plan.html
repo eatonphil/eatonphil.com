@@ -897,7 +897,7 @@ Rebuild and reinstall the extension, and restart Postgres. Re-run the
 
 Well, our code didn't crash! So the guess about `qual` `List` entries
 being `Node`s seems right. Let's look up that node type in the
-Postgres repo (again, after at least running `./configure && make`).
+Postgres repo:
 
 ```console
 $ grep ' = 15,' src/include/nodes/nodetags.h
