@@ -64,12 +64,9 @@ return, if any, and where they come from.</p>
 <p>That's very interesting. So I started writing code to explore execution
 hooks. However, I got stuck interpreting the query plan. Either
 there's no query plan walking infrastructure or I just didn't find it.</p>
-<p>So this post is a digression into walking a Postgres query plan that
-I'll use as the basis for future work on something like redirecting
-Postgres query execution to read from a CSV or translate a query plan
-into SQLite to query a SQLite file.</p>
-<p>By the end of the post we'll be able to run <code>psql -c 'SELECT a FROM x
-WHERE a &gt; 1'</code> and reconstruct the entire SQL string from a Postgres
+<p>So this post is a digression into walking a Postgres query plan. By
+the end we'll be able to run <code>psql -c 'SELECT a FROM x WHERE a &gt; 1'</code>
+and reconstruct the entire SQL string from a Postgres
 <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/include/executor/execdesc.h#L33"><code>QueryDesc</code></a>
 object, the query plan object Postgres builds.</p>
 <p>With that query plan walking infrastructure in place, we'll be in a
@@ -554,7 +551,7 @@ judicious use of ChatGPT, I confess), we can notice
 that takes an <code>Oid</code> and returns a <code>Relation</code>. Notice also that the
 comment says we should close the relation when we're done with
 <code>RelationClose</code>.</p>
-<p>So putting it altogether (and again, reusing some kind from that
+<p>So putting it altogether (and again, reusing some code from that
 previous post), we can print out the table name.</p>
 <div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">print_plan</span><span class="p">(</span><span class="n">QueryDesc</span><span class="o">*</span><span class="w"> </span><span class="n">queryDesc</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="n">SeqScan</span><span class="o">*</span><span class="w"> </span><span class="n">scan</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
@@ -1245,6 +1242,15 @@ to handle <code>SELECT a AS b</code> yet) and just proxy the child <code>expr</c
 <span class="go">2023-11-19 20:19:30.474 GMT [3257878] STATEMENT:  SELECT a + 1 FROM x WHERE 2 &gt; a</span>
 </pre></div>
 <p>Not bad!</p>
+<h3 id="on-chatgpt">On ChatGPT</h3><p>My recent Postgres explorations would have been basically impossible
+if it weren't for being able to ask ChatGPT simple, stupid questions
+like "How do I get from a Postgres <code>Var</code> to a column name".</p>
+<p>It isn't always right. It doesn't always give great code. Actually, it
+normally gives pretty weird code. But it's been extremely useful for
+quick iteration when I get stuck.</p>
+<p>The only other place the information exists is in small blog posts
+around the internet, the Postgres mailing lists (that so far for me
+have been slow and of limited aid), and the code itself.</p>
 <h3 id="next-steps">Next steps</h3><p>Printing out the statement here isn't incredibly useful. But it
 establishes a basis for future work that might avoid Postgres's query
 execution engine and do the execution ourselves, or to proxy execution
