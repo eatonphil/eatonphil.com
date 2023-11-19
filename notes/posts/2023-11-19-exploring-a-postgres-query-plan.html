@@ -1103,7 +1103,7 @@ We can simply check if `consttype == INT4OID` and the interpret the
 `Datum` as an `int32` if so. `DatumGetInt32` will get us that `int32`
 in that case.
 
-To support the new `Const` type, we'll add a hook in
+To support the new `Const` type, we'll add a case in
 `buffer_print_expr` to look for a `T_Const`.
 
 ```c
@@ -1205,7 +1205,7 @@ typedef struct Var
 } Var;
 ```
 
-Ok so it looks like this refers to a relation in the range table list
+It looks like this refers to a relation in the range table list
 again. So this means we need to have access to the full `PlannedStmt`
 so we can read its `rtable` field again to find the table. Then we
 need to look up the `Relation` for the table and then we can use the
@@ -1214,8 +1214,8 @@ and get its string representation.
 
 However, ChatGPT found a slightly higher-level function:
 [`get_attname()`](https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/backend/utils/cache/lsyscache.c#L826)
-takes a relation `Oid` and an attribute index and returns the string
-name of the column.
+that takes a relation `Oid` and an attribute index and returns the
+string name of the column.
 
 So here's what `buffer_print_var` looks like:
 

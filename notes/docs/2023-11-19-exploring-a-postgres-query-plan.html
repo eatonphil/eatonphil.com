@@ -961,7 +961,7 @@ among them.</p>
 <p>We can simply check if <code>consttype == INT4OID</code> and the interpret the
 <code>Datum</code> as an <code>int32</code> if so. <code>DatumGetInt32</code> will get us that <code>int32</code>
 in that case.</p>
-<p>To support the new <code>Const</code> type, we'll add a hook in
+<p>To support the new <code>Const</code> type, we'll add a case in
 <code>buffer_print_expr</code> to look for a <code>T_Const</code>.</p>
 <div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">buffer_print_expr</span><span class="p">(</span><span class="n">PGExec_Buffer</span><span class="o">*</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">Node</span><span class="o">*</span><span class="w"> </span><span class="n">expr</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="n">nodeTag</span><span class="p">(</span><span class="n">expr</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
@@ -1047,7 +1047,7 @@ in that case.</p>
 <span class="w">    </span><span class="kt">int</span><span class="w">         </span><span class="n">location</span><span class="p">;</span>
 <span class="p">}</span><span class="w"> </span><span class="n">Var</span><span class="p">;</span>
 </pre></div>
-<p>Ok so it looks like this refers to a relation in the range table list
+<p>It looks like this refers to a relation in the range table list
 again. So this means we need to have access to the full <code>PlannedStmt</code>
 so we can read its <code>rtable</code> field again to find the table. Then we
 need to look up the <code>Relation</code> for the table and then we can use the
@@ -1055,8 +1055,8 @@ need to look up the <code>Relation</code> for the table and then we can use the
 and get its string representation.</p>
 <p>However, ChatGPT found a slightly higher-level function:
 <a href="https://github.com/postgres/postgres/blob/b218fbb7a35fcf31539bfad12732038fe082a2eb/src/backend/utils/cache/lsyscache.c#L826"><code>get_attname()</code></a>
-takes a relation <code>Oid</code> and an attribute index and returns the string
-name of the column.</p>
+that takes a relation <code>Oid</code> and an attribute index and returns the
+string name of the column.</p>
 <p>So here's what <code>buffer_print_var</code> looks like:</p>
 <div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">buffer_print_var</span><span class="p">(</span><span class="n">PGExec_Buffer</span><span class="o">*</span><span class="w"> </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">PlannedStmt</span><span class="o">*</span><span class="w"> </span><span class="n">stmt</span><span class="p">,</span><span class="w"> </span><span class="n">Var</span><span class="o">*</span><span class="w"> </span><span class="n">var</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
