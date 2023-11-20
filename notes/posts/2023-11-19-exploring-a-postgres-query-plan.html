@@ -1440,7 +1440,14 @@ And back in the Postgres server logs:
 
 Not bad!
 
-### On ChatGPT
+### Next steps
+
+Printing out the statement here isn't incredibly useful. But it
+establishes a basis for future work that might avoid Postgres's query
+execution engine and do the execution ourselves, or to proxy execution
+to another system.
+
+### Postscript: On ChatGPT
 
 My recent Postgres explorations would have been basically impossible
 if it weren't for being able to ask ChatGPT simple, stupid questions
@@ -1453,12 +1460,5 @@ quick iteration when I get stuck.
 The only other place the information exists is in small blog posts
 around the internet, the Postgres mailing lists (that so far for me
 hasn't been super responsive), and the code itself.
-
-### Next steps
-
-Printing out the statement here isn't incredibly useful. But it
-establishes a basis for future work that might avoid Postgres's query
-execution engine and do the execution ourselves, or to proxy execution
-to another system.
 
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I&#39;ve been on a Postgres roll. Let&#39;s dig into interpreting a Postgres query plan in preparation for future work on completely diverting the flow of Postgres query execution using execution hooks!<a href="https://t.co/EZrgoIiTuX">https://t.co/EZrgoIiTuX</a> <a href="https://t.co/7S6d6olPX8">pic.twitter.com/7S6d6olPX8</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1726336428626587710?ref_src=twsrc%5Etfw">November 19, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
