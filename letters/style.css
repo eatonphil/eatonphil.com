@@ -1,5 +1,7 @@
 :root {
     --primary: #d38305;
+    --serif: "Georgia", serif;
+    --sans-serif: sans-serif;
 }
 
 * {
@@ -11,7 +13,7 @@ body {
     padding: 0;
     color: black;
     font-size: 1.1rem;
-    font-family: sans-serif;
+    font-family: var(--sans-serif);
 }
 
 hr {
@@ -21,8 +23,6 @@ hr {
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-style: normal;
-    font-variant: normal;
     font-weight: normal;
 }
 
@@ -83,10 +83,7 @@ ul {
 }
 
 p, li {
-    font-family: serif;
-    font-style: normal;
-    font-variant: normal;
-    font-weight: 400;
+    font-family: var(--serif);
     line-height: 1.75rem;
     color: #334;
 }
@@ -316,7 +313,7 @@ li code,
     content: 'NOTE';
     position: absolute;
     top: 5px;
-    font-family: sans-serif;
+    font-family: var(--sans-serif);
     font-size: .7rem;
     font-weight: bold;
 }
