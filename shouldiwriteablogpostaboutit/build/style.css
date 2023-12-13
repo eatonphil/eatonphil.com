@@ -1,7 +1,8 @@
 :root {
     --primary: #d38305;
-    --serif: "Georgia", serif;
+    --serif: "Merriweather", "Georgia", serif;
     --sans-serif: sans-serif;
+    --mono: "IBM Plex Mono", monospace;
 }
 
 * {
@@ -12,7 +13,6 @@ body {
     margin: 0 auto;
     padding: 0;
     color: black;
-    font-size: 1.1rem;
     font-family: var(--sans-serif);
 }
 
@@ -24,6 +24,7 @@ hr {
 
 h1, h2, h3, h4, h5, h6 {
     font-weight: normal;
+    font-family: var(--serif);
 }
 
 h1 {
@@ -237,7 +238,7 @@ table,
 p code,
 li code,
 .highlight pre {
-    font-family: monospace;
+    font-family: var(--mono);
     font-size: .95rem;
     line-height: 1.35rem;
 }
@@ -257,6 +258,7 @@ li code,
 
 .tags {
     padding-bottom: 5px;
+    font-family: var(--sans-serif);
 }
 
 .tag {
@@ -272,6 +274,10 @@ li code,
 .about img {
     height: 125px;
     width: 125px;
+}
+
+.summary {
+    font-family: var(--serif);
 }
 
 .summary > a {
@@ -312,14 +318,14 @@ li code,
     display: block;
     content: 'NOTE';
     position: absolute;
-    top: 5px;
-    font-family: var(--sans-serif);
+    top: 4px;
+    font-family: var(--serif);
     font-size: .7rem;
-    font-weight: bold;
+    border-bottom: 1px solid #ebecee;
 }
 
 .note, .note p, .note a {
-    font-size: 1rem;
+    font-size: .8rem;
 }
 
 .note-header {
