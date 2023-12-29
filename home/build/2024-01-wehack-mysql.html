@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <link rel="canonical" href="https://eatonphil.com/">
-    <title>Phil Eaton</title>
-    <meta name="description" content="Phil Eaton" />
+    <link rel="canonical" href="https://eatonphil.com/2024-01-wehack-mysql.html">
+    <title>#wehack MySQL/MariaDB Internals</title>
+    <meta name="description" content="#wehack MySQL/MariaDB Internals" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" type="text/css" href="/style.css" />
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
@@ -35,14 +35,14 @@
 
 	    <div class="subscribe">
 	      <a href="https://eatonphil.com/hire-me.html">Hire me</a>
-	      <a class="fancy" href="https://eatonphil.com/#subscribe">
+	      <a class="fancy" href="https://eatonphil.com/2024-01-wehack-mysql.html#subscribe">
 		Subscribe
 	      </a>
             </div>
 	  </div>
 	  <hr />
-          <h2></h2>
-          <h1>Phil Eaton</h1>
+          <h2>January, 2024</h2>
+          <h1>#wehack MySQL/MariaDB Internals</h1>
 	  
 	</div>
       </div>
@@ -51,90 +51,96 @@
       <div class="col-6">
         
 
-<div class="about">
-  <img src="https://github.com/eatonphil.png" />
-</div>
-
 <p>
-  Hey! I'm Phil (he/him). In the past 10 years I've been a developer
-  or manager or founder or cofounder; at startups like TigerBeetle,
-  Capsule8, larger companies like Linode and Oracle, and my own
-  Multiprocess Labs.
+  From January 3rd - 10th I'll host a Discord group of folks who want
+  to dig into MariaDB internals: write about it, try to break it, fix a
+  bug in it, or improve the docs.
 </p>
 
 <p>
-  Today, I'm having a bit of fun doing independent research on
-  databases and distributed systems while I <a href="/hire-me.html">figure out what's
-  next</a>.
+  Basically, a support group for people who want to figure this stuff
+  out together.
+</p>
+
+<h3 id="Learnorcontribute">Learn or contribute</h3>
+
+<p>
+  If all we do is get more folks looking at MariaDB code, building it,
+  and trying out tweaks to it -- without any contributions merged -- I'd
+  see it as a success. If the week produces any new contributions merged
+  into MariaDB, fantastic.
 </p>
 
 <p>
-  I am a college dropout (not by choice; stay in school!) and for the
-  last 10 years I've chased my way down the software stack starting from
-  humble beginnings with the venerable jQuery and PHP.
+  Existing MariaDB contributors are welcome to join.
+</p>
+
+<h3 id="Berespectful">Be respectful</h3>
+
+<p>
+  In order to cut down on mod effort and the likelihood of this
+  turning into the <a href="https://blog.domenic.me/hacktoberfest/">worst of
+  Hacktoberfest</a>, I'm going to
+  limit invites to Discord to folks who have been programmers for a
+  bit and can provide social proof such as a GitHub, LinkedIn, or
+  technical website.
 </p>
 
 <p>
-  This site is about software internals; particularly compilers,
-  interpreters, programming languages, distributed systems, databases,
-  software emulation, file formats, and internet protocols.
+  It is imperative to be respectful of open-source maintainers. And
+  folks caught doing otherwise will get booted from the Discord.
+</p>
+
+<h3 id="Onceanddone">Once and done</h3>
+
+<p>
+  After January 10th the Discord will be deleted. Any contributions made
+  to MariaDB (docs, bug fixes, etc.) will be noted on this page
+  afterward, as will any non-trivial blog posts or GitHub projects
+  showing something interesting about MariaDB (created during the course
+  of the event).
 </p>
 
 <p>
-  I'm not an expert, I just love these topics.
+  I'll also add to this page resources folks share for MariaDB
+  internals and contributing to MariaDB.
 </p>
 
-<h3>You might be here for</h3>
+<p>
+  Sign up <a href="https://forms.gle/3kSZ5nHFRkgcLMLz7">here</a> and I'll email
+  you an invite to Discord.
+</p>
+
+<h3 id="Ideas">Ideas</h3>
+
 <ul>
-  <li><a href="https://notes.eatonphil.com">My blog</a></li>
-  <li><a href="https://lists.eatonphil.com">My lists</a></li>
-  <li><a href="https://letters.eatonphil.com">My letters</a></li>
-  <li><a href="/btrees.html">My B-Tree Resources</a></li>
-  <li><a href="/discord.html">Joining a hacker Discord</a></li>
-  <li><a href="/nsg.html">Northeast Systems Group on Discord</a></li>
-  <li><a href="https://seriousmarketing.substack.com/">A marketing blog aimed at early-stage founders</a></li>
+  <li>Read through docs of a new feature. Try out the new feature. Note missing or confusing parts.</li>
+  <li>Figure out how to write MariaDB extensions in your favorite language.</li>
+  <li>Add a new MariaDB storage engine.</li>
+  <li>Write about MariaDB's WAL format.</li>
+  <li>Build a CDC implementation on top of MariaDB's WAL.</li>
+  <li>Figure out how to write a new builtin function or extend MariaDB's syntax (not for the sake of getting this merged necessarily).</li>
 </ul>
 
-<h3>Clubs</h3>
-<ul>
-  <li><a href="/nyc-systems-coffee-club.html">NYC Systems Coffee Club</a> (Ongoing)</li>
-  <li><a href="/2023-database-internals.html">Email Book Club, Winter 2023: Database Internals</a> (Ongoing)</li>
-  <li><a href="/2023-ddia.html">NYC Book Club, Summer 2023: Designing Data-Intensive Applications</a> (Finished)</li>
-</ul>
+<h3 id="Resources">Resources</h3>
 
-<h3>#wehack</h3>
-<ul>
-  <li><a href="/2023-10-wehack-postgres.html">#wehack Postgres Internals</a></li>
-  <li><a href="/2023-10-wehack-mysql.html">#wehack MySQL/MariaDB Internals</a></li>
-</ul>
+<p>
+  MariaDB internals resources that were shared during the week.
+</p>
 
-<h3>Videos and streaming</h3>
-<ul>
-  <li><a href="https://www.twitch.tv/eatonphil">Streaming on Twitch</a>, Sundays at 5pm ET</li>
-  <li><a href="https://www.youtube.com/@eatonphil">Stream archives on YouTube</a></li>
-</ul>
+<p>
+  Will be filled in once the week starts!
+</p>
 
-<h3>Socials and contact</h3>
-<ul>
-  <li><a href="mailto:me@eatonphil.com">Email</a></li>
-  <li><a href="https://github.com/eatonphil">Github</a></li>
-  <li><a href="https://www.goodreads.com/user/show/50930981-phil-eaton">Goodreads</a></li>
-  <li><a href="https://linkedin.com/in/eatonphil">LinkedIn</a></li>
-  <li><a href="https://twitter.com/eatonphil">Twitter</a></li>
-</ul>
+<h3 id="Productions">Productions</h3>
 
-<h4>Backups</h4>
-<ul>
-  <li><a href="https://hachyderm.io/@eatonphil" rel="me">Mastodon</a></li>
-  <li><a href="https://bsky.app/profile/eatonphil.bsky.social">Bluesky</a></li>
-  <li><a href="https://threads.net/@eatonphilx">Threads</a></li>
-</ul>
+<p>
+  Projects and posts that came out during, or as a result of, the week.
+</p>
 
-<h3>Other things I'm affiliated with</h3>
-<ul>
-  <li><a href="http://reddit.com/r/sml">/r/sml</a></li>
-  <li><a href="http://reddit.com/r/databasedevelopment">/r/databasedevelopment</a></li>
-</ul>
+<p>
+  Will be filled in once the week starts!
+</p>
 
 	<div class="feedback">
 	  <h4>Feedback</h4>
