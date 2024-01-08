@@ -1,7 +1,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://eatonphil.com/2023-10-wehack-postgres.html</loc>
-    <lastmod>2023-11-14</lastmod>
+    <lastmod>2024-01-07</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2023-database-internals.html</loc>
@@ -13,7 +13,7 @@
   </url>
   <url>
     <loc>https://eatonphil.com/2024-01-wehack-mysql.html</loc>
-    <lastmod>2023-12-29</lastmod>
+    <lastmod>2024-01-07</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/btrees.html</loc>
