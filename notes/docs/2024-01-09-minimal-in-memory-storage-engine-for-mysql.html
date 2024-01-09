@@ -212,6 +212,15 @@ that are ineffective because the execution layer doesn't or can't take
 advantage of them. The "optimizations" you apply in one layer may even
 adversely affect overall performance if the other layer isn't also
 aware and able to make use of the optimization.</p>
+<h3 id="limitation:-but-not-permanent">Limitation: But not permanent</h3><p>There have been more invasive attempts to fully support
+<a href="https://www.citusdata.com/blog/2021/03/06/citus-10-columnar-compression-for-postgres/">column-wise storage and
+execution</a>
+in Postgres. And there have also been projects to bring <a href="https://github.com/citusdata/postgres_vectorization_test">vectorized
+execution to
+Postgres</a>.</p>
+<p>So the storage API dealing with individual rows isn't necessarily
+intrinsic. Someone may change that in Postgres or MySQL/MariaDB at
+some point.</p>
 <h3 id="debug-build-of-mariadb-running-locally">Debug build of MariaDB running locally</h3><p>Now that you've got some background, let's get a debug build of
 MariaDB!</p>
 <div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/MariaDB/server<span class="w"> </span>mariadb

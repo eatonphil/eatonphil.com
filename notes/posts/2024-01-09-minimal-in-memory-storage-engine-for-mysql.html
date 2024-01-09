@@ -202,6 +202,19 @@ advantage of them. The "optimizations" you apply in one layer may even
 adversely affect overall performance if the other layer isn't also
 aware and able to make use of the optimization.
 
+### Limitation: But not permanent
+
+There have been more invasive attempts to fully support
+[column-wise storage and
+execution](https://www.citusdata.com/blog/2021/03/06/citus-10-columnar-compression-for-postgres/)
+in Postgres. And there have also been projects to bring [vectorized
+execution to
+Postgres](https://github.com/citusdata/postgres_vectorization_test).
+
+So the storage API dealing with individual rows isn't necessarily
+intrinsic. Someone may change that in Postgres or MySQL/MariaDB at
+some point.
+
 ### Debug build of MariaDB running locally
 
 Now that you've got some background, let's get a debug build of
