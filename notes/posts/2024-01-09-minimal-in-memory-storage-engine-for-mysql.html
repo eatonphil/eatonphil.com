@@ -1,7 +1,7 @@
 <!-- -*- mode: markdown -*- -->
 # Writing a minimal in-memory storage engine for MySQL/MariaDB
 ## January 9, 2024
-###### c++,mysql,mariadb,postgres,draft
+###### c++,mysql,postgres
 
 I [spent a week](https://eatonphil.com/2024-01-wehack-mysql.html)
 looking at MySQL/MariaDB internals along with ~80 other devs. Although
@@ -306,4 +306,728 @@ MariaDB [test]> SELECT 1;
 
 Huzzah! Let's write a custom storage engine!
 
+### Where does the code go?
 
+When writing an extension for some project, I usually expect to have
+the extension exist in its own repo. I was able to do this with the
+[Postgres in-memory storage engine I
+wrote](https://github.com/eatonphil/pgtam). And in general, Postgres
+extensions exist as their own repos.
+
+I was able to create and build a UDF plugin outside the MariaDB source
+tree. But when it came to getting a storage engine to build and load
+successfully, I wasted almost an entire day getting
+nowhere. Extensions for MySQL/MariaDB are most easily built via the
+CMake infrastructure within the repo. Surely there's *some* way to
+replicate that infrastructure from outside the repo but I wasn't able
+to figure it out within a day and didn't want to spend more time on
+it.
+
+Apparently the [normal thing to
+do](https://twitter.com/kastauyra/status/1743346665442935174) in
+MySQL/MariaDB is to keep extensions within a fork of MySQL/MariaDB.
+
+When I switched to this method I was able to immediately get the
+storage engine building and loaded. So that's what we'll do.
+
+### Boilerplate
+
+Within the MariaDB source tree, create a new folder in the `storage`
+subdirectory.
+
+```console
+$ mkdir storage/memem
+```
+
+Within `storage/memem/CMakeLists.txt` add the following.
+
+```cmake
+# Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1335 USA
+
+SET(MEMEM_SOURCES  ha_memem.cc ha_memem.h)
+MYSQL_ADD_PLUGIN(memem ${MEMEM_SOURCES} STORAGE_ENGINE)
+```
+
+This hooks into MySQL/MariaDB build infrastructure. So next time you
+run `make` within the `build` directory we created above, it will also
+build this project.
+
+### The storage engine class
+
+It would be nice to see a way to extend MySQL in C (for one, because
+it would then be easier to port to other languages). But all of the
+builtin storage methods use classes. So we'll do that too.
+
+The class we must implement is an instance of
+[`handler`](https://github.com/MariaDB/server/blob/11.4/sql/handler.h#L3200). There
+is a single `handler` instance per thread used by a single
+query. (Postgres has a process per query, MySQL uses a thread per
+query.) However, `handler` instances are reused across different
+queries.
+
+There are a number of virtual methods on `handler` we must implement
+in our subclass. Most of these can do nothing. In that case they'll be
+implemented in `ha_memem.h`. The methods with logic beyond immediately
+returning will be implemented in `ha_memem.cc`.
+
+To begin with in `ha_memem.h` we'll set up includes.
+
+```c++
+/* Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; version 2 of the License.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1335  USA */
+
+#ifdef USE_PRAGMA_INTERFACE
+#pragma interface /* gcc class implementation */
+#endif
+
+#include "thr_lock.h"
+#include "handler.h"
+#include "table.h"
+#include "sql_const.h"
+
+#include <vector>
+#include <memory>
+```
+
+Next we'll define structs for our in-memory storage.
+
+```c++
+typedef std::vector<uchar> MememRow;
+
+struct MememTable
+{
+  std::vector<std::shared_ptr<MememRow>> rows;
+  std::shared_ptr<std::string> name;
+};
+
+struct MememDatabase
+{
+  std::vector<std::shared_ptr<MememTable>> tables;
+};
+```
+
+Within `ha_memem.cc` we'll implement a global `static MememDatabase*`
+that all `handler` instances will (without thread-safety) query when
+requested. We need the definitions in the header file though because
+we'll store the table currently being queried in the `handler`
+subclass.
+
+This is so that every call to `write_row` to write a single row or
+call to `rnd_next` to read a single row does not need to look up the
+in-memory table object N times within the same query.
+
+And finally we'll define the subclass of `handler` and implementations
+of trivial methods.
+
+```c++
+class ha_memem final : public handler
+{
+  uint current_position= 0;
+  std::shared_ptr<MememTable> memem_table= 0;
+
+public:
+  ha_memem(handlerton *hton, TABLE_SHARE *table_arg) : handler(hton, table_arg)
+  {
+  }
+  ~ha_memem()= default;
+  const char *index_type(uint key_number) { return ""; }
+  ulonglong table_flags() const { return 0; }
+  ulong index_flags(uint inx, uint part, bool all_parts) const { return 0; }
+  /* The following defines can be increased if necessary */
+#define MEMEM_MAX_KEY MAX_KEY     /* Max allowed keys */
+#define MEMEM_MAX_KEY_SEG 16      /* Max segments for key */
+#define MEMEM_MAX_KEY_LENGTH 3500 /* Like in InnoDB */
+  uint max_supported_keys() const { return MEMEM_MAX_KEY; }
+  uint max_supported_key_length() const { return MEMEM_MAX_KEY_LENGTH; }
+  uint max_supported_key_part_length() const { return MEMEM_MAX_KEY_LENGTH; }
+  int open(const char *name, int mode, uint test_if_locked) { return 0; }
+  int close(void) { return 0; }
+  int truncate() { return 0; }
+  int rnd_init(bool scan);
+  int rnd_next(uchar *buf);
+  int rnd_pos(uchar *buf, uchar *pos) { return 0; }
+  int index_read_map(uchar *buf, const uchar *key, key_part_map keypart_map,
+                     enum ha_rkey_function find_flag)
+  {
+    return HA_ERR_END_OF_FILE;
+  }
+  int index_read_idx_map(uchar *buf, uint idx, const uchar *key,
+                         key_part_map keypart_map,
+                         enum ha_rkey_function find_flag)
+  {
+    return HA_ERR_END_OF_FILE;
+  }
+  int index_read_last_map(uchar *buf, const uchar *key,
+                          key_part_map keypart_map)
+  {
+    return HA_ERR_END_OF_FILE;
+  }
+  int index_next(uchar *buf) { return HA_ERR_END_OF_FILE; }
+  int index_prev(uchar *buf) { return HA_ERR_END_OF_FILE; }
+  int index_first(uchar *buf) { return HA_ERR_END_OF_FILE; }
+  int index_last(uchar *buf) { return HA_ERR_END_OF_FILE; }
+  void position(const uchar *record) { return; }
+  int info(uint flag) { return 0; }
+  int external_lock(THD *thd, int lock_type) { return 0; }
+  int create(const char *name, TABLE *table_arg, HA_CREATE_INFO *create_info);
+  THR_LOCK_DATA **store_lock(THD *thd, THR_LOCK_DATA **to,
+                             enum thr_lock_type lock_type)
+  {
+    return to;
+  }
+  int delete_table(const char *name) { return 0; }
+
+private:
+  void reset_memem_table();
+  virtual int write_row(const uchar *buf);
+  int update_row(const uchar *old_data, const uchar *new_data)
+  {
+    return HA_ERR_WRONG_COMMAND;
+  };
+  int delete_row(const uchar *buf) { return HA_ERR_WRONG_COMMAND; }
+};
+```
+
+That looks like a lot and it sort of is. But it's pure boilerplate. A
+complete storage engine might implement all of these. But we'll only
+implement 7 of them.
+
+To finish up the boilerplate, we'll switch over to `ha_memem.cc` and
+set up the includes.
+
+```c++
+/* Copyright (c) 2005, 2012, Oracle and/or its affiliates. All rights reserved.
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; version 2 of the License.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1335  USA */
+
+#ifdef USE_PRAGMA_IMPLEMENTATION
+#pragma implementation // gcc: Class implementation
+#endif
+
+#define MYSQL_SERVER 1
+#include <my_global.h>
+#include "sql_priv.h"
+#include "unireg.h"
+#include "sql_class.h"
+
+#include "ha_memem.h"
+```
+
+Ok! Let's dig into the implementation.
+
+### Implementation: Global database
+
+First up, we need to declare a global `MememDatabase*` instance. We'll
+also implement a helper function for finding the index of a table by
+name within the database.
+
+```c++
+// WARNING! All accesses of `database` in this code are thread
+// unsafe. Since this was written during a hack week, I didn't have
+// time to figure out MySQL/MariaDB's runtime well enough to do the
+// thread-safe version of this.
+static MememDatabase *database;
+
+static int memem_table_index(const char *name)
+{
+  int i;
+  assert(database->tables.size() < INT_MAX);
+  for (i= 0; i < (int) database->tables.size(); i++)
+  {
+    if (strcmp(database->tables[i]->name->c_str(), name) == 0)
+    {
+      return i;
+    }
+  }
+
+  return -1;
+}
+```
+
+<p class="note">
+  As I wrote this post I noticed that this code also assumes there's
+  only a single database. That isn't how MySQL works. Everytime you
+  call <code>USE ...</code> in MySQL you are switching between
+  databases. You can query tables across databases. A real in-memory
+  backend would need to be aware of the different databases, not just
+  different tables. But to keep the code succinct we won't implement
+  that in this post.
+</p>
+
+Next we'll implement plugin initialization and cleanup.
+
+### Implementation: Plugin lifecycle
+
+Before we register the plugin with MariaDB, we need to set up
+initialization and cleanup methods for it.
+
+The initialization method will take care of initializing the global
+`MememDatabase* database` object. It will set up a handler for
+creating new instances of our `handler` subclass. And it will set up a
+handler for deleting tables.
+
+```c++
+static handler *memem_create_handler(handlerton *hton, TABLE_SHARE *table,
+                                     MEM_ROOT *mem_root)
+{
+  return new (mem_root) ha_memem(hton, table);
+}
+
+static int memem_init(void *p)
+{
+  handlerton *memem_hton;
+
+  memem_hton= (handlerton *) p;
+  memem_hton->db_type= DB_TYPE_AUTOASSIGN;
+  memem_hton->create= memem_create_handler;
+  memem_hton->drop_table= [](handlerton *, const char *name) {
+    int index= memem_table_index(name);
+    if (index == -1)
+    {
+      return HA_ERR_NO_SUCH_TABLE;
+    }
+
+    database->tables.erase(database->tables.begin() + index);
+    DBUG_PRINT("info", ("[MEMEM] Deleted table '%s'.", name));
+
+    return 0;
+  };
+  memem_hton->flags= HTON_CAN_RECREATE;
+
+  // Initialize global in-memory database.
+  database= new MememDatabase;
+
+  return 0;
+}
+```
+
+<p class="note">
+  The <code>DBUG_PRINT</code> macro is a debug helper MySQL/MariaDB gives us. As
+  noted above, the output is directed to a file specified by the
+  <code>--debug</code> flag. Unfortunately I couldn't figure out how to flush the
+  stream this macro writes to. It seemed like occasionally when there
+  was a segfault logs I expected to be there weren't there. And the
+  file would often contain what looked like partially written
+  logs. Anyway, as long as there wasn't a segfault the debug file will
+  eventually contain the <code>DBUG_PRINT</code> logs.
+</p>
+
+The only thing the plugin cleanup function must do is delete the
+global database.
+
+```c++
+static int memem_fini(void *p)
+{
+  delete database;
+  return 0;
+}
+```
+
+Now we can register the plugin!
+
+### Implementation: Plugin registration
+
+The `maria_declare_plugin` and `maria_declare_plugin_end` register the
+plugin's metadata (name, version, etc.) and callbacks.
+
+```c++
+struct st_mysql_storage_engine memem_storage_engine= {
+    MYSQL_HANDLERTON_INTERFACE_VERSION};
+
+maria_declare_plugin(memem){
+    MYSQL_STORAGE_ENGINE_PLUGIN,
+    &memem_storage_engine,
+    "MEMEM",
+    "MySQL AB",
+    "In-memory database.",
+    PLUGIN_LICENSE_GPL,
+    memem_init, /* Plugin Init */
+    memem_fini, /* Plugin Deinit */
+    0x0100 /* 1.0 */,
+    NULL,                          /* status variables                */
+    NULL,                          /* system variables                */
+    "1.0",                         /* string version */
+    MariaDB_PLUGIN_MATURITY_STABLE /* maturity */
+} maria_declare_plugin_end;
+```
+
+That's it! Now we need to implement methods for writing rows, reading
+rows, and creating a new table.
+
+### Implementation: Create table
+
+To create a table, we make sure one by this name doesn't already
+exist, make sure it only has `INTEGER` fields, allocate memory for the
+table, and append it to the global database.
+
+```c++
+int ha_memem::create(const char *name, TABLE *table_arg,
+                     HA_CREATE_INFO *create_info)
+{
+  assert(memem_table_index(name) == -1);
+  
+  // We only support INTEGER fields for now.
+  uint i = 0;
+  while (table_arg->field[i]) {
+    if (table_arg->field[i]->type() != MYSQL_TYPE_LONG)
+      {
+	DBUG_PRINT("info", ("Unsupported field type."));
+	return 1;
+      }
+
+    i++;
+  }
+
+  auto t= std::make_shared<MememTable>();
+  t->name= std::make_shared<std::string>(name);
+  database->tables.push_back(t);
+  DBUG_PRINT("info", ("[MEMEM] Created table '%s'.", name));
+
+  return 0;
+}
+```
+
+Not very complicated. Let's handle `INSERT`-ing rows next.
+
+### Implementation: Insert row
+
+There is no method called when an `INSERT` starts. There is a `table`
+field on the `handler` parent class that is updated though when a
+`SELECT` or `INSERT` is going. So we can fetch the current table from
+that field.
+
+Since we have a slot for a `std::shared_ptr<MememTable> memem_table`
+on the `ha_memem` class, we can check if it is `NULL` when we insert a
+row. If it is, we look up the current table and set
+`this->memem_table` to its `MememTable`.
+
+But there's a bit more to it than just the table name. The `const
+char* name` passed to the `create()` method above seems to be a sort
+of fully qualified name for the table. By observation, when creating a
+table `y` in a database `test`, the `const char* name` value is
+`./test/y`. The `.` prefix probably means that the database is local,
+but I'm not sure.
+
+So we'll write a helper method that will reconstruct the fully
+qualified table name before looking up that fully qualified table name
+in the global database.
+
+```c++
+void ha_memem::reset_memem_table()
+{
+  // Reset table cursor.
+  current_position= 0;
+
+  std::string full_name= "./" + std::string(table->s->db.str) + "/" +
+                         std::string(table->s->table_name.str);
+  DBUG_PRINT("info", ("[MEMEM] Resetting to '%s'.", full_name.c_str()));
+  assert(database->tables.size() > 0);
+  int index= memem_table_index(full_name.c_str());
+  assert(index >= 0);
+  assert(index < (int) database->tables.size());
+
+  memem_table= database->tables[index];
+}
+```
+
+Then we can use this within `write_row` to figure out the current
+`MememTable` being queried.
+
+But first, let's digress into how MySQL stores rows.
+
+#### The MySQL row API
+
+When you [write a Postgres custom storage
+API](https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html),
+you are expected to basically read from or write to an array of
+`Datum`.
+
+Totally sensible.
+
+In MySQL, you read from and write to an array of bytes. That's pretty
+weird to me. Of course you can build your own higher level
+serialization/deserialization on top of it. But it's just strange to
+me everyone has to know this basically opaque API.
+
+Certainly [it's documented](https://github.com/MariaDB/server/blob/11.4/sql/handler.h#L3152).
+
+```text
+The handler class is the interface for dynamically loadable
+storage engines. Do not add ifdefs and take care when adding or
+changing virtual functions to avoid vtable confusion
+
+Functions in this class accept and return table columns data. Two data
+representation formats are used:
+1. TableRecordFormat - Used to pass [partial] table records to/from
+   storage engine
+
+2. KeyTupleFormat - used to pass index search tuples (aka "keys") to
+   storage engine. See opt_range.cc for description of this format.
+
+TableRecordFormat
+=================
+[Warning: this description is work in progress and may be incomplete]
+The table record is stored in a fixed-size buffer:
+ 
+  record: null_bytes, column1_data, column2_data, ...
+
+The offsets of the parts of the buffer are also fixed: every column has 
+an offset to its column{i}_data, and if it is nullable it also has its own
+bit in null_bytes. 
+```
+
+In our implementation, we'll skip the support for `NULL` values. We'll
+only support `INTEGER` fields. But we still need to be aware that the
+first byte will be taken up. We'll also assume there won't be more
+than one byte of a NULL bitmap.
+
+It is this opaque byte array that we'll read from in `write_row(const uchar*
+buf)` and write to in `read_row(uchar* buf)`.
+
+### Implementation: Insert row (take two)
+
+To keep things simple we're going to store the row in `MememTable` the
+same way MySQL passes it around.
+
+```c++
+int ha_memem::write_row(const uchar *buf)
+{
+  if (memem_table == NULL)
+  {
+    reset_memem_table();
+  }
+
+  // Assume there are no NULLs.
+  buf++;
+
+  uint field_count = 0;
+  while (table->field[field_count]) field_count++;
+
+  // Store the row in the same format MariaDB gives us.
+  auto row= std::make_shared<std::vector<uchar>>(
+      buf, buf + sizeof(int) * field_count);
+  memem_table->rows.push_back(row);
+
+  return 0;
+}
+```
+
+Which makes reading the row quite simple too!
+
+### Implementation: Read row
+
+The only slight difference between reading and writing a row is that
+MySQL/MariaDB will tell us when the `SELECT` scan for a table starts.
+
+We'll use that opportunity to reset the `current_row` cursor and reset
+the `memem_table` field. Since, again, `handler` classes are only used
+once per query but they are reused for queries running at other times.
+
+```c++
+int ha_memem::rnd_init(bool scan)
+{
+  reset_memem_table();
+  return 0;
+}
+
+int ha_memem::rnd_next(uchar *buf)
+{
+  if (current_position == memem_table->rows.size())
+  {
+    // Reset the in-memory table to make logic errors more obvious.
+    memem_table= NULL;
+    return HA_ERR_END_OF_FILE;
+  }
+  assert(current_position < memem_table->rows.size());
+
+  uchar *ptr= buf;
+  *ptr= 0;
+  ptr++;
+
+  // Rows internally are stored in the same format that MariaDB
+  // wants. So we can just copy them over.
+  std::shared_ptr<std::vector<uchar>> row= memem_table->rows[current_position];
+  std::copy(row->begin(), row->end(), ptr);
+
+  current_position++;
+  return 0;
+}
+```
+
+And we're done!
+
+### Build and test
+
+Go back into the `build` directory we created within the source tree
+root and rerun `make -j8`.
+
+Kill the server (you'll need to do something like `killall mariadbd`
+since the server doesn't respond to Ctrl-c). And restart it.
+
+For some reason this plugin doesn't need to be loaded. We can run
+`SHOW PLUGINS;` in the MariaDB CLI and we'll see it.
+
+```console
+$ ./build/client/mariadb --defaults-extra-file=/home/phil/vendor/mariadb/my.cnf --database=test
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MariaDB connection id is 5
+Server version: 11.4.0-MariaDB-debug Source distribution
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MariaDB [test]> SHOW PLUGINS;
++-------------------------------+----------+--------------------+-----------------+---------+
+| Name                          | Status   | Type               | Library         | License |
++-------------------------------+----------+--------------------+-----------------+---------+
+| binlog                        | ACTIVE   | STORAGE ENGINE     | NULL            | GPL     |
+...
+| MEMEM                         | ACTIVE   | STORAGE ENGINE     | NULL            | GPL     |
+...
+| BLACKHOLE                     | ACTIVE   | STORAGE ENGINE     | ha_blackhole.so | GPL     |
++-------------------------------+----------+--------------------+-----------------+---------+
+73 rows in set (0.012 sec)
+
+```
+
+There we go! To create a table with it we need to set `ENGINE =
+MEMEM`. For example, `CREATE TABLE x (i INT) ENGINE = MEMEM`.
+
+Let's create a script to try out the `memem` engine, in
+`storage/memem/test.sql`.
+
+```sql
+drop table if exists y;
+drop table if exists z;
+
+create table y(i int, j int) engine = MEMEM;
+insert into y values (2, 1029);
+insert into y values (92, 8);
+select * from y where i + 8 = 10;
+
+create table z(a int) engine = MEMEM;
+insert into z values (322);
+insert into z values (8);
+select * from z where a > 20;
+```
+
+And run it.
+
+```console
+$ ./build/client/mariadb --defaults-extra-file=$(pwd)/my.cnf --database=test --table --verbose < storage/memem/test.sql
+--------------
+drop table if exists y
+--------------
+
+--------------
+drop table if exists z
+--------------
+
+--------------
+create table y(i int, j int) engine = MEMEM
+--------------
+
+--------------
+insert into y values (2, 1029)
+--------------
+
+--------------
+insert into y values (92, 8)
+--------------
+
+--------------
+select * from y where i + 8 = 10
+--------------
+
++------+------+
+| i    | j    |
++------+------+
+|    2 | 1029 |
++------+------+
+--------------
+create table z(a int) engine = MEMEM
+--------------
+
+--------------
+insert into z values (322)
+--------------
+
+--------------
+insert into z values (8)
+--------------
+
+--------------
+select * from z where a > 20
+--------------
+
++------+
+| a    |
++------+
+|  322 |
++------+
+```
+
+What you see there is the power of storage engines! It supports the
+full SQL language even while we implemented storage somewhere
+completely different than the default.
+
+### In-memory is boring
+
+Certainly, I'm getting bored doing the same project over and over
+again on different databases. However, it's minimal projects like this
+that make it super easy to then go and port the storage engine to
+something else.
+
+The goal here is to be minimal but meaningful. And I've accomplished
+that for myself at least!
+
+### On ChatGPT
+
+As I've [written
+before](https://notes.eatonphil.com/2023-11-19-exploring-a-postgres-query-plan.html#postscript:-on-chatgpt),
+this sort of exploration wouldn't be possible within the time frame I
+gave myself if it weren't for ChatGPT.
+
+Neither the MySQL nor the MariaDB docs were so helpful that I could
+immediately figure out things like how to get the current table name
+within a scan (the `table` member of the `handler` class).

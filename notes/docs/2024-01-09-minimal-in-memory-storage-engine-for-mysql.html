@@ -49,7 +49,7 @@
             <h2>January 9, 2024</h2>
             <h1>Writing a minimal in-memory storage engine for MySQL/MariaDB</h1>
             <div class="row" style="padding-bottom: 5px">
-              ['c++', 'mysql', 'mariadb', 'postgres', 'draft']
+              <div class="tags"><a href="/tags/c++.html" class="tag">c++</a><a href="/tags/mysql.html" class="tag">mysql</a><a href="/tags/postgres.html" class="tag">postgres</a></div>
             </div>
 	  </div>
 	</div>
@@ -294,7 +294,608 @@ place. Without that though you can still <code>tail -f $(pwd)/db.debug</code>.</
 <span class="go">1 row in set (0.001 sec)</span>
 </pre></div>
 <p>Huzzah! Let's write a custom storage engine!</p>
+<h3 id="where-does-the-code-go?">Where does the code go?</h3><p>When writing an extension for some project, I usually expect to have
+the extension exist in its own repo. I was able to do this with the
+<a href="https://github.com/eatonphil/pgtam">Postgres in-memory storage engine I
+wrote</a>. And in general, Postgres
+extensions exist as their own repos.</p>
+<p>I was able to create and build a UDF plugin outside the MariaDB source
+tree. But when it came to getting a storage engine to build and load
+successfully, I wasted almost an entire day getting
+nowhere. Extensions for MySQL/MariaDB are most easily built via the
+CMake infrastructure within the repo. Surely there's <em>some</em> way to
+replicate that infrastructure from outside the repo but I wasn't able
+to figure it out within a day and didn't want to spend more time on
+it.</p>
+<p>Apparently the <a href="https://twitter.com/kastauyra/status/1743346665442935174">normal thing to
+do</a> in
+MySQL/MariaDB is to keep extensions within a fork of MySQL/MariaDB.</p>
+<p>When I switched to this method I was able to immediately get the
+storage engine building and loaded. So that's what we'll do.</p>
+<h3 id="boilerplate">Boilerplate</h3><p>Within the MariaDB source tree, create a new folder in the <code>storage</code>
+subdirectory.</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>mkdir<span class="w"> </span>storage/memem
+</pre></div>
+<p>Within <code>storage/memem/CMakeLists.txt</code> add the following.</p>
+<div class="highlight"><pre><span></span><span class="c"># Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.</span>
+<span class="c"># </span>
+<span class="c"># This program is free software; you can redistribute it and/or modify</span>
+<span class="c"># it under the terms of the GNU General Public License as published by</span>
+<span class="c"># the Free Software Foundation; version 2 of the License.</span>
+<span class="c"># </span>
+<span class="c"># This program is distributed in the hope that it will be useful,</span>
+<span class="c"># but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+<span class="c"># MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+<span class="c"># GNU General Public License for more details.</span>
+<span class="c"># </span>
+<span class="c"># You should have received a copy of the GNU General Public License</span>
+<span class="c"># along with this program; if not, write to the Free Software</span>
+<span class="c"># Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1335 USA</span>
 
+<span class="nb">SET</span><span class="p">(</span><span class="s">MEMEM_SOURCES</span><span class="w">  </span><span class="s">ha_memem.cc</span><span class="w"> </span><span class="s">ha_memem.h</span><span class="p">)</span>
+<span class="nb">MYSQL_ADD_PLUGIN</span><span class="p">(</span><span class="s">memem</span><span class="w"> </span><span class="o">${</span><span class="nv">MEMEM_SOURCES</span><span class="o">}</span><span class="w"> </span><span class="s">STORAGE_ENGINE</span><span class="p">)</span>
+</pre></div>
+<p>This hooks into MySQL/MariaDB build infrastructure. So next time you
+run <code>make</code> within the <code>build</code> directory we created above, it will also
+build this project.</p>
+<h3 id="the-storage-engine-class">The storage engine class</h3><p>It would be nice to see a way to extend MySQL in C (for one, because
+it would then be easier to port to other languages). But all of the
+builtin storage methods use classes. So we'll do that too.</p>
+<p>The class we must implement is an instance of
+<a href="https://github.com/MariaDB/server/blob/11.4/sql/handler.h#L3200"><code>handler</code></a>. There
+is a single <code>handler</code> instance per thread used by a single
+query. (Postgres has a process per query, MySQL uses a thread per
+query.) However, <code>handler</code> instances are reused across different
+queries.</p>
+<p>There are a number of virtual methods on <code>handler</code> we must implement
+in our subclass. Most of these can do nothing. In that case they'll be
+implemented in <code>ha_memem.h</code>. The methods with logic beyond immediately
+returning will be implemented in <code>ha_memem.cc</code>.</p>
+<p>To begin with in <code>ha_memem.h</code> we'll set up includes.</p>
+<div class="highlight"><pre><span></span><span class="cm">/* Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.</span>
+
+<span class="cm">  This program is free software; you can redistribute it and/or modify</span>
+<span class="cm">  it under the terms of the GNU General Public License as published by</span>
+<span class="cm">  the Free Software Foundation; version 2 of the License.</span>
+
+<span class="cm">  This program is distributed in the hope that it will be useful,</span>
+<span class="cm">  but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+<span class="cm">  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+<span class="cm">  GNU General Public License for more details.</span>
+
+<span class="cm">  You should have received a copy of the GNU General Public License</span>
+<span class="cm">  along with this program; if not, write to the Free Software</span>
+<span class="cm">  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1335  USA */</span>
+
+<span class="cp">#ifdef USE_PRAGMA_INTERFACE</span>
+<span class="cp">#pragma interface </span><span class="cm">/* gcc class implementation */</span>
+<span class="cp">#endif</span>
+
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;thr_lock.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;handler.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;table.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;sql_const.h&quot;</span>
+
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;vector&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;memory&gt;</span>
+</pre></div>
+<p>Next we'll define structs for our in-memory storage.</p>
+<div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">uchar</span><span class="o">&gt;</span><span class="w"> </span><span class="n">MememRow</span><span class="p">;</span>
+
+<span class="k">struct</span><span class="w"> </span><span class="nc">MememTable</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">MememRow</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">rows</span><span class="p">;</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="w"> </span><span class="n">name</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">struct</span><span class="w"> </span><span class="nc">MememDatabase</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">MememTable</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">tables</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+<p>Within <code>ha_memem.cc</code> we'll implement a global <code>static MememDatabase*</code>
+that all <code>handler</code> instances will (without thread-safety) query when
+requested. We need the definitions in the header file though because
+we'll store the table currently being queried in the <code>handler</code>
+subclass.</p>
+<p>This is so that every call to <code>write_row</code> to write a single row or
+call to <code>rnd_next</code> to read a single row does not need to look up the
+in-memory table object N times within the same query.</p>
+<p>And finally we'll define the subclass of <code>handler</code> and implementations
+of trivial methods.</p>
+<div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ha_memem</span><span class="w"> </span><span class="k">final</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="n">handler</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="n">uint</span><span class="w"> </span><span class="n">current_position</span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">MememTable</span><span class="o">&gt;</span><span class="w"> </span><span class="n">memem_table</span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="k">public</span><span class="o">:</span>
+<span class="w">  </span><span class="n">ha_memem</span><span class="p">(</span><span class="n">handlerton</span><span class="w"> </span><span class="o">*</span><span class="n">hton</span><span class="p">,</span><span class="w"> </span><span class="n">TABLE_SHARE</span><span class="w"> </span><span class="o">*</span><span class="n">table_arg</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">handler</span><span class="p">(</span><span class="n">hton</span><span class="p">,</span><span class="w"> </span><span class="n">table_arg</span><span class="p">)</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="o">~</span><span class="n">ha_memem</span><span class="p">()</span><span class="o">=</span><span class="w"> </span><span class="k">default</span><span class="p">;</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="nf">index_type</span><span class="p">(</span><span class="n">uint</span><span class="w"> </span><span class="n">key_number</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="n">ulonglong</span><span class="w"> </span><span class="nf">table_flags</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="n">ulong</span><span class="w"> </span><span class="nf">index_flags</span><span class="p">(</span><span class="n">uint</span><span class="w"> </span><span class="n">inx</span><span class="p">,</span><span class="w"> </span><span class="n">uint</span><span class="w"> </span><span class="n">part</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">all_parts</span><span class="p">)</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="cm">/* The following defines can be increased if necessary */</span>
+<span class="cp">#define MEMEM_MAX_KEY MAX_KEY     </span><span class="cm">/* Max allowed keys */</span>
+<span class="cp">#define MEMEM_MAX_KEY_SEG 16      </span><span class="cm">/* Max segments for key */</span>
+<span class="cp">#define MEMEM_MAX_KEY_LENGTH 3500 </span><span class="cm">/* Like in InnoDB */</span>
+<span class="w">  </span><span class="n">uint</span><span class="w"> </span><span class="nf">max_supported_keys</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">MEMEM_MAX_KEY</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="n">uint</span><span class="w"> </span><span class="nf">max_supported_key_length</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">MEMEM_MAX_KEY_LENGTH</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="n">uint</span><span class="w"> </span><span class="nf">max_supported_key_part_length</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">MEMEM_MAX_KEY_LENGTH</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">open</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">mode</span><span class="p">,</span><span class="w"> </span><span class="n">uint</span><span class="w"> </span><span class="n">test_if_locked</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">truncate</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">rnd_init</span><span class="p">(</span><span class="kt">bool</span><span class="w"> </span><span class="n">scan</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">rnd_next</span><span class="p">(</span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">rnd_pos</span><span class="p">(</span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">pos</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">index_read_map</span><span class="p">(</span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">key_part_map</span><span class="w"> </span><span class="n">keypart_map</span><span class="p">,</span>
+<span class="w">                     </span><span class="k">enum</span><span class="w"> </span><span class="nc">ha_rkey_function</span><span class="w"> </span><span class="n">find_flag</span><span class="p">)</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">HA_ERR_END_OF_FILE</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">index_read_idx_map</span><span class="p">(</span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">uint</span><span class="w"> </span><span class="n">idx</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">key</span><span class="p">,</span>
+<span class="w">                         </span><span class="n">key_part_map</span><span class="w"> </span><span class="n">keypart_map</span><span class="p">,</span>
+<span class="w">                         </span><span class="k">enum</span><span class="w"> </span><span class="nc">ha_rkey_function</span><span class="w"> </span><span class="n">find_flag</span><span class="p">)</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">HA_ERR_END_OF_FILE</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">index_read_last_map</span><span class="p">(</span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">key</span><span class="p">,</span>
+<span class="w">                          </span><span class="n">key_part_map</span><span class="w"> </span><span class="n">keypart_map</span><span class="p">)</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">HA_ERR_END_OF_FILE</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">index_next</span><span class="p">(</span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">HA_ERR_END_OF_FILE</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">index_prev</span><span class="p">(</span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">HA_ERR_END_OF_FILE</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">index_first</span><span class="p">(</span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">HA_ERR_END_OF_FILE</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">index_last</span><span class="p">(</span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">HA_ERR_END_OF_FILE</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="nf">position</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">record</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="n">uint</span><span class="w"> </span><span class="n">flag</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">external_lock</span><span class="p">(</span><span class="n">THD</span><span class="w"> </span><span class="o">*</span><span class="n">thd</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">lock_type</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">TABLE</span><span class="w"> </span><span class="o">*</span><span class="n">table_arg</span><span class="p">,</span><span class="w"> </span><span class="n">HA_CREATE_INFO</span><span class="w"> </span><span class="o">*</span><span class="n">create_info</span><span class="p">);</span>
+<span class="w">  </span><span class="n">THR_LOCK_DATA</span><span class="w"> </span><span class="o">**</span><span class="nf">store_lock</span><span class="p">(</span><span class="n">THD</span><span class="w"> </span><span class="o">*</span><span class="n">thd</span><span class="p">,</span><span class="w"> </span><span class="n">THR_LOCK_DATA</span><span class="w"> </span><span class="o">**</span><span class="n">to</span><span class="p">,</span>
+<span class="w">                             </span><span class="k">enum</span><span class="w"> </span><span class="nc">thr_lock_type</span><span class="w"> </span><span class="n">lock_type</span><span class="p">)</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">to</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">delete_table</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">name</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+
+<span class="k">private</span><span class="o">:</span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">reset_memem_table</span><span class="p">();</span>
+<span class="w">  </span><span class="k">virtual</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">write_row</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">update_row</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">old_data</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">new_data</span><span class="p">)</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">HA_ERR_WRONG_COMMAND</span><span class="p">;</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="nf">delete_row</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">HA_ERR_WRONG_COMMAND</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">};</span>
+</pre></div>
+<p>That looks like a lot and it sort of is. But it's pure boilerplate. A
+complete storage engine might implement all of these. But we'll only
+implement 7 of them.</p>
+<p>To finish up the boilerplate, we'll switch over to <code>ha_memem.cc</code> and
+set up the includes.</p>
+<div class="highlight"><pre><span></span><span class="cm">/* Copyright (c) 2005, 2012, Oracle and/or its affiliates. All rights reserved.</span>
+
+<span class="cm">  This program is free software; you can redistribute it and/or modify</span>
+<span class="cm">  it under the terms of the GNU General Public License as published by</span>
+<span class="cm">  the Free Software Foundation; version 2 of the License.</span>
+
+<span class="cm">  This program is distributed in the hope that it will be useful,</span>
+<span class="cm">  but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+<span class="cm">  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+<span class="cm">  GNU General Public License for more details.</span>
+
+<span class="cm">  You should have received a copy of the GNU General Public License</span>
+<span class="cm">  along with this program; if not, write to the Free Software</span>
+<span class="cm">  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1335  USA */</span>
+
+<span class="cp">#ifdef USE_PRAGMA_IMPLEMENTATION</span>
+<span class="cp">#pragma implementation </span><span class="c1">// gcc: Class implementation</span>
+<span class="cp">#endif</span>
+
+<span class="cp">#define MYSQL_SERVER 1</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;my_global.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;sql_priv.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;unireg.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;sql_class.h&quot;</span>
+
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;ha_memem.h&quot;</span>
+</pre></div>
+<p>Ok! Let's dig into the implementation.</p>
+<h3 id="implementation:-global-database">Implementation: Global database</h3><p>First up, we need to declare a global <code>MememDatabase*</code> instance. We'll
+also implement a helper function for finding the index of a table by
+name within the database.</p>
+<div class="highlight"><pre><span></span><span class="c1">// WARNING! All accesses of `database` in this code are thread</span>
+<span class="c1">// unsafe. Since this was written during a hack week, I didn&#39;t have</span>
+<span class="c1">// time to figure out MySQL/MariaDB&#39;s runtime well enough to do the</span>
+<span class="c1">// thread-safe version of this.</span>
+<span class="k">static</span><span class="w"> </span><span class="n">MememDatabase</span><span class="w"> </span><span class="o">*</span><span class="n">database</span><span class="p">;</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">memem_table_index</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">name</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">database</span><span class="o">-&gt;</span><span class="n">tables</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">INT_MAX</span><span class="p">);</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="w"> </span><span class="n">database</span><span class="o">-&gt;</span><span class="n">tables</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">strcmp</span><span class="p">(</span><span class="n">database</span><span class="o">-&gt;</span><span class="n">tables</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">name</span><span class="o">-&gt;</span><span class="n">c_str</span><span class="p">(),</span><span class="w"> </span><span class="n">name</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+<p class="note">
+  As I wrote this post I noticed that this code also assumes there's
+  only a single database. That isn't how MySQL works. Everytime you
+  call <code>USE ...</code> in MySQL you are switching between
+  databases. You can query tables across databases. A real in-memory
+  backend would need to be aware of the different databases, not just
+  different tables. But to keep the code succinct we won't implement
+  that in this post.
+</p><p>Next we'll implement plugin initialization and cleanup.</p>
+<h3 id="implementation:-plugin-lifecycle">Implementation: Plugin lifecycle</h3><p>Before we register the plugin with MariaDB, we need to set up
+initialization and cleanup methods for it.</p>
+<p>The initialization method will take care of initializing the global
+<code>MememDatabase* database</code> object. It will set up a handler for
+creating new instances of our <code>handler</code> subclass. And it will set up a
+handler for deleting tables.</p>
+<div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="n">handler</span><span class="w"> </span><span class="o">*</span><span class="nf">memem_create_handler</span><span class="p">(</span><span class="n">handlerton</span><span class="w"> </span><span class="o">*</span><span class="n">hton</span><span class="p">,</span><span class="w"> </span><span class="n">TABLE_SHARE</span><span class="w"> </span><span class="o">*</span><span class="n">table</span><span class="p">,</span>
+<span class="w">                                     </span><span class="n">MEM_ROOT</span><span class="w"> </span><span class="o">*</span><span class="n">mem_root</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="p">(</span><span class="n">mem_root</span><span class="p">)</span><span class="w"> </span><span class="n">ha_memem</span><span class="p">(</span><span class="n">hton</span><span class="p">,</span><span class="w"> </span><span class="n">table</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">memem_init</span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">p</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="n">handlerton</span><span class="w"> </span><span class="o">*</span><span class="n">memem_hton</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">memem_hton</span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">handlerton</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="n">p</span><span class="p">;</span>
+<span class="w">  </span><span class="n">memem_hton</span><span class="o">-&gt;</span><span class="n">db_type</span><span class="o">=</span><span class="w"> </span><span class="n">DB_TYPE_AUTOASSIGN</span><span class="p">;</span>
+<span class="w">  </span><span class="n">memem_hton</span><span class="o">-&gt;</span><span class="n">create</span><span class="o">=</span><span class="w"> </span><span class="n">memem_create_handler</span><span class="p">;</span>
+<span class="w">  </span><span class="n">memem_hton</span><span class="o">-&gt;</span><span class="n">drop_table</span><span class="o">=</span><span class="w"> </span><span class="p">[](</span><span class="n">handlerton</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">name</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">index</span><span class="o">=</span><span class="w"> </span><span class="n">memem_table_index</span><span class="p">(</span><span class="n">name</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">-1</span><span class="p">)</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="n">HA_ERR_NO_SUCH_TABLE</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">database</span><span class="o">-&gt;</span><span class="n">tables</span><span class="p">.</span><span class="n">erase</span><span class="p">(</span><span class="n">database</span><span class="o">-&gt;</span><span class="n">tables</span><span class="p">.</span><span class="n">begin</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">index</span><span class="p">);</span>
+<span class="w">    </span><span class="n">DBUG_PRINT</span><span class="p">(</span><span class="s">&quot;info&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="s">&quot;[MEMEM] Deleted table &#39;%s&#39;.&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">));</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="w">  </span><span class="n">memem_hton</span><span class="o">-&gt;</span><span class="n">flags</span><span class="o">=</span><span class="w"> </span><span class="n">HTON_CAN_RECREATE</span><span class="p">;</span>
+
+<span class="w">  </span><span class="c1">// Initialize global in-memory database.</span>
+<span class="w">  </span><span class="n">database</span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">MememDatabase</span><span class="p">;</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+<p class="note">
+  The <code>DBUG_PRINT</code> macro is a debug helper MySQL/MariaDB gives us. As
+  noted above, the output is directed to a file specified by the
+  <code>--debug</code> flag. Unfortunately I couldn't figure out how to flush the
+  stream this macro writes to. It seemed like occasionally when there
+  was a segfault logs I expected to be there weren't there. And the
+  file would often contain what looked like partially written
+  logs. Anyway, as long as there wasn't a segfault the debug file will
+  eventually contain the <code>DBUG_PRINT</code> logs.
+</p><p>The only thing the plugin cleanup function must do is delete the
+global database.</p>
+<div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">memem_fini</span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">p</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="k">delete</span><span class="w"> </span><span class="n">database</span><span class="p">;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+<p>Now we can register the plugin!</p>
+<h3 id="implementation:-plugin-registration">Implementation: Plugin registration</h3><p>The <code>maria_declare_plugin</code> and <code>maria_declare_plugin_end</code> register the
+plugin's metadata (name, version, etc.) and callbacks.</p>
+<div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">st_mysql_storage_engine</span><span class="w"> </span><span class="n">memem_storage_engine</span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">MYSQL_HANDLERTON_INTERFACE_VERSION</span><span class="p">};</span>
+
+<span class="n">maria_declare_plugin</span><span class="p">(</span><span class="n">memem</span><span class="p">){</span>
+<span class="w">    </span><span class="n">MYSQL_STORAGE_ENGINE_PLUGIN</span><span class="p">,</span>
+<span class="w">    </span><span class="o">&amp;</span><span class="n">memem_storage_engine</span><span class="p">,</span>
+<span class="w">    </span><span class="s">&quot;MEMEM&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="s">&quot;MySQL AB&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="s">&quot;In-memory database.&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">PLUGIN_LICENSE_GPL</span><span class="p">,</span>
+<span class="w">    </span><span class="n">memem_init</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Plugin Init */</span>
+<span class="w">    </span><span class="n">memem_fini</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Plugin Deinit */</span>
+<span class="w">    </span><span class="mh">0x0100</span><span class="w"> </span><span class="cm">/* 1.0 */</span><span class="p">,</span>
+<span class="w">    </span><span class="nb">NULL</span><span class="p">,</span><span class="w">                          </span><span class="cm">/* status variables                */</span>
+<span class="w">    </span><span class="nb">NULL</span><span class="p">,</span><span class="w">                          </span><span class="cm">/* system variables                */</span>
+<span class="w">    </span><span class="s">&quot;1.0&quot;</span><span class="p">,</span><span class="w">                         </span><span class="cm">/* string version */</span>
+<span class="w">    </span><span class="n">MariaDB_PLUGIN_MATURITY_STABLE</span><span class="w"> </span><span class="cm">/* maturity */</span>
+<span class="p">}</span><span class="w"> </span><span class="n">maria_declare_plugin_end</span><span class="p">;</span>
+</pre></div>
+<p>That's it! Now we need to implement methods for writing rows, reading
+rows, and creating a new table.</p>
+<h3 id="implementation:-create-table">Implementation: Create table</h3><p>To create a table, we make sure one by this name doesn't already
+exist, make sure it only has <code>INTEGER</code> fields, allocate memory for the
+table, and append it to the global database.</p>
+<div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="nf">ha_memem::create</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">TABLE</span><span class="w"> </span><span class="o">*</span><span class="n">table_arg</span><span class="p">,</span>
+<span class="w">                     </span><span class="n">HA_CREATE_INFO</span><span class="w"> </span><span class="o">*</span><span class="n">create_info</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">memem_table_index</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">-1</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// We only support INTEGER fields for now.</span>
+<span class="w">  </span><span class="n">uint</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">table_arg</span><span class="o">-&gt;</span><span class="n">field</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">table_arg</span><span class="o">-&gt;</span><span class="n">field</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">type</span><span class="p">()</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">MYSQL_TYPE_LONG</span><span class="p">)</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">    </span><span class="n">DBUG_PRINT</span><span class="p">(</span><span class="s">&quot;info&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="s">&quot;Unsupported field type.&quot;</span><span class="p">));</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">i</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">t</span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">MememTable</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">  </span><span class="n">t</span><span class="o">-&gt;</span><span class="n">name</span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="n">name</span><span class="p">);</span>
+<span class="w">  </span><span class="n">database</span><span class="o">-&gt;</span><span class="n">tables</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">t</span><span class="p">);</span>
+<span class="w">  </span><span class="n">DBUG_PRINT</span><span class="p">(</span><span class="s">&quot;info&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="s">&quot;[MEMEM] Created table &#39;%s&#39;.&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">));</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+<p>Not very complicated. Let's handle <code>INSERT</code>-ing rows next.</p>
+<h3 id="implementation:-insert-row">Implementation: Insert row</h3><p>There is no method called when an <code>INSERT</code> starts. There is a <code>table</code>
+field on the <code>handler</code> parent class that is updated though when a
+<code>SELECT</code> or <code>INSERT</code> is going. So we can fetch the current table from
+that field.</p>
+<p>Since we have a slot for a <code>std::shared_ptr&lt;MememTable&gt; memem_table</code>
+on the <code>ha_memem</code> class, we can check if it is <code>NULL</code> when we insert a
+row. If it is, we look up the current table and set
+<code>this-&gt;memem_table</code> to its <code>MememTable</code>.</p>
+<p>But there's a bit more to it than just the table name. The <code>const
+char* name</code> passed to the <code>create()</code> method above seems to be a sort
+of fully qualified name for the table. By observation, when creating a
+table <code>y</code> in a database <code>test</code>, the <code>const char* name</code> value is
+<code>./test/y</code>. The <code>.</code> prefix probably means that the database is local,
+but I'm not sure.</p>
+<p>So we'll write a helper method that will reconstruct the fully
+qualified table name before looking up that fully qualified table name
+in the global database.</p>
+<div class="highlight"><pre><span></span><span class="kt">void</span><span class="w"> </span><span class="nf">ha_memem::reset_memem_table</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="c1">// Reset table cursor.</span>
+<span class="w">  </span><span class="n">current_position</span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">full_name</span><span class="o">=</span><span class="w"> </span><span class="s">&quot;./&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">db</span><span class="p">.</span><span class="n">str</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s">&quot;/&quot;</span><span class="w"> </span><span class="o">+</span>
+<span class="w">                         </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">table_name</span><span class="p">.</span><span class="n">str</span><span class="p">);</span>
+<span class="w">  </span><span class="n">DBUG_PRINT</span><span class="p">(</span><span class="s">&quot;info&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="s">&quot;[MEMEM] Resetting to &#39;%s&#39;.&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">full_name</span><span class="p">.</span><span class="n">c_str</span><span class="p">()));</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">database</span><span class="o">-&gt;</span><span class="n">tables</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">index</span><span class="o">=</span><span class="w"> </span><span class="n">memem_table_index</span><span class="p">(</span><span class="n">full_name</span><span class="p">.</span><span class="n">c_str</span><span class="p">());</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="w"> </span><span class="n">database</span><span class="o">-&gt;</span><span class="n">tables</span><span class="p">.</span><span class="n">size</span><span class="p">());</span>
+
+<span class="w">  </span><span class="n">memem_table</span><span class="o">=</span><span class="w"> </span><span class="n">database</span><span class="o">-&gt;</span><span class="n">tables</span><span class="p">[</span><span class="n">index</span><span class="p">];</span>
+<span class="p">}</span>
+</pre></div>
+<p>Then we can use this within <code>write_row</code> to figure out the current
+<code>MememTable</code> being queried.</p>
+<p>But first, let's digress into how MySQL stores rows.</p>
+<h4 id="the-mysql-row-api">The MySQL row API</h4><p>When you <a href="https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html">write a Postgres custom storage
+API</a>,
+you are expected to basically read from or write to an array of
+<code>Datum</code>.</p>
+<p>Totally sensible.</p>
+<p>In MySQL, you read from and write to an array of bytes. That's pretty
+weird to me. Of course you can build your own higher level
+serialization/deserialization on top of it. But it's just strange to
+me everyone has to know this basically opaque API.</p>
+<p>Certainly <a href="https://github.com/MariaDB/server/blob/11.4/sql/handler.h#L3152">it's documented</a>.</p>
+<div class="highlight"><pre><span></span>The handler class is the interface for dynamically loadable
+storage engines. Do not add ifdefs and take care when adding or
+changing virtual functions to avoid vtable confusion
+
+Functions in this class accept and return table columns data. Two data
+representation formats are used:
+1. TableRecordFormat - Used to pass [partial] table records to/from
+   storage engine
+
+2. KeyTupleFormat - used to pass index search tuples (aka &quot;keys&quot;) to
+   storage engine. See opt_range.cc for description of this format.
+
+TableRecordFormat
+=================
+[Warning: this description is work in progress and may be incomplete]
+The table record is stored in a fixed-size buffer:
+
+  record: null_bytes, column1_data, column2_data, ...
+
+The offsets of the parts of the buffer are also fixed: every column has 
+an offset to its column{i}_data, and if it is nullable it also has its own
+bit in null_bytes.
+</pre></div>
+<p>In our implementation, we'll skip the support for <code>NULL</code> values. We'll
+only support <code>INTEGER</code> fields. But we still need to be aware that the
+first byte will be taken up. We'll also assume there won't be more
+than one byte of a NULL bitmap.</p>
+<p>It is this opaque byte array that we'll read from in <code>write_row(const uchar*
+buf)</code> and write to in <code>read_row(uchar* buf)</code>.</p>
+<h3 id="implementation:-insert-row-(take-two)">Implementation: Insert row (take two)</h3><p>To keep things simple we're going to store the row in <code>MememTable</code> the
+same way MySQL passes it around.</p>
+<div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="nf">ha_memem::write_row</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">memem_table</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="n">reset_memem_table</span><span class="p">();</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// Assume there are no NULLs.</span>
+<span class="w">  </span><span class="n">buf</span><span class="o">++</span><span class="p">;</span>
+
+<span class="w">  </span><span class="n">uint</span><span class="w"> </span><span class="n">field_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">field</span><span class="p">[</span><span class="n">field_count</span><span class="p">])</span><span class="w"> </span><span class="n">field_count</span><span class="o">++</span><span class="p">;</span>
+
+<span class="w">  </span><span class="c1">// Store the row in the same format MariaDB gives us.</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">row</span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">uchar</span><span class="o">&gt;&gt;</span><span class="p">(</span>
+<span class="w">      </span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">field_count</span><span class="p">);</span>
+<span class="w">  </span><span class="n">memem_table</span><span class="o">-&gt;</span><span class="n">rows</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">row</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+<p>Which makes reading the row quite simple too!</p>
+<h3 id="implementation:-read-row">Implementation: Read row</h3><p>The only slight difference between reading and writing a row is that
+MySQL/MariaDB will tell us when the <code>SELECT</code> scan for a table starts.</p>
+<p>We'll use that opportunity to reset the <code>current_row</code> cursor and reset
+the <code>memem_table</code> field. Since, again, <code>handler</code> classes are only used
+once per query but they are reused for queries running at other times.</p>
+<div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="nf">ha_memem::rnd_init</span><span class="p">(</span><span class="kt">bool</span><span class="w"> </span><span class="n">scan</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="n">reset_memem_table</span><span class="p">();</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">ha_memem::rnd_next</span><span class="p">(</span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">current_position</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">memem_table</span><span class="o">-&gt;</span><span class="n">rows</span><span class="p">.</span><span class="n">size</span><span class="p">())</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Reset the in-memory table to make logic errors more obvious.</span>
+<span class="w">    </span><span class="n">memem_table</span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">HA_ERR_END_OF_FILE</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">current_position</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">memem_table</span><span class="o">-&gt;</span><span class="n">rows</span><span class="p">.</span><span class="n">size</span><span class="p">());</span>
+
+<span class="w">  </span><span class="n">uchar</span><span class="w"> </span><span class="o">*</span><span class="n">ptr</span><span class="o">=</span><span class="w"> </span><span class="n">buf</span><span class="p">;</span>
+<span class="w">  </span><span class="o">*</span><span class="n">ptr</span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="n">ptr</span><span class="o">++</span><span class="p">;</span>
+
+<span class="w">  </span><span class="c1">// Rows internally are stored in the same format that MariaDB</span>
+<span class="w">  </span><span class="c1">// wants. So we can just copy them over.</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">uchar</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">row</span><span class="o">=</span><span class="w"> </span><span class="n">memem_table</span><span class="o">-&gt;</span><span class="n">rows</span><span class="p">[</span><span class="n">current_position</span><span class="p">];</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">copy</span><span class="p">(</span><span class="n">row</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">(),</span><span class="w"> </span><span class="n">row</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">(),</span><span class="w"> </span><span class="n">ptr</span><span class="p">);</span>
+
+<span class="w">  </span><span class="n">current_position</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+<p>And we're done!</p>
+<h3 id="build-and-test">Build and test</h3><p>Go back into the <code>build</code> directory we created within the source tree
+root and rerun <code>make -j8</code>.</p>
+<p>Kill the server (you'll need to do something like <code>killall mariadbd</code>
+since the server doesn't respond to Ctrl-c). And restart it.</p>
+<p>For some reason this plugin doesn't need to be loaded. We can run
+<code>SHOW PLUGINS;</code> in the MariaDB CLI and we'll see it.</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>./build/client/mariadb<span class="w"> </span>--defaults-extra-file<span class="o">=</span>/home/phil/vendor/mariadb/my.cnf<span class="w"> </span>--database<span class="o">=</span><span class="nb">test</span>
+<span class="go">Reading table information for completion of table and column names</span>
+<span class="go">You can turn off this feature to get a quicker startup with -A</span>
+
+<span class="go">Welcome to the MariaDB monitor.  Commands end with ; or \g.</span>
+<span class="go">Your MariaDB connection id is 5</span>
+<span class="go">Server version: 11.4.0-MariaDB-debug Source distribution</span>
+
+<span class="go">Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.</span>
+
+<span class="go">Type &#39;help;&#39; or &#39;\h&#39; for help. Type &#39;\c&#39; to clear the current input statement.</span>
+
+<span class="go">MariaDB [test]&gt; SHOW PLUGINS;</span>
+<span class="go">+-------------------------------+----------+--------------------+-----------------+---------+</span>
+<span class="go">| Name                          | Status   | Type               | Library         | License |</span>
+<span class="go">+-------------------------------+----------+--------------------+-----------------+---------+</span>
+<span class="go">| binlog                        | ACTIVE   | STORAGE ENGINE     | NULL            | GPL     |</span>
+<span class="go">...</span>
+<span class="go">| MEMEM                         | ACTIVE   | STORAGE ENGINE     | NULL            | GPL     |</span>
+<span class="go">...</span>
+<span class="go">| BLACKHOLE                     | ACTIVE   | STORAGE ENGINE     | ha_blackhole.so | GPL     |</span>
+<span class="go">+-------------------------------+----------+--------------------+-----------------+---------+</span>
+<span class="go">73 rows in set (0.012 sec)</span>
+</pre></div>
+<p>There we go! To create a table with it we need to set <code>ENGINE =
+MEMEM</code>. For example, <code>CREATE TABLE x (i INT) ENGINE = MEMEM</code>.</p>
+<p>Let's create a script to try out the <code>memem</code> engine, in
+<code>storage/memem/test.sql</code>.</p>
+<div class="highlight"><pre><span></span><span class="k">drop</span><span class="w"> </span><span class="k">table</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="k">exists</span><span class="w"> </span><span class="n">y</span><span class="p">;</span>
+<span class="k">drop</span><span class="w"> </span><span class="k">table</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="k">exists</span><span class="w"> </span><span class="n">z</span><span class="p">;</span>
+
+<span class="k">create</span><span class="w"> </span><span class="k">table</span><span class="w"> </span><span class="n">y</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="nb">int</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="nb">int</span><span class="p">)</span><span class="w"> </span><span class="n">engine</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MEMEM</span><span class="p">;</span>
+<span class="k">insert</span><span class="w"> </span><span class="k">into</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="k">values</span><span class="w"> </span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1029</span><span class="p">);</span>
+<span class="k">insert</span><span class="w"> </span><span class="k">into</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="k">values</span><span class="w"> </span><span class="p">(</span><span class="mi">92</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">);</span>
+<span class="k">select</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">from</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+
+<span class="k">create</span><span class="w"> </span><span class="k">table</span><span class="w"> </span><span class="n">z</span><span class="p">(</span><span class="n">a</span><span class="w"> </span><span class="nb">int</span><span class="p">)</span><span class="w"> </span><span class="n">engine</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MEMEM</span><span class="p">;</span>
+<span class="k">insert</span><span class="w"> </span><span class="k">into</span><span class="w"> </span><span class="n">z</span><span class="w"> </span><span class="k">values</span><span class="w"> </span><span class="p">(</span><span class="mi">322</span><span class="p">);</span>
+<span class="k">insert</span><span class="w"> </span><span class="k">into</span><span class="w"> </span><span class="n">z</span><span class="w"> </span><span class="k">values</span><span class="w"> </span><span class="p">(</span><span class="mi">8</span><span class="p">);</span>
+<span class="k">select</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">from</span><span class="w"> </span><span class="n">z</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">20</span><span class="p">;</span>
+</pre></div>
+<p>And run it.</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>./build/client/mariadb<span class="w"> </span>--defaults-extra-file<span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/my.cnf<span class="w"> </span>--database<span class="o">=</span><span class="nb">test</span><span class="w"> </span>--table<span class="w"> </span>--verbose<span class="w"> </span>&lt;<span class="w"> </span>storage/memem/test.sql
+<span class="go">--------------</span>
+<span class="go">drop table if exists y</span>
+<span class="go">--------------</span>
+
+<span class="go">--------------</span>
+<span class="go">drop table if exists z</span>
+<span class="go">--------------</span>
+
+<span class="go">--------------</span>
+<span class="go">create table y(i int, j int) engine = MEMEM</span>
+<span class="go">--------------</span>
+
+<span class="go">--------------</span>
+<span class="go">insert into y values (2, 1029)</span>
+<span class="go">--------------</span>
+
+<span class="go">--------------</span>
+<span class="go">insert into y values (92, 8)</span>
+<span class="go">--------------</span>
+
+<span class="go">--------------</span>
+<span class="go">select * from y where i + 8 = 10</span>
+<span class="go">--------------</span>
+
+<span class="go">+------+------+</span>
+<span class="go">| i    | j    |</span>
+<span class="go">+------+------+</span>
+<span class="go">|    2 | 1029 |</span>
+<span class="go">+------+------+</span>
+<span class="go">--------------</span>
+<span class="go">create table z(a int) engine = MEMEM</span>
+<span class="go">--------------</span>
+
+<span class="go">--------------</span>
+<span class="go">insert into z values (322)</span>
+<span class="go">--------------</span>
+
+<span class="go">--------------</span>
+<span class="go">insert into z values (8)</span>
+<span class="go">--------------</span>
+
+<span class="go">--------------</span>
+<span class="go">select * from z where a &gt; 20</span>
+<span class="go">--------------</span>
+
+<span class="go">+------+</span>
+<span class="go">| a    |</span>
+<span class="go">+------+</span>
+<span class="go">|  322 |</span>
+<span class="go">+------+</span>
+</pre></div>
+<p>What you see there is the power of storage engines! It supports the
+full SQL language even while we implemented storage somewhere
+completely different than the default.</p>
+<h3 id="in-memory-is-boring">In-memory is boring</h3><p>Certainly, I'm getting bored doing the same project over and over
+again on different databases. However, it's minimal projects like this
+that make it super easy to then go and port the storage engine to
+something else.</p>
+<p>The goal here is to be minimal but meaningful. And I've accomplished
+that for myself at least!</p>
+<h3 id="on-chatgpt">On ChatGPT</h3><p>As I've <a href="https://notes.eatonphil.com/2023-11-19-exploring-a-postgres-query-plan.html#postscript:-on-chatgpt">written
+before</a>,
+this sort of exploration wouldn't be possible within the time frame I
+gave myself if it weren't for ChatGPT.</p>
+<p>Neither the MySQL nor the MariaDB docs were so helpful that I could
+immediately figure out things like how to get the current table name
+within a scan (the <code>table</code> member of the <code>handler</code> class).</p>
+<style>.feedback{display:initial;}</style>
 	<div class="feedback">
 	  <h4>Feedback</h4>
 	  <p>As always,
@@ -311,7 +912,7 @@ place. Without that though you can still <code>tail -f $(pwd)/db.debug</code>.</
 	  <div class="row">
 	    <div class="feedback">
 	      <h4>Frequent Topics</h4>
-	      <div class="tags"><div class="tags"><a href="/tags/c++.html" class="tag">c++</a><a href="/tags/mysql.html" class="tag">mysql</a><a href="/tags/mariadb.html" class="tag">mariadb</a><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/draft.html" class="tag">draft</a></div></div>
+	      <div class="tags"><a href="/tags/javascript.html" class="tag">javascript (24)</a><a href="/tags/go.html" class="tag">go (24)</a><a href="/tags/parsing.html" class="tag">parsing (21)</a><a href="/tags/databases.html" class="tag">databases (21)</a><a href="/tags/postgres.html" class="tag">postgres (18)</a><a href="/tags/compilers.html" class="tag">compilers (14)</a><a href="/tags/sql.html" class="tag">sql (11)</a><a href="/tags/interpreters.html" class="tag">interpreters (11)</a><a href="/tags/zig.html" class="tag">zig (9)</a><a href="/tags/lisp.html" class="tag">lisp (9)</a><a href="/tags/books.html" class="tag">books (9)</a><a href="/tags/python.html" class="tag">python (8)</a><a href="/tags/linux.html" class="tag">linux (7)</a><a href="/tags/learning.html" class="tag">learning (7)</a><a href="/tags/json.html" class="tag">json (7)</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64 (6)</a><a href="/tags/scheme.html" class="tag">scheme (6)</a><a href="/tags/c.html" class="tag">c (6)</a><a href="/tags/typescript.html" class="tag">typescript (5)</a><a href="/tags/mysql.html" class="tag">mysql (5)</a></div>
 	    </div>
 	  </div>
 	  <div class="row" id="subscribe">
