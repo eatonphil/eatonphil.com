@@ -64,17 +64,15 @@ read, browse; and they are thorough. The [MariaDB
 docs](https://mariadb.com/kb) are a work in progress. I'm sorry I
 can't be stoic: in just a week I've come to really hate using this
 KB. Thankfully, in some twisted way, it also doesn't seem to be very
-thorough either. So I was mostly able to avoid it.
+thorough either. It isn't completely avoidable though since there is
+no guarantee MySQL and MariaDB do the same thing.
 
-The reason you might have to browse the KB though is that there's no
-guarantee MySQL and MariaDB do the same thing.
-
-I spent the week using MariaDB because I'm biased toward fully open
-projects. But I kept having to look at MySQL docs and hope they were
-still relevant.
+Ultimately, I spent the week using MariaDB because I'm biased toward
+fully open projects. But I kept having to look at MySQL docs, hoping
+they were relevant.
 
 Now that you understand the state of things, let's move on to fun
-stuff! :)
+stuff!
 
 ### Storage engines
 
@@ -88,8 +86,8 @@ to try a third-party storage library
 [TiKV](https://tikv.org/)).
 
 The benefit of swapping out only the storage engine is that, from a
-user's perspective, the semantics and features of the database
-stay mostly the same.
+user's perspective, the semantics and features of the database stay
+mostly the same. But the database is magically faster for a workload.
 
 You keep powerful user management, extension support, SQL support, and
 a well-known wire protocol. You modify only the method of storing the
@@ -140,8 +138,8 @@ TODO:
 The difference between the seeming confidence of the docs and seeming
 confidence of the contributor made me chuckle.
 
-The real benefit of these diverse storage engines for me was that they
-give examples of how to implement the storage engine API. The
+The benefit of these diverse storage engines for me was that they give
+examples of how to implement the storage engine API. The
 [csv](https://github.com/MariaDB/server/blob/11.4/storage/csv),
 [blackhole](https://github.com/MariaDB/server/tree/11.4/storage/blackhole),
 [example](https://github.com/MariaDB/server/tree/11.4/storage/example),
@@ -150,8 +148,9 @@ storage engines were particularly helpful to read.
 
 The heap engine is a complete in-memory storage engine. But it was so
 complete though that there seemed to be room for a smaller, less
-complete in-memory storage engine that could help developers better
-understand the storage engine implementation basics.
+complete in-memory storage engine. One that could help developers
+better understand the storage engine implementation basics without all
+the verbosity of completeness.
 
 And that's we'll cover in this post! First though I want to talk a
 little bit about the limitations of custom storage engines.
@@ -196,12 +195,12 @@ just something to keep in mind.
 
 #### Limitation: Storage versus Execution
 
-To summarize, it's that unless both the execution and storage APIs are
-designed with some leeway, you may attempt optimizations in the
-storage layer that are ineffective because the execution layer doesn't
-or can't take advantage of them. The "optimizations" you take in one
-layer may even make overall performance *worse* if the other layer
-isn't also aware of them.
+To summarize: unless both the execution and storage APIs are designed
+in a certain way, you may attempt optimizations in the storage layer
+that are ineffective because the execution layer doesn't or can't take
+advantage of them. The "optimizations" you apply in one layer may even
+adversely affect overall performance if the other layer isn't also
+aware and able to make use of the optimization.
 
 ### Debug build of MariaDB running locally
 

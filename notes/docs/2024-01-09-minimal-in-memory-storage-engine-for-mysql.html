@@ -106,14 +106,13 @@ read, browse; and they are thorough. The <a href="https://mariadb.com/kb">MariaD
 docs</a> are a work in progress. I'm sorry I
 can't be stoic: in just a week I've come to really hate using this
 KB. Thankfully, in some twisted way, it also doesn't seem to be very
-thorough either. So I was mostly able to avoid it.</p>
-<p>The reason you might have to browse the KB though is that there's no
-guarantee MySQL and MariaDB do the same thing.</p>
-<p>I spent the week using MariaDB because I'm biased toward fully open
-projects. But I kept having to look at MySQL docs and hope they were
-still relevant.</p>
+thorough either. It isn't completely avoidable though since there is
+no guarantee MySQL and MariaDB do the same thing.</p>
+<p>Ultimately, I spent the week using MariaDB because I'm biased toward
+fully open projects. But I kept having to look at MySQL docs, hoping
+they were relevant.</p>
 <p>Now that you understand the state of things, let's move on to fun
-stuff! :)</p>
+stuff!</p>
 <h3 id="storage-engines">Storage engines</h3><p>Mature databases often support swapping out the storage layer. Maybe
 you want an in-memory storage layer so that you can quickly run
 integration tests. Maybe you want to switch between B-Trees
@@ -123,8 +122,8 @@ to try a third-party storage library
 (e.g. <a href="https://rocksdb.org/">RocksDB</a> or <a href="https://sled.rs/">Sled</a> or
 <a href="https://tikv.org/">TiKV</a>).</p>
 <p>The benefit of swapping out only the storage engine is that, from a
-user's perspective, the semantics and features of the database
-stay mostly the same.</p>
+user's perspective, the semantics and features of the database stay
+mostly the same. But the database is magically faster for a workload.</p>
 <p>You keep powerful user management, extension support, SQL support, and
 a well-known wire protocol. You modify only the method of storing the
 actual data.</p>
@@ -165,8 +164,8 @@ TODO:
 </pre></div>
 <p>The difference between the seeming confidence of the docs and seeming
 confidence of the contributor made me chuckle.</p>
-<p>The real benefit of these diverse storage engines for me was that they
-give examples of how to implement the storage engine API. The
+<p>The benefit of these diverse storage engines for me was that they give
+examples of how to implement the storage engine API. The
 <a href="https://github.com/MariaDB/server/blob/11.4/storage/csv">csv</a>,
 <a href="https://github.com/MariaDB/server/tree/11.4/storage/blackhole">blackhole</a>,
 <a href="https://github.com/MariaDB/server/tree/11.4/storage/example">example</a>,
@@ -174,8 +173,9 @@ and <a href="https://github.com/MariaDB/server/tree/11.4/storage/heap">heap</a>
 storage engines were particularly helpful to read.</p>
 <p>The heap engine is a complete in-memory storage engine. But it was so
 complete though that there seemed to be room for a smaller, less
-complete in-memory storage engine that could help developers better
-understand the storage engine implementation basics.</p>
+complete in-memory storage engine. One that could help developers
+better understand the storage engine implementation basics without all
+the verbosity of completeness.</p>
 <p>And that's we'll cover in this post! First though I want to talk a
 little bit about the limitations of custom storage engines.</p>
 <h4 id="limitation-1:-column-wise-support?">Limitation 1: Column-wise support?</h4><p>I used to write about custom storage engines that you could also
@@ -206,12 +206,12 @@ study</a>
 I did, neither MySQL/MariaDB nor Postgres do vectorized query
 execution. This paragraph isn't a critique of the storage API, it's
 just something to keep in mind.</p>
-<h4 id="limitation:-storage-versus-execution">Limitation: Storage versus Execution</h4><p>To summarize, it's that unless both the execution and storage APIs are
-designed with some leeway, you may attempt optimizations in the
-storage layer that are ineffective because the execution layer doesn't
-or can't take advantage of them. The "optimizations" you take in one
-layer may even make overall performance <em>worse</em> if the other layer
-isn't also aware of them.</p>
+<h4 id="limitation:-storage-versus-execution">Limitation: Storage versus Execution</h4><p>To summarize: unless both the execution and storage APIs are designed
+in a certain way, you may attempt optimizations in the storage layer
+that are ineffective because the execution layer doesn't or can't take
+advantage of them. The "optimizations" you apply in one layer may even
+adversely affect overall performance if the other layer isn't also
+aware and able to make use of the optimization.</p>
 <h3 id="debug-build-of-mariadb-running-locally">Debug build of MariaDB running locally</h3><p>Now that you've got some background, let's get a debug build of
 MariaDB!</p>
 <div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/MariaDB/server<span class="w"> </span>mariadb
