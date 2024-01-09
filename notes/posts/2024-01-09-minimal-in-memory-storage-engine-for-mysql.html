@@ -1,0 +1,309 @@
+<!-- -*- mode: markdown -*- -->
+# Writing a minimal in-memory storage engine for MySQL/MariaDB
+## January 9, 2024
+###### c++,mysql,mariadb,postgres,draft
+
+I [spent a week](https://eatonphil.com/2024-01-wehack-mysql.html)
+looking at MySQL/MariaDB internals along with ~80 other devs. Although
+MySQL and MariaDB are mostly the same (more on that later), I focused
+on MariaDB specifically this week.
+
+Before last week I had never built MySQL/MariaDB before. The first day
+of this hack week, I got MariaDB building locally and [made a code
+tweak](https://twitter.com/eatonphil/status/1742649922791395501) so
+that `SELECT 23` returned `213`, and [another
+tweak](https://twitter.com/eatonphil/status/1742654868085526896) so
+that `SELECT 80 + 20` returned `60`. The second day I got a [basic UDF
+in C](https://twitter.com/eatonphil/status/1742958892957446490)
+working so that `SELECT mysum(20, 30)` returned `50`.
+
+The rest of the week I spent figuring out how to build a minimal
+in-memory storage engine, which I'll walk through in this post. 235LoC
+of C++.
+
+It supports `CREATE`, `DROP`, `INSERT`,
+and `SELECT` for tables that only have `INTEGER` fields. It is
+explicitly not thread-safe because I didn't have time to understand
+MariaDB's lock primitives.
+
+In this post I'll also talk about how the MariaDB custom storage API
+compares to the Postgres one, based on [a previous hack week project I
+did](https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html).
+
+All code for this post can be found in [my fork on
+GitHub](https://github.com/eatonphil/mariadb/tree/11.4/storage/memem).
+
+### MySQL and MariaDB
+
+Before we go further though, why do I keep saying MySQL/MariaDB?
+
+MySQL is GPL licensed (let's completely ignore the commercial
+variations of MySQL that Oracle offers). The code is
+open-source. However, the development is done behind closed
+doors. There is a code dump [every
+month](https://github.com/mysql/mysql-server/commits/trunk/) or so.
+
+MariaDB is a fork of MySQL by the creator of MySQL (who is no longer
+involved, as it happens). It is also GPL licensed (let's completely
+ignore the commercial variations of MariaDB that MariaDB Corporation
+offers). The code is open-source. The development is also open-source.
+
+When you install "MySQL" in your Linux distro you are [often
+actually](https://mariadb.com/newsroom/press-releases/mariadb-replaces-mysql-as-the-default-in-debian-9/)
+installing MariaDB.
+
+The two are mostly compatible. During this week, I [stumbled
+onto](https://twitter.com/eatonphil/status/1742642758408405237) that
+they evolved support for `SELECT .. FROM VALUES ..` differently. Some
+differences are documented on [the MariaDB
+KB](https://mariadb.com/kb/en/moving-from-mysql/). But this KB is
+painful to browse. Which leads me to my next point.
+
+The [MySQL docs](https://dev.mysql.com/doc/) are excellent. Easy to
+read, browse; and they are thorough. The [MariaDB
+docs](https://mariadb.com/kb) are a work in progress. I'm sorry I
+can't be stoic: in just a week I've come to really hate using this
+KB. Thankfully, in some twisted way, it also doesn't seem to be very
+thorough either. So I was mostly able to avoid it.
+
+The reason you might have to browse the KB though is that there's no
+guarantee MySQL and MariaDB do the same thing.
+
+I spent the week using MariaDB because I'm biased toward fully open
+projects. But I kept having to look at MySQL docs and hope they were
+still relevant.
+
+Now that you understand the state of things, let's move on to fun
+stuff! :)
+
+### Storage engines
+
+Mature databases often support swapping out the storage layer. Maybe
+you want an in-memory storage layer so that you can quickly run
+integration tests. Maybe you want to switch between B-Trees
+(read-optimized) and LSM Trees (write-optimized) and unordered heaps
+(write-optimized) depending on your workload. Or maybe you just want
+to try a third-party storage library
+(e.g. [RocksDB](https://rocksdb.org/) or [Sled](https://sled.rs/) or
+[TiKV](https://tikv.org/)).
+
+The benefit of swapping out only the storage engine is that, from a
+user's perspective, the semantics and features of the database
+stay mostly the same.
+
+You keep powerful user management, extension support, SQL support, and
+a well-known wire protocol. You modify only the method of storing the
+actual data.
+
+#### Existing storage engines
+
+MySQL/MariaDB is particularly well known for its custom storage engine
+support. The MySQL docs for [alternate storage
+engines](https://dev.mysql.com/doc/refman/8.0/en/storage-engines.html)
+are great.
+
+While the docs do warn that you should probably stick with the default
+storage engine, that warning didn't quite feel strong enough because
+nothing else seemed to indicate the state of other engines.
+
+Specifically, in the past I was always interested in the CSV storage
+engine. But when you look at the [actual code for the CSV
+engine](https://github.com/MariaDB/server/blob/11.4/storage/csv/ha_tina.cc)
+there is a pretty strong warning:
+
+```text
+First off, this is a play thing for me, there are a number of things
+wrong with it:
+  *) It was designed for csv and therefore its performance is highly
+     questionable.
+  *) Indexes have not been implemented. This is because the files can
+     be traded in and out of the table directory without having to worry
+     about rebuilding anything.
+  *) NULLs and "" are treated equally (like a spreadsheet).
+  *) There was in the beginning no point to anyone seeing this other
+     then me, so there is a good chance that I haven't quite documented
+     it well.
+  *) Less design, more "make it work"
+
+Now there are a few cool things with it:
+  *) Errors can result in corrupted data files.
+  *) Data files can be read by spreadsheets directly.
+
+TODO:
+ *) Move to a block system for larger files
+ *) Error recovery, its all there, just need to finish it
+ *) Document how the chains work.
+
+-Brian
+```
+
+The difference between the seeming confidence of the docs and seeming
+confidence of the contributor made me chuckle.
+
+The real benefit of these diverse storage engines for me was that they
+give examples of how to implement the storage engine API. The
+[csv](https://github.com/MariaDB/server/blob/11.4/storage/csv),
+[blackhole](https://github.com/MariaDB/server/tree/11.4/storage/blackhole),
+[example](https://github.com/MariaDB/server/tree/11.4/storage/example),
+and [heap](https://github.com/MariaDB/server/tree/11.4/storage/heap)
+storage engines were particularly helpful to read.
+
+The heap engine is a complete in-memory storage engine. But it was so
+complete though that there seemed to be room for a smaller, less
+complete in-memory storage engine that could help developers better
+understand the storage engine implementation basics.
+
+And that's we'll cover in this post! First though I want to talk a
+little bit about the limitations of custom storage engines.
+
+#### Limitation 1: Column-wise support?
+
+I used to write about custom storage engines that you could also
+switch between storing data column- or row-wise. While that is still
+true, after looking into both Postgres and MySQL/MariaDB storage APIs,
+the *benefits of doing so* are not obvious.
+
+Both Postgres and MySQL/MariaDB have a custom storage API built around
+*individual rows*. Two big reasons to do column-wise storage are 1)
+opportunity for compression, and 2) fast operations on a single
+column.
+
+The opportunity for 1) compression would still exist even if you
+needed to deal with individual rows at the storage API layer since the
+compression could happen on disk.
+
+But you'd lose the advantage for 2) fast operations on a single column
+if the column must be converted into a row at the storage API
+whereupon it's passed to higher levels that perform execution. That
+execution would happen row-wise.
+
+#### Limitation 2: Vectorization?
+
+An API built around individual rows also sets limits on the amount of
+vectorization you can do. A custom storage engine could still do some
+vectorization under the hood: always filling a buffer with N rows and
+returning a row from the buffer when the storage API requests a single
+row. But there is likely some degree of performance left on the table
+with an API that deals with individual rows.
+
+Remember though: if you did batched reads and writes of rows in the
+custom storage layer, there isn't necessarily any vectorization
+happening at the execution layer. From a [previous
+study](https://notes.eatonphil.com/2023-09-21-how-do-databases-execute-expressions.html)
+I did, neither MySQL/MariaDB nor Postgres do vectorized query
+execution. This paragraph isn't a critique of the storage API, it's
+just something to keep in mind.
+
+#### Limitation: Storage versus Execution
+
+To summarize, it's that unless both the execution and storage APIs are
+designed with some leeway, you may attempt optimizations in the
+storage layer that are ineffective because the execution layer doesn't
+or can't take advantage of them. The "optimizations" you take in one
+layer may even make overall performance *worse* if the other layer
+isn't also aware of them.
+
+### Debug build of MariaDB running locally
+
+Now that you've got some background, let's get a debug build of
+MariaDB!
+
+```console
+$ git clone https://github.com/MariaDB/server mariadb
+$ cd mariadb
+$ mkdir build
+$ cd build
+$ cmake -DCMAKE_BUILD_TYPE=Debug ..
+$ make -j8
+```
+
+This takes a while. When I was hacking on Postgres (a C project), it
+took 1 minute on my beefy Linux server to build. It took 20-30 minutes
+to build MySQL/MariaDB from scratch. That's C++ for ya!
+
+Thankfully incremental builds of MySQL/MariaDB for a tweak after the
+initial build take roughly the same time as incremental builds of
+Postgres after a tweak.
+
+Once the build is done, create a database.
+
+```console
+$ ./build/scripts/mariadb-install-db --srcdir=$(pwd) --datadir=$(pwd)/db
+```
+
+And create a config for the database.
+
+```console
+$ echo "[client]
+socket=$(pwd)/mariadb.sock
+
+[mariadb]
+socket=$(pwd)/mariadb.sock
+
+basedir=$(pwd)
+datadir=$(pwd)/db
+pid-file=$(pwd)/db.pid" > my.cnf
+```
+
+Start up the server.
+
+```console
+$ ./build/sql/mariadbd --defaults-extra-file=$(pwd)/my.cnf --debug:d:o,$(pwd)/db.debug
+./build/sql/mariadbd: Can't create file '/var/log/mariadb/mariadb.log' (errno: 13 "Permission denied")
+2024-01-03 17:10:15 0 [Note] Starting MariaDB 11.4.0-MariaDB-debug source revision 3fad2b115569864d8c1b7ea90ce92aa895cfef08 as process 185550
+2024-01-03 17:10:15 0 [Note] InnoDB: !!!!!!!! UNIV_DEBUG switched on !!!!!!!!!
+2024-01-03 17:10:15 0 [Note] InnoDB: Compressed tables use zlib 1.2.13
+2024-01-03 17:10:15 0 [Note] InnoDB: Number of transaction pools: 1
+2024-01-03 17:10:15 0 [Note] InnoDB: Using crc32 + pclmulqdq instructions
+2024-01-03 17:10:15 0 [Note] InnoDB: Initializing buffer pool, total size = 128.000MiB, chunk size = 2.000MiB
+2024-01-03 17:10:15 0 [Note] InnoDB: Completed initialization of buffer pool
+2024-01-03 17:10:15 0 [Note] InnoDB: Buffered log writes (block size=512 bytes)
+2024-01-03 17:10:15 0 [Note] InnoDB: End of log at LSN=57155
+2024-01-03 17:10:15 0 [Note] InnoDB: Opened 3 undo tablespaces
+2024-01-03 17:10:15 0 [Note] InnoDB: 128 rollback segments in 3 undo tablespaces are active.
+2024-01-03 17:10:15 0 [Note] InnoDB: Setting file './ibtmp1' size to 12.000MiB. Physically writing the file full; Please wait ...
+2024-01-03 17:10:15 0 [Note] InnoDB: File './ibtmp1' size is now 12.000MiB.
+2024-01-03 17:10:15 0 [Note] InnoDB: log sequence number 57155; transaction id 16
+2024-01-03 17:10:15 0 [Note] InnoDB: Loading buffer pool(s) from ./db/ib_buffer_pool
+2024-01-03 17:10:15 0 [Note] Plugin 'FEEDBACK' is disabled.
+2024-01-03 17:10:15 0 [Note] Plugin 'wsrep-provider' is disabled.
+2024-01-03 17:10:15 0 [Note] InnoDB: Buffer pool(s) load completed at 240103 17:10:15
+2024-01-03 17:10:15 0 [Note] Server socket created on IP: '0.0.0.0'.
+2024-01-03 17:10:15 0 [Note] Server socket created on IP: '::'.
+2024-01-03 17:10:15 0 [Note] mariadbd: Event Scheduler: Loaded 0 events
+2024-01-03 17:10:15 0 [Note] ./build/sql/mariadbd: ready for connections.
+Version: '11.4.0-MariaDB-debug'  socket: './mariadb.sock'  port: 3306  Source distribution
+```
+
+With that `--debug` flag, debug logs will show up in
+`$(pwd)/db.debug`. It's unclear why debug logs are treated separately
+from the console logs shown here. I'd rather them all be in one
+place. Without that though you can still `tail -f $(pwd)/db.debug`.
+
+In another terminal, run a client and make a request!
+
+```console
+$ ./build/client/mariadb --defaults-extra-file=$(pwd)/my.cnf --database=test
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MariaDB connection id is 3
+Server version: 11.4.0-MariaDB-debug Source distribution
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MariaDB [test]> SELECT 1;
++---+
+| 1 |
++---+
+| 1 |
++---+
+1 row in set (0.001 sec)
+```
+
+Huzzah! Let's write a custom storage engine!
+
+

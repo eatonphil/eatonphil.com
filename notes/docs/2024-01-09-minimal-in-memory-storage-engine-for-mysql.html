@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="canonical" href="https://notes.eatonphil.com/2024-01-09-minimal-in-memory-storage-engine-for-mysql.html">
+    <title>Writing a minimal in-memory storage engine for MySQL/MariaDB | notes.eatonphil.com</title>
+    <meta name="description" content="Writing a minimal in-memory storage engine for MySQL/MariaDB" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=IBM+Plex+Mono">
+  </head>
+  <body>
+    <header>
+      <!-- <div class="lfw"> -->
+      <!-- 	<div class="container"> -->
+      <!-- 	  <div class="row"> -->
+      <!-- 	    <a href="https://eatonphil.com/hire-me.html">Hire me!</a> -->
+      <!-- 	  </div> -->
+      <!-- 	</div> -->
+      <!-- </div> -->
+      <div class="container">
+        <div>
+          <div class="row">
+	    <div>
+	      <a href="https://eatonphil.com" class="sm-link">
+		Home
+              </a>
+	      <a href="/" class="sm-link">
+		Notes
+              </a>
+	      <a href="/favorites.html" class="sm-link hide-mobile">
+		Popular
+              </a>
+	      <a href="/rss.xml" class="sm-link">
+		RSS
+              </a>
+	    </div>
+	    	      
+	    <div class="subscribe">
+	      <a href="https://eatonphil.com/hire-me.html">Hire me</a>
+	      <a class="fancy" href="https://notes.eatonphil.com/2024-01-09-minimal-in-memory-storage-engine-for-mysql.html#subscribe">       
+		Subscribe          
+	      </a>
+            </div>
+	  </div>
+	  <hr />
+	  <div class="">
+            <h2>January 9, 2024</h2>
+            <h1>Writing a minimal in-memory storage engine for MySQL/MariaDB</h1>
+            <div class="row" style="padding-bottom: 5px">
+              ['c++', 'mysql', 'mariadb', 'postgres', 'draft']
+            </div>
+	  </div>
+	</div>
+      </div>
+    </header>
+    <div class="container">
+      <div class="col-6">
+        <p><!-- -*- mode: markdown -*- --></p>
+<p>I <a href="https://eatonphil.com/2024-01-wehack-mysql.html">spent a week</a>
+looking at MySQL/MariaDB internals along with ~80 other devs. Although
+MySQL and MariaDB are mostly the same (more on that later), I focused
+on MariaDB specifically this week.</p>
+<p>Before last week I had never built MySQL/MariaDB before. The first day
+of this hack week, I got MariaDB building locally and <a href="https://twitter.com/eatonphil/status/1742649922791395501">made a code
+tweak</a> so
+that <code>SELECT 23</code> returned <code>213</code>, and <a href="https://twitter.com/eatonphil/status/1742654868085526896">another
+tweak</a> so
+that <code>SELECT 80 + 20</code> returned <code>60</code>. The second day I got a <a href="https://twitter.com/eatonphil/status/1742958892957446490">basic UDF
+in C</a>
+working so that <code>SELECT mysum(20, 30)</code> returned <code>50</code>.</p>
+<p>The rest of the week I spent figuring out how to build a minimal
+in-memory storage engine, which I'll walk through in this post. 235LoC
+of C++.</p>
+<p>It supports <code>CREATE</code>, <code>DROP</code>, <code>INSERT</code>,
+and <code>SELECT</code> for tables that only have <code>INTEGER</code> fields. It is
+explicitly not thread-safe because I didn't have time to understand
+MariaDB's lock primitives.</p>
+<p>In this post I'll also talk about how the MariaDB custom storage API
+compares to the Postgres one, based on <a href="https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html">a previous hack week project I
+did</a>.</p>
+<p>All code for this post can be found in <a href="https://github.com/eatonphil/mariadb/tree/11.4/storage/memem">my fork on
+GitHub</a>.</p>
+<h3 id="mysql-and-mariadb">MySQL and MariaDB</h3><p>Before we go further though, why do I keep saying MySQL/MariaDB?</p>
+<p>MySQL is GPL licensed (let's completely ignore the commercial
+variations of MySQL that Oracle offers). The code is
+open-source. However, the development is done behind closed
+doors. There is a code dump <a href="https://github.com/mysql/mysql-server/commits/trunk/">every
+month</a> or so.</p>
+<p>MariaDB is a fork of MySQL by the creator of MySQL (who is no longer
+involved, as it happens). It is also GPL licensed (let's completely
+ignore the commercial variations of MariaDB that MariaDB Corporation
+offers). The code is open-source. The development is also open-source.</p>
+<p>When you install "MySQL" in your Linux distro you are <a href="https://mariadb.com/newsroom/press-releases/mariadb-replaces-mysql-as-the-default-in-debian-9/">often
+actually</a>
+installing MariaDB.</p>
+<p>The two are mostly compatible. During this week, I <a href="https://twitter.com/eatonphil/status/1742642758408405237">stumbled
+onto</a> that
+they evolved support for <code>SELECT .. FROM VALUES ..</code> differently. Some
+differences are documented on <a href="https://mariadb.com/kb/en/moving-from-mysql/">the MariaDB
+KB</a>. But this KB is
+painful to browse. Which leads me to my next point.</p>
+<p>The <a href="https://dev.mysql.com/doc/">MySQL docs</a> are excellent. Easy to
+read, browse; and they are thorough. The <a href="https://mariadb.com/kb">MariaDB
+docs</a> are a work in progress. I'm sorry I
+can't be stoic: in just a week I've come to really hate using this
+KB. Thankfully, in some twisted way, it also doesn't seem to be very
+thorough either. So I was mostly able to avoid it.</p>
+<p>The reason you might have to browse the KB though is that there's no
+guarantee MySQL and MariaDB do the same thing.</p>
+<p>I spent the week using MariaDB because I'm biased toward fully open
+projects. But I kept having to look at MySQL docs and hope they were
+still relevant.</p>
+<p>Now that you understand the state of things, let's move on to fun
+stuff! :)</p>
+<h3 id="storage-engines">Storage engines</h3><p>Mature databases often support swapping out the storage layer. Maybe
+you want an in-memory storage layer so that you can quickly run
+integration tests. Maybe you want to switch between B-Trees
+(read-optimized) and LSM Trees (write-optimized) and unordered heaps
+(write-optimized) depending on your workload. Or maybe you just want
+to try a third-party storage library
+(e.g. <a href="https://rocksdb.org/">RocksDB</a> or <a href="https://sled.rs/">Sled</a> or
+<a href="https://tikv.org/">TiKV</a>).</p>
+<p>The benefit of swapping out only the storage engine is that, from a
+user's perspective, the semantics and features of the database
+stay mostly the same.</p>
+<p>You keep powerful user management, extension support, SQL support, and
+a well-known wire protocol. You modify only the method of storing the
+actual data.</p>
+<h4 id="existing-storage-engines">Existing storage engines</h4><p>MySQL/MariaDB is particularly well known for its custom storage engine
+support. The MySQL docs for <a href="https://dev.mysql.com/doc/refman/8.0/en/storage-engines.html">alternate storage
+engines</a>
+are great.</p>
+<p>While the docs do warn that you should probably stick with the default
+storage engine, that warning didn't quite feel strong enough because
+nothing else seemed to indicate the state of other engines.</p>
+<p>Specifically, in the past I was always interested in the CSV storage
+engine. But when you look at the <a href="https://github.com/MariaDB/server/blob/11.4/storage/csv/ha_tina.cc">actual code for the CSV
+engine</a>
+there is a pretty strong warning:</p>
+<div class="highlight"><pre><span></span>First off, this is a play thing for me, there are a number of things
+wrong with it:
+  *) It was designed for csv and therefore its performance is highly
+     questionable.
+  *) Indexes have not been implemented. This is because the files can
+     be traded in and out of the table directory without having to worry
+     about rebuilding anything.
+  *) NULLs and &quot;&quot; are treated equally (like a spreadsheet).
+  *) There was in the beginning no point to anyone seeing this other
+     then me, so there is a good chance that I haven&#39;t quite documented
+     it well.
+  *) Less design, more &quot;make it work&quot;
+
+Now there are a few cool things with it:
+  *) Errors can result in corrupted data files.
+  *) Data files can be read by spreadsheets directly.
+
+TODO:
+ *) Move to a block system for larger files
+ *) Error recovery, its all there, just need to finish it
+ *) Document how the chains work.
+
+-Brian
+</pre></div>
+<p>The difference between the seeming confidence of the docs and seeming
+confidence of the contributor made me chuckle.</p>
+<p>The real benefit of these diverse storage engines for me was that they
+give examples of how to implement the storage engine API. The
+<a href="https://github.com/MariaDB/server/blob/11.4/storage/csv">csv</a>,
+<a href="https://github.com/MariaDB/server/tree/11.4/storage/blackhole">blackhole</a>,
+<a href="https://github.com/MariaDB/server/tree/11.4/storage/example">example</a>,
+and <a href="https://github.com/MariaDB/server/tree/11.4/storage/heap">heap</a>
+storage engines were particularly helpful to read.</p>
+<p>The heap engine is a complete in-memory storage engine. But it was so
+complete though that there seemed to be room for a smaller, less
+complete in-memory storage engine that could help developers better
+understand the storage engine implementation basics.</p>
+<p>And that's we'll cover in this post! First though I want to talk a
+little bit about the limitations of custom storage engines.</p>
+<h4 id="limitation-1:-column-wise-support?">Limitation 1: Column-wise support?</h4><p>I used to write about custom storage engines that you could also
+switch between storing data column- or row-wise. While that is still
+true, after looking into both Postgres and MySQL/MariaDB storage APIs,
+the <em>benefits of doing so</em> are not obvious.</p>
+<p>Both Postgres and MySQL/MariaDB have a custom storage API built around
+<em>individual rows</em>. Two big reasons to do column-wise storage are 1)
+opportunity for compression, and 2) fast operations on a single
+column.</p>
+<p>The opportunity for 1) compression would still exist even if you
+needed to deal with individual rows at the storage API layer since the
+compression could happen on disk.</p>
+<p>But you'd lose the advantage for 2) fast operations on a single column
+if the column must be converted into a row at the storage API
+whereupon it's passed to higher levels that perform execution. That
+execution would happen row-wise.</p>
+<h4 id="limitation-2:-vectorization?">Limitation 2: Vectorization?</h4><p>An API built around individual rows also sets limits on the amount of
+vectorization you can do. A custom storage engine could still do some
+vectorization under the hood: always filling a buffer with N rows and
+returning a row from the buffer when the storage API requests a single
+row. But there is likely some degree of performance left on the table
+with an API that deals with individual rows.</p>
+<p>Remember though: if you did batched reads and writes of rows in the
+custom storage layer, there isn't necessarily any vectorization
+happening at the execution layer. From a <a href="https://notes.eatonphil.com/2023-09-21-how-do-databases-execute-expressions.html">previous
+study</a>
+I did, neither MySQL/MariaDB nor Postgres do vectorized query
+execution. This paragraph isn't a critique of the storage API, it's
+just something to keep in mind.</p>
+<h4 id="limitation:-storage-versus-execution">Limitation: Storage versus Execution</h4><p>To summarize, it's that unless both the execution and storage APIs are
+designed with some leeway, you may attempt optimizations in the
+storage layer that are ineffective because the execution layer doesn't
+or can't take advantage of them. The "optimizations" you take in one
+layer may even make overall performance <em>worse</em> if the other layer
+isn't also aware of them.</p>
+<h3 id="debug-build-of-mariadb-running-locally">Debug build of MariaDB running locally</h3><p>Now that you've got some background, let's get a debug build of
+MariaDB!</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/MariaDB/server<span class="w"> </span>mariadb
+<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>mariadb
+<span class="gp">$ </span>mkdir<span class="w"> </span>build
+<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>build
+<span class="gp">$ </span>cmake<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Debug<span class="w"> </span>..
+<span class="gp">$ </span>make<span class="w"> </span>-j8
+</pre></div>
+<p>This takes a while. When I was hacking on Postgres (a C project), it
+took 1 minute on my beefy Linux server to build. It took 20-30 minutes
+to build MySQL/MariaDB from scratch. That's C++ for ya!</p>
+<p>Thankfully incremental builds of MySQL/MariaDB for a tweak after the
+initial build take roughly the same time as incremental builds of
+Postgres after a tweak.</p>
+<p>Once the build is done, create a database.</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>./build/scripts/mariadb-install-db<span class="w"> </span>--srcdir<span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="w"> </span>--datadir<span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/db
+</pre></div>
+<p>And create a config for the database.</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;[client]</span>
+<span class="go">socket=$(pwd)/mariadb.sock</span>
+
+<span class="go">[mariadb]</span>
+<span class="go">socket=$(pwd)/mariadb.sock</span>
+
+<span class="go">basedir=$(pwd)</span>
+<span class="go">datadir=$(pwd)/db</span>
+<span class="go">pid-file=$(pwd)/db.pid&quot; &gt; my.cnf</span>
+</pre></div>
+<p>Start up the server.</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>./build/sql/mariadbd<span class="w"> </span>--defaults-extra-file<span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/my.cnf<span class="w"> </span>--debug:d:o,<span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/db.debug
+<span class="go">./build/sql/mariadbd: Can&#39;t create file &#39;/var/log/mariadb/mariadb.log&#39; (errno: 13 &quot;Permission denied&quot;)</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] Starting MariaDB 11.4.0-MariaDB-debug source revision 3fad2b115569864d8c1b7ea90ce92aa895cfef08 as process 185550</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: !!!!!!!! UNIV_DEBUG switched on !!!!!!!!!</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: Compressed tables use zlib 1.2.13</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: Number of transaction pools: 1</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: Using crc32 + pclmulqdq instructions</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: Initializing buffer pool, total size = 128.000MiB, chunk size = 2.000MiB</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: Completed initialization of buffer pool</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: Buffered log writes (block size=512 bytes)</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: End of log at LSN=57155</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: Opened 3 undo tablespaces</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: 128 rollback segments in 3 undo tablespaces are active.</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: Setting file &#39;./ibtmp1&#39; size to 12.000MiB. Physically writing the file full; Please wait ...</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: File &#39;./ibtmp1&#39; size is now 12.000MiB.</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: log sequence number 57155; transaction id 16</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: Loading buffer pool(s) from ./db/ib_buffer_pool</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] Plugin &#39;FEEDBACK&#39; is disabled.</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] Plugin &#39;wsrep-provider&#39; is disabled.</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] InnoDB: Buffer pool(s) load completed at 240103 17:10:15</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] Server socket created on IP: &#39;0.0.0.0&#39;.</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] Server socket created on IP: &#39;::&#39;.</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] mariadbd: Event Scheduler: Loaded 0 events</span>
+<span class="go">2024-01-03 17:10:15 0 [Note] ./build/sql/mariadbd: ready for connections.</span>
+<span class="go">Version: &#39;11.4.0-MariaDB-debug&#39;  socket: &#39;./mariadb.sock&#39;  port: 3306  Source distribution</span>
+</pre></div>
+<p>With that <code>--debug</code> flag, debug logs will show up in
+<code>$(pwd)/db.debug</code>. It's unclear why debug logs are treated separately
+from the console logs shown here. I'd rather them all be in one
+place. Without that though you can still <code>tail -f $(pwd)/db.debug</code>.</p>
+<p>In another terminal, run a client and make a request!</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>./build/client/mariadb<span class="w"> </span>--defaults-extra-file<span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/my.cnf<span class="w"> </span>--database<span class="o">=</span><span class="nb">test</span>
+<span class="go">Reading table information for completion of table and column names</span>
+<span class="go">You can turn off this feature to get a quicker startup with -A</span>
+
+<span class="go">Welcome to the MariaDB monitor.  Commands end with ; or \g.</span>
+<span class="go">Your MariaDB connection id is 3</span>
+<span class="go">Server version: 11.4.0-MariaDB-debug Source distribution</span>
+
+<span class="go">Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.</span>
+
+<span class="go">Type &#39;help;&#39; or &#39;\h&#39; for help. Type &#39;\c&#39; to clear the current input statement.</span>
+
+<span class="go">MariaDB [test]&gt; SELECT 1;</span>
+<span class="go">+---+</span>
+<span class="go">| 1 |</span>
+<span class="go">+---+</span>
+<span class="go">| 1 |</span>
+<span class="go">+---+</span>
+<span class="go">1 row in set (0.001 sec)</span>
+</pre></div>
+<p>Huzzah! Let's write a custom storage engine!</p>
+
+	<div class="feedback">
+	  <h4>Feedback</h4>
+	  <p>As always,
+	      please <a href="mailto:phil@eatonphil.com">email</a>
+	      or <a href="https://twitter.com/eatonphil">tweet me</a>
+	      with questions, corrections, or ideas!</p>
+
+	</div>
+      </div>
+    </div>
+    <footer>
+      <div class="container">
+	<div>
+	  <div class="row">
+	    <div class="feedback">
+	      <h4>Frequent Topics</h4>
+	      <div class="tags"><div class="tags"><a href="/tags/c++.html" class="tag">c++</a><a href="/tags/mysql.html" class="tag">mysql</a><a href="/tags/mariadb.html" class="tag">mariadb</a><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/draft.html" class="tag">draft</a></div></div>
+	    </div>
+	  </div>
+	  <div class="row" id="subscribe">
+	    <style type="text/css">
+  /* LOADER */
+  .ml-form-embedSubmitLoad {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+  }
+  .g-recaptcha {
+      transform: scale(1);
+      -webkit-transform: scale(1);
+      transform-origin: 0 0;
+      -webkit-transform-origin: 0 0;
+      height: ;
+  }
+  .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      border: 0;
+  }
+  .ml-form-embedSubmitLoad:after {
+      content: " ";
+      display: block;
+      width: 11px;
+      height: 11px;
+      margin: 1px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      border-color: #ffffff #ffffff #ffffff transparent;
+      animation: ml-form-embedSubmitLoad 1.2s linear infinite;
+  }
+  @keyframes ml-form-embedSubmitLoad {
+      0% {
+          transform: rotate(0deg);
+      }
+      100% {
+          transform: rotate(360deg);
+      }
+  }
+  #mlb2-3175296.ml-form-embedContainer {
+      box-sizing: border-box;
+      display: table;
+      margin: 0 auto;
+      position: static;
+      width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer h3,
+  #mlb2-3175296.ml-form-embedContainer p,
+  #mlb2-3175296.ml-form-embedContainer span,
+  #mlb2-3175296.ml-form-embedContainer button {
+      text-transform: none !important;
+      letter-spacing: normal !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper {
+      border-width: 0px;
+      border-color: transparent;
+  border-radius: 4px;
+  border-style: solid;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-left { text-align: left; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-center {
+  text-align: center;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-default { display: table-cell !important; vertical-align: middle !important; text-align: center !important; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-right { text-align: right; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedHeader img {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  height: auto;
+  margin: 0 auto !important;
+  max-width: 100%;
+  width: undefinedpx;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody.ml-form-embedBodyHorizontal {
+  padding-bottom: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent {
+  text-align: left;
+  margin: 0 0 20px 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p {
+  color: #000000;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  margin: 0 0 10px 0;
+  text-align: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol {
+  color: #000000;
+  font-size: 14px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol {
+  list-style-type: lower-alpha;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol ol {
+  list-style-type: lower-roman;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p a,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group {
+  text-align: left!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group label {
+  margin-bottom: 5px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: bold; font-style: normal; text-decoration: none;;
+  display: inline-block;
+  line-height: 20px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p:last-child,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody form {
+  margin: 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  margin: 0 0 20px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent.horozintalForm {
+  margin: 0;
+  padding: 0 0 20px 0;
+  width: 100%;
+  height: auto;
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow {
+  margin: 0 0 10px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-last-item {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-formfieldHorizintal {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-webkit-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-webkit-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-ms-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-ms-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow textarea, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow textarea {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-color: #cccccc!important;
+  background-color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input.custom-control-input[type="checkbox"]{
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-radius: 4px!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23fff' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::before  {
+  border-color: #000000!important;
+  background-color: #000000!important;
+  color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::after {
+  top: 2px;
+  box-sizing: border-box;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  position: absolute;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::after {
+  position: absolute;
+  top: 2px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-radio .custom-control-label::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-control, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-control {
+  position: relative;
+  display: block;
+  min-height: 1.5rem;
+  padding-left: 1.5rem;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input {
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  box-sizing: border-box;
+  padding: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label {
+  color: #000000;
+  font-size: 12px!important;
+  line-height: 22px;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  font-style: normal;
+  font-weight: 700;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-select, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-select {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 28px 10px 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+  background: url('https://assets.mlcdn.com/ml/images/default/dropdown.svg') no-repeat right .75rem center/8px 10px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow {
+  height: auto;
+  width: 100%;
+  float: left;
+  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 70%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal { width: 30%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal.labelsOn { padding-top: 25px;  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .horizontal-fields { box-sizing: border-box; float: left; padding-right: 10px;  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input {
+  background-color: #ffffff;
+  color: #333333;
+  border-color: #cccccc;
+  border-radius: 4px;
+  border-style: solid;
+  border-width: 1px;
+  font-size: 14px;
+  line-height: 20px;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: initial;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button {
+  background-color: #000000 !important;
+  border-color: #000000;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 4px;
+  box-shadow: none;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700;
+  line-height: 20px;
+  margin: 0 !important;
+  padding: 10px !important;
+  width: 100%;
+  height: auto;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button:hover {
+  background-color: #333333 !important;
+  border-color: #333333 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type="checkbox"] {
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description {
+  color: #000000;
+  display: block;
+  font-size: 12px;
+  text-align: left;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label {
+  font-weight: normal;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  display: block;
+  min-height: 24px;
+  padding-left: 24px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p {
+  color: #000000 !important;
+  font-size: 12px !important;
+  font-weight: normal !important;
+  line-height: 18px !important;
+  padding: 0 !important;
+  margin: 0 5px 0 0 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit {
+  margin: 0 0 20px 0;
+  float: left;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button {
+  background-color: #000000 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 21px !important;
+  height: auto;
+  padding: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button.loading {
+  display: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button:hover {
+  background-color: #333333 !important;
+  }
+  .ml-subscribe-close {
+  width: 30px;
+  height: 30px;
+  background: url('https://assets.mlcdn.com/ml/images/default/modal_close.png') no-repeat;
+  background-size: 30px;
+  cursor: pointer;
+  margin-top: -10px;
+  margin-right: -10px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  }
+  .ml-error input, .ml-error textarea, .ml-error select {
+  border-color: red!important;
+  }
+  .ml-error .custom-checkbox-radio-list {
+  border: 1px solid red !important;
+  border-radius: 4px;
+  padding: 10px;
+  }
+  .ml-error .label-description,
+  .ml-error .label-description p,
+  .ml-error .label-description p a,
+  .ml-error label:first-child {
+  color: #ff0000 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p:first-letter {
+  color: #ff0000 !important;
+  }
+  @media only screen and (max-width: 400px){
+  .ml-form-embedWrapper.embedDefault, .ml-form-embedWrapper.embedPopup { width: 100%!important; }
+  .ml-form-formContent.horozintalForm { float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow { height: auto!important; width: 100%!important; float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 100%!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal > div { padding-right: 0px!important; padding-bottom: 10px; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal { width: 100%!important; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal.labelsOn { padding-top: 0px!important; }
+    }
+</style>
+<div id="mlb2-3175296" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-3175296">
+  <hr />
+  <div class="ml-form-align-center ">
+    <div class="ml-form-embedWrapper embedForm">
+      <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+        <div class="ml-form-embedContent" style=" ">
+          <h4>Subscribe</h4>
+          <p>Enter your email if you'd like to be kept in the loop about future articles!<br><br>You can expect 2 to 4 messages per month depending on how motivated I'm feeling. :)</p>
+	  <p></p>
+	  <p>Cheers,<br>Phil</p>
+        </div>
+        <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/303114/forms/78235486326359572/subscribe" data-code="" method="post" target="_blank">
+          <div class="ml-form-formContent">
+            <div class="ml-form-fieldRow ml-last-item">
+              <div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
+                <!-- input -->
+                <input aria-label="email" aria-required="true" type="email" class="form-control" data-inputmask="" name="fields[email]" placeholder="Email" autocomplete="email">
+                <!-- /input -->
+                <!-- textarea -->
+                <!-- /textarea -->
+                <!-- select -->
+                <!-- /select -->
+                <!-- checkboxes -->
+		<!-- /checkboxes -->
+                <!-- radio -->
+                <!-- /radio -->
+                <!-- countries -->
+                <!-- /countries -->
+              </div>
+            </div>
+          </div>
+          <!-- Privacy policy -->
+          <!-- /Privacy policy -->
+	  <div class="ml-form-recaptcha ml-validate-required" style="float: left;">
+            <style type="text/css">
+	      .ml-form-recaptcha {
+		  margin-bottom: 20px;
+	      }
+	      .ml-form-recaptcha.ml-error iframe {
+		  border: solid 1px #ff0000;
+	      }
+	      @media screen and (max-width: 480px) {
+		  .ml-form-recaptcha {
+		      width: 220px!important
+		  }
+		  .g-recaptcha {
+		      transform: scale(0.78);
+		      -webkit-transform: scale(0.78);
+		      transform-origin: 0 0;
+		      -webkit-transform-origin: 0 0;
+		  }
+	      }
+	    </style>
+	    <script src="https://www.google.com/recaptcha/api.js"></script>
+	    <div class="g-recaptcha" data-sitekey="6Lf1KHQUAAAAAFNKEX1hdSWCS3mRMv4FlFaNslaD"></div>
+	  </div>
+          <input type="hidden" name="ml-submit" value="1">
+          <div class="ml-form-embedSubmit">
+            <button type="submit" class="primary">Subscribe</button>
+            <button disabled="disabled" style="display: none;" type="button" class="loading">
+              <div class="ml-form-embedSubmitLoad"></div>
+              <span class="sr-only">Loading...</span>
+            </button>
+          </div>
+          <input type="hidden" name="anticsrf" value="true">
+        </form>
+      </div>
+      <div class="ml-form-successBody row-success" style="display: none">
+        <div class="ml-form-successContent">
+          <h3>Thanks :)</h3>
+          <p>You're in.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function ml_webform_success_3175296() {
+      var $ = ml_jQuery || jQuery;
+      $('.ml-subscribe-form-3175296 .row-success').show();
+      $('.ml-subscribe-form-3175296 .row-form').hide();
+  }
+</script>
+<script src="https://groot.mailerlite.com/js/w/webforms.min.js?v300817f630ad0e957914d0b28a2b6d78" type="text/javascript"></script>
+
+	  </div>
+	  <div class="row" style="margin-bottom: 25px">
+	    <p>
+	      Having trouble subscribing?&nbsp;<a href="mailto:phil@eatonphil.com">Let me know</a>.
+	    </p>
+	  </div>
+	</div>
+      </div>
+    </footer>
+    <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
+    <script>
+      function loadGA() {
+	  window.dataLayer = window.dataLayer || [];
+	  function gtag(){dataLayer.push(arguments);}
+	  gtag('js', new Date());
+	  gtag('config', 'UA-58109156-2');
+      }
+    </script>
+    <script defer src="https://cdn.usefathom.com/script.js" data-site="CEPUOLOQ"></script>
+  </body>
+</html>
