@@ -199,7 +199,7 @@ execution would happen row-wise, not column-wise.</p>
 <p>All of this is to say that while column-wise storage is possible, the
 <em>benefit of doing so</em> is not obvious with the current API design for
 both MySQL/MariaDB and Postgres.</p>
-<h4 id="limitation-2:-vectorization?">Limitation 2: Vectorization?</h4><p>An API built around individual rows also sets limits on the amount of
+<h4 id="vectorization">Vectorization</h4><p>An API built around individual rows also sets limits on the amount of
 vectorization you can do. A custom storage engine could still do some
 vectorization under the hood: always filling a buffer with N rows and
 returning a row from the buffer when the storage API requests a single
@@ -212,12 +212,12 @@ study</a>
 I did, neither MySQL/MariaDB nor Postgres do vectorized query
 execution. This paragraph isn't a critique of the storage API, it's
 just something to keep in mind.</p>
-<h4 id="storage-versus-execution">Storage versus Execution</h4><p>The general point I'm making here is that unless both the execution
+<h4 id="storage-versus-execution">Storage versus execution</h4><p>The general point I'm making here is that unless both the execution
 and storage APIs are designed in a certain way, you may attempt
 optimizations in the storage layer that are ineffective or even
 harmfull because the execution layer doesn't or can't take advantage
 of them.</p>
-<h4 id="nothing-permenent">Nothing permenent</h4><p>The current limitations of the storage API are not intrinsic aspects
+<h4 id="nothing-permanent">Nothing permanent</h4><p>The current limitations of the storage API are not intrinsic aspects
 of MySQL/MariaDB or Postgres's design. For both project there used to
 be no pluggable storage at all. We can imagine a future patch to
 either project that allows support for batched row reads and writes

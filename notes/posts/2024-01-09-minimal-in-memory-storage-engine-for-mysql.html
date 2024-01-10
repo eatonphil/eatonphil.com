@@ -186,7 +186,7 @@ All of this is to say that while column-wise storage is possible, the
 *benefit of doing so* is not obvious with the current API design for
 both MySQL/MariaDB and Postgres.
 
-#### Limitation 2: Vectorization?
+#### Vectorization
 
 An API built around individual rows also sets limits on the amount of
 vectorization you can do. A custom storage engine could still do some
@@ -203,7 +203,7 @@ I did, neither MySQL/MariaDB nor Postgres do vectorized query
 execution. This paragraph isn't a critique of the storage API, it's
 just something to keep in mind.
 
-#### Storage versus Execution
+#### Storage versus execution
 
 The general point I'm making here is that unless both the execution
 and storage APIs are designed in a certain way, you may attempt
@@ -211,7 +211,7 @@ optimizations in the storage layer that are ineffective or even
 harmfull because the execution layer doesn't or can't take advantage
 of them.
 
-#### Nothing permenent
+#### Nothing permanent
 
 The current limitations of the storage API are not intrinsic aspects
 of MySQL/MariaDB or Postgres's design. For both project there used to
