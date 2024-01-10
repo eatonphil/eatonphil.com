@@ -146,35 +146,45 @@ examples of how to implement the storage engine API. The
 and [heap](https://github.com/MariaDB/server/tree/11.4/storage/heap)
 storage engines were particularly helpful to read.
 
-The heap engine is a complete in-memory storage engine. But it was so
-complete though that there seemed to be room for a smaller, less
-complete in-memory storage engine. One that could help developers
-better understand the storage engine implementation basics without all
-the verbosity of completeness.
+The heap engine is a complete in-memory storage engine. Complete means
+complex though. So there seemed to be room for a stripped down version
+of an in-memory engine.
 
 And that's we'll cover in this post! First though I want to talk a
 little bit about the limitations of custom storage engines.
 
-#### Limitation 1: Column-wise support?
+### Limitations
 
-I used to write about custom storage engines that you could also
-switch between storing data column- or row-wise. While that is still
-true, after looking into both Postgres and MySQL/MariaDB storage APIs,
-the *benefits of doing so* are not obvious.
+While being able to tailor a storage engine to a workload is powerful,
+there are limits to the benefits based on the design of the storage
+API.
 
-Both Postgres and MySQL/MariaDB have a custom storage API built around
-*individual rows*. Two big reasons to do column-wise storage are 1)
-opportunity for compression, and 2) fast operations on a single
+Both Postgres and MySQL/MariaDB currently have a custom storage API
+built around *individual rows*.
+
+#### Column-wise execution
+
+I have [previously
+written](https://notes.eatonphil.com/2023-11-01-postgres-table-access-methods.html)
+that custom storage engines allows you to switch between column- and
+row-oriented data storage. Two big reasons to do column-wise storage
+are 1) opportunity for compression, and 2) fast operations on a single
 column.
 
-The opportunity for 1) compression would still exist even if you
-needed to deal with individual rows at the storage API layer since the
-compression could happen on disk.
+The opportunity for 1) compression *on disk* would still exist even if
+you needed to deal with individual rows at the storage API layer since
+the compression could happen on disk. However any benefits of passing
+around compressed columns *in memory* disappear if you must convert to
+rows for the storage API.
 
-But you'd lose the advantage for 2) fast operations on a single column
-if the column must be converted into a row at the storage API
-whereupon it's passed to higher levels that perform execution. That
-execution would happen row-wise.
+You'd also lose the advantage for 2) fast operations on a single
+column if the column must be converted into a row at the storage API
+whereupon it's passed to higher levels that perform execution. The
+execution would happen row-wise, not column-wise.
+
+All of this is to say that while column-wise storage is possible, the
+*benefit of doing so* is not obvious with the current API design for
+both MySQL/MariaDB and Postgres.
 
 #### Limitation 2: Vectorization?
 
@@ -193,27 +203,32 @@ I did, neither MySQL/MariaDB nor Postgres do vectorized query
 execution. This paragraph isn't a critique of the storage API, it's
 just something to keep in mind.
 
-#### Limitation: Storage versus Execution
+#### Storage versus Execution
 
-To summarize: unless both the execution and storage APIs are designed
-in a certain way, you may attempt optimizations in the storage layer
-that are ineffective because the execution layer doesn't or can't take
-advantage of them. The "optimizations" you apply in one layer may even
-adversely affect overall performance if the other layer isn't also
-aware and able to make use of the optimization.
+The general point I'm making here is that unless both the execution
+and storage APIs are designed in a certain way, you may attempt
+optimizations in the storage layer that are ineffective or even
+harmfull because the execution layer doesn't or can't take advantage
+of them.
 
-### Limitation: But not permanent
+#### Nothing permenent
 
-There have been more invasive attempts to fully support
+The current limitations of the storage API are not intrinsic aspects
+of MySQL/MariaDB or Postgres's design. For both project there used to
+be no pluggable storage at all. We can imagine a future patch to
+either project that allows support for batched row reads and writes
+that together could make column-wise storage and vectorized execution
+more feasible.
+
+Even today there have been invasive attempts to fully support
 [column-wise storage and
 execution](https://www.citusdata.com/blog/2021/03/06/citus-10-columnar-compression-for-postgres/)
 in Postgres. And there have also been projects to bring [vectorized
 execution to
 Postgres](https://github.com/citusdata/postgres_vectorization_test).
 
-So the storage API dealing with individual rows isn't necessarily
-intrinsic. Someone may change that in Postgres or MySQL/MariaDB at
-some point.
+I'm not as familiar with the MySQL landscape to comment about efforts
+at the moment their.
 
 ### Debug build of MariaDB running locally
 
@@ -231,7 +246,7 @@ $ make -j8
 
 This takes a while. When I was hacking on Postgres (a C project), it
 took 1 minute on my beefy Linux server to build. It took 20-30 minutes
-to build MySQL/MariaDB from scratch. That's C++ for ya!
+to build MySQL/MariaDB from scratch. That's C++ for you!
 
 Thankfully incremental builds of MySQL/MariaDB for a tweak after the
 initial build take roughly the same time as incremental builds of
@@ -287,10 +302,12 @@ $ ./build/sql/mariadbd --defaults-extra-file=$(pwd)/my.cnf --debug:d:o,$(pwd)/db
 Version: '11.4.0-MariaDB-debug'  socket: './mariadb.sock'  port: 3306  Source distribution
 ```
 
-With that `--debug` flag, debug logs will show up in
-`$(pwd)/db.debug`. It's unclear why debug logs are treated separately
-from the console logs shown here. I'd rather them all be in one
-place. Without that though you can still `tail -f $(pwd)/db.debug`.
+<p class="note">
+  With that <code>--debug</code> flag, debug logs will show up in
+  <code>$(pwd)/db.debug</code>. It's unclear why debug logs are
+  treated separately from the console logs shown here. I'd rather them
+  all be in one place.
+</p>
 
 In another terminal, run a client and make a request!
 
@@ -328,18 +345,19 @@ extensions exist as their own repos.
 
 I was able to create and build a UDF plugin outside the MariaDB source
 tree. But when it came to getting a storage engine to build and load
-successfully, I wasted almost an entire day getting
-nowhere. Extensions for MySQL/MariaDB are most easily built via the
-CMake infrastructure within the repo. Surely there's *some* way to
-replicate that infrastructure from outside the repo but I wasn't able
-to figure it out within a day and didn't want to spend more time on
-it.
+successfully, I wasted almost an entire day (a large amount of time in
+a single hack week) getting nowhere.
+
+Extensions for MySQL/MariaDB are most easily built via the CMake
+infrastructure within the repo. Surely there's *some* way to replicate
+that infrastructure from outside the repo but I wasn't able to figure
+it out within a day and didn't want to spend more time on it.
 
 Apparently the [normal thing to
 do](https://twitter.com/kastauyra/status/1743346665442935174) in
 MySQL/MariaDB is to keep extensions within a fork of MySQL/MariaDB.
 
-When I switched to this method I was able to immediately get the
+When I switched to this method I was able to very quickly get the
 storage engine building and loaded. So that's what we'll do.
 
 ### Boilerplate
@@ -385,17 +403,18 @@ builtin storage methods use classes. So we'll do that too.
 
 The class we must implement is an instance of
 [`handler`](https://github.com/MariaDB/server/blob/11.4/sql/handler.h#L3200). There
-is a single `handler` instance per thread used by a single
-query. (Postgres has a process per query, MySQL uses a thread per
-query.) However, `handler` instances are reused across different
-queries.
+is a single `handler` instance per thread, corresponding to a single
+running query. (Postgres gives each query its own process, MySQL gives
+each query its own thread.) However, `handler` instances are reused
+across different queries.
 
 There are a number of virtual methods on `handler` we must implement
-in our subclass. Most of these can do nothing. In that case they'll be
-implemented in `ha_memem.h`. The methods with logic beyond immediately
-returning will be implemented in `ha_memem.cc`.
+in our subclass. For most of them we'll do nothing: simply returning
+immediately. These simple methods will be implemented in
+`ha_memem.h`. The methods with more complex logic will be implemented
+in `ha_memem.cc`.
 
-To begin with in `ha_memem.h` we'll set up includes.
+Let's set up includes in `ha_memem.h`.
 
 ```c++
 /* Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
@@ -443,8 +462,8 @@ struct MememDatabase
 };
 ```
 
-Within `ha_memem.cc` we'll implement a global `static MememDatabase*`
-that all `handler` instances will (without thread-safety) query when
+Within `ha_memem.cc` we'll implement a global (not thread-safe)
+`static MememDatabase*` that all `handler` instances will query when
 requested. We need the definitions in the header file though because
 we'll store the table currently being queried in the `handler`
 subclass.
@@ -455,6 +474,7 @@ in-memory table object N times within the same query.
 
 And finally we'll define the subclass of `handler` and implementations
 of trivial methods.
+
 
 ```c++
 class ha_memem final : public handler
@@ -525,9 +545,8 @@ private:
 };
 ```
 
-That looks like a lot and it sort of is. But it's pure boilerplate. A
-complete storage engine might implement all of these. But we'll only
-implement 7 of them.
+A complete storage engine might seriously implement all of these
+methods. But we'll only seriously implement 7 of them.
 
 To finish up the boilerplate, we'll switch over to `ha_memem.cc` and
 set up the includes.
@@ -563,7 +582,9 @@ set up the includes.
 
 Ok! Let's dig into the implementation.
 
-### Implementation: Global database
+### Implementation
+
+#### The global database
 
 First up, we need to declare a global `MememDatabase*` instance. We'll
 also implement a helper function for finding the index of a table by
@@ -604,7 +625,7 @@ static int memem_table_index(const char *name)
 
 Next we'll implement plugin initialization and cleanup.
 
-### Implementation: Plugin lifecycle
+#### Plugin lifecycle
 
 Before we register the plugin with MariaDB, we need to set up
 initialization and cleanup methods for it.
@@ -673,7 +694,7 @@ static int memem_fini(void *p)
 
 Now we can register the plugin!
 
-### Implementation: Plugin registration
+#### Plugin registration
 
 The `maria_declare_plugin` and `maria_declare_plugin_end` register the
 plugin's metadata (name, version, etc.) and callbacks.
@@ -702,7 +723,7 @@ maria_declare_plugin(memem){
 That's it! Now we need to implement methods for writing rows, reading
 rows, and creating a new table.
 
-### Implementation: Create table
+#### Create table
 
 To create a table, we make sure one by this name doesn't already
 exist, make sure it only has `INTEGER` fields, allocate memory for the
@@ -737,7 +758,7 @@ int ha_memem::create(const char *name, TABLE *table_arg,
 
 Not very complicated. Let's handle `INSERT`-ing rows next.
 
-### Implementation: Insert row
+#### Insert row
 
 There is no method called when an `INSERT` starts. There is a `table`
 field on the `handler` parent class that is updated though when a
@@ -832,7 +853,7 @@ than one byte of a NULL bitmap.
 It is this opaque byte array that we'll read from in `write_row(const uchar*
 buf)` and write to in `read_row(uchar* buf)`.
 
-### Implementation: Insert row (take two)
+#### Insert row (take two)
 
 To keep things simple we're going to store the row in `MememTable` the
 same way MySQL passes it around.
@@ -862,7 +883,7 @@ int ha_memem::write_row(const uchar *buf)
 
 Which makes reading the row quite simple too!
 
-### Implementation: Read row
+#### Read row
 
 The only slight difference between reading and writing a row is that
 MySQL/MariaDB will tell us when the `SELECT` scan for a table starts.
@@ -1038,7 +1059,8 @@ that for myself at least!
 As I've [written
 before](https://notes.eatonphil.com/2023-11-19-exploring-a-postgres-query-plan.html#postscript:-on-chatgpt),
 this sort of exploration wouldn't be possible within the time frame I
-gave myself if it weren't for ChatGPT.
+gave myself if it weren't for ChatGPT. Specifically, the paid tier
+GPT4.
 
 Neither the MySQL nor the MariaDB docs were so helpful that I could
 immediately figure out things like how to get the current table name
