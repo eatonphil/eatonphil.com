@@ -20,35 +20,38 @@
       <!-- </div> -->
       <div class="container">
         <div>
-          <div class="row">
-	    <div>
-	      <a href="https://eatonphil.com" class="sm-link">
-		Home
-              </a>
-	      {{ if .Section }}
-	      <a href="/" class="sm-link">
-		{{ .Section }}
-              </a>
-	      {{ end }}
-	      {{ if eq .Section "Notes" }}
-	      <a href="/favorites.html" class="sm-link">
-		Popular
-              </a>
-	      {{ end }}
-	      <a href="https://notes.eatonphil.com/rss.xml" class="sm-link">
-		RSS
-              </a>
-	    </div>
+	  <div class="header">
+            <div class="row">
+	      <div>
+		<a href="https://eatonphil.com" class="sm-link">
+		  Home
+		</a>
+		{{ if .Section }}
+		<a href="/" class="sm-link">
+		  {{ .Section }}
+		</a>
+		{{ end }}
+		{{ if eq .Section "Notes" }}
+		<a href="/favorites.html" class="sm-link">
+		  Popular
+		</a>
+		{{ end }}
+		<a href="https://notes.eatonphil.com/rss.xml" class="sm-link">
+		  RSS
+		</a>
+	      </div>
 
-	    <div class="subscribe">
-	      <a href="https://eatonphil.com/hire-me.html">Hire me</a>
-	      <a class="fancy" href="https://{{ .Page.CanonicalURL }}#subscribe">
-		Subscribe
-	      </a>
-            </div>
+	      <div class="subscribe">
+		<a href="https://eatonphil.com/hire-me.html">Hire me</a>
+		<a class="fancy" href="https://{{ .Page.CanonicalURL }}#subscribe">
+		  Subscribe
+		</a>
+              </div>
+	    </div>
+	    <hr />
 	  </div>
-	  <hr />
-          <h2>{{.Page.Date}}</h2>
+
+	  <h2>{{.Page.Date}}</h2>
           <h1>{{.Page.Title}}</h1>
 	  {{ if .Page.Tags }}
           <div class="row" style="padding-bottom: 5px">
@@ -83,13 +86,8 @@
 	    </div>
 	  </div>
 	  {{ end }}
-	  <div class="row" id="subscribe">
+	  <div id="subscribe">
 	    {{ .Mail }}
-	  </div>
-	  <div class="row" style="margin-bottom: 25px">
-	    <p>
-	      Having trouble subscribing? <a href="mailto:phil@eatonphil.com">Let me know</a>.
-	    </p>
 	  </div>
 	</div>
       </div>

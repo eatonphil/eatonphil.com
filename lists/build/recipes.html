@@ -20,31 +20,34 @@
       <!-- </div> -->
       <div class="container">
         <div>
-          <div class="row">
-	    <div>
-	      <a href="https://eatonphil.com" class="sm-link">
-		Home
-              </a>
-	      
-	      <a href="/" class="sm-link">
-		Lists
-              </a>
-	      
-	      
-	      <a href="https://notes.eatonphil.com/rss.xml" class="sm-link">
-		RSS
-              </a>
-	    </div>
+	  <div class="header">
+            <div class="row">
+	      <div>
+		<a href="https://eatonphil.com" class="sm-link">
+		  Home
+		</a>
+		
+		<a href="/" class="sm-link">
+		  Lists
+		</a>
+		
+		
+		<a href="https://notes.eatonphil.com/rss.xml" class="sm-link">
+		  RSS
+		</a>
+	      </div>
 
-	    <div class="subscribe">
-	      <a href="https://eatonphil.com/hire-me.html">Hire me</a>
-	      <a class="fancy" href="https://lists.eatonphil.com/recipes.html#subscribe">
-		Subscribe
-	      </a>
-            </div>
+	      <div class="subscribe">
+		<a href="https://eatonphil.com/hire-me.html">Hire me</a>
+		<a class="fancy" href="https://lists.eatonphil.com/recipes.html#subscribe">
+		  Subscribe
+		</a>
+              </div>
+	    </div>
+	    <hr />
 	  </div>
-	  <hr />
-          <h2></h2>
+
+	  <h2></h2>
           <h1>Favorite recipes</h1>
 	  
 	</div>
@@ -155,7 +158,7 @@
       <div class="container">
 	<div>
 	  
-	  <div class="row" id="subscribe">
+	  <div id="subscribe">
 	    <style type="text/css">
   /* LOADER */
   .ml-form-embedSubmitLoad {
@@ -676,82 +679,91 @@
     .ml-form-formContent.horozintalForm .ml-button-horizontal.labelsOn { padding-top: 0px!important; }
     }
 </style>
-<div id="mlb2-3175296" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-3175296">
-  <hr />
-  <div class="ml-form-align-center ">
-    <div class="ml-form-embedWrapper embedForm">
-      <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
-        <div class="ml-form-embedContent" style=" ">
-          <h4>Subscribe to the blog</h4>
-          <p>Enter your email if you'd like to be kept in the loop about future articles!<br><br>You can expect 2 to 4 messages per month depending on how motivated I'm feeling. :)</p>
-	  <p></p>
-	  <p>Cheers,<br>Phil</p>
-        </div>
-        <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/303114/forms/78235486326359572/subscribe" data-code="" method="post" target="_blank">
-          <div class="ml-form-formContent">
-            <div class="ml-form-fieldRow ml-last-item">
-              <div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
-                <!-- input -->
-                <input aria-label="email" aria-required="true" type="email" class="form-control" data-inputmask="" name="fields[email]" placeholder="Email" autocomplete="email">
-                <!-- /input -->
-                <!-- textarea -->
-                <!-- /textarea -->
-                <!-- select -->
-                <!-- /select -->
-                <!-- checkboxes -->
-		<!-- /checkboxes -->
-                <!-- radio -->
-                <!-- /radio -->
-                <!-- countries -->
-                <!-- /countries -->
+<div class="row">
+  <div id="mlb2-3175296" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-3175296">
+    <hr />
+    <div class="ml-form-align-center ">
+      <div class="ml-form-embedWrapper embedForm">
+	<div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+          <div class="ml-form-embedContent" style=" ">
+            <h4>Subscribe to the blog</h4>
+            <p>Enter your email if you'd like to be kept in the loop about future articles!<br><br>You can expect 2 to 4 messages per month depending on how motivated I'm feeling. :)</p>
+	    <p></p>
+	    <p>Cheers,<br>Phil</p>
+          </div>
+          <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/303114/forms/78235486326359572/subscribe" data-code="" method="post" target="_blank">
+            <div class="ml-form-formContent">
+              <div class="ml-form-fieldRow ml-last-item">
+		<div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
+                  <!-- input -->
+                  <input aria-label="email" aria-required="true" type="email" class="form-control" data-inputmask="" name="fields[email]" placeholder="Email" autocomplete="email">
+                  <!-- /input -->
+                  <!-- textarea -->
+                  <!-- /textarea -->
+                  <!-- select -->
+                  <!-- /select -->
+                  <!-- checkboxes -->
+		  <!-- /checkboxes -->
+                  <!-- radio -->
+                  <!-- /radio -->
+                  <!-- countries -->
+                  <!-- /countries -->
+		</div>
               </div>
             </div>
+            <!-- Privacy policy -->
+            <!-- /Privacy policy -->
+	    <div class="ml-form-recaptcha ml-validate-required" style="float: left;">
+              <style type="text/css">
+		.ml-form-recaptcha {
+		    margin-bottom: 20px;
+		}
+		.ml-form-recaptcha.ml-error iframe {
+		    border: solid 1px #ff0000;
+		}
+		@media screen and (max-width: 480px) {
+		    .ml-form-recaptcha {
+			width: 220px!important
+		    }
+		    .g-recaptcha {
+			transform: scale(0.78);
+			-webkit-transform: scale(0.78);
+			transform-origin: 0 0;
+			-webkit-transform-origin: 0 0;
+		    }
+		}
+	      </style>
+	      <script src="https://www.google.com/recaptcha/api.js"></script>
+	      <div class="g-recaptcha" data-sitekey="6Lf1KHQUAAAAAFNKEX1hdSWCS3mRMv4FlFaNslaD"></div>
+	    </div>
+            <input type="hidden" name="ml-submit" value="1">
+            <div class="ml-form-embedSubmit">
+              <button type="submit" class="primary">Subscribe</button>
+              <button disabled="disabled" style="display: none;" type="button" class="loading">
+		<div class="ml-form-embedSubmitLoad"></div>
+		<span class="sr-only">Loading...</span>
+              </button>
+            </div>
+            <input type="hidden" name="anticsrf" value="true">
+          </form>
+	</div>
+	<div class="ml-form-successBody row-success" style="display: none">
+          <div class="ml-form-successContent">
+            <h3>Thanks :)</h3>
+            <p>You're in.</p>
           </div>
-          <!-- Privacy policy -->
-          <!-- /Privacy policy -->
-	  <div class="ml-form-recaptcha ml-validate-required" style="float: left;">
-            <style type="text/css">
-	      .ml-form-recaptcha {
-		  margin-bottom: 20px;
-	      }
-	      .ml-form-recaptcha.ml-error iframe {
-		  border: solid 1px #ff0000;
-	      }
-	      @media screen and (max-width: 480px) {
-		  .ml-form-recaptcha {
-		      width: 220px!important
-		  }
-		  .g-recaptcha {
-		      transform: scale(0.78);
-		      -webkit-transform: scale(0.78);
-		      transform-origin: 0 0;
-		      -webkit-transform-origin: 0 0;
-		  }
-	      }
-	    </style>
-	    <script src="https://www.google.com/recaptcha/api.js"></script>
-	    <div class="g-recaptcha" data-sitekey="6Lf1KHQUAAAAAFNKEX1hdSWCS3mRMv4FlFaNslaD"></div>
-	  </div>
-          <input type="hidden" name="ml-submit" value="1">
-          <div class="ml-form-embedSubmit">
-            <button type="submit" class="primary">Subscribe</button>
-            <button disabled="disabled" style="display: none;" type="button" class="loading">
-              <div class="ml-form-embedSubmitLoad"></div>
-              <span class="sr-only">Loading...</span>
-            </button>
-          </div>
-          <input type="hidden" name="anticsrf" value="true">
-        </form>
-      </div>
-      <div class="ml-form-successBody row-success" style="display: none">
-        <div class="ml-form-successContent">
-          <h3>Thanks :)</h3>
-          <p>You're in.</p>
-        </div>
+	</div>
       </div>
     </div>
   </div>
 </div>
+
+<div class="row" style="margin-bottom: 25px">
+  <p>
+    Having trouble subscribing? <a href="mailto:phil@eatonphil.com">Let me know</a>.
+  </p>
+</div>
+
 <script>
   function ml_webform_success_3175296() {
       var $ = ml_jQuery || jQuery;
@@ -761,11 +773,6 @@
 </script>
 <script src="https://groot.mailerlite.com/js/w/webforms.min.js?v300817f630ad0e957914d0b28a2b6d78" type="text/javascript"></script>
 
-	  </div>
-	  <div class="row" style="margin-bottom: 25px">
-	    <p>
-	      Having trouble subscribing? <a href="mailto:phil@eatonphil.com">Let me know</a>.
-	    </p>
 	  </div>
 	</div>
       </div>
