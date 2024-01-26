@@ -5,7 +5,7 @@
   </url>
   <url>
     <loc>https://eatonphil.com/2023-database-internals.html</loc>
-    <lastmod>2023-11-11</lastmod>
+    <lastmod>2024-01-26</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2023-ddia.html</loc>
@@ -18,6 +18,10 @@
   <url>
     <loc>https://eatonphil.com/2024-01-wehack-mysql.html</loc>
     <lastmod>2024-01-17</lastmod>
+  </url>
+  <url>
+    <loc>https://eatonphil.com/2024-systems-performance.html</loc>
+    <lastmod>2024-01-26</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/archive.html</loc>
@@ -37,7 +41,7 @@
   </url>
   <url>
     <loc>https://eatonphil.com</loc>
-    <lastmod>2024-01-20</lastmod>
+    <lastmod>2024-01-26</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/nsg.html</loc>
