@@ -103,12 +103,7 @@ majority of nodes to commit a message and then the leader could
 respond to the client. Well in that case, what's the process for
 getting a lagging follower up-to-date? And what happens if it is the
 leader who goes down?</p>
-<p>All together, these are the problems distributed consensus solves:</p>
-<ol>
-<li>Linearizability</li>
-<li>High availability and liveness (the expectation that the algorithm is actually making progress to read or write a value to the cluster)</li>
-<li>And non-triviality (the expectation that values agreed on by the cluster were actually proposed by a client of the cluster)</li>
-</ol>
+<p>These are the problems distributed consensus solves.</p>
 <h3 id="horizontal-scaling?-not-quite">Horizontal scaling? Not quite</h3><p>It's important to keep in mind what distributed consensus solves. It's
 about availability. Distributed consensus, on its own, has nothing to
 do with horizontal scaling.</p>
