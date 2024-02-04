@@ -64,7 +64,7 @@
       <div class="col-6">
         <p><!-- -*- mode: markdown -*- --></p>
 <p>This post is divided into two parts. First a discussion about Raft,
-building an intuition for distributed consensus on transactional
+building an intuition for distributed consensus in transactional
 (OLTP) systems. Second, a walk through a Raft implementation in
 Rust.</p>
 <p>This Raft implementation uses no third-party libraries outside the
@@ -96,13 +96,13 @@ could be very simple. You establish a cluster of nodes and a permanent
 leader and have the leader write every message to every follower and
 not respond to a client until every follower acknowledged the
 message. But if a single node in the group becomes unavailable (either
-because it crashed or the network failed or fore any other reason),
+because it crashed or the network failed or for any other reason),
 the entire cluster cannot make progress.</p>
-<p>You might think I'm oversimplifying. We could simply allow a majority
-of nodes to commit a message and then the leader could respond to the
-client. Well in that case, what's the process for getting a lagging
-follower up-to-date? And what happens if it is the leader who goes
-down?</p>
+<p>You might think I'm proposing a strawman. We could simply allow a
+majority of nodes to commit a message and then the leader could
+respond to the client. Well in that case, what's the process for
+getting a lagging follower up-to-date? And what happens if it is the
+leader who goes down?</p>
 <p>All together, these are the problems distributed consensus solves:</p>
 <ol>
 <li>Linearizability</li>
