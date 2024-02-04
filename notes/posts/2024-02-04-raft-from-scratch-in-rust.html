@@ -15,8 +15,8 @@ more verbose in some ways than you might see in a real-world
 implementation.
 
 Unlike most languages today, Rust keeps the standard library very
-small. But by avoiding third-party libraries it helps to show I'm not
-hiding anything from you. There's no magic.
+small. But by avoiding third-party libraries it helps to show you I'm not
+hiding anything. There's no magic.
 
 ### Distributed consensus
 
@@ -42,7 +42,7 @@ read replica might get stale data. Thus, this system (a database with
 two read replicas) is not linearizable.
 
 Without consensus you might also try synchronous replication. This
-could be very simple. You establish a cluster of nodes and a permanent
+could be very simple. You have a cluster of nodes and a permanent
 leader and have the leader write every message to every follower and
 not respond to a client until every follower acknowledged the
 message. But if a single node in the group becomes unavailable (either
@@ -74,7 +74,10 @@ A typical implementation of Raft for example will require 3 nodes in a
 5-node cluster to agree before continuing. 4 nodes in a 7-node
 cluster. And so on.
 
-As you add nodes to the cluster, it actually takes *longer* to reach
+You can add nodes to increase availability, but at some point as you
+keep adding nodes you will make the overall system *less reliable* as
+more nodes most reach consensus for the algorithm to make progress. As
+you add nodes to the cluster, it actually takes *longer* to reach
 consensus for a value because more nodes in total must agree.
 
 The way that horizontally scaling databases like Cockroach or Yugabyte
@@ -92,21 +95,18 @@ and [rqlite](https://github.com/rqlite/rqlite) are examples of
 databases that do not do partitioning, only replication via a single
 Raft cluster that replicates all data for the entire system.
 
-For these databases there is no horizontal scaling. You can add nodes
-to increase availability, but at some point as you keep adding nodes
-you will make the overall system *less reliable* as more nodes most
-reach consensus for the algorithm to make progress.
-
-If they support "horizontal scaling", they support this by doing
-non-linearizable (stale) reads. Writes remain a challenge.
+For these databases there is no horizontal scaling. If they support
+"horizontal scaling", they support this by doing non-linearizable
+(stale) reads. Writes remain a challenge.
 
 This doesn't mean these databases are bad. They are not. One obvious
 advantage they have over Cockroach or Spanner is that they are
-conceptually simpler.
+conceptually simpler. Conceptually simpler often equates to easier to
+operate. That's a big deal.
 
-In fact by the end of this post you'd be able to easily implement an
-etcd-like API on top of the Raft library we build by following one of
-my [previous posts on
+By the end of this post you'd be able to easily implement an etcd-like
+API on top of the Raft library we build by following one of my
+[previous posts on
 Raft](https://notes.eatonphil.com/tags/raft.html). Every one of which
 we built a highly available key-value store on top of a Raft library.
 
@@ -152,3 +152,5 @@ There's more to it we'll cover as we go but this is the gist.
 - [The Raft TLA+ Spec](https://github.com/ongardie/raft.tla/blob/master/raft.tla)
 - [The Raft Author's PhD Thesis on Raft](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf)
 - [Designing Data-Intensive Applications](https://dataintensive.net/)
+
+Thank you to Paul Nowoczynski for reviewing this post.

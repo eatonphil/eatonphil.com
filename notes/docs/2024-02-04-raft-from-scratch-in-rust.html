@@ -72,8 +72,8 @@ Rust standard library. And it uses no <code>unsafe</code> code. This makes it
 more verbose in some ways than you might see in a real-world
 implementation.</p>
 <p>Unlike most languages today, Rust keeps the standard library very
-small. But by avoiding third-party libraries it helps to show I'm not
-hiding anything from you. There's no magic.</p>
+small. But by avoiding third-party libraries it helps to show you I'm not
+hiding anything. There's no magic.</p>
 <h3 id="distributed-consensus">Distributed consensus</h3><p>Distributed consensus helps a group of nodes, a cluster, agree on
 a value. A client of the cluster can treat a value from the cluster,
 with some care we'll describe later, as if the value was atomically
@@ -92,7 +92,7 @@ database might have two read replicas. But a client reading from a
 read replica might get stale data. Thus, this system (a database with
 two read replicas) is not linearizable.</p>
 <p>Without consensus you might also try synchronous replication. This
-could be very simple. You establish a cluster of nodes and a permanent
+could be very simple. You have a cluster of nodes and a permanent
 leader and have the leader write every message to every follower and
 not respond to a client until every follower acknowledged the
 message. But if a single node in the group becomes unavailable (either
@@ -116,7 +116,10 @@ proportional to the total number of nodes in the cluster.</p>
 <p>A typical implementation of Raft for example will require 3 nodes in a
 5-node cluster to agree before continuing. 4 nodes in a 7-node
 cluster. And so on.</p>
-<p>As you add nodes to the cluster, it actually takes <em>longer</em> to reach
+<p>You can add nodes to increase availability, but at some point as you
+keep adding nodes you will make the overall system <em>less reliable</em> as
+more nodes most reach consensus for the algorithm to make progress. As
+you add nodes to the cluster, it actually takes <em>longer</em> to reach
 consensus for a value because more nodes in total must agree.</p>
 <p>The way that horizontally scaling databases like Cockroach or Yugabyte
 or Spanner work is by partitioning the data and replicating with a
@@ -130,18 +133,16 @@ make. <a href="https://web.archive.org/web/20230327030543/https://etcd.io/docs/v
 and <a href="https://github.com/rqlite/rqlite">rqlite</a> are examples of
 databases that do not do partitioning, only replication via a single
 Raft cluster that replicates all data for the entire system.</p>
-<p>For these databases there is no horizontal scaling. You can add nodes
-to increase availability, but at some point as you keep adding nodes
-you will make the overall system <em>less reliable</em> as more nodes most
-reach consensus for the algorithm to make progress.</p>
-<p>If they support "horizontal scaling", they support this by doing
-non-linearizable (stale) reads. Writes remain a challenge.</p>
+<p>For these databases there is no horizontal scaling. If they support
+"horizontal scaling", they support this by doing non-linearizable
+(stale) reads. Writes remain a challenge.</p>
 <p>This doesn't mean these databases are bad. They are not. One obvious
 advantage they have over Cockroach or Spanner is that they are
-conceptually simpler.</p>
-<p>In fact by the end of this post you'd be able to easily implement an
-etcd-like API on top of the Raft library we build by following one of
-my <a href="https://notes.eatonphil.com/tags/raft.html">previous posts on
+conceptually simpler. Conceptually simpler often equates to easier to
+operate. That's a big deal.</p>
+<p>By the end of this post you'd be able to easily implement an etcd-like
+API on top of the Raft library we build by following one of my
+<a href="https://notes.eatonphil.com/tags/raft.html">previous posts on
 Raft</a>. Every one of which
 we built a highly available key-value store on top of a Raft library.</p>
 <p>So let's talk about Raft.</p>
@@ -177,6 +178,7 @@ committed entries to their own state machine.</p>
 <li><a href="https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf">The Raft Author's PhD Thesis on Raft</a></li>
 <li><a href="https://dataintensive.net/">Designing Data-Intensive Applications</a></li>
 </ul>
+<p>Thank you to Paul Nowoczynski for reviewing this post.</p>
 
 	<div class="feedback">
 	  <h4>Feedback</h4>
