@@ -28,10 +28,10 @@ written to and read from a single thread. This property is called
 
 However, with distributed consensus, the client of the cluster has
 better availability guarantees from the cluster than if it atomically
-wrote to or read from a single thread. A single thread that crashes is
-unavailable. But some number `f` nodes can crash in a cluster
-implementing distributed consensus and still 1) be available and 2)
-provide linearizable reads and writes.
+wrote to or read from a single thread. A single process or node that
+crashes becomes unavailable. But some number `f` nodes can crash in a
+cluster implementing distributed consensus and still 1) be available
+and 2) provide linearizable reads and writes.
 
 That is: <b>distributed consensus solves the problem of high
 availability for a system while remaining linearizable</b>.
@@ -41,11 +41,25 @@ database might have two read replicas. But a client reading from a
 read replica might get stale data. Thus, this system (a database with
 two read replicas) is not linearizable.
 
-Beyond linearizability, there are additional important properties of
-distributed consensus including liveness (the expectation that the
-algorithm is actually making progress to read or write a value to the
-cluster), and non-triviality (the expectation that values agreed on by
-the cluster were actually proposed by a client of the cluster).
+Without consensus you might also try synchronous replication. This
+could be very simple. You establish a cluster of nodes and a permanent
+leader and have the leader write every message to every follower and
+not respond to a client until every follower acknowledged the
+message. But if a single node in the group becomes unavailable (either
+because it crashed or the network failed or fore any other reason),
+the entire cluster cannot make progress.
+
+You might think I'm oversimplifying. We could simply allow a majority
+of nodes to commit a message and then the leader could respond to the
+client. Well in that case, what's the process for getting a lagging
+follower up-to-date? And what happens if it is the leader who goes
+down?
+
+All together, these are the problems distributed consensus solves:
+
+1. Linearizability
+2. High availability and liveness (the expectation that the algorithm is actually making progress to read or write a value to the cluster)
+3. And non-triviality (the expectation that values agreed on by the cluster were actually proposed by a client of the cluster)
 
 ### Horizontal scaling? Not quite
 
@@ -71,7 +85,7 @@ distributed consensus cluster independently for each partition.
 
 So, yes, distributed consensus *can* be a part of horizontal
 scaling. But again what it primarily solves is high availability via
-partitioning while remaining linearizable.
+replication while remaining linearizable.
 
 This is not a trivial point to
 make. [etcd](https://web.archive.org/web/20230327030543/https://etcd.io/docs/v3.2/learning/why/#using-etcd-for-metadata),
@@ -81,7 +95,7 @@ databases that do not do partitioning, only replication via a single
 Raft cluster that replicates all data for the entire system.
 
 For these databases there is no horizontal scaling. You can add nodes
-to increase avilability, but at some point as you keep adding nodes
+to increase availability, but at some point as you keep adding nodes
 you will make the overall system *less reliable* as more nodes most
 reach consensus for the algorithm to make progress.
 
