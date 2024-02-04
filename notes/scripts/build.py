@@ -55,8 +55,8 @@ class Renderer(mistune.Renderer):
         self.title = {}
 
     def header(self, text, level, *args, **kwargs):
-        self.title[level] = text
-        if level <= 2:
+        if level not in self.title:
+            self.title[level] = text
             return ""
         if level == 6:
             return ""
@@ -114,11 +114,11 @@ def main():
         out_file = post[len('posts/'):]
         output, title = get_post_data(post)
         try:
-            header, date, tags_raw = title[1], title[2], title.get(6, "")
+            header, real_subtitle, date, tags_raw = title[1], title.get(3, ""), title[2], title.get(6, "")
         except:
             t = out_file.split('.')[0].title()
             with open('docs/' + out_file, 'w') as f:
-                f.write(TEMPLATE.format(post=output, meta="", tag=t, subtitle="", title="", tags="", frequent_tags="", full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL, hide_on_index=""))
+                f.write(TEMPLATE.format(post=output, meta="", tag=t, subtitle="", real_subtitle="", title="", tags="", frequent_tags="", full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL, hide_on_index=""))
             continue
 
         tags = tags_raw.split(",")
@@ -127,10 +127,12 @@ def main():
         if "draft" in tags:
             t = out_file.split('.')[0].title()
             with open('docs/' + out_file, 'w') as f:
-                f.write(TEMPLATE.format(post=output, meta="", tag=header, subtitle=date, title=header, tags=tags, frequent_tags=tags_html, full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL, hide_on_index=""))
+                f.write(TEMPLATE.format(post=output, meta="", tag=header, subtitle=date, real_subtitle=real_subtitle, title=header, tags=tags, frequent_tags=tags_html, full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL, hide_on_index=""))
             continue
 
-        post_data.append((out_file, title[1], title[2], post, output, tags_html))
+        if real_subtitle != "":
+            real_subtitle = f"<div class='realsubtitle'>{real_subtitle}</div>"
+        post_data.append((out_file, title[1], title[2], post, output, tags_html, real_subtitle))
         for tag in tags:
             if tag not in all_tags:
                 all_tags[tag] = []
@@ -148,9 +150,9 @@ def main():
         frequent_tags.append(f'<a href="/tags/{tag.replace(" ", "-").replace("/", "-")}.html" class="tag">{tag} ({count})</a>')
     frequent_tags = "".join(frequent_tags)
 
-    for (out_file, title, date, _, output, tags_html) in post_data:
+    for (out_file, title, date, _, output, tags_html, real_subtitle) in post_data:
         with open('docs/' + out_file, 'w') as f:
-            f.write(TEMPLATE.format(post=output+showfeedback, title=title, subtitle=date, tag=title, tags=tags_html, meta="", frequent_tags=frequent_tags, full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL, hide_on_index=""))
+            f.write(TEMPLATE.format(post=output+showfeedback, title=title, subtitle=date, tag=title, tags=tags_html, meta="", frequent_tags=frequent_tags, full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL, hide_on_index="", real_subtitle=real_subtitle))
 
     post_data.sort(key=lambda post: datetime.strptime(post[2], '%B %d, %Y'))
     post_data.reverse()
@@ -168,7 +170,7 @@ def main():
         tags=frequent_tags)
     with open('docs/index.html', 'w') as f:
         meta = '<meta name="google-site-verification" content="s-Odt0Dj7WZzEk6hLV28wLyR5LeGQFoopUV3IDNO6bM" />\n    '
-        f.write(TEMPLATE.format(post=home_page, title="", tag=TAG, subtitle="", tags="", meta=meta, frequent_tags="", full_url="https://notes.eatonphil.com", mail=MAIL, hide_on_index="hide-on-index"))
+        f.write(TEMPLATE.format(post=home_page, title="", tag=TAG, subtitle="", tags="", meta=meta, frequent_tags="", full_url="https://notes.eatonphil.com", mail=MAIL, hide_on_index="hide-on-index", real_subtitle=""))
 
     for f in STATIC:
         shutil.copy(f, os.path.join('docs', f))
@@ -178,7 +180,7 @@ def main():
                 shutil.copy(f, os.path.join('../', other_folder, 'style.css'))
 
     fg = FeedGenerator()
-    for url, title, date, post, content, _ in reversed(post_data):
+    for url, title, date, post, content, _, _ in reversed(post_data):
         fe = fg.add_entry()
         fe.id('http://notes.eatonphil.com/' + url)
         fe.title(title)
@@ -196,7 +198,7 @@ def main():
 
     with open('docs/sitemap.xml', 'w') as f:
         urls = []
-        for url, _, date, _, _, _ in reversed(post_data):
+        for url, _, date, _, _, _, _ in reversed(post_data):
             urls.append("""  <url>
     <loc>https://notes.eatonphil.com/{url}</loc>
     <lastmod>{date}</lastmod>
@@ -223,7 +225,7 @@ Sitemap: https://notes.eatonphil.com/sitemap.xml""")
         tag_index.append(f'<a href="/tags/{tag.replace(" ", "-").replace("/", "-")}.html" class="tag {"tag--common" if i < 20 else ""}">{tag} ({count})</a>')
     with open('docs/tags/index.html', 'w') as f:
         index_page = f'<div class="tags">{"".join(tag_index)}</div>'
-        f.write(TEMPLATE.format(post=index_page, title="All Topics", tag="All Topics", subtitle="", tags="", meta="", frequent_tags="", full_url="https://notes.eatonphil.com/tags/", mail=MAIL, hide_on_index='hide-on-index'))
+        f.write(TEMPLATE.format(post=index_page, title="All Topics", tag="All Topics", subtitle="", tags="", meta="", frequent_tags="", full_url="https://notes.eatonphil.com/tags/", mail=MAIL, hide_on_index='hide-on-index', real_subtitle=""))
 
     # Write each individual tag page
     for tag in all_tags:
@@ -236,7 +238,7 @@ Sitemap: https://notes.eatonphil.com/sitemap.xml""")
             posts.reverse()
             tag_page = TAG_PAGE.format(tag)
             tag_page += "\n".join([TAG_SUMMARY.format(*args) for args in posts])
-            f.write(TEMPLATE.format(post=tag_page, title="", tag=TAG, subtitle="", tags="", meta="", frequent_tags="", full_url="https://notes.eatonphil.com/tags/"+file_name, mail=MAIL, hide_on_index=""))
+            f.write(TEMPLATE.format(post=tag_page, title="", tag=TAG, subtitle="", tags="", meta="", frequent_tags="", full_url="https://notes.eatonphil.com/tags/"+file_name, mail=MAIL, hide_on_index="", real_subtitle=""))
 
 
 if __name__ == '__main__':

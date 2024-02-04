@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>July 20, 2019</h2>
             <h1>Writing an x86 emulator from scratch in JavaScript: 2. system calls</h1>
+	    <div class='realsubtitle'>Implementing syscalls</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/emulators.html" class="tag">emulators</a><a href="/tags/javascript.html" class="tag">javascript</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64</a><a href="/tags/syscalls.html" class="tag">syscalls</a></div>
             </div>
@@ -94,7 +95,7 @@ post</a> for some more
 detail.</p>
 <p><a href="https://gist.github.com/eatonphil/2d16bc3dae33bff8a8d7f2a9d13025c3">Code for this post in full is available as a
 Gist.</a></p>
-<h4 id="exit">Exit</h4><p>The exit syscall is how a child process communicates with the process
+<p>The exit syscall is how a child process communicates with the process
 that spawned it (its parent) when the child is finished running. Exit
 takes one argument, called the exit code or status code. It is an
 arbitrary signed 8-bit integer. If the high bit is set (i.e. the
@@ -129,7 +130,7 @@ the start address.</p>
 </pre></div>
 <p>This writes 8 bytes to stdout starting from the string whose address
 is in R12.</p>
-<h3 id="implementing-syscalls">Implementing syscalls</h3><p>Our emulator is simplistic and is currently only implementing process
+<p>Our emulator is simplistic and is currently only implementing process
 emulation, not full CPU emulation. So the syscalls themselves will be
 handled in JavaScript. First we'll write out stubs for the two
 syscalls we are adding. And we'll provide a map from syscall id to the

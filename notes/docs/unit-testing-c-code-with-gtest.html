@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>August 31, 2019</h2>
             <h1>Unit testing C code with gtest</h1>
+	    <div class='realsubtitle'>The "testy" sample project</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/c.html" class="tag">c</a><a href="/tags/cmake.html" class="tag">cmake</a><a href="/tags/ctest.html" class="tag">ctest</a><a href="/tags/testing.html" class="tag">testing</a></div>
             </div>
@@ -78,13 +79,13 @@ userland networking and interpreters.</p>
   and <code>include/testy/testy.h</code> module into
   a <code>widget</code> and <code>customer</code> module to
   demonstrate the changes to the CMake configuration.
-</p><h3 id="the-"testy"-sample-project">The "testy" sample project</h3><p>In this project, we'll put source code in <code>src/</code> and publicly
+</p><p>In this project, we'll put source code in <code>src/</code> and publicly
 exported symbols (functions, structs, etc.) in header files in
 <code>include/testy/</code>. There will be a <code>main.c</code> in the <code>src/</code>
 directory. Tests are written in C++ (since gtest is a C++ testing
 framework) and are in the <code>test/</code> directory.</p>
 <p>Here's an overview of the source and test code.</p>
-<h4 id="src/widget.c">src/widget.c</h4><p>This file has some library code that we should be able to test.</p>
+<p>This file has some library code that we should be able to test.</p>
 <div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;testy/widget.h&quot;</span>
 
 <span class="kt">int</span><span class="w"> </span><span class="n">private_ok_value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>

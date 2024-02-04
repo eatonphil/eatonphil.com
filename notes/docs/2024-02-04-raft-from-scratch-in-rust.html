@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="canonical" href="https://notes.eatonphil.com/2024-02-04-raft-from-scratch-in-rust.html">
+    <title>Building an intuition for distributed consensus in OLTP systems | notes.eatonphil.com</title>
+    <meta name="description" content="Building an intuition for distributed consensus in OLTP systems" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=IBM+Plex+Mono">
+  </head>
+  <body>
+    <header>
+      <!-- <div class="lfw"> -->
+      <!-- 	<div class="container"> -->
+      <!-- 	  <div class="row"> -->
+      <!-- 	    <a href="https://eatonphil.com/hire-me.html">Hire me!</a> -->
+      <!-- 	  </div> -->
+      <!-- 	</div> -->
+      <!-- </div> -->
+      <div class="container">
+        <div>
+          <div class="row">
+	    <div>
+	      <a href="https://eatonphil.com" class="sm-link">
+		Home
+              </a>
+	      <a href="/" class="sm-link">
+		Notes
+              </a>
+	      <a href="/favorites.html" class="sm-link hide-mobile">
+		Popular
+              </a>
+	      <a href="/rss.xml" class="sm-link">
+		RSS
+              </a>
+	    </div>
+
+	    <div class="subscribe">
+	      <!-- <a href="https://eatonphil.com/hire-me.html">Hire me</a> -->
+	      <!--
+		  Hardcode link to home page because some pages don't
+		  have a subscribe box. Some pages hide the subscribe.
+		-->
+	      <a class="fancy" href="https://eatonphil.com/subscribe.html">
+		Subscribe
+	      </a>
+            </div>
+	  </div>
+	  <hr />
+	  <div class="">
+            <h2>February 5, 2024</h2>
+            <h1>Building an intuition for distributed consensus in OLTP systems</h1>
+	    And implementing Raft from scratch in Rust
+            <div class="row" style="padding-bottom: 5px">
+              ['raft', 'rust', 'draft']
+            </div>
+	  </div>
+	</div>
+      </div>
+    </header>
+    <div class="container">
+      <div class="col-6">
+        <p><!-- -*- mode: markdown -*- --></p>
+<p>This post is divided into two parts. First a discussion about Raft,
+building an intuition for distributed consensus on transactional
+(OLTP) systems. Second, a walk through a Raft implementation in
+Rust.</p>
+<p>This Raft implementation uses no third-party libraries outside the
+Rust standard library. And it uses no <code>unsafe</code> code. This makes it
+more verbose in some ways than you might see in a real-world
+implementation.</p>
+<p>Unlike most languages today, Rust keeps the standard library very
+small. But by avoiding third-party libraries it helps to show I'm not
+hiding anything from you. There's no magic.</p>
+<h3 id="distributed-consensus">Distributed consensus</h3><p>Distributed consensus helps a group of nodes, a cluster, agree on
+a value. A client of the cluster can treat a value from the cluster,
+with some care we'll describe later, as if the value was atomically
+written to and read from a single thread. This property is called
+<a href="https://jepsen.io/consistency/models/linearizable">linearizability</a>.</p>
+<p>However, with distributed consensus, the client of the cluster has
+better availability guarantees from the cluster than if it atomically
+wrote to or read from a single thread. A single thread that crashes is
+unavailable. But some number <code>f</code> nodes can crash in a cluster
+implementing distributed consensus and still 1) be available and 2)
+provide linearizable reads and writes.</p>
+<p>That is: <b>distributed consensus solves the problem of high
+availability for a system while remaining linearizable</b>.</p>
+<p>Without consensus you might have high availability. For example, a
+database might have two read replicas. But a client reading from a
+read replica might get stale data. Thus, this system (a database with
+two read replicas) is not linearizable.</p>
+<p>Beyond linearizability, there are additional important properties of
+distributed consensus including liveness (the expectation that the
+algorithm is actually making progress to read or write a value to the
+cluster), and non-triviality (the expectation that values agreed on by
+the cluster were actually proposed by a client of the cluster).</p>
+<h3 id="horizontal-scaling?-not-quite">Horizontal scaling? Not quite</h3><p>It's important to keep in mind what distributed consensus solves. It's
+about availability. Distributed consensus, on its own, has nothing to
+do with horizontal scaling.</p>
+<p>Actually, it gets even worse. Distributed consensus algorithms make
+sure that some minimum number of nodes in a cluster agree before
+continuing. The minimum number is proportional to the total number of
+nodes in the cluster.</p>
+<p>A typical implementation of Raft for example will require 3 nodes in a
+5-node cluster to agree before continuing. 4 nodes in a 7-node
+cluster. And so on.</p>
+<p>As you add nodes to the cluster, it actually takes <em>longer</em> to reach
+consensus for a value because more nodes in total must agree.</p>
+<p>The way that horizontally scaling databases like Cockroach or Yugabyte
+or Spanner work is by partitioning the data and replicating with a
+distributed consensus cluster independently for each partition.</p>
+<p>So, yes, distributed consensus <em>can</em> be a part of horizontal
+scaling. But again what it primarily solves is high availability via
+partitioning while remaining linearizable.</p>
+<p>This is not a trivial point to
+make. <a href="https://web.archive.org/web/20230327030543/https://etcd.io/docs/v3.2/learning/why/#using-etcd-for-metadata">etcd</a>,
+<a href="https://web.archive.org/web/20231212132325/https://www.hashicorp.com/resources/operating-and-running-consul-at-scale">consul</a>,
+and <a href="https://github.com/rqlite/rqlite">rqlite</a> are examples of
+databases that do not do partitioning, only replication via a single
+Raft cluster that replicates all data for the entire system.</p>
+<p>For these databases there is no horizontal scaling. You can add nodes
+to increase avilability, but at some point as you keep adding nodes
+you will make the overall system <em>less reliable</em> as more nodes most
+reach consensus for the algorithm to make progress.</p>
+<p>If they support "horizontal scaling", they support this by doing
+non-linearizable (stale) reads. Writes remain a challenge.</p>
+<p>This doesn't mean these databases are bad. They are not. One obvious
+advantage they have over Cockroach or Spanner is that they are
+conceptually simpler.</p>
+<p>In fact by the end of this post you'd be able to easily implement an
+etcd-like API on top of the Raft library we build by following one of
+my <a href="https://notes.eatonphil.com/tags/raft.html">previous posts on
+Raft</a>. Every one of which
+we built a highly available key-value store on top of a Raft library.</p>
+<p>So let's talk about Raft.</p>
+<h3 id="raft">Raft</h3><p>Raft is a distributed consensus algorithm that gives you a replicated
+state machine on top of a replicated log.</p>
+<p>It has a semi-permanent leader that all reads and writes go through
+(if you want to remain linearizable). Processes in the cluster pick a
+leader among themselves. Clients ask all nodes in the cluster to add a
+new message to the log. Only the leader accepts this message, if there
+is currently a leader. Clients retry until there is a leader that
+accepts the message.</p>
+<p>The leader appends the message to its log and makes sure to replicate
+all messages in its log to followers in the same order. The leader
+sends periodic heartbeat messages to all followers, whether the
+follower is up-to-date or not. If a follower hasn't heard from the
+leader within a period of time, it becomes a candidate and requests
+votes from the cluster.</p>
+<p>When a follower is asked to accept a new message, it checks if its
+history is up-to-date with the leader. If it is not, the follower asks
+the leader to send previous messages to bring it up-to-date. It does
+this, in the worst case of a follower that completely lost all
+history, by ultimately going all the way back to the very first
+message ever sent.</p>
+<p>When a quorum (basically, a majority) of followers has accepted a
+message, the leader marks the message as committed and applies the
+message to its own state machine. When followers learn about newly
+committed entries (the <code>commit_index</code> number goes up), they also apply
+committed entries to their own state machine.</p>
+<p>There's more to it we'll cover as we go but this is the gist.</p>
+<h3 id="further-reading">Further reading</h3><ul>
+<li><a href="https://raft.github.io/raft.pdf">The Raft Paper</a></li>
+<li><a href="https://github.com/ongardie/raft.tla/blob/master/raft.tla">The Raft TLA+ Spec</a></li>
+<li><a href="https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf">The Raft Author's PhD Thesis on Raft</a></li>
+<li><a href="https://dataintensive.net/">Designing Data-Intensive Applications</a></li>
+</ul>
+
+	<div class="feedback">
+	  <h4>Feedback</h4>
+	  <p>As always,
+	      please <a href="mailto:phil@eatonphil.com">email</a>
+	      or <a href="https://twitter.com/eatonphil">tweet me</a>
+	      with questions, corrections, or ideas!</p>
+
+	</div>
+      </div>
+    </div>
+    <footer>
+      <div class="container">
+	<div>
+	  <div class="row">
+	    <div class="feedback">
+	      <h4>Frequent Topics</h4>
+	      <div class="tags"><div class="tags"><a href="/tags/raft.html" class="tag">raft</a><a href="/tags/rust.html" class="tag">rust</a><a href="/tags/draft.html" class="tag">draft</a></div></div>
+	    </div>
+	  </div>
+	  <div id="subscribe">
+	    <style type="text/css">
+  /* LOADER */
+  .ml-form-embedSubmitLoad {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+  }
+  .g-recaptcha {
+      transform: scale(1);
+      -webkit-transform: scale(1);
+      transform-origin: 0 0;
+      -webkit-transform-origin: 0 0;
+      height: ;
+  }
+  .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      border: 0;
+  }
+  .ml-form-embedSubmitLoad:after {
+      content: " ";
+      display: block;
+      width: 11px;
+      height: 11px;
+      margin: 1px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      border-color: #ffffff #ffffff #ffffff transparent;
+      animation: ml-form-embedSubmitLoad 1.2s linear infinite;
+  }
+  @keyframes ml-form-embedSubmitLoad {
+      0% {
+          transform: rotate(0deg);
+      }
+      100% {
+          transform: rotate(360deg);
+      }
+  }
+  #mlb2-3175296.ml-form-embedContainer {
+      box-sizing: border-box;
+      display: table;
+      margin: 0 auto;
+      position: static;
+      width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer h3,
+  #mlb2-3175296.ml-form-embedContainer p,
+  #mlb2-3175296.ml-form-embedContainer span,
+  #mlb2-3175296.ml-form-embedContainer button {
+      text-transform: none !important;
+      letter-spacing: normal !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper {
+      border-width: 0px;
+      border-color: transparent;
+  border-radius: 4px;
+  border-style: solid;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-left { text-align: left; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-center {
+  text-align: center;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-default { display: table-cell !important; vertical-align: middle !important; text-align: center !important; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-right { text-align: right; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedHeader img {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  height: auto;
+  margin: 0 auto !important;
+  max-width: 100%;
+  width: undefinedpx;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody.ml-form-embedBodyHorizontal {
+  padding-bottom: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent {
+  text-align: left;
+  margin: 0 0 20px 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p {
+  color: #000000;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  margin: 0 0 10px 0;
+  text-align: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol {
+  color: #000000;
+  font-size: 14px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol {
+  list-style-type: lower-alpha;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol ol {
+  list-style-type: lower-roman;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p a,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group {
+  text-align: left!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group label {
+  margin-bottom: 5px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: bold; font-style: normal; text-decoration: none;;
+  display: inline-block;
+  line-height: 20px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p:last-child,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody form {
+  margin: 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  margin: 0 0 20px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent.horozintalForm {
+  margin: 0;
+  padding: 0 0 20px 0;
+  width: 100%;
+  height: auto;
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow {
+  margin: 0 0 10px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-last-item {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-formfieldHorizintal {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-webkit-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-webkit-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-ms-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-ms-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow textarea, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow textarea {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-color: #cccccc!important;
+  background-color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input.custom-control-input[type="checkbox"]{
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-radius: 4px!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23fff' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::before  {
+  border-color: #000000!important;
+  background-color: #000000!important;
+  color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::after {
+  top: 2px;
+  box-sizing: border-box;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  position: absolute;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::after {
+  position: absolute;
+  top: 2px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-radio .custom-control-label::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-control, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-control {
+  position: relative;
+  display: block;
+  min-height: 1.5rem;
+  padding-left: 1.5rem;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input {
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  box-sizing: border-box;
+  padding: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label {
+  color: #000000;
+  font-size: 12px!important;
+  line-height: 22px;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  font-style: normal;
+  font-weight: 700;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-select, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-select {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 28px 10px 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+  background: url('https://assets.mlcdn.com/ml/images/default/dropdown.svg') no-repeat right .75rem center/8px 10px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow {
+  height: auto;
+  width: 100%;
+  float: left;
+  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 70%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal { width: 30%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal.labelsOn { padding-top: 25px;  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .horizontal-fields { box-sizing: border-box; float: left; padding-right: 10px;  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input {
+  background-color: #ffffff;
+  color: #333333;
+  border-color: #cccccc;
+  border-radius: 4px;
+  border-style: solid;
+  border-width: 1px;
+  font-size: 14px;
+  line-height: 20px;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: initial;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button {
+  background-color: #000000 !important;
+  border-color: #000000;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 4px;
+  box-shadow: none;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700;
+  line-height: 20px;
+  margin: 0 !important;
+  padding: 10px !important;
+  width: 100%;
+  height: auto;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button:hover {
+  background-color: #333333 !important;
+  border-color: #333333 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type="checkbox"] {
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description {
+  color: #000000;
+  display: block;
+  font-size: 12px;
+  text-align: left;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label {
+  font-weight: normal;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  display: block;
+  min-height: 24px;
+  padding-left: 24px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p {
+  color: #000000 !important;
+  font-size: 12px !important;
+  font-weight: normal !important;
+  line-height: 18px !important;
+  padding: 0 !important;
+  margin: 0 5px 0 0 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit {
+  margin: 0 0 20px 0;
+  float: left;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button {
+  background-color: #000000 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 21px !important;
+  height: auto;
+  padding: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button.loading {
+  display: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button:hover {
+  background-color: #333333 !important;
+  }
+  .ml-subscribe-close {
+  width: 30px;
+  height: 30px;
+  background: url('https://assets.mlcdn.com/ml/images/default/modal_close.png') no-repeat;
+  background-size: 30px;
+  cursor: pointer;
+  margin-top: -10px;
+  margin-right: -10px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  }
+  .ml-error input, .ml-error textarea, .ml-error select {
+  border-color: red!important;
+  }
+  .ml-error .custom-checkbox-radio-list {
+  border: 1px solid red !important;
+  border-radius: 4px;
+  padding: 10px;
+  }
+  .ml-error .label-description,
+  .ml-error .label-description p,
+  .ml-error .label-description p a,
+  .ml-error label:first-child {
+  color: #ff0000 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p:first-letter {
+  color: #ff0000 !important;
+  }
+  @media only screen and (max-width: 400px){
+  .ml-form-embedWrapper.embedDefault, .ml-form-embedWrapper.embedPopup { width: 100%!important; }
+  .ml-form-formContent.horozintalForm { float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow { height: auto!important; width: 100%!important; float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 100%!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal > div { padding-right: 0px!important; padding-bottom: 10px; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal { width: 100%!important; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal.labelsOn { padding-top: 0px!important; }
+    }
+</style>
+<div id="mlb2-3175296" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-3175296">
+  <hr />
+  <div class="ml-form-align-center ">
+    <div class="ml-form-embedWrapper embedForm">
+      <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+        <div class="ml-form-embedContent" style=" ">
+          <h4>Subscribe</h4>
+          <p>Enter your email if you'd like to be kept in the loop about future articles!<br><br>You can expect 2 to 4 messages per month depending on how motivated I'm feeling. :)</p>
+	  <p></p>
+	  <p>Cheers,<br>Phil</p>
+        </div>
+        <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/303114/forms/78235486326359572/subscribe" data-code="" method="post" target="_blank">
+          <div class="ml-form-formContent">
+            <div class="ml-form-fieldRow ml-last-item">
+              <div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
+                <!-- input -->
+                <input aria-label="email" aria-required="true" type="email" class="form-control" data-inputmask="" name="fields[email]" placeholder="Email" autocomplete="email">
+                <!-- /input -->
+                <!-- textarea -->
+                <!-- /textarea -->
+                <!-- select -->
+                <!-- /select -->
+                <!-- checkboxes -->
+		<!-- /checkboxes -->
+                <!-- radio -->
+                <!-- /radio -->
+                <!-- countries -->
+                <!-- /countries -->
+              </div>
+            </div>
+          </div>
+          <!-- Privacy policy -->
+          <!-- /Privacy policy -->
+	  <div class="ml-form-recaptcha ml-validate-required" style="float: left;">
+            <style type="text/css">
+	      .ml-form-recaptcha {
+		  margin-bottom: 20px;
+	      }
+	      .ml-form-recaptcha.ml-error iframe {
+		  border: solid 1px #ff0000;
+	      }
+	      @media screen and (max-width: 480px) {
+		  .ml-form-recaptcha {
+		      width: 220px!important
+		  }
+		  .g-recaptcha {
+		      transform: scale(0.78);
+		      -webkit-transform: scale(0.78);
+		      transform-origin: 0 0;
+		      -webkit-transform-origin: 0 0;
+		  }
+	      }
+	    </style>
+	    <script src="https://www.google.com/recaptcha/api.js"></script>
+	    <div class="g-recaptcha" data-sitekey="6Lf1KHQUAAAAAFNKEX1hdSWCS3mRMv4FlFaNslaD"></div>
+	  </div>
+          <input type="hidden" name="ml-submit" value="1">
+          <div class="ml-form-embedSubmit">
+            <button type="submit" class="primary">Subscribe</button>
+            <button disabled="disabled" style="display: none;" type="button" class="loading">
+              <div class="ml-form-embedSubmitLoad"></div>
+              <span class="sr-only">Loading...</span>
+            </button>
+          </div>
+          <input type="hidden" name="anticsrf" value="true">
+        </form>
+      </div>
+      <div class="ml-form-successBody row-success" style="display: none">
+        <div class="ml-form-successContent">
+          <h3>Thanks :)</h3>
+          <p>You're in.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function ml_webform_success_3175296() {
+      var $ = ml_jQuery || jQuery;
+      $('.ml-subscribe-form-3175296 .row-success').show();
+      $('.ml-subscribe-form-3175296 .row-form').hide();
+  }
+</script>
+<script src="https://groot.mailerlite.com/js/w/webforms.min.js?v300817f630ad0e957914d0b28a2b6d78" type="text/javascript"></script>
+
+	  </div>
+	</div>
+      </div>
+    </footer>
+    <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
+    <script>
+      function loadGA() {
+	  window.dataLayer = window.dataLayer || [];
+	  function gtag(){dataLayer.push(arguments);}
+	  gtag('js', new Date());
+	  gtag('config', 'UA-58109156-2');
+      }
+    </script>
+    <script defer src="https://cdn.usefathom.com/script.js" data-site="CEPUOLOQ"></script>
+  </body>
+</html>

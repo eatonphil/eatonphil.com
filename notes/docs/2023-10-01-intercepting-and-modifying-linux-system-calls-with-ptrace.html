@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>October 1, 2023</h2>
             <h1>Intercepting and modifying Linux system calls with ptrace</h1>
+	    <div class='realsubtitle'>A bad program</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/linux.html" class="tag">linux</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64</a><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/zig.html" class="tag">zig</a><a href="/tags/fault-injection.html" class="tag">fault-injection</a><a href="/tags/ptrace.html" class="tag">ptrace</a></div>
             </div>
@@ -102,7 +103,7 @@ should probably be handled with retries in production code.</p>
 <p>This post corresponds roughly to <a href="https://github.com/eatonphil/badio/tree/720c3ee0482e6dcb1dd49d1789bccf86747b7776">this
 commit</a>
 on GitHub.</p>
-<h3 id="a-bad-program">A bad program</h3><p>First off, let's write some code for a program that would exhibit a
+<p>First off, let's write some code for a program that would exhibit a
 short write. Basically, we write to a file and don't check how many
 bytes we wrote. This is extremely common code; or at least I've
 written it often.</p>
@@ -222,7 +223,7 @@ than going the <code>PTRACE_TRACEME</code> route. But I haven't tried that out
 yet.</p>
 <p>With the child ready to be intercepted, we can implement the
 <code>ChildManager</code> that actually does the interception.</p>
-<h4 id="childmanager">ChildManager</h4><p>The core of the <code>ChildManager</code> is an infinite loop (at least as long
+<p>The core of the <code>ChildManager</code> is an infinite loop (at least as long
 as the child process lives) that waits for the next syscall and then
 calls a hook for the sytem call if it exists.</p>
 <div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">ChildManager</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>

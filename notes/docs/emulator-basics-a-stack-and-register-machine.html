@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>May 21, 2019</h2>
             <h1>Writing an x86 emulator from scratch in JavaScript: 1. a stack and register machine</h1>
+	    <div class='realsubtitle'>Virtual machine data storage</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/javascript.html" class="tag">javascript</a><a href="/tags/assembly.html" class="tag">assembly</a><a href="/tags/amd64.html" class="tag">amd64</a><a href="/tags/linux.html" class="tag">linux</a><a href="/tags/x86_64.html" class="tag">x86_64</a><a href="/tags/emulators.html" class="tag">emulators</a></div>
             </div>
@@ -75,7 +76,7 @@
 use it to run a simple C program compiled with GCC for an x86_64 (or
 AMD64) CPU running Linux.</p>
 <p><a href="https://github.com/eatonphil/x86e">All source code is available on Github.</a></p>
-<h3 id="virtual-machine-data-storage">Virtual machine data storage</h3><p>Our virtual machine will have two means of storing data: registers and
+<p>Our virtual machine will have two means of storing data: registers and
 an integer stack. Each register can store a 64-bit integer. The stack
 is an array of 8-bit (or 1 byte) integers.</p>
 <p>We'll make the following registers available for modification and use
@@ -98,7 +99,7 @@ of the instruction currently being interpreted by our virtual
 machine. After every instruction the virtual machine will increment
 the value in this register -- except for a few special instructions
 like <code>CALL</code> and <code>RET</code>.</p>
-<h4 id="memory-addresses">Memory addresses</h4><p>It will become useful to provide direct access to memory with a special
+<p>It will become useful to provide direct access to memory with a special
 syntax. We'll focus just on 64-bit addresses that will look like this:</p>
 <div class="highlight"><pre><span></span><span class="w">  </span><span class="nf">MOV</span><span class="w"> </span><span class="kt">QWORD</span><span class="w"> </span><span class="nv">PTR</span><span class="w"> </span><span class="p">[</span><span class="nb">RBP</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">8</span><span class="p">],</span><span class="w"> </span><span class="mi">12</span>
 </pre></div>

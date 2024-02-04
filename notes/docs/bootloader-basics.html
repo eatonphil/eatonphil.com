@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>January 23, 2022</h2>
             <h1>Bootloader basics</h1>
+	    <div class='realsubtitle'>Motivation: Snake</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/assembly.html" class="tag">assembly</a><a href="/tags/bootloaders.html" class="tag">bootloaders</a></div>
             </div>
@@ -75,7 +76,7 @@ is very good.</p>
 <p>The code on this post is available on
 <a href="https://github.com/eatonphil/bootloaders">Github</a>, but it's more of a
 mess than my usual project.</p>
-<h3 id="motivation:-snake">Motivation: Snake</h3><p>You remember <a href="https://www.quaxio.com/bootloader_retro_game_tweet/">snake bootloader in a
+<p>You remember <a href="https://www.quaxio.com/bootloader_retro_game_tweet/">snake bootloader in a
 tweet</a> from a few
 years ago?</p>
 <p>Install qemu (on macOS or Linux), nasm, and copy the <code>snake.asm</code>
@@ -206,7 +207,7 @@ I won't go into too much line-by-line depth.</p>
 <p>But aside from clerical settings (16-bit assembly, where the program
 exists in memory, padding to 512 bytes) the only real bootloader-y
 magic in there is <code>int 0x10</code>, a BIOS interrupt.</p>
-<h4 id="bios-interrupts-=-api-calls-for-i/o">BIOS interrupts = API calls for I/O</h4><p>BIOS interrupts are API calls. Just like syscalls in userland programs
+<p>BIOS interrupts are API calls. Just like syscalls in userland programs
 they have a specific register convention and number to call for the
 family of APIs.</p>
 <p>When you write bootloader programs you'll spend most of your time at

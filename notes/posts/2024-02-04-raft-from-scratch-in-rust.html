@@ -1,0 +1,142 @@
+<!-- -*- mode: markdown -*- -->
+# Building an intuition for distributed consensus in OLTP systems
+### And implementing Raft from scratch in Rust
+## February 5, 2024
+###### raft,rust,draft
+
+This post is divided into two parts. First a discussion about Raft,
+building an intuition for distributed consensus on transactional
+(OLTP) systems. Second, a walk through a Raft implementation in
+Rust.
+
+This Raft implementation uses no third-party libraries outside the
+Rust standard library. And it uses no `unsafe` code. This makes it
+more verbose in some ways than you might see in a real-world
+implementation.
+
+Unlike most languages today, Rust keeps the standard library very
+small. But by avoiding third-party libraries it helps to show I'm not
+hiding anything from you. There's no magic.
+
+### Distributed consensus
+
+Distributed consensus helps a group of nodes, a cluster, agree on
+a value. A client of the cluster can treat a value from the cluster,
+with some care we'll describe later, as if the value was atomically
+written to and read from a single thread. This property is called
+[linearizability](https://jepsen.io/consistency/models/linearizable).
+
+However, with distributed consensus, the client of the cluster has
+better availability guarantees from the cluster than if it atomically
+wrote to or read from a single thread. A single thread that crashes is
+unavailable. But some number `f` nodes can crash in a cluster
+implementing distributed consensus and still 1) be available and 2)
+provide linearizable reads and writes.
+
+That is: <b>distributed consensus solves the problem of high
+availability for a system while remaining linearizable</b>.
+
+Without consensus you might have high availability. For example, a
+database might have two read replicas. But a client reading from a
+read replica might get stale data. Thus, this system (a database with
+two read replicas) is not linearizable.
+
+Beyond linearizability, there are additional important properties of
+distributed consensus including liveness (the expectation that the
+algorithm is actually making progress to read or write a value to the
+cluster), and non-triviality (the expectation that values agreed on by
+the cluster were actually proposed by a client of the cluster).
+
+### Horizontal scaling? Not quite
+
+It's important to keep in mind what distributed consensus solves. It's
+about availability. Distributed consensus, on its own, has nothing to
+do with horizontal scaling.
+
+Actually, it gets even worse. Distributed consensus algorithms make
+sure that some minimum number of nodes in a cluster agree before
+continuing. The minimum number is proportional to the total number of
+nodes in the cluster.
+
+A typical implementation of Raft for example will require 3 nodes in a
+5-node cluster to agree before continuing. 4 nodes in a 7-node
+cluster. And so on.
+
+As you add nodes to the cluster, it actually takes *longer* to reach
+consensus for a value because more nodes in total must agree.
+
+The way that horizontally scaling databases like Cockroach or Yugabyte
+or Spanner work is by partitioning the data and replicating with a
+distributed consensus cluster independently for each partition.
+
+So, yes, distributed consensus *can* be a part of horizontal
+scaling. But again what it primarily solves is high availability via
+partitioning while remaining linearizable.
+
+This is not a trivial point to
+make. [etcd](https://web.archive.org/web/20230327030543/https://etcd.io/docs/v3.2/learning/why/#using-etcd-for-metadata),
+[consul](https://web.archive.org/web/20231212132325/https://www.hashicorp.com/resources/operating-and-running-consul-at-scale),
+and [rqlite](https://github.com/rqlite/rqlite) are examples of
+databases that do not do partitioning, only replication via a single
+Raft cluster that replicates all data for the entire system.
+
+For these databases there is no horizontal scaling. You can add nodes
+to increase avilability, but at some point as you keep adding nodes
+you will make the overall system *less reliable* as more nodes most
+reach consensus for the algorithm to make progress.
+
+If they support "horizontal scaling", they support this by doing
+non-linearizable (stale) reads. Writes remain a challenge.
+
+This doesn't mean these databases are bad. They are not. One obvious
+advantage they have over Cockroach or Spanner is that they are
+conceptually simpler.
+
+In fact by the end of this post you'd be able to easily implement an
+etcd-like API on top of the Raft library we build by following one of
+my [previous posts on
+Raft](https://notes.eatonphil.com/tags/raft.html). Every one of which
+we built a highly available key-value store on top of a Raft library.
+
+So let's talk about Raft.
+
+### Raft
+
+Raft is a distributed consensus algorithm that gives you a replicated
+state machine on top of a replicated log.
+
+It has a semi-permanent leader that all reads and writes go through
+(if you want to remain linearizable). Processes in the cluster pick a
+leader among themselves. Clients ask all nodes in the cluster to add a
+new message to the log. Only the leader accepts this message, if there
+is currently a leader. Clients retry until there is a leader that
+accepts the message.
+
+The leader appends the message to its log and makes sure to replicate
+all messages in its log to followers in the same order. The leader
+sends periodic heartbeat messages to all followers, whether the
+follower is up-to-date or not. If a follower hasn't heard from the
+leader within a period of time, it becomes a candidate and requests
+votes from the cluster.
+
+When a follower is asked to accept a new message, it checks if its
+history is up-to-date with the leader. If it is not, the follower asks
+the leader to send previous messages to bring it up-to-date. It does
+this, in the worst case of a follower that completely lost all
+history, by ultimately going all the way back to the very first
+message ever sent.
+
+When a quorum (basically, a majority) of followers has accepted a
+message, the leader marks the message as committed and applies the
+message to its own state machine. When followers learn about newly
+committed entries (the `commit_index` number goes up), they also apply
+committed entries to their own state machine.
+
+There's more to it we'll cover as we go but this is the gist.
+
+### Further reading
+
+- [The Raft Paper](https://raft.github.io/raft.pdf)
+- [The Raft TLA+ Spec](https://github.com/ongardie/raft.tla/blob/master/raft.tla)
+- [The Raft Author's PhD Thesis on Raft](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf)
+- [Designing Data-Intensive Applications](https://dataintensive.net/)

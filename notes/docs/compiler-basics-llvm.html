@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>March 10, 2019</h2>
             <h1>Writing a lisp compiler from scratch in JavaScript: 3. LLVM</h1>
+	    <div class='realsubtitle'>LLVM IR basics</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/compilers.html" class="tag">compilers</a><a href="/tags/llvm.html" class="tag">llvm</a><a href="/tags/javascript.html" class="tag">javascript</a><a href="/tags/lisp.html" class="tag">lisp</a></div>
             </div>
@@ -96,7 +97,7 @@ register allocation algorithms are not <em>that</em> difficult, I got
 bored/lazy trying to implement this for ulisp. And LLVM IR provides
 "infinite" locals that get mapped as needed to registers and the stack
 -- implementing register allocation.</p>
-<h3 id="llvm-ir-basics">LLVM IR basics</h3><p>In LLVM IR, all local variables must be prefixed
+<p>In LLVM IR, all local variables must be prefixed
 with <code>%</code>. All global variables (including function names)
 must be prefixed with <code>&#64;</code>. LLVM IR must be in
 <a href="https://www.cs.cmu.edu/~fp/courses/15411-f08/lectures/09-ssa.pdf">single-static
@@ -115,7 +116,7 @@ the operation name. In this case we are specifying
 that <code>add</code> is operating on and returning 32-bit integers.</p>
 <p>While this might seem very inefficient, we'll see in the end that
 LLVM easily optimizes this away.</p>
-<h4 id="function-definition">Function definition</h4><p>Functions are defined at the top-level and are much simpler than x86
+<p>Functions are defined at the top-level and are much simpler than x86
 assembly since the details of calling conventions are handled by LLVM.</p>
 <div class="highlight"><pre><span></span><span class="c">; (def plus (a b) (+ a b))</span>
 <span class="k">define</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="vg">@plus</span><span class="w"> </span><span class="p">(</span><span class="kt">i32</span><span class="w"> </span><span class="err">a</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="w"> </span><span class="err">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>

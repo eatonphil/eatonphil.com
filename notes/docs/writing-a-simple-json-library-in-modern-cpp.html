@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>August 26, 2021</h2>
             <h1>Writing a simple JSON library from scratch: a tour through modern C++</h1>
+	    <div class='realsubtitle'>API</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/json.html" class="tag">json</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/c++.html" class="tag">c++</a></div>
             </div>
@@ -80,7 +81,7 @@ numbers, we'll only allow integers.</p>
 <p class="note">
   Big caveat! I couldn't be farther from a C++ expert! Email or tweet
   me as you see mistakes, madness, lies.
-</p><h3 id="api">API</h3><p>The two big parts of the API will be about lexing (turning a string
+</p><p>The two big parts of the API will be about lexing (turning a string
 into an array of tokens) and parsing (turning an array of tokens into
 a JSON object-tree). A better implementation would implement the lexer
 as taking a character stream rather than a string, but taking a string
@@ -230,7 +231,7 @@ any manual management because we're going to use
 (<code>{tokens, ""}</code>) and how easy it is to type a value
 containing an array of function pointers using auto
 (<code>generic_lexers</code>).</p>
-<h4 id="format_error">format_error</h4><p>Since we referenced <code>format_error</code>, let's define it. This
+<p>Since we referenced <code>format_error</code>, let's define it. This
 needs to accept a message prefix, the full JSON string, and the index
 offset where the error should point to.</p>
 <p>Inside the function we'll iterate over the string until we find the

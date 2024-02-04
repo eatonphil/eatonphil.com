@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>August 4, 2018</h2>
             <h1>btest: a language agnostic test runner</h1>
+	    <div class='realsubtitle'>How it works</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/d.html" class="tag">d</a><a href="/tags/testing.html" class="tag">testing</a></div>
             </div>
@@ -74,7 +75,7 @@ in containerized CI environments, and despite some incredible
 <a href="https://github.com/briansteffens/btest/pull/5">assistance from</a> <a href="https://github.com/briansteffens/btest/pull/4">the
 Crystal community</a>, we
 rewrote btest in D to simplify downstream use.</p>
-<h3 id="how-it-works">How it works</h3><p>btest registers a command (or commands) to run and verifies the
+<p>btest registers a command (or commands) to run and verifies the
 command output and status for different inputs. btest iterates over
 files in a directory to discover test groups and individual tests
 within. It supports a limited template language for easily adjusting a
@@ -96,7 +97,7 @@ a <code>btest.yaml</code> file with the following:</p>
 hard-code a file to run <code>test.py</code> as a project-level
 standard file that will get written to disk in an appropriate path for
 each test-case.</p>
-<h4 id="on-multiple-runners">On multiple runners</h4><p>Using multiple runners is helpful when we want to run all tests with
+<p>Using multiple runners is helpful when we want to run all tests with
 different test commands or test command settings. For instance, we
 could run tests against cpython and pypy by adding another runner to
 the runners section.</p>

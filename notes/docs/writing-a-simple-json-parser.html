@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>May 6, 2018</h2>
             <h1>Writing a simple JSON parser</h1>
+	    <div class='realsubtitle'>What parsing is and (typically) is not</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/json.html" class="tag">json</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/python.html" class="tag">python</a></div>
             </div>
@@ -70,7 +71,7 @@ already use JSON. Aside from that last point, parsing
 might be an even simpler task.</p>
 <p>If you'd just like to see the code for the library, <code>pj</code>, <a href="https://github.com/eatonphil/pj">check it out
 on Github</a>.</p>
-<h3 id="what-parsing-is-and-(typically)-is-not">What parsing is and (typically) is not</h3><p>Parsing is often broken up into two stages: lexical analysis and
+<p>Parsing is often broken up into two stages: lexical analysis and
 syntactic analysis. Lexical analysis breaks source input into the
 simplest decomposable elements of a language called "tokens".
 Syntactic analysis (often itself called "parsing") receives the list
@@ -85,7 +86,7 @@ declared a second time in some scope.</p>
   There are, of course, always variations in how people choose to
   parse and apply semantic rules, but I am assuming a "traditional"
   approach to explain the core concepts.
-</p><h4 id="the-json-library's-interface">The JSON library's interface</h4><p>Ultimately, there should be a <code>from_string</code> method that accepts a
+</p><p>Ultimately, there should be a <code>from_string</code> method that accepts a
 JSON-encoded string and returns the equivalent Python dictionary.</p>
 <p>For example:</p>
 <div class="highlight"><pre><span></span>assert_equal(from_string(&#39;{&quot;foo&quot;: 1}&#39;),

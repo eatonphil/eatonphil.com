@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>March 6, 2020</h2>
             <h1>Writing a SQL database from scratch in Go: 1. SELECT, INSERT, CREATE and a REPL</h1>
+	    <div class='realsubtitle'>Lexing</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/go.html" class="tag">go</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/sql.html" class="tag">sql</a><a href="/tags/postgres.html" class="tag">postgres</a></div>
             </div>
@@ -117,7 +118,7 @@ to the in-memory backend.</p>
   For a simpler introduction to parsing and parsing concepts,
   see <a href="/writing-a-simple-json-parser.html">this post on
   parsing JSON</a>.
-</p><h3 id="lexing">Lexing</h3><p>The lexer is responsible for finding every distinct group of
+</p><p>The lexer is responsible for finding every distinct group of
 characters in source code: tokens. This will consist primarily of
 identifiers, numbers, strings, and symbols.</p>
 <p class="note">
@@ -231,7 +232,7 @@ in <code>lexer.go</code>:</p>
 <span class="p">}</span>
 </pre></div>
 <p>Then we'll write a helper for each kind of fundemental token.</p>
-<h4 id="analyzing-numbers">Analyzing numbers</h4><p>Numbers are the most complex. So we'll refer to the <a href="https://www.postgresql.org/docs/current/sql-syntax-lexical.html">PostgreSQL
+<p>Numbers are the most complex. So we'll refer to the <a href="https://www.postgresql.org/docs/current/sql-syntax-lexical.html">PostgreSQL
 documentation (section
 4.1.2.6)</a>
 for what constitutes a valid number.</p>

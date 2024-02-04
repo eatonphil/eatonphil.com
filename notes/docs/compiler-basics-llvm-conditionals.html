@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>May 4, 2019</h2>
             <h1>Writing a lisp compiler from scratch in JavaScript: 4. LLVM conditionals and compiling fibonacci</h1>
+	    <div class='realsubtitle'>Subtraction</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/javascript.html" class="tag">javascript</a><a href="/tags/compilers.html" class="tag">compilers</a><a href="/tags/llvm.html" class="tag">llvm</a><a href="/tags/lisp.html" class="tag">lisp</a></div>
             </div>
@@ -97,7 +98,7 @@ $<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><sp
 <p>To do this we'll have to add the <code><</code>, <code>-</code> and
 <code>if</code> built-ins.</p>
 <p><a href="https://github.com/eatonphil/ulisp">All source code is available on Github</a>.</p>
-<h3 id="subtraction">Subtraction</h3><p>This is the easiest to add since we already support addition. They are
+<p>This is the easiest to add since we already support addition. They are
 both arithmetic operations that produce an integer. We simply add a
 mapping of <code>-</code> to the LLVM instruction <code>sub</code> so
 our LLVM backend constructor (<code>src/backends/llvm.js</code>) looks

@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>May 1, 2020</h2>
             <h1>Writing a SQL database from scratch in Go: 3. indexes</h1>
+	    <div class='realsubtitle'>What is an index?</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/go.html" class="tag">go</a><a href="/tags/sql.html" class="tag">sql</a><a href="/tags/postgres.html" class="tag">postgres</a></div>
             </div>
@@ -93,7 +94,7 @@ during <code>SELECT</code> statements.</p>
 </pre></div>
 <p>This post will broadly be a discussion of <a href="https://github.com/eatonphil/gosql/commit/9608511d9888ce3842ec7d1bfa8f77499e8123b2">this
 commit</a>.</p>
-<h3 id="what-is-an-index?">What is an index?</h3><p>An index is a mapping of a value to a row in a table. The value is
+<p>An index is a mapping of a value to a row in a table. The value is
 often a column, but it can be many kinds of expressions. Databases
 typically store indexes in tree structures that provide O(log(n))
 lookup time. When <code>SELECT</code>ing and filtering on a column
@@ -127,7 +128,7 @@ use the index).</p>
 </ul>
 <h3 id="upgrading-table-creation">Upgrading table creation</h3><p>To allow the specification of a single column as the primary key when
 creating a table, we have to first modify the lexer and parser.</p>
-<h4 id="lexing/parsing">Lexing/parsing</h4><p>Since we've covered this process a few times already suffice it so say
+<p>Since we've covered this process a few times already suffice it so say
 we make the following key additions:</p>
 <ul>
 <li><a href="https://github.com/eatonphil/gosql/blob/9608511d9888ce3842ec7d1bfa8f77499e8123b2/lexer.go#L36">Add <code>PRIMARY KEY</code> as a new keyword token to the lexer</a></li>

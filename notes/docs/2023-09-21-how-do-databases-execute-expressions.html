@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>September 21, 2023</h2>
             <h1>How do databases execute expressions?</h1>
+	    <div class='realsubtitle'>Stepping back</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/mysql.html" class="tag">mysql</a><a href="/tags/sqlite.html" class="tag">sqlite</a><a href="/tags/sql.html" class="tag">sql</a><a href="/tags/interpreters.html" class="tag">interpreters</a></div>
             </div>
@@ -79,7 +80,7 @@ interpretation.</p>
   set of instructions. I say this since it is sometimes fair to call a
   tree-walking interpreter a virtual machine. But that is not what I
   mean when I say virtual machine in this post.
-</p><h3 id="stepping-back">Stepping back</h3><p>Programming languages are typically implemented by turning an
+</p><p>Programming languages are typically implemented by turning an
 Abstract Syntax Tree (AST) into a linear set of instructions
 for a virtual machine (e.g. CPython, Java, C#) or native code
 (e.g. GCC's C compiler, Go, Rust). Some of the former implementations
@@ -108,7 +109,7 @@ compiler hooked up. Which isn't quite the same thing. There has also
 been <a href="https://www.cs.cornell.edu/~asampson/blog/flattening.html">some early exploration and
 improvements</a>
 reported when tree-walking with a tree organized as an array.</p>
-<h4 id="and-databases?">And databases?</h4><p>Databases often interpret directly off a tree. (It isn't, generally
+<p>Databases often interpret directly off a tree. (It isn't, generally
 speaking, fair to say they are AST-walking interpreters because
 databases typically transform and optimize beyond just an AST as
 parsed from user code.)</p>

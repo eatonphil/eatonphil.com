@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>January 9, 2024</h2>
             <h1>Writing a minimal in-memory storage engine for MySQL/MariaDB</h1>
+	    <div class='realsubtitle'>MySQL and MariaDB</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/c++.html" class="tag">c++</a><a href="/tags/mysql.html" class="tag">mysql</a><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/databases.html" class="tag">databases</a></div>
             </div>
@@ -86,7 +87,7 @@ compares to the Postgres one, based on <a href="https://notes.eatonphil.com/2023
 did</a>.</p>
 <p>All code for this post can be found in <a href="https://github.com/eatonphil/mariadb/tree/11.4/storage/memem">my fork on
 GitHub</a>.</p>
-<h3 id="mysql-and-mariadb">MySQL and MariaDB</h3><p>Before we go further though, why do I keep saying MySQL/MariaDB?</p>
+<p>Before we go further though, why do I keep saying MySQL/MariaDB?</p>
 <p>MySQL is GPL licensed (let's completely ignore the commercial
 variations of MySQL that Oracle offers). The code is
 open-source. However, the development is done behind closed
@@ -131,7 +132,7 @@ mostly the same. But the database is magically faster for a workload.</p>
 <p>You keep powerful user management, extension support, SQL support, and
 a well-known wire protocol. You modify only the method of storing the
 actual data.</p>
-<h4 id="existing-storage-engines">Existing storage engines</h4><p>MySQL/MariaDB is particularly well known for its custom storage engine
+<p>MySQL/MariaDB is particularly well known for its custom storage engine
 support. The MySQL docs for <a href="https://dev.mysql.com/doc/refman/8.0/en/storage-engines.html">alternate storage
 engines</a>
 are great.</p>

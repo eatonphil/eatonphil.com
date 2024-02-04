@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>January 20, 2019</h2>
             <h1>Writing a lisp compiler from scratch in JavaScript: 2. user-defined functions and variables</h1>
+	    <div class='realsubtitle'>Function definition</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/javascript.html" class="tag">javascript</a><a href="/tags/lisp.html" class="tag">lisp</a><a href="/tags/compilers.html" class="tag">compilers</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64</a></div>
             </div>
@@ -82,7 +83,7 @@ and variables. Additionally, we'll require the program's entrypoint to
 be within a <code>main</code> function.</p>
 <p>The resulting code can be found
 <a href="https://github.com/eatonphil/ulisp">here</a>.</p>
-<h3 id="function-definition">Function definition</h3><p>The simplest function definition we need to support is for our <code>main</code>
+<p>The simplest function definition we need to support is for our <code>main</code>
 function. This will look like this:</p>
 <div class="highlight"><pre><span></span><span class="nv">$</span><span class="w"> </span><span class="nv">cat</span><span class="w"> </span><span class="nv">basic.lisp</span>
 <span class="p">(</span><span class="nv">def</span><span class="w"> </span><span class="nv">main</span><span class="w"> </span><span class="p">()</span>
@@ -109,7 +110,7 @@ definitions are introduced:</p>
 <li>Function calling conventions for the <strong>callee</strong></li>
 <li>Variable scope</li>
 </ul>
-<h4 id="function-definitions">Function definitions</h4><p>A function definition looks like a function call. So we'll need to
+<p>A function definition looks like a function call. So we'll need to
 keep a list of "primitive" functions that handle what looks like
 function calls differently.</p>
 <div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">compile_define</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>

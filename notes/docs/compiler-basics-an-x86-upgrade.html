@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>December 8, 2019</h2>
             <h1>Writing a lisp compiler from scratch in JavaScript: 6. an x86 upgrade</h1>
+	    <div class='realsubtitle'>Stack-based languages</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/javascript.html" class="tag">javascript</a><a href="/tags/lisp.html" class="tag">lisp</a><a href="/tags/compilers.html" class="tag">compilers</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64</a></div>
             </div>
@@ -94,7 +95,7 @@ integers to stdout that we support in the LLVM backend.</p>
 Github</a>.</p>
 <p>But first a digression into how this is suddenly easy for us to do
 with x86 and one-pass (sorta) code generation.</p>
-<h3 id="stack-based-languages">Stack-based languages</h3><p>Stack-based languages have the extremely convenient attribute that
+<p>Stack-based languages have the extremely convenient attribute that
 values are (by default) stored on the stack, which allows a code
 generator targeting a stack-based language the option to omit handling
 register allocation. And as it happens, x86 has enough support to make
@@ -456,7 +457,7 @@ return result in the first argument</li>
 putting the return result in <code>RAX</code> and possibly
 <code>RDX</code></li>
 </ul>
-<h4 id="preparegeneral">prepareGeneral</h4><p>This helper will compile its two arguments and pop the second argument
+<p>This helper will compile its two arguments and pop the second argument
 into <code>RAX</code>. This is because x86 instructions typically
 require one argument to be a register if one argument is allowed to be
 a memory address.</p>

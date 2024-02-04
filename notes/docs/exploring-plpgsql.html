@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>October 24, 2021</h2>
             <h1>Exploring PL/pgSQL: Strings, arrays, recursion, and parsing JSON</h1>
+	    <div class='realsubtitle'>Creating functions</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/plpgsql.html" class="tag">plpgsql</a><a href="/tags/recursion.html" class="tag">recursion</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/json.html" class="tag">json</a><a href="/tags/databases.html" class="tag">databases</a></div>
             </div>
@@ -77,7 +78,7 @@ no decimals).</p>
 is already built into PostgreSQL) but simply to get more familiar with
 the PL/pgSQL language.</p>
 <p>All code for this post is available on <a href="https://github.com/eatonphil/exploring-plpgsql">Github</a>.</p>
-<h3 id="creating-functions">Creating functions</h3><p>Functions are declared like tables. Here's a very simple one that
+<p>Functions are declared like tables. Here's a very simple one that
 returns the length of a string:</p>
 <div class="highlight"><pre><span></span><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">slength</span><span class="p">(</span><span class="n">s</span><span class="w"> </span><span class="nb">text</span><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="nb">int</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
 <span class="k">BEGIN</span>
@@ -90,7 +91,7 @@ the point is to see a basic custom function.</p>
 <p>All statements in PL/pgSQL must end in a semicolon. Arguments do not
 have to be named. If they are not named they get default names of <code>$1</code>
 to <code>$N</code>.</p>
-<h4 id="named/unnamed-arguments">Named/unnamed arguments</h4><p>Here's how the function could be written without named arguments:</p>
+<p>Here's how the function could be written without named arguments:</p>
 <div class="highlight"><pre><span></span><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">slength</span><span class="p">(</span><span class="nb">text</span><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="nb">int</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
 <span class="k">BEGIN</span>
 <span class="w">  </span><span class="k">RETURN</span><span class="w"> </span><span class="k">length</span><span class="p">(</span><span class="err">$</span><span class="mi">1</span><span class="p">);</span>

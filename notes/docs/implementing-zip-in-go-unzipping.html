@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>November 23, 2021</h2>
             <h1>Implementing zip archiving in Golang: unzipping</h1>
+	    <div class='realsubtitle'>Structure</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/go.html" class="tag">go</a><a href="/tags/zip.html" class="tag">zip</a></div>
             </div>
@@ -92,7 +93,7 @@ complicated!</p>
 000000b1
 </pre></div>
 <p>We can see both the file name and the file contents in there.</p>
-<h3 id="structure">Structure</h3><p>Let's take a look at the zip structure defined
+<p>Let's take a look at the zip structure defined
 <a href="https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT">here</a>. Based
 on section 4.3.6 it looks like file metadata followed by the file
 contents are stored one after another with a final chunk of "central

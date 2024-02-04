@@ -256,6 +256,12 @@ li code,
     font-weight: 500;
 }
 
+.realsubtitle {
+    font-family: var(--serif);
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+}
+
 .tags {
     padding-bottom: 5px;
     font-family: var(--sans-serif);

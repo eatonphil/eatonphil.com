@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>March 28, 2022</h2>
             <h1>Writing a document database from scratch in Go: Lucene-like filters and indexes</h1>
+	    <div class='realsubtitle'>Server basics</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/go.html" class="tag">go</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/elasticsearch.html" class="tag">elasticsearch</a></div>
             </div>
@@ -112,7 +113,7 @@ faster.</p>
   Furthermore, this post will not implement full text search.
 </p><p>All code for this project is <a href="https://github.com/eatonphil/docdb">available on
 Github</a>. Let's get started.</p>
-<h3 id="server-basics">Server basics</h3><p>Run <code>go mod init</code> and set up <code>main.go</code> with <a href="https://github.com/julienschmidt/httprouter">Julien Schmidt's
+<p>Run <code>go mod init</code> and set up <code>main.go</code> with <a href="https://github.com/julienschmidt/httprouter">Julien Schmidt's
 httprouter</a>. We'll create
 three routes: one for inserting a document, one for retrieving a
 document by its id, and one for searching for documents.</p>
@@ -207,7 +208,7 @@ upgrade the <code>server</code> struct to store an instance of a Pebble database
 </pre></div>
 <p>In the future these server settings could be user-configurable. For
 now they're hard-coded.</p>
-<h4 id="storing-data">Storing data</h4><p>When the user sends a JSON document we need to give it a unique ID and
+<p>When the user sends a JSON document we need to give it a unique ID and
 store the ID and document in the database. Since we're using a
 key-value storage engine we'll just use the ID as the key and the JSON
 document as the value.</p>

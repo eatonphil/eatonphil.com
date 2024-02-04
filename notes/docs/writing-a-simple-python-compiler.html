@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>August 16, 2020</h2>
             <h1>Writing a simple Python compiler: 1. hello, fibonacci</h1>
+	    <div class='realsubtitle'>Dependencies</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/python.html" class="tag">python</a><a href="/tags/compilers.html" class="tag">compilers</a><a href="/tags/cpython.html" class="tag">cpython</a><a href="/tags/c.html" class="tag">c</a></div>
             </div>
@@ -87,7 +88,7 @@ compile and run the following program:</p>
 cannot fathom manual reference counting. Maybe some day I'll find a
 way to swap in an easy GC like Boehm.</p>
 <p><a href="https://github.com/eatonphil/pyc">Source code for this project is available on Github.</a></p>
-<h3 id="dependencies">Dependencies</h3><p>We'll need Python3, GCC, libpython3, and clang-format.</p>
+<p>We'll need Python3, GCC, libpython3, and clang-format.</p>
 <p>On Fedora-based systems:</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>sudo<span class="w"> </span>dnf<span class="w"> </span>install<span class="w"> </span>gcc<span class="w"> </span>python3-devel<span class="w"> </span>clang-format<span class="w"> </span>python3
 </pre></div>
@@ -484,7 +485,7 @@ break this out into 10 helper functions. It is helpful to have the
 <a href="https://docs.python.org/3/library/ast.html#abstract-grammar">AST
 spec</a> for
 reference.</p>
-<h4 id="1/10:-generate">1/10: generate</h4><p>The entrypoint of the code generator is <code>generate(ctx: Context,
+<p>The entrypoint of the code generator is <code>generate(ctx: Context,
 exp)</code>. It generates code for any object with a <code>body</code>
 attribute storing a list of statements. This function will generate
 code for objects like modules, function bodies, if bodies, etc.</p>

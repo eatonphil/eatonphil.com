@@ -52,6 +52,7 @@
 	  <div class="">
             <h2>July 10, 2022</h2>
             <h1>Implementing a simple jq clone in Go, and basics of Go memory profiling</h1>
+	    <div class='realsubtitle'>Machine specs, versions</div>
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/go.html" class="tag">go</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/profiling.html" class="tag">profiling</a><a href="/tags/json.html" class="tag">json</a></div>
             </div>
@@ -92,7 +93,7 @@ implementation</a>.</p>
 profiler to find what we can do to make it faster.</p>
 <p>All code for this post is <a href="https://github.com/eatonphil/jqgo">available on
 Github</a>.</p>
-<h3 id="machine-specs,-versions">Machine specs, versions</h3><p>Since we're going to be doing some rudimentary comparisons of
+<p>Since we're going to be doing some rudimentary comparisons of
 performance, here are my details. I am running everything on a
 dedicated server, <a href="https://us.ovhcloud.com/bare-metal/rise/rise-1/">OVH
 Rise-1</a>.</p>
@@ -454,7 +455,7 @@ go into this key).</p>
 the <code>eatValue</code> function that partially parses JSON and 2) the
 <code>expectValue</code> function that either encounters a scalar value and
 returns it or recursively calls <code>extractDataFromJsonPath</code> to enter some new object.</p>
-<h4 id="notes-on-helper-naming">Notes on helper naming</h4><p>There are three main kinds of helpers you'll see. <code>expectX</code> helpers
+<p>There are three main kinds of helpers you'll see. <code>expectX</code> helpers
 like <code>expectString</code> will return early with an error if they fail to
 find what they're looking for. <code>eatX</code> helpers like <code>eatWhitespace</code>
 will not return any value and will only move the read cursor
