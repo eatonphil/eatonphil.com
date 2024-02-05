@@ -80,9 +80,10 @@ A typical implementation of Raft for example will require 3 nodes in a
 5-node cluster to agree before continuing. 4 nodes in a 7-node
 cluster. And so on.
 
-Recall also that p99 latency of a service is at least as bad as the
-slowest request that service must make. As you increase the number of
-nodes you must talk to, you increase the chance of a slow request.
+Recall that the p99 latency for a service is at least as bad as the
+slowest external request the service must make. As you increase the
+number of nodes you must talk to in a consensus cluster, you increase
+the chance of a slow request.
 
 Consider the extreme case of a 101-node cluster requiring 51 nodes to
 respond before returning to the client. That's 51 chances for a slower
@@ -90,7 +91,7 @@ request. Compared to 4 chances in a 7-node cluster. The 101-node
 cluster is certainly more highly available though! It can tolerate 49
 nodes going down.
 
-So as you add nodes to increase availability, you increase p99
+As you add nodes to increase availability, you increase p99
 latency. As you add nodes to the cluster, it takes *longer* to reach
 consensus for a value because more nodes in total must agree.
 

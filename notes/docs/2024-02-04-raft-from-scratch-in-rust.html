@@ -120,15 +120,16 @@ proportional to the total number of nodes in the cluster.</p>
 <p>A typical implementation of Raft for example will require 3 nodes in a
 5-node cluster to agree before continuing. 4 nodes in a 7-node
 cluster. And so on.</p>
-<p>Recall also that p99 latency of a service is at least as bad as the
-slowest request that service must make. As you increase the number of
-nodes you must talk to, you increase the chance of a slow request.</p>
+<p>Recall that the p99 latency for a service is at least as bad as the
+slowest external request the service must make. As you increase the
+number of nodes you must talk to in a consensus cluster, you increase
+the chance of a slow request.</p>
 <p>Consider the extreme case of a 101-node cluster requiring 51 nodes to
 respond before returning to the client. That's 51 chances for a slower
 request. Compared to 4 chances in a 7-node cluster. The 101-node
 cluster is certainly more highly available though! It can tolerate 49
 nodes going down.</p>
-<p>So as you add nodes to increase availability, you increase p99
+<p>As you add nodes to increase availability, you increase p99
 latency. As you add nodes to the cluster, it takes <em>longer</em> to reach
 consensus for a value because more nodes in total must agree.</p>
 <h3 id="horizontal-scaling-with-distributed-consensus?-not-exactly">Horizontal scaling with distributed consensus? Not exactly</h3><p>All of this is to say that the most popular algorithms for distributed
