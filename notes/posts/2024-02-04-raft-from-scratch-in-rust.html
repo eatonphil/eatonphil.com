@@ -18,6 +18,9 @@ Unlike most languages today, Rust keeps the standard library very
 small. But by avoiding third-party libraries it helps to show you I'm not
 hiding anything. There's no magic.
 
+All code for this post is [available on
+GitHub](https://github.com/eatonphil/raft-rs).
+
 ### Distributed consensus
 
 Distributed consensus helps a group of nodes, a cluster, agree on
@@ -41,6 +44,14 @@ database might have two read replicas. But a client reading from a
 read replica might get stale data. Thus, this system (a database with
 two read replicas) is not linearizable.
 
+<p class="note">
+  If "linearizable" sounded arcane as a term, it might sound a little
+  more useful now. It's very nice, and often even critical, to have a
+  highly available system that will never give you stale
+  data. Linearizability is a convenient way of thinking about complex
+  systems, if you can use or build a system that supports it.
+</p>
+
 Without consensus you might also try synchronous replication. This
 could be very simple. You have a cluster of nodes and a permanent
 leader and have the leader write every message to every follower and
@@ -59,12 +70,7 @@ Well, these are not trivial problems! And, beyond linearizability that
 we already mentioned, these problems are exactly what distributed
 consensus solves.
 
-### Horizontal scaling? Not quite
-
-Distributed consensus, on its own, has nothing to do with horizontal
-scaling. What's more, at some point horizontally scaling the
-distributed consensus cluster itself can actually make the system
-perform significantly worse.
+### Just add nodes?
 
 Distributed consensus algorithms make sure that some minimum number of
 nodes in a cluster agree before continuing. The minimum number is
@@ -74,15 +80,28 @@ A typical implementation of Raft for example will require 3 nodes in a
 5-node cluster to agree before continuing. 4 nodes in a 7-node
 cluster. And so on.
 
-You can add nodes to increase availability, but at some point as you
-keep adding nodes you will make the overall system *less reliable* as
-more nodes most reach consensus for the algorithm to make progress. As
-you add nodes to the cluster, it actually takes *longer* to reach
+Recall also that p99 latency of a service is at least as bad as the
+slowest request that service must make. As you increase the number of
+nodes you must talk to, you increase the chance of a slow request.
+
+Consider the extreme case of a 101-node cluster requiring 51 nodes to
+respond before returning to the client. That's 51 chances for a slower
+request. Compared to 4 chances in a 7-node cluster. The 101-node
+cluster is certainly more highly available though! It can tolerate 49
+nodes going down.
+
+So as you add nodes to increase availability, you increase p99
+latency. As you add nodes to the cluster, it takes *longer* to reach
 consensus for a value because more nodes in total must agree.
 
+### Horizontal scaling with distributed consensus? Not exactly
+
+All of this is to say that the most popular algorithms for distributed
+consensus, on their own, have nothing to do with horizontal scaling.
+
 The way that horizontally scaling databases like Cockroach or Yugabyte
-or Spanner work is by partitioning the data and replicating with a
-distributed consensus cluster independently for each partition.
+or Spanner work is by partitioning the data. Within each partition
+data is replicated with a dedicated distributed consensus cluster.
 
 So, yes, distributed consensus *can* be a part of horizontal
 scaling. But again what it primarily solves is high availability via
@@ -92,7 +111,7 @@ This is not a trivial point to
 make. [etcd](https://web.archive.org/web/20230327030543/https://etcd.io/docs/v3.2/learning/why/#using-etcd-for-metadata),
 [consul](https://web.archive.org/web/20231212132325/https://www.hashicorp.com/resources/operating-and-running-consul-at-scale),
 and [rqlite](https://github.com/rqlite/rqlite) are examples of
-databases that do not do partitioning, only replication via a single
+databases that do not do partitioning, only replication, via a single
 Raft cluster that replicates all data for the entire system.
 
 For these databases there is no horizontal scaling. If they support
@@ -104,7 +123,7 @@ advantage they have over Cockroach or Spanner is that they are
 conceptually simpler. Conceptually simpler often equates to easier to
 operate. That's a big deal.
 
-By the end of this post you'd be able to easily implement an etcd-like
+By the end of this post you'll be able to easily implement an etcd-like
 API on top of the Raft library we build by following one of my
 [previous posts on
 Raft](https://notes.eatonphil.com/tags/raft.html). Every one of which
@@ -138,13 +157,62 @@ this, in the worst case of a follower that completely lost all
 history, by ultimately going all the way back to the very first
 message ever sent.
 
-When a quorum (basically, a majority) of followers has accepted a
+When a quorum (basically, a majority) of nodes has accepted a
 message, the leader marks the message as committed and applies the
 message to its own state machine. When followers learn about newly
 committed entries (the `commit_index` number goes up), they also apply
 committed entries to their own state machine.
 
 There's more to it we'll cover as we go but this is the gist.
+
+Let's dig into some code!
+
+### Architecture
+
+There are three major components we can break this implementation
+into.
+
+1. Reading and writing log entries and Raft metadata to disk
+2. Sending and receiving Raft messages over the network
+3. The core Raft state machine
+
+We'll tackle the implementation in this order.
+
+And we'll keep a few principles in mind as we go:
+
+1. No third-party libraries (I already mentioned this)
+2. All data read or written over network or disk will be checksummed
+   for integrity
+3. We'll make heavy use of assertions for clarity and safety
+4. Unit tests and end-to-end tests are critical aids for sanity, and
+   were part of the development process, but they will be omitted from
+   the walk through
+
+The entire implementation will fit into one file. 2k lines of code
+without tests.
+
+We'll start out with a couple of imports in `src/lib.rs`:
+
+```rust
+// References:
+// [0] In Search of an Understandable Consensus Algorithm (Extended Version) -- https://raft.github.io/raft.pdf
+
+use std::convert::TryInto;
+use std::io::Seek;
+use std::io::{BufReader, BufWriter, Read, Write};
+use std::net::SocketAddr;
+use std::os::unix::prelude::FileExt;
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::{Duration, Instant};
+```
+
+### Disk
+
+
+
+### RPC
+
+### Raft State Machine
 
 ### Further reading
 
@@ -153,4 +221,5 @@ There's more to it we'll cover as we go but this is the gist.
 - [The Raft Author's PhD Thesis on Raft](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf)
 - [Designing Data-Intensive Applications](https://dataintensive.net/)
 
-Thank you to Paul Nowoczynski for reviewing this post.
+Thank you to Paul Nowoczynski, Alex Miller, and Jack Vanlightly for
+reviewing drafts of this post.
