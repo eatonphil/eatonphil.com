@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>August 21, 2021</h2>
             <h1>Parser generators vs. handwritten parsers: surveying major language implementations in 2021</h1>
-	    <div class='realsubtitle'>CPython: PEG parser</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/compilers.html" class="tag">compilers</a><a href="/tags/interpreters.html" class="tag">interpreters</a></div>
             </div>
@@ -68,7 +68,7 @@ courses in university teach lex/yacc variants. But do any modern
 programming languages actually use parser generators anymore?</p>
 <p>To find out, this post presents a non-definitive survey of the parsing
 techniques used by various major programming language implementations.</p>
-<p>Until CPython 3.10 (which hasn't been released yet) the default parser
+<h3 id="cpython:-peg-parser">CPython: PEG parser</h3><p>Until CPython 3.10 (which hasn't been released yet) the default parser
 was built using <a href="https://www.python.org/dev/peps/pep-0269/">pgen</a>, a
 custom parser generator. The team thought the PEG parser was a <a href="https://www.python.org/dev/peps/pep-0617/">better
 fit for expressing the

@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>November 26, 2020</h2>
             <h1>Emulating linux/AMD64 userland: interpreting an ELF binary</h1>
-	    <div class='realsubtitle'>Background</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/emulators.html" class="tag">emulators</a><a href="/tags/assembly.html" class="tag">assembly</a><a href="/tags/linux.html" class="tag">linux</a><a href="/tags/x86-amd64.html" class="tag">x86/amd64</a><a href="/tags/go.html" class="tag">go</a></div>
             </div>
@@ -81,7 +81,7 @@ $<span class="w"> </span>./main<span class="w"> </span>a.out<span class="w"> </s
 with a binary or how instructions are encoded, it will take a few
 hours to write an emulator that can generally handle this program!</p>
 <p>Code for this project is <a href="https://github.com/eatonphil/go-amd64-emulator">available on Github</a>.</p>
-<p>AMD64, x86_64 or x64 are different names for AMD's widely adopted
+<h3 id="background">Background</h3><p>AMD64, x86_64 or x64 are different names for AMD's widely adopted
 64-bit extension to Intel's x86 instruction set (i.e. the encoding and
 semantics of x86 binaries). AMD64 is a superset of x86 (introducing
 64-bit registers and operations) and thus backwards compatible with
@@ -491,7 +491,7 @@ a set of prefix instructions and a set of real instructions. So far we
 should be able to tell on the first byte whether the instruction is a
 prefix instruction and, if not, how many bytes the instruction will
 take up on the whole.</p>
-<p>To support a new instruction, we'll look up <code>0x55</code> in an
+<h4 id="push">push</h4><p>To support a new instruction, we'll look up <code>0x55</code> in an
 opcode table like <a href="http://ref.x86asm.net/coder64.html">this</a>. Clicking
 on <a href="http://ref.x86asm.net/coder64.html#x50">55</a> in the opcode index we
 see that this is indeed a push instruction. <code>50+r</code> means

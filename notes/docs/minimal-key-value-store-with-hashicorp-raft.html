@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>September 17, 2022</h2>
             <h1>A minimal distributed key-value database with Hashicorp's Raft library</h1>
-	    <div class='realsubtitle'>Eine kleine background</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/go.html" class="tag">go</a><a href="/tags/raft.html" class="tag">raft</a><a href="/tags/databases.html" class="tag">databases</a></div>
             </div>
@@ -97,7 +97,7 @@ $<span class="w"> </span>curl<span class="w"> </span><span class="s1">&#39;local
 <span class="o">{</span><span class="s2">&quot;data&quot;</span>:<span class="s2">&quot;23&quot;</span><span class="o">}</span>
 </pre></div>
 <p>Let's make it happen!</p>
-<p>Raft is an algorithm for managing a replicated (basically append-only)
+<h3 id="eine-kleine-background">Eine kleine background</h3><p>Raft is an algorithm for managing a replicated (basically append-only)
 log over a cluster of nodes. When you combine this with a state
 machine you get a stateful, distributed application. Log entries act
 as commands for the state machine. When a node in the Raft cluster
@@ -145,7 +145,7 @@ in-memory key-value store will still be durable.</p>
 </pre></div>
 <p>There are three operations this Raft library wants us to implement on
 our state machine struct.</p>
-<p>The Apply operation is sent to basically-up-to-date nodes to keep them
+<h4 id="apply">Apply</h4><p>The Apply operation is sent to basically-up-to-date nodes to keep them
 up to date. An Apply call is made for each new log the leader commits.</p>
 <p>Each log message will contain a key and value to store in the
 in-memory key-value store.</p>
@@ -332,7 +332,7 @@ process is started.</p>
 <span class="p">}</span>
 </pre></div>
 <h4 id="key-value-storage">Key-value storage</h4><p>This part of the HTTP API exposes setting and getting.</p>
-<p>Setting is where, instead of modifying the local database directly, we
+<h5 id="set">Set</h5><p>Setting is where, instead of modifying the local database directly, we
 pass a message to the Raft cluster to store a log that contains the
 key and value.</p>
 <p>Since we read log messages in <code>kvFsm.Apply</code> and <code>kvFsm.Restore</code> as a

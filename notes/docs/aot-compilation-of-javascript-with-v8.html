@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>February 26, 2019</h2>
             <h1>AOT-compilation of Javascript with V8</h1>
-	    <div class='realsubtitle'>The first pass</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/javascript.html" class="tag">javascript</a><a href="/tags/c++.html" class="tag">c++</a><a href="/tags/compilers.html" class="tag">compilers</a><a href="/tags/rust.html" class="tag">rust</a><a href="/tags/typescript.html" class="tag">typescript</a><a href="/tags/v8.html" class="tag">v8</a></div>
             </div>
@@ -92,7 +92,7 @@ management, operations, interacting with existing libraries, etc. when
 an interpreter already exists. The runtime as a library (plus existing
 parser frontends) allows you to focus solely on code generation of
 control flow.</p>
-<p>I wrote the initial version of <a href="https://github.com/eatonphil/jsc">jsc</a>
+<h3 id="the-first-pass">The first pass</h3><p>I wrote the initial version of <a href="https://github.com/eatonphil/jsc">jsc</a>
 in Rust using Dave Herman's
 <a href="https://github.com/dherman/esprit">esprit</a> parser (supports a subset
 of ES6 that includes all of ES5).</p>
@@ -110,7 +110,7 @@ of ES6 that includes all of ES5).</p>
 <li>Calling convention</li>
 </ul>
 <p>And so on.</p>
-<p>This first version of jsc could take the following Javascript:</p>
+<h4 id="an-example">An example</h4><p>This first version of jsc could take the following Javascript:</p>
 <div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">fib</span><span class="p">(</span><span class="nx">n</span><span class="p">,</span><span class="w"> </span><span class="nx">a</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">n</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mf">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">a</span><span class="p">;</span>

@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>May 10, 2020</h2>
             <h1>Writing a SQL database from scratch in Go: 4. a database/sql driver</h1>
-	    <div class='realsubtitle'>Implementing the driver</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/go.html" class="tag">go</a><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/sql.html" class="tag">sql</a><a href="/tags/postgres.html" class="tag">postgres</a></div>
             </div>
@@ -137,7 +137,7 @@ in structs that implement the <code>database/sql/driver.Driver</code>
 interface.</p>
 <p>This post is largely a discussion of <a href="https://github.com/eatonphil/gosql/commit/0d0aa61a74580a6aef11296741abfba4e1d4ae5c">this
 commit</a>.</p>
-<p>A driver is registered by calling <code>sql.Register</code> with a
+<h3 id="implementing-the-driver">Implementing the driver</h3><p>A driver is registered by calling <code>sql.Register</code> with a
 driver instance.</p>
 <p>We'll add the registration code to an <code>init</code> function in a
 new file, <code>driver.go</code>:</p>

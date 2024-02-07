@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>May 14, 2019</h2>
             <h1>Tail call elimination</h1>
-	    <div class='realsubtitle'>Tail calls</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/tail-call-optimization.html" class="tag">tail call optimization</a><a href="/tags/interpreters.html" class="tag">interpreters</a><a href="/tags/compilers.html" class="tag">compilers</a><a href="/tags/tco.html" class="tag">tco</a></div>
             </div>
@@ -65,7 +65,7 @@
         <p>In this post we'll explore what tail calls are, why they are useful,
 and how they can be eliminated in an interpreter, a compiler targeting
 C++, and a compiler targeting LLVM IR.</p>
-<p>A tail call is a function call made at the end of a block that
+<h3 id="tail-calls">Tail calls</h3><p>A tail call is a function call made at the end of a block that
 returns the value of the call (some languages do not force this
 <code>return</code> requirement). Here are a few examples.</p>
 <div class="highlight"><pre><span></span><span class="kd">function</span><span class="w"> </span><span class="nx">tailCallEx1</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
@@ -375,7 +375,7 @@ very simple:</p>
 <span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="sb">`ret </span><span class="si">${</span><span class="nx">destination</span><span class="p">.</span><span class="nx">type</span><span class="si">}</span><span class="sb"> %</span><span class="si">${</span><span class="nx">destination</span><span class="p">.</span><span class="nx">value</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 <span class="p">}</span>
 </pre></div>
-<p>The resulting generated code (run through
+<h4 id="generated-assembly">Generated assembly</h4><p>The resulting generated code (run through
 <a href="https://llvm.org/docs/CommandGuide/llc.html">llc</a>) for that call will
 be:</p>
 <div class="highlight"><pre><span></span><span class="na">...</span>

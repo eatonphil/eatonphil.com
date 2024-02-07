@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>May 25, 2023</h2>
             <h1>Implementing the Raft distributed consensus protocol in Go</h1>
-	    <div class='realsubtitle'>The algorithm</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/go.html" class="tag">go</a><a href="/tags/raft.html" class="tag">raft</a></div>
             </div>
@@ -82,7 +82,7 @@ it seems generally correct. This is not intended to be used in
 production. It's just for my education.</p>
 <p>All code for this project is <a href="https://github.com/eatonphil/goraft">available on GitHub</a>.</p>
 <p>Let's dig in!</p>
-<p><a href="https://raft.github.io/raft.pdf">The Raft paper</a> itself is quite
+<h3 id="the-algorithm">The algorithm</h3><p><a href="https://raft.github.io/raft.pdf">The Raft paper</a> itself is quite
 readable. Give it a read and you'll get the basic idea.</p>
 <p>The gist is that nodes in a cluster conduct elections to pick
 a leader. Users of the Raft cluster send messages to the leader. The
@@ -209,7 +209,7 @@ bytes:</p>
 <span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">c</span>
 <span class="p">}</span>
 </pre></div>
-<p>Now that we've modeled the key-value store as a state machine. Let's
+<h4 id="http-api">HTTP API</h4><p>Now that we've modeled the key-value store as a state machine. Let's
 build the HTTP endpoints that allow the user to operate the state
 machine through the Raft cluster.</p>
 <p>First, let's implement the <code>set</code> operation. We need to grab the key
@@ -1675,7 +1675,7 @@ like to make that more like <code>100ms</code>:</p>
 <p>It's mostly the <code>persist()</code> function that causes <code>go-deadlock</code> to
 think there's a deadlock because it tries to synchronously write a
 bunch of data to disk.</p>
-<p>The <code>go-deadlock</code> package is incredibly useful. But don't forget to
+<h5 id="<code>go-deadlock</code>-is-slow"><code>go-deadlock</code> is slow</h5><p>The <code>go-deadlock</code> package is incredibly useful. But don't forget to
 turn it off for benchmarks. With it on I get around 4-8k
 entries/second. With it off I get around 20k-40k entries/second.</p>
 <h4 id="unbounded-memory">Unbounded memory</h4><p>Another issue in this implementation is that the log keeps growing

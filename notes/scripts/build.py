@@ -55,8 +55,9 @@ class Renderer(mistune.Renderer):
         self.title = {}
 
     def header(self, text, level, *args, **kwargs):
-        if level not in self.title:
+        if level not in self.title and level != 3:
             self.title[level] = text
+        if level < 3:
             return ""
         if level == 6:
             return ""

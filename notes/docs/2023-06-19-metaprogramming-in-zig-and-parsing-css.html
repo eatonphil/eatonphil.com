@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>June 19, 2023</h2>
             <h1>Metaprogramming in Zig and parsing CSS</h1>
-	    <div class='realsubtitle'>Parsing CSS</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/zig.html" class="tag">zig</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/css.html" class="tag">css</a></div>
             </div>
@@ -80,7 +80,7 @@ on GitHub</a>.</p>
 <p>If you want to skip the parsing steps and just see the
 metaprogramming, jump to the implementation of
 <a href="#&lt;code&gt;match_property&lt;/code&gt;">match_property</a>.</p>
-<p>Let's imagine a CSS that only has alphabetical selectors, property
+<h3 id="parsing-css">Parsing CSS</h3><p>Let's imagine a CSS that only has alphabetical selectors, property
 names and values.</p>
 <p>The following would be valid:</p>
 <div class="highlight"><pre><span></span><span class="nt">div</span><span class="w"> </span><span class="p">{</span>
@@ -159,7 +159,7 @@ increments a cursor into the css file while it sees whitespace.</p>
 <p>In our stripped-down version of CSS all we have to think about is
 ASCII. So the builtin <code>std.ascii.isWhitespace()</code> function is perfect.</p>
 <p>Next, parsing CSS rules.</p>
-<p>A rule consists of a selector, opening curly braces, any number of
+<h4 id="<code>parse_rule()</code>"><code>parse_rule()</code></h4><p>A rule consists of a selector, opening curly braces, any number of
 properties, and closing curly braces. We need to remember to eat
 whitespace between each piece of syntax.</p>
 <p>And we'll reference a few more parsing helpers we'll talk about next

@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>November 13, 2022</h2>
             <h1>Writing a SQL database, take two: Zig and RocksDB</h1>
-	    <div class='realsubtitle'>Components</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/zig.html" class="tag">zig</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/sql.html" class="tag">sql</a><a href="/tags/rocksdb.html" class="tag">rocksdb</a></div>
             </div>
@@ -123,7 +123,7 @@ unlike that series this project will have persistent storage via
 RocksDB.</p>
 <p>And unlike that post, this project is written in Zig!</p>
 <p>Let's get started. :)</p>
-<p>We're going to split up the project into the following major
+<h3 id="components">Components</h3><p>We're going to split up the project into the following major
 components:</p>
 <ul>
 <li>Lexing</li>
@@ -288,7 +288,7 @@ array of tokens.</p>
 <span class="w">    </span><span class="n">tokens</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">debug</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span>
 <span class="p">}</span>
 </pre></div>
-<p>Before we get too far from <code>Token</code> definition, let's define a mapping
+<h4 id="token-&lt;&gt;-string-mapping">Token &lt;&gt; String Mapping</h4><p>Before we get too far from <code>Token</code> definition, let's define a mapping
 from the <code>Token.kind</code> enum to strings we can see in a query.</p>
 <div class="highlight"><pre><span></span><span class="kr">const</span><span class="w"> </span><span class="n">Builtin</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="n">String</span><span class="p">,</span>

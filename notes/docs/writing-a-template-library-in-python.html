@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>May 23, 2021</h2>
             <h1>Writing a Jinja-inspired template library in Python</h1>
-	    <div class='realsubtitle'>Specification</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/python.html" class="tag">python</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/template-library.html" class="tag">template-library</a></div>
             </div>
@@ -124,7 +124,7 @@ able to create this program:</p>
 </pre></div>
 <p>All code is available on
 <a href="https://github.com/eatonphil/pytemplate">Github</a>. Let's dig in.</p>
-<p>In this templating language, pytemplate, <code>{% $function () %}
+<h3 id="specification">Specification</h3><p>In this templating language, pytemplate, <code>{% $function () %}
 ... {% end$function %}</code> blocks are specially evaluated depending
 on the particular function being called. For example, the <code>for-in
 ($iter_name, $array)</code> function will duplicate its children for
@@ -458,7 +458,7 @@ special processing for blocks.</p>
 
         <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Unknown type: &#39;</span> <span class="o">+</span> <span class="n">item_type</span><span class="p">)</span>
 </pre></div>
-<p>A node is one of two things:</p>
+<h4 id="intepreting-nodes">Intepreting nodes</h4><p>A node is one of two things:</p>
 <ul>
 <li>A literal which is either a<ul>
 <li>String if surrounded by single quotes</li>

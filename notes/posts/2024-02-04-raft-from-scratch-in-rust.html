@@ -1,27 +1,29 @@
 <!-- -*- mode: markdown -*- -->
-# Building an intuition for distributed consensus in OLTP systems
-### And implementing Raft from scratch in Rust
-## February 5, 2024
-###### raft,rust,draft
+# An intuition for distributed consensus in OLTP systems
+## February 7, 2024
+###### raft,distributed consensus,draft
 
-This post is divided into two parts. First a discussion about Raft,
-building an intuition for distributed consensus in transactional
-(OLTP) systems. Second, a walk through a Raft implementation in
-Rust.
+After implementing Raft [in
+Go](https://notes.eatonphil.com/2023-05-25-raft.html) last year,
+running a book club reading [Designing Data Intensive
+Applications](https://eatonphil.com/2023-ddia.html), running another
+book club reading [Database
+Internals](https://eatonphil.com/2023-database-internals.html),
+implementing Raft a [second
+time](https://github.com/eatonphil/raft-rs) in Rust this year; and
+spending the last few years at companies built on distributed
+consensus, there's been a lot to digest and a lot to characterize.
 
-This Raft implementation uses no third-party libraries outside the
-Rust standard library. And it uses no `unsafe` code. This makes it
-more verbose in some ways than you might see in a real-world
-implementation.
+This post is an attempt to share some of the intuition built up
+reading about and working in this space. Originally this post was also
+going to end with a walkthrough of my most recent Raft implementation
+in Rust. But I'm going to hold off on that for another time.
 
-Unlike most languages today, Rust keeps the standard library very
-small. But by avoiding third-party libraries it helps to show you I'm not
-hiding anything. There's no magic.
+I'm not an expert on these topics, but I was fortunate to have a few
+experts review versions of this post: Paul Nowoczynski, Alex Miller,
+Jack Vanlightly, Daniel Chia, and Alex Petrov.
 
-All code for this post is [available on
-GitHub](https://github.com/eatonphil/raft-rs).
-
-### Distributed consensus
+### It's about availability
 
 Distributed consensus helps a group of nodes, a cluster, agree on
 a value. A client of the cluster can treat a value from the cluster,
@@ -30,8 +32,8 @@ written to and read from a single thread. This property is called
 [linearizability](https://jepsen.io/consistency/models/linearizable).
 
 However, with distributed consensus, the client of the cluster has
-better availability guarantees from the cluster than if it atomically
-wrote to or read from a single thread. A single process or node that
+better availability guarantees from the cluster than if the client
+atomically wrote to or read from a single thread. A single thread that
 crashes becomes unavailable. But some number `f` nodes can crash in a
 cluster implementing distributed consensus and still 1) be available
 and 2) provide linearizable reads and writes.
@@ -39,38 +41,89 @@ and 2) provide linearizable reads and writes.
 That is: <b>distributed consensus solves the problem of high
 availability for a system while remaining linearizable</b>.
 
-Without consensus you might have high availability. For example, a
-database might have two read replicas. But a client reading from a
-read replica might get stale data. Thus, this system (a database with
-two read replicas) is not linearizable.
+Without distributed consensus you can still achieve high
+availability. For example, a database might have two read
+replicas. But a client reading from a read replica might get stale
+data. Thus, this system (a database with two read replicas) is not
+linearizable.
 
-<p class="note">
-  If "linearizable" sounded arcane as a term, it might sound a little
-  more useful now. It's very nice, and often even critical, to have a
-  highly available system that will never give you stale
-  data. Linearizability is a convenient way of thinking about complex
-  systems, if you can use or build a system that supports it.
-</p>
+Without distributed consensus you can also try synchronous
+replication. It would be very simple to do. But the value here is
+extremely limited. If a single node in the cluster goes down the
+entire cluster is down.
 
-Without consensus you might also try synchronous replication. This
-could be very simple. You have a cluster of nodes and a permanent
-leader and have the leader write every message to every follower and
-not respond to a client until every follower acknowledged the
-message. But if a single node in the group becomes unavailable (either
-because it crashed or the network failed or for any other reason),
-the entire cluster cannot make progress.
-
-You might think I'm proposing a strawman. We could simply allow a
-majority of nodes to commit a message and then the leader could
-respond to the client. Well in that case, what's the process for
-getting a lagging follower up-to-date? And what happens if it is the
-leader who goes down?
+You might think I'm proposing a strawman. We could simply designate a
+permanent leader that handles all reads and writes; and require a
+majority of nodes to commit a message before the leader responds to a
+client. But in that case, what's the process for getting a lagging
+follower up-to-date? And what happens if it is the leader who goes
+down?
 
 Well, these are not trivial problems! And, beyond linearizability that
 we already mentioned, these problems are exactly what distributed
 consensus solves.
 
-### Just add nodes?
+### Why does linearizability matter?
+
+It's very nice, and often even critical, to have a highly available
+system that will never give you stale data. And regardless, it's
+convenient to have a term for what we might naively think of as the
+"correct" way you'd always want to set and get a value.
+
+So linearizability is a convenient way of thinking about complex
+systems, if you can use or build a system that supports it. But it's
+not the only consistency approach you'll see in the wild.
+
+As you increase the guarantees of your consistency model, you tend to
+sacrifice performance. Going the opposite direction, some production
+systems sacrifice consistency to improve performance. For example, you
+might allow stale reads from a replica so that you can reduce load on
+a leader.
+
+There are formal definitions for lower consistency models, including
+sequential and read-your-writes. You can read the [Jepsen
+page](https://jepsen.io/consistency) for more detail.
+
+### Raft
+
+Raft is a distributed consensus algorithm that allows you to build a
+replicated state machine on top of a replicated log.
+
+It has a semi-permanent leader that all reads and writes go through
+(if you want to remain linearizable). Processes in the cluster pick a
+leader among themselves. Clients ask all nodes in the cluster to add a
+new message to the log. Only the leader accepts this message, if there
+is currently a leader. Clients retry until there is a leader that
+accepts the message.
+
+The leader appends the message to its log and makes sure to replicate
+all messages in its log to followers in the same order. The leader
+sends periodic heartbeat messages to all followers to prolong its term
+as leader. If a follower hasn't heard from the leader within a period
+of time, it becomes a candidate and requests votes from the cluster.
+
+When a follower is asked to accept a new message, it checks if its
+history is up-to-date with the leader. If it is not, the follower asks
+the leader to send previous messages to bring it up-to-date. It does
+this, in the worst case of a follower that completely lost all
+history, by ultimately going all the way back to the very first
+message ever sent.
+
+When a quorum (basically, a majority) of nodes has accepted a message,
+the leader marks the message as committed and applies the message to
+its own state machine. When followers learn about newly committed
+entries, they also apply committed entries to their own state machine.
+
+These details and more can be mostly be found in Figure 2 of the Raft paper.
+
+![/raft-figure2.png](/raft-figure2.png)
+
+### Best and worst case scenarios
+
+- Messages always delivered quickly and correctly
+- Reads from and writes to disk are always complete and correct
+
+### What happens when you add nodes?
 
 Distributed consensus algorithms make sure that some minimum number of
 nodes in a cluster agree before continuing. The minimum number is
@@ -89,11 +142,9 @@ Consider the extreme case of a 101-node cluster requiring 51 nodes to
 respond before returning to the client. That's 51 chances for a slower
 request. Compared to 4 chances in a 7-node cluster. The 101-node
 cluster is certainly more highly available though! It can tolerate 49
-nodes going down.
-
-As you add nodes to increase availability, you increase p99
-latency. As you add nodes to the cluster, it takes *longer* to reach
-consensus for a value because more nodes in total must agree.
+nodes going down. The 7-node cluster can only tolerate 3 nodes going
+down. The scenario where 49 nodes go down (assuming they're in
+different availability zones) seems pretty unlikely!
 
 ### Horizontal scaling with distributed consensus? Not exactly
 
@@ -124,103 +175,6 @@ advantage they have over Cockroach or Spanner is that they are
 conceptually simpler. Conceptually simpler often equates to easier to
 operate. That's a big deal.
 
-By the end of this post you'll be able to easily implement an etcd-like
-API on top of the Raft library we build by following one of my
-[previous posts on
-Raft](https://notes.eatonphil.com/tags/raft.html). Every one of which
-we built a highly available key-value store on top of a Raft library.
+### Everything aside, consensus is expensive
 
-So let's talk about Raft.
-
-### Raft
-
-Raft is a distributed consensus algorithm that gives you a replicated
-state machine on top of a replicated log.
-
-It has a semi-permanent leader that all reads and writes go through
-(if you want to remain linearizable). Processes in the cluster pick a
-leader among themselves. Clients ask all nodes in the cluster to add a
-new message to the log. Only the leader accepts this message, if there
-is currently a leader. Clients retry until there is a leader that
-accepts the message.
-
-The leader appends the message to its log and makes sure to replicate
-all messages in its log to followers in the same order. The leader
-sends periodic heartbeat messages to all followers, whether the
-follower is up-to-date or not. If a follower hasn't heard from the
-leader within a period of time, it becomes a candidate and requests
-votes from the cluster.
-
-When a follower is asked to accept a new message, it checks if its
-history is up-to-date with the leader. If it is not, the follower asks
-the leader to send previous messages to bring it up-to-date. It does
-this, in the worst case of a follower that completely lost all
-history, by ultimately going all the way back to the very first
-message ever sent.
-
-When a quorum (basically, a majority) of nodes has accepted a
-message, the leader marks the message as committed and applies the
-message to its own state machine. When followers learn about newly
-committed entries (the `commit_index` number goes up), they also apply
-committed entries to their own state machine.
-
-There's more to it we'll cover as we go but this is the gist.
-
-Let's dig into some code!
-
-### Architecture
-
-There are three major components we can break this implementation
-into.
-
-1. Reading and writing log entries and Raft metadata to disk
-2. Sending and receiving Raft messages over the network
-3. The core Raft state machine
-
-We'll tackle the implementation in this order.
-
-And we'll keep a few principles in mind as we go:
-
-1. No third-party libraries (I already mentioned this)
-2. All data read or written over network or disk will be checksummed
-   for integrity
-3. We'll make heavy use of assertions for clarity and safety
-4. Unit tests and end-to-end tests are critical aids for sanity, and
-   were part of the development process, but they will be omitted from
-   the walk through
-
-The entire implementation will fit into one file. 2k lines of code
-without tests.
-
-We'll start out with a couple of imports in `src/lib.rs`:
-
-```rust
-// References:
-// [0] In Search of an Understandable Consensus Algorithm (Extended Version) -- https://raft.github.io/raft.pdf
-
-use std::convert::TryInto;
-use std::io::Seek;
-use std::io::{BufReader, BufWriter, Read, Write};
-use std::net::SocketAddr;
-use std::os::unix::prelude::FileExt;
-use std::sync::{mpsc, Arc, Mutex};
-use std::time::{Duration, Instant};
-```
-
-### Disk
-
-
-
-### RPC
-
-### Raft State Machine
-
-### Further reading
-
-- [The Raft Paper](https://raft.github.io/raft.pdf)
-- [The Raft TLA+ Spec](https://github.com/ongardie/raft.tla/blob/master/raft.tla)
-- [The Raft Author's PhD Thesis on Raft](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf)
-- [Designing Data-Intensive Applications](https://dataintensive.net/)
-
-Thank you to Paul Nowoczynski, Alex Miller, and Jack Vanlightly for
-reviewing drafts of this post.
+Distributed consensus brings overhead, there's no question about it.

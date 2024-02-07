@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>November 1, 2023</h2>
             <h1>Writing a storage engine for Postgres: an in-memory Table Access Method</h1>
-	    <div class='realsubtitle'>Why alternative storage engines?</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/c.html" class="tag">c</a><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/databases.html" class="tag">databases</a></div>
             </div>
@@ -75,7 +75,7 @@ nascent. <a href="https://github.com/orioledb/orioledb">OrioleDB</a> and <a href
 Columnar</a>
 are two promising third-party table access methods being actively
 developed.</p>
-<p>The ability to swap storage engines is useful because different
+<h3 id="why-alternative-storage-engines?">Why alternative storage engines?</h3><p>The ability to swap storage engines is useful because different
 workloads sometimes benefit from different storage
 approaches. Analytics workloads and columnar storage layouts <a href="https://docs.aws.amazon.com/redshift/latest/dg/c_columnar_storage_disk_mem_mgmnt.html">go well
 together</a>. Write-heavy
@@ -161,7 +161,7 @@ particular installed Postgres build we want to build the extension
 against and install the extension to.</p>
 <p>PGXS gives us a few important targets like <code>make distclean</code>, <code>make</code>,
 and <code>make install</code> we'll use later on.</p>
-<p>A minimal C file that registers a function capable of serving as a
+<h4 id="<code>pgtam.c</code>"><code>pgtam.c</code></h4><p>A minimal C file that registers a function capable of serving as a
 table access method is:</p>
 <div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;postgres.h&quot;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;fmgr.h&quot;</span>

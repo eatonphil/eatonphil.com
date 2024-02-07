@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>April 14, 2019</h2>
             <h1>Interpreting TypeScript</h1>
-	    <div class='realsubtitle'>Setup</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/typescript.html" class="tag">typescript</a><a href="/tags/interpreters.html" class="tag">interpreters</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/node.html" class="tag">node</a><a href="/tags/javascript.html" class="tag">javascript</a></div>
             </div>
@@ -78,7 +78,7 @@ $<span class="w"> </span>node<span class="w"> </span>interpreter.js<span class="
 <span class="m">6</span>
 </pre></div>
 <p><a href="https://github.com/eatonphil/jsi">All code is available on Github.</a></p>
-<p>To begin with, we need Node.js and some dependencies:</p>
+<h3 id="setup">Setup</h3><p>To begin with, we need Node.js and some dependencies:</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>yarn<span class="w"> </span>add<span class="w"> </span>typescript<span class="w"> </span>@types/node
 </pre></div>
 <p>Then we can begin the first stage of an interpreter: parsing the code.</p>
@@ -164,7 +164,7 @@ out a program into a tree of nodes.</p>
 <span class="n">Node</span><span class="o">:</span><span class="w"> </span><span class="n">EndOfFileToken</span>
 </pre></div>
 <p>But how would one come to know this?</p>
-<p>The easiest thing to do is throw an error on every Node type we don't
+<h4 id="exploring-the-ts.node-tree">Exploring the ts.Node tree</h4><p>The easiest thing to do is throw an error on every Node type we don't
 yet know about and fill in support for each program we throw at the
 interpreter.</p>
 <p>For example:</p>

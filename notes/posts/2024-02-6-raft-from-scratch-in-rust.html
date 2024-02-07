@@ -1,0 +1,392 @@
+<!-- -*- mode: markdown -*- -->
+# Building an intuition for distributed consensus in OLTP systems
+### And implementing Raft from scratch in Rust
+## February 5, 2024
+###### raft,rust,draft
+
+### Implementation notes
+
+I implemented Raft for the [second time in
+Rust](https://github.com/eatonphil/raft-rs), to practice Rust and
+Raft. The first time was in Go. I wrote about it
+[here](https://notes.eatonphil.com/2023-05-25-raft.html).
+
+Like the Go implementation, the Rust one uses no third-party libraries
+outside the Rust standard library. And it uses no `unsafe` code. Both
+of these details make this implementation more verbose in some ways
+than maybe it should be.
+
+I was shocked by just how confined the Rust standard library is. I had
+to implement [random number
+generation](https://github.com/eatonphil/raft-rs/blob/2167f65f6831ab3d29c6704762015c884d6afb2d/src/lib.rs#L2818)
+(a port of [xoshiro256plusplus](https://prng.di.unimi.it/)) and
+[CRC32C for
+checksums](https://github.com/eatonphil/raft-rs/blob/2167f65f6831ab3d29c6704762015c884d6afb2d/src/lib.rs#L2724)
+(a port from
+[FreeBSD](https://web.mit.edu/freebsd/head/sys/libkern/crc32.c)).
+
+Nevertheless, it seems to me to be less "black magic" if an
+implementation avoids use third-party libraries.
+
+### Architecture
+
+There are three major components we can look at.
+
+1. Reading and writing log entries and Raft metadata to disk
+2. Sending and receiving Raft messages over the network
+3. The core Raft state machine
+
+### Disk
+
+Raft requires that data is stored on disk durably before responding to
+a request. But what data exactly? And how should it be stored on disk?
+
+The top left portion of Figure 2 mentioned above describes the state
+for a Raft node that must be stored on disk.
+
+![/raft-figure2-state.png](/raft-figure2-state.png)
+
+So at a minimum we must find a way to store `currentTerm`, `votedFor`
+and the `log` of all entries. But our format on disk will also store a
+magic number to identify the data file and a version number for the
+disk format itself. And we'll store a checksum for all of this
+metadata too.
+
+Why not store the data as JSON? That would be simple! But JSON is
+pretty wasteful in space and in serialization and deserialization. And
+almost all of the write behavior in Raft is updating metadata and
+appending entries to the log.
+
+So I chose to store the data in a binary format on disk organized in
+"pages". A page is a 512- or 4096-byte chunk. This is what disks, and
+file systems, and operating systems
+[like](https://docs.pmem.io/persistent-memory/getting-started-guide/creating-development-environments/linux-environments/advanced-topics/i-o-alignment-considerations).
+
+```rust
+const PAGESIZE: u64 = 512;
+
+//        ON DISK FORMAT
+//
+// | Byte Range     | Value          |
+// |----------------|----------------|
+// |        0 - 4   | Magic Number   |
+// |        4 - 8   | Format Version |
+// |        8 - 16  | Term           |
+// |       16 - 32  | Voted For      |
+// |       32 - 40  | Log Length     |
+// |       40 - 44  | Checksum       |
+// | PAGESIZE - EOF | Log Entries    |
+```
+
+This is pretty generous with space overall. 16 bytes (a `u128`) for
+the `Voted For` field specifically though means we can use UUIDs for
+server IDs.
+
+Every time we write the metadata page, we'll update the checksum
+too. And every time we read the metadata page, we'll compute the
+checksum and compare it to the one on disk. If they differ, we'll
+panic. This is a sign of data corruption; the user must restore from
+backups.
+
+#### A log entry
+
+Now how will log entries be stored? According to Figure 2, the log
+entry consists of a term and a command. The command is an arbitrarily
+long series of bytes.
+
+To keep the code simple and to keep IO alignment, we'll say that each
+log entry will be written out into N complete pages. Our code will pad
+out entries so that they always take up a full page.
+
+The first byte of each log entry page will indicate whether the page
+is an overflow page for an entry or the start of an entry.
+
+And again, we'll checksum each entry as we write and validate the
+checksum every time we read an entry.
+
+But there's one last thing to consider: as various nodes in the
+cluster catch up to the leader, they end up asking for entries all
+over the place. If we store entries in an append-only log with no
+other metadata, and because each entry consists of a variable number
+of pages on disk, it will be a O(n) search from the start or the end
+to find a particular entry.
+
+This is terrible as the log grows. So we'll also store the log entry
+index redundantly along with the entry itself.
+
+Finally, we'll also store a `Client Serial Id` that uniquely
+identifies the message (per client) and `Id` of the client that sent
+the message, so that we can alert the client about the message when
+the message has been committed.
+
+```rust
+//           ON DISK LOG ENTRY FORMAT
+//
+// | Byte Range                   | Value              |
+// |------------------------------|--------------------|
+// |  0                           | Entry Start Marker |
+// |  1 - 5                       | Checksum           |
+// |  5 - 13                      | Log Index          |
+// | 13 - 21                      | Term               |
+// | 21 - 37                      | Client Serial Id   |
+// | 37 - 53                      | Client Id          |
+// | 53 - 61                      | Command Length     |
+// | 61 - (61 + $Command Length$) | Command            |
+//
+// $Entry Start$ is `1` when the page is the start of an entry, not an
+// overflow page.
+```
+
+Like `Voted For` above, `Client Serial Id` is a 16-byte
+identifier. The node identifier everywhere is 16 bytes.
+
+#### Metadata and log entries in bulk
+
+Now that we've built support for encoding and decoding a single log
+entry, we need to build support for updating the metadata page,
+reading and writing multiple log entries, and looking up a particular
+log entry from disk.
+
+```rust
+struct DurableState {
+    // In-memory data.
+    last_log_term: u64,
+    next_log_index: u64,
+    next_log_offset: u64,
+    file: std::fs::File,
+
+    // On-disk data.
+    current_term: u64,
+    voted_for: u128, // Zero is the None value. User must not be a valid server id.
+}
+
+impl DurableState {
+    fn new(data_directory: &std::path::Path, id: u128) -> DurableState {
+        let mut filename = data_directory.to_path_buf();
+        filename.push(format!("server_{}.data", id));
+        let file = std::fs::File::options()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(filename)
+            .expect("Could not open data file.");
+        DurableState {
+            last_log_term: 0,
+            next_log_index: 0,
+            next_log_offset: PAGESIZE,
+            file,
+
+            current_term: 0,
+            voted_for: 0,
+        }
+    }
+
+    fn restore(&mut self) {
+        // If there's nothing to restore, calling append with the
+        // required 0th empty log entry will be sufficient to get
+        // state into the right place.
+        if let Ok(m) = self.file.metadata() {
+            if m.len() == 0 {
+                self.append(&mut [LogEntry {
+                    index: 0,
+                    term: 0,
+                    command: vec![],
+                    client_serial_id: 0,
+                    client_id: 0,
+                }]);
+                return;
+            }
+        }
+
+        let mut metadata: [u8; PAGESIZE as usize] = [0; PAGESIZE as usize];
+        self.file.read_exact_at(&mut metadata, 0).unwrap();
+
+        // Magic number check.
+        assert_eq!(metadata[0..4], 0xFABEF15E_u32.to_le_bytes());
+
+        // Version number check.
+        assert_eq!(metadata[4..8], 1_u32.to_le_bytes());
+
+        self.current_term = u64::from_le_bytes(metadata[8..16].try_into().unwrap());
+        self.voted_for = u128::from_le_bytes(metadata[16..32].try_into().unwrap());
+
+        let checksum = u32::from_le_bytes(metadata[40..44].try_into().unwrap());
+        if checksum != crc32c(&metadata[0..40]) {
+            panic!("Bad checksum for data file.");
+        }
+
+        let log_length = u64::from_le_bytes(metadata[32..40].try_into().unwrap()) as usize;
+
+        let mut scanned = 0;
+        self.file.seek(std::io::SeekFrom::Start(PAGESIZE)).unwrap();
+        while scanned < log_length {
+            self.next_log_index += 1;
+
+            let e = LogEntry::decode(&mut self.file);
+            self.last_log_term = e.term;
+            self.next_log_offset = self.file.stream_position().unwrap();
+            scanned += 1;
+        }
+    }
+
+    fn append(&mut self, entries: &mut [LogEntry]) {
+        self.append_from_index(entries, self.next_log_index);
+    }
+
+    // Durably add logs to disk.
+    fn append_from_index(&mut self, entries: &mut [LogEntry], from_index: u64) {
+        let mut buffer: [u8; PAGESIZE as usize] = [0; PAGESIZE as usize];
+
+        self.next_log_offset = self.offset_from_index(from_index);
+        // This is extremely important. Sometimes the log must be
+        // truncated. This is what does the truncation. Existing
+        // messages are not necessarily overwritten. But metadata for
+        // what the current last log index is always correct.
+        self.next_log_index = from_index;
+
+        self.file
+            .seek(std::io::SeekFrom::Start(self.next_log_offset))
+            .unwrap();
+        if !entries.is_empty() {
+            // Write out all new logs.
+            for entry in entries.iter_mut() {
+                entry.index = self.next_log_index;
+                self.next_log_index += 1;
+
+                assert!(self.next_log_offset >= PAGESIZE);
+
+                let pages = entry.encode(&mut buffer, &mut self.file);
+                self.next_log_offset += pages * PAGESIZE;
+
+                self.last_log_term = entry.term;
+            }
+        }
+
+        // Write log length metadata.
+        self.update(self.current_term, self.voted_for);
+    }
+
+    // Durably save non-log data.
+    fn update(&mut self, term: u64, voted_for: u128) {
+        self.current_term = term;
+        self.voted_for = voted_for;
+
+        let mut metadata: [u8; PAGESIZE as usize] = [0; PAGESIZE as usize];
+        // Magic number.
+        metadata[0..4].copy_from_slice(&0xFABEF15E_u32.to_le_bytes());
+        // Version.
+        metadata[4..8].copy_from_slice(&1_u32.to_le_bytes());
+
+        metadata[8..16].copy_from_slice(&term.to_le_bytes());
+
+        metadata[16..32].copy_from_slice(&voted_for.to_le_bytes());
+
+        let log_length = self.next_log_index;
+        metadata[32..40].copy_from_slice(&log_length.to_le_bytes());
+
+        let checksum = crc32c(&metadata[0..40]);
+        metadata[40..44].copy_from_slice(&checksum.to_le_bytes());
+
+        self.file.write_all_at(&metadata, 0).unwrap();
+        self.file.sync_all().unwrap();
+    }
+
+    fn offset_from_index(&mut self, index: u64) -> u64 {
+        if index == self.next_log_index {
+            return self.next_log_offset;
+        }
+
+        assert!(index < self.next_log_index);
+        let mut page: [u8; PAGESIZE as usize] = [0; PAGESIZE as usize];
+
+        // Rather than linear search backwards, we store the index in
+        // the page itself and then do a binary search on disk.
+        let mut l = PAGESIZE;
+        let mut r = self.next_log_offset - PAGESIZE;
+        while l <= r {
+            let mut m = l + (r - l) / 2;
+            // Round up to the nearest page.
+            m += m % PAGESIZE;
+            assert_eq!(m % PAGESIZE, 0);
+
+            // Look for a start of entry page.
+            self.file.read_exact_at(&mut page, m).unwrap();
+            while page[0] != 1 {
+                m -= PAGESIZE;
+                self.file.read_exact_at(&mut page, m).unwrap();
+            }
+
+            // TODO: Bad idea to hardcode the offset.
+            let current_index = u64::from_le_bytes(page[13..21].try_into().unwrap());
+            if current_index == index {
+                return m;
+            }
+
+            if current_index < index {
+                // Read until the next entry, set m to the next entry.
+                page[0] = 0;
+                m += PAGESIZE;
+                self.file.read_exact_at(&mut page, m).unwrap();
+                while page[0] != 1 {
+                    m += PAGESIZE;
+                    self.file.read_exact_at(&mut page, m).unwrap();
+                }
+
+                l = m;
+            } else {
+                r = m - PAGESIZE;
+            }
+        }
+
+        unreachable!(
+            "Could not find index {index} with log length: {}.",
+            self.next_log_index
+        );
+    }
+
+    fn log_at_index(&mut self, i: u64) -> LogEntry {
+        let offset = self.offset_from_index(i);
+        self.file.seek(std::io::SeekFrom::Start(offset)).unwrap();
+
+        LogEntry::decode(&mut self.file)
+    }
+}
+```
+
+This is all straightforward like the `LogEntry` implementation
+was. But there are two things to call out.
+
+First, we use binary search when looking up a log entry on disk by its
+index. This is critical for latency and throughput because as the
+leader quickly adds entries to its own disk, followers may be 100s or
+1000s of entries behind, or worse. You don't want to do linear search
+hitting disk every time.
+
+That leads to the second point: this implementation on its own is
+needlessly bad. What we really need is a cache. A cache we write to
+every time we append entries to disk, but that we read from first
+before invoking actual disk IO every time we look up an entry.
+
+I dropped the page cache from the code for this post because the code
+overall was getting complex. If you want to look at a very dumb
+implementation of a page cache, see the [main branch of this
+project](https://github.com/eatonphil/raft-rs/blob/main/src/lib.rs). It
+is dumb because rather than being FIFO or LIFO or CLOCK or SIEVE, it
+simply drops all entries once the cache becomes full.
+
+But even this terrible page cache improves throughput by 10-100x
+versus not having any cache at all.
+
+### RPC
+
+### Raft State Machine
+
+### Further reading
+
+- [The Raft Paper](https://raft.github.io/raft.pdf)
+- [The Raft TLA+ Spec](https://github.com/ongardie/raft.tla/blob/master/raft.tla)
+- [The Raft Author's PhD Thesis on Raft](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf)
+- [Designing Data-Intensive Applications](https://dataintensive.net/)
+
+Thank you to Paul Nowoczynski, Alex Miller, and Jack Vanlightly for
+reviewing drafts of this post.

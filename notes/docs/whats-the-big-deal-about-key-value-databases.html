@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>August 23, 2022</h2>
             <h1>What's the big deal about key-value databases like FoundationDB and RocksDB?</h1>
-	    <div class='realsubtitle'>Extensible databases</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/mysql.html" class="tag">mysql</a></div>
             </div>
@@ -75,7 +75,7 @@ you're hearing about distributed key-value databases like
 <p>What's the big deal? Aren't these just the equivalent of Redis or
 Java's ConcurrentHashMap?</p>
 <p>Let's take a look.</p>
-<p>Over the last 10 years or so (at least), databases have become more
+<h3 id="extensible-databases">Extensible databases</h3><p>Over the last 10 years or so (at least), databases have become more
 extensible. MySQL has around <a href="https://dev.mysql.com/doc/refman/8.0/en/storage-engines.html">10 different open-source storage
 engines</a>. More
 surely exist in the wild.</p>
@@ -91,7 +91,7 @@ engines</a>.</p>
   since neither use an embedded key-value store, I won't talk about
   them more in this post.
 </p><p>And so on.</p>
-<p>Swapping out storage engines allows you to tune the performance of
+<h4 id="but-why?">But why?</h4><p>Swapping out storage engines allows you to tune the performance of
 your database. It can allow you to swap out row-oriented storage for
 column-oriented storage (useful for analytics workloads).</p>
 <p>It can allow you to swap B-Trees (traditional choice) for <a href="http://www.benstopford.com/2015/02/14/log-structured-merge-trees/">LSM

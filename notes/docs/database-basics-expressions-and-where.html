@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>April 12, 2020</h2>
             <h1>Writing a SQL database from scratch in Go: 2. binary expressions and WHERE filters</h1>
-	    <div class='realsubtitle'>Boilerplate updates</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/go.html" class="tag">go</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/sql.html" class="tag">sql</a><a href="/tags/postgres.html" class="tag">postgres</a></div>
             </div>
@@ -111,7 +111,7 @@ binary expression, etc.</p>
 <p>The changes we'll make in this post are roughly a walk through of
 <a href="https://github.com/eatonphil/gosql/commit/bd6a5d0d4a7410699b0d01beaabf91923df34b28">this
 commit</a>.</p>
-<p>There are a few updates to pick up that I won't go into in this
+<h3 id="boilerplate-updates">Boilerplate updates</h3><p>There are a few updates to pick up that I won't go into in this
 post. Grab the following files from the main repo:</p>
 <ul>
 <li><a href="https://github.com/eatonphil/gosql/blob/master/lexer.go">lexer.go</a><ul>
@@ -134,7 +134,7 @@ history and useful cursor movement in the REPL.</li>
 </ul>
 </li>
 </ul>
-<p>We'll redefine three helper functions in <code>parser.go</code> before
+<h4 id="parsing-boilerplate">Parsing boilerplate</h4><p>We'll redefine three helper functions in <code>parser.go</code> before
 going further:
 <code>parseToken</code>, <code>parseTokenKind</code>, and
 <code>helpMessage</code>.</p>

@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>October 19, 2023</h2>
             <h1>io_uring basics: Writing a file to disk</h1>
-	    <div class='realsubtitle'>io_uring</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/go.html" class="tag">go</a><a href="/tags/zig.html" class="tag">zig</a><a href="/tags/io_uring.html" class="tag">io_uring</a></div>
             </div>
@@ -94,7 +94,7 @@ GitHub</a>.</p>
   correct. Observing the same relative behavior between
   implementations across two languages helps me gain confidence what
   I'm doing is correct.
-</p><p>With normal blocking syscalls you just call <code>read()</code> or <code>write()</code> and
+</p><h3 id="io_uring">io_uring</h3><p>With normal blocking syscalls you just call <code>read()</code> or <code>write()</code> and
 wait for the results. io_uring is one of Linux's more powerful
 <em>asynchronous</em> IO offerings. Unlike epoll, you can use io_uring with
 both files and network connections. And unlike epoll you can even have

@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>May 17, 2022</h2>
             <h1>Let's build a distributed Postgres proof of concept</h1>
-	    <div class='realsubtitle'>Plan of attack</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/postgres.html" class="tag">postgres</a><a href="/tags/go.html" class="tag">go</a><a href="/tags/raft.html" class="tag">raft</a><a href="/tags/parsing.html" class="tag">parsing</a><a href="/tags/databases.html" class="tag">databases</a></div>
             </div>
@@ -120,7 +120,7 @@ Type<span class="w"> </span><span class="s2">&quot;help&quot;</span><span class=
 </pre></div>
 <p>All code for this post is <a href="https://github.com/eatonphil/waterbugdb">available on Github in the fondly named
 WaterbugDB repo</a>.</p>
-<p>Influenced by <a href="https://youtu.be/rqO9PtBkiSQ?t=2332">Philip O'Toole's talk on rqlite at Hacker
+<h3 id="plan-of-attack">Plan of attack</h3><p>Influenced by <a href="https://youtu.be/rqO9PtBkiSQ?t=2332">Philip O'Toole's talk on rqlite at Hacker
 Nights</a> we'll
 have a Postgres wire protocol server in front. As it receives queries
 it will respond immediately to <code>SELECT</code>s. Otherwise for <code>CREATE TABLE</code>s
@@ -223,7 +223,7 @@ execution.</p>
 </pre></div>
 <p>Panic-ing here is actually the <a href="https://github.com/hashicorp/raft/issues/307">advised
 behavior</a>.</p>
-<p>Now we can set up the actual Raft server and pass an instance of this
+<h4 id="raft-server">Raft server</h4><p>Now we can set up the actual Raft server and pass an instance of this
 FSM. This is a bunch of boilerplate that would matter in production
 installs but for us basically we just need to tell Raft where to run
 and how to store its own internal data, including its all-important

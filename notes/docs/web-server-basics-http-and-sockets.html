@@ -52,7 +52,7 @@
 	  <div class="">
             <h2>April 6, 2019</h2>
             <h1>Writing a web server from scratch: 1. HTTP and sockets</h1>
-	    <div class='realsubtitle'>The protocol</div>
+	    
             <div class="row" style="padding-bottom: 5px">
               <div class="tags"><a href="/tags/web-servers.html" class="tag">web servers</a><a href="/tags/javascript.html" class="tag">javascript</a><a href="/tags/http.html" class="tag">http</a><a href="/tags/sockets.html" class="tag">sockets</a><a href="/tags/nodejs.html" class="tag">nodejs</a></div>
             </div>
@@ -189,7 +189,7 @@ Github</a>):</p>
 <span class="nx">server</span><span class="p">.</span><span class="nx">listen</span><span class="p">(</span><span class="s1">&#39;9000&#39;</span><span class="p">);</span>
 </pre></div>
 <p>So what's going on?</p>
-<p>HTTP (version 1.1, specifically) is a convention for connecting over
+<h3 id="the-protocol">The protocol</h3><p>HTTP (version 1.1, specifically) is a convention for connecting over
 TCP/IP and sending plain-text messages between two processes. HTTP
 messages are broken into two categories: requests (the sender of a
 request is called a "client") and responses (the sender of a response
@@ -200,7 +200,7 @@ and hit enter, the browser will open an TCP/IP connection to the
 location <code>localhost</code> on the port <code>9000</code> and send
 an HTTP request. If/when it receives the HTTP response from the server
 it will try to render the response.</p>
-<p>A bare minimum HTTP/1.1 request (<a href="https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html">defined
+<h4 id="an-http-request">An HTTP request</h4><p>A bare minimum HTTP/1.1 request (<a href="https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html">defined
 here</a>) based
 on the request for <code>localhost:9000/hello-world.html</code> is the
 following:</p>
