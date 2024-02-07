@@ -179,6 +179,7 @@ p:last-child, li:last-child {
 
 a {
     text-decoration: none;
+    color: var(--primary);
 }
 
 p a, li a {
