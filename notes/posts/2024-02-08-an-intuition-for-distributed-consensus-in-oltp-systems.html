@@ -112,8 +112,9 @@ data. Thus, this system (a database with two read replicas) is not
 linearizable.
 
 Without distributed consensus you can also try synchronous
-replication. It would be very simple to do. But the value here is
-extremely limited. If a single node in the cluster goes down the
+replication. It would be very simple to do. Have a fixed leader and
+require all nodes to acknowledge before committing, But the value here
+is extremely limited. If a single node in the cluster goes down the
 entire cluster is down.
 
 You might think I'm proposing a strawman. We could simply designate a
