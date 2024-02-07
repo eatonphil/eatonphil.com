@@ -268,12 +268,13 @@ network there is obvious room for optimization.</p>
 <p>A naive implementation might store JSON on disk and send JSON over the
 network. A slightly more optimized implementation might store binary
 data on disk and send binary data over the network.</p>
-<p>Similarly you could swap out your RPC for gRPC or introduce zlib for
+<p>Similarly you can swap out your RPC for gRPC or introduce zlib for
 compression to network or disk.</p>
+<p>You can swap out synchronous IO for libaio or io_uring or SPDK/DPDK.</p>
 <p>A little tweak I made in my latest Raft implementation was to index
-log entries so searching the log was not a linear operation.</p>
-<p>Introducing a page cache to eliminate unnecessary disk reads also
-increased throughput for me by an order of magnitude.</p>
+log entries so searching the log was not a linear operation. Another
+little tweak was to introduce a page cache to eliminate unnecessary
+disk reads. This increased throughput for by an order of magnitude.</p>
 <h4 id="flexible-quorums">Flexible quorums</h4><p>This is a beautiful
 <a href="https://arxiv.org/pdf/1608.06696.pdf">optimization</a> by Heidi Howard
 and co. that shows you can relax the quorum required for committing
