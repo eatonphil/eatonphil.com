@@ -56,11 +56,10 @@ find concrete examples of exactly this replicated key-value store
 modeling in [previous Raft
 posts](https://notes.eatonphil.com/tags/raft.html) I've written.
 
-A Raft cluster is a collection of nodes all running Raft code
-(including the state machine code you provide to interpret the Raft
-log); communicating among themselves. Nodes elect a semi-permanent
-leader that accepts all reads and writes from clients. (Again, reads
-and writes are modeled as commands).
+All nodes in the cluster run the same Raft code (including the state
+machine code you provide), communicating among themselves. Nodes elect
+a semi-permanent leader that accepts all reads and writes from
+clients. (Again, reads and writes are modeled as commands).
 
 To commit a new command to the cluster, clients send the command to
 all nodes in the cluster. Only the leader accepts this command, if
