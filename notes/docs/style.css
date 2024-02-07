@@ -157,7 +157,7 @@ ul {
     padding: 0;
 }
 
-p, li, .post a {
+p, li, .post p a, .post li a {
     font-family: var(--serif);
     line-height: 1.75rem;
     color: #334;
