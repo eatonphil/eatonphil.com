@@ -157,10 +157,15 @@ ul {
     padding: 0;
 }
 
-p, li {
+p, li, .post a {
     font-family: var(--serif);
     line-height: 1.75rem;
     color: #334;
+}
+
+.post a {
+    text-decoration: none;
+    border-bottom: 1px solid #aaa;
 }
 
 li p {
@@ -173,7 +178,6 @@ p:last-child, li:last-child {
 }
 
 a {
-    color: var(--primary);
     text-decoration: none;
 }
 

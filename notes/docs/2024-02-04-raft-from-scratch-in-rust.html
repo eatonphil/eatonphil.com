@@ -62,28 +62,80 @@
     </header>
     <div class="container">
       <div class="col-6">
-        <p><!-- -*- mode: markdown -*- --></p>
-<p>After implementing Raft <a href="https://notes.eatonphil.com/2023-05-25-raft.html">in
-Go</a> last year,
-running a book club reading <a href="https://eatonphil.com/2023-ddia.html">Designing Data Intensive
-Applications</a>, running another
-book club reading <a href="https://eatonphil.com/2023-database-internals.html">Database
-Internals</a>,
-implementing Raft a <a href="https://github.com/eatonphil/raft-rs">second
-time</a> in Rust this year; and
-spending the last few years at companies built on distributed
-consensus, there's been a lot to digest and a lot to characterize.</p>
+	<div class="post">
+          <p><!-- -*- mode: markdown -*- --></p>
+<p>Transactional databases these days wanting a distributed consensus
+protocol (e.g. etcd or Cockroach) typically build on top of variations
+of log-based Paxos derivatives such as MultiPaxos, Viewstamped
+Replication, or Raft. These protocols are fairly standard and
+well-understood. But there are also new variations that come out
+each year, optimizing for various workloads.</p>
+<p>So much software we use today, Kubernetes for example, ends up using
+these common protocols, Raft in particular, that even if you don't
+decide to implement Raft (which is fun and I encourage it), it seems
+worth building an intuition for distributed consensus.</p>
+<p>What happens as you tweak a configuration. What happens as the
+production environment changes. Or what to reach for as product
+requirements change.</p>
+<p>I've been <a href="https://notes.eatonphil.com/2023-05-25-raft.html">thinking</a>
+<a href="https://eatonphil.com/2023-ddia.html">about</a> the
+<a href="https://eatonphil.com/2023-database-internals.html">basics</a> of
+<a href="https://github.com/eatonphil/raft-rs">distributed consensus</a>
+recently. There has been a lot to digest and characterize. And I'm
+only beginning to get an understanding.</p>
 <p>This post is an attempt to share some of the intuition built up
 reading about and working in this space. Originally this post was also
-going to end with a walkthrough of my most recent Raft implementation
-in Rust. But I'm going to hold off on that for another time.</p>
-<p>I'm not an expert on these topics, but I was fortunate to have a few
-experts review versions of this post: Paul Nowoczynski, Alex Miller,
-Jack Vanlightly, Daniel Chia, and Alex Petrov.</p>
-<h3 id="it's-about-availability">It's about availability</h3><p>Distributed consensus helps a group of nodes, a cluster, agree on
-a value. A client of the cluster can treat a value from the cluster,
-with some care we'll describe later, as if the value was atomically
-written to and read from a single thread. This property is called
+going to end with a walkthrough of my <a href="https://github.com/eatonphil/raft-rs">most
+recent</a> Raft implementation in
+Rust. But I'm going to hold off on that for another time.</p>
+<p>I was fortunate to have a few experienced devs review versions of this
+post: Paul Nowoczynski, Alex Miller, Jack Vanlightly, Daniel Chia, and
+Alex Petrov. Thank you!</p>
+<p>Let's start with Raft.</p>
+<h3 id="raft">Raft</h3><p>Raft is a distributed consensus algorithm that allows you to build a
+replicated state machine on top of a replicated log.</p>
+<p>For example, you could create a replicated key-value store out of
+<code>SET</code> and <code>GET</code> commands. You use a Raft library and provide a state
+machine that interprets a sequence (or <i>log</i>) of <code>SET</code> and <code>GET</code>
+commands to modify an in-memory hashtable as each <code>SET</code> and <code>GET</code> log
+entry demands. From the perspective of the Raft library, the commands
+are just opaque byte strings.</p>
+<p>The Raft library handles replicating and durably persisting the log to
+all nodes in the cluster, or at least a majority of nodes. Your state
+machine handles interpreting the log entries. You can find concrete
+examples of exactly this replicated key-value store modeling in
+<a href="https://notes.eatonphil.com/tags/raft.html">previous Raft posts</a> I've
+written.</p>
+<p>A Raft cluster is a collection of nodes all running Raft code
+(including the state machine code you provide to interpret the Raft
+log); communicating among themselves. Nodes elect a semi-permanent
+leader that accepts all reads and writes from clients. (Again, reads
+and writes are modeled as commands).</p>
+<p>To commit a new command to the cluster, clients send the command to
+all nodes in the cluster. Only the leader accepts this command, if
+there is currently a leader. Clients retry until there is a leader
+that accepts the command.</p>
+<p>The leader appends the command to its log and makes sure to replicate
+all commands in its log to followers in the same order. The leader
+sends periodic heartbeat commands to all followers to prolong its term
+as leader. If a follower hasn't heard from the leader within a period
+of time, it becomes a candidate and requests votes from the cluster.</p>
+<p>When a follower is asked to accept a new command from a leader, it
+checks if its history is up-to-date with the leader. If it is not, the
+follower rejects the request and asks the leader to send previous
+commands to bring it up-to-date. It does this ultimately, in the worst
+case of a follower that has lost all history, by going all the way
+back to the very first command ever sent.</p>
+<p>When a quorum (typically a majority) of nodes has accepted a command,
+the leader marks the command as committed and applies the command to
+its own state machine. When followers learn about newly committed
+commands, they also apply committed commands to their own state machine.</p>
+<p>For the most part, these details are graphically summarized in Figure
+2 of the <a href="https://raft.github.io/raft.pdf">Raft paper</a>.</p>
+<h3 id="availability-and-linearizability">Availability and linearizability</h3><p>Taking a step back, distributed consensus helps a group of nodes, a
+cluster, agree on a value. A client of the cluster can treat a value
+from the cluster as if the value was atomically written to and read
+from a single thread. This property is called
 <a href="https://jepsen.io/consistency/models/linearizable">linearizability</a>.</p>
 <p>However, with distributed consensus, the client of the cluster has
 better availability guarantees from the cluster than if the client
@@ -104,7 +156,7 @@ extremely limited. If a single node in the cluster goes down the
 entire cluster is down.</p>
 <p>You might think I'm proposing a strawman. We could simply designate a
 permanent leader that handles all reads and writes; and require a
-majority of nodes to commit a message before the leader responds to a
+majority of nodes to commit a command before the leader responds to a
 client. But in that case, what's the process for getting a lagging
 follower up-to-date? And what happens if it is the leader who goes
 down?</p>
@@ -126,35 +178,22 @@ a leader.</p>
 <p>There are formal definitions for lower consistency models, including
 sequential and read-your-writes. You can read the <a href="https://jepsen.io/consistency">Jepsen
 page</a> for more detail.</p>
-<h3 id="raft">Raft</h3><p>Raft is a distributed consensus algorithm that allows you to build a
-replicated state machine on top of a replicated log.</p>
-<p>It has a semi-permanent leader that all reads and writes go through
-(if you want to remain linearizable). Processes in the cluster pick a
-leader among themselves. Clients ask all nodes in the cluster to add a
-new message to the log. Only the leader accepts this message, if there
-is currently a leader. Clients retry until there is a leader that
-accepts the message.</p>
-<p>The leader appends the message to its log and makes sure to replicate
-all messages in its log to followers in the same order. The leader
-sends periodic heartbeat messages to all followers to prolong its term
-as leader. If a follower hasn't heard from the leader within a period
-of time, it becomes a candidate and requests votes from the cluster.</p>
-<p>When a follower is asked to accept a new message, it checks if its
-history is up-to-date with the leader. If it is not, the follower asks
-the leader to send previous messages to bring it up-to-date. It does
-this, in the worst case of a follower that completely lost all
-history, by ultimately going all the way back to the very first
-message ever sent.</p>
-<p>When a quorum (basically, a majority) of nodes has accepted a message,
-the leader marks the message as committed and applies the message to
-its own state machine. When followers learn about newly committed
-entries, they also apply committed entries to their own state machine.</p>
-<p>These details and more can be mostly be found in Figure 2 of the Raft paper.</p>
-<p><img src="/raft-figure2.png" alt="/raft-figure2.png"></p>
-<h3 id="best-and-worst-case-scenarios">Best and worst case scenarios</h3><ul>
-<li>Messages always delivered quickly and correctly</li>
-<li>Reads from and writes to disk are always complete and correct</li>
-</ul>
+<h3 id="best-and-worst-case-scenarios">Best and worst case scenarios</h3><p>A distributed system relies on communicating over the network. The
+worse the network, whether in terms of latency or reliability, the
+longer it will take for communication to happen.</p>
+<p>Similarly, disks can misdirect writes or corrupt data. Or you could be
+mounted on a network filesystem such as EBS.</p>
+<p>It will take longer to commit messages in both of these
+scenarios. Leader election will be triggered more often which also
+lowers availability. And the leader election (which also requires
+consensus) will also take longer.</p>
+<p>The best case scenario for distributed consensus is where the network
+is reliable and low-latency. When disks are reliable and fast.</p>
+<p>TigerBeetle has an incredible <a href="https://sim.tigerbeetle.com/">visual
+simulator</a> that demonstrates this effect
+across ever-worsening environments. While TigerBeetle and this
+simulator use Viewstamped Replication, the demonstrated principles
+apply to Raft as well.</p>
 <h3 id="what-happens-when-you-add-nodes?">What happens when you add nodes?</h3><p>Distributed consensus algorithms make sure that some minimum number of
 nodes in a cluster agree before continuing. The minimum number is
 proportional to the total number of nodes in the cluster.</p>
@@ -193,8 +232,100 @@ Raft cluster that replicates all data for the entire system.</p>
 advantage they have over Cockroach or Spanner is that they are
 conceptually simpler. Conceptually simpler often equates to easier to
 operate. That's a big deal.</p>
-<h3 id="everything-aside,-consensus-is-expensive">Everything aside, consensus is expensive</h3><p>Distributed consensus brings overhead, there's no question about it.</p>
+<h3 id="optimizations">Optimizations</h3><p>We've covered some of the basics, but real-world implementations get
+more complex.</p>
+<h4 id="snapshots">Snapshots</h4><p>Rather than letting the log grow indefinitely, most libraries
+implement snapshotting. The user of the library provides a state
+machine and also provides a method for serializing the state machine
+to disk. The Raft library periodically serializes the state machine to
+disk and truncates the log.</p>
+<p>When a follower is so far behind that the leader no longer has a log
+entry (because it has been truncated), the leader transfers the entire
+snapshot to the follower. Then once it is caught up on snapshots, log
+entries can be transferred again.</p>
+<p>This technique is described in the Raft paper.</p>
+<h4 id="batching">Batching</h4><p>Rather than limiting clients of the cluster to submitting only one
+command at a time, it's common for the cluster to accept many commands
+at a time. Similarly, many commands at a time are submitted to
+followers. When any node needs to write commands to disk, it can batch
+commands to disk as well.</p>
+<p>But there's a step beyond this you can go that is actually opaque to
+the Raft library. Each opaque command the client submits can <em>also</em>
+contain a batch of messages. In this scenario, only the user-provided
+state machine needs to be aware that each command it receives is
+actually a batch of messages that it should pull apart and interpret
+separately.</p>
+<p>This latter techinque is a fairly trivial way to increase throughput
+by an order of magnitude or two.</p>
+<h4 id="disk-and-network">Disk and network</h4><p>In terms of how data is stored on disk and how data is sent over the
+network there is obvious room for optimization.</p>
+<p>A naive implementation might store JSON on disk and send JSON over the
+network. A slightly more optimized implementation might store binary
+data on disk and send binary data over the network.</p>
+<p>Similarly you could swap out your RPC for gRPC or introduce zlib for
+compression to network or disk.</p>
+<p>A little tweak I made in my latest Raft implementation was to index
+log entries so searching the log was not a linear operation.</p>
+<p>Introducing a page cache to eliminate unnecessary disk reads also
+increased throughput for me by an order of magnitude.</p>
+<h4 id="flexible-quorums">Flexible quorums</h4><p>This is a beautiful
+<a href="https://arxiv.org/pdf/1608.06696.pdf">optimization</a> by Heidi Howard
+and co. that shows you can relax the quorum required for committing
+new commands so long as you increase the quorum required for electing
+a leader.</p>
+<p>In an environment where leader election doesn't happen often, flexible
+quorums can increase throughput and decrease latency. And it's a
+pretty easy change to make!</p>
+<h4 id="more">More</h4><p>These are just a couple common optimizations. You can also read about
+parallel state machine apply, parallel append to disk, witnesses, and
+leader leases. TiKV and Cockroach tend to have public material talking
+about these.</p>
+<p>There are also a few people I follow who are often reviewing relevant
+papers, if they are not producing their own. I encourage you to follow
+them too if this is interesting to you:</p>
+<ul>
+<li><a href="https://muratbuffalo.blogspot.com/">https://muratbuffalo.blogspot.com/</a></li>
+<li><a href="https://charap.co/">https://charap.co/</a></li>
+<li><a href="https://brooker.co.za/blog/">https://brooker.co.za/blog/</a></li>
+<li><a href="https://distributed-computing-musings.com/">https://distributed-computing-musings.com/</a></li>
+</ul>
+<h3 id="safety-and-testing">Safety and testing</h3><p>The other aspect to consider is safety. For example, checksums for
+everything written to disk and passed over the network; or <a href="https://www.usenix.org/conference/fast18/presentation/alagappan">being able
+to
+recover</a>
+from corruption in the log.</p>
+<p>Testing is also a big deal. There are prominent tools like
+<a href="https://jepsen.io/">Jepsen</a> that check for consistency in the face of
+fault injection (process failure, network failure, etc.). But even
+Jepsen has its limits. For example, it doesn't test disk failure.</p>
+<p>FoundationDB <a href="https://www.youtube.com/watch?v=4fFDFbi3toc">made
+popular</a> a number of
+testing techniques. And the people behind this testing went on to
+build a product, <a href="https://antithesis.com/">Antithesis</a>, around deterministic
+testing of non-deterministic code while injecting faults.</p>
+<p>And on that topic there's Facebook Experimental's
+<a href="https://github.com/facebookexperimental/hermit">Hermit</a> deterministic
+Linux hypervisor that may help to test complex distributed
+systems. However, my experience with it has not been great and the
+maintainers do not seem very engaged with other people who have
+reported bugs. I'm hopeful for it but we'll see.</p>
+<p>Antithesis and Hermit seem like a boon when half the trouble of
+working on distributed consensus implementations is avoiding flakey
+tests.</p>
+<p>Another promising avenue is emitting logs during the Raft lifecycle
+and validating the logs against a TLA+ spec. Microsoft has such a
+project that has <a href="https://github.com/etcd-io/raft/issues/111">begun to see
+adoption</a> among
+open-source Raft implementations.</p>
+<h3 id="everything-aside,-consensus-is-expensive">Everything aside, consensus is expensive</h3><p>In order to get high availability, you replicate the same data to
+multiple nodes. This is, by definition, more work than storing data
+only on a single node.</p>
+<p>There is overhead to the entire consensus process. So if you do not
+need this level of availability and can settle for some process via
+backups, it's going to have lower latency and higher throughput than
+if it had to go through distributed consensus.</p>
 
+	</div>
 	<div class="feedback">
 	  <h4>Feedback</h4>
 	  <p>As always,

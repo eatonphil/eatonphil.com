@@ -62,7 +62,8 @@
     </header>
     <div class="container">
       <div class="col-6">
-        <p>The most popular SQLite and PostgreSQL database drivers in Go are
+	<div class="post">
+          <p>The most popular SQLite and PostgreSQL database drivers in Go are
 (roughly) 20-76% slower than alternative Go drivers on insert-heavy
 benchmarks of mine. So if you are bulk-inserting data with Go (and
 potentially also bulk-retrieving data with Go), you may want to
@@ -170,6 +171,7 @@ benchmarking the same workload with different drivers.</p>
 anymore for accessing PostgreSQL from Go. Just use jackc/pgx.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">For INSERT-heavy workloads in Go, you may want to switch database drivers. For PostgreSQL and SQLite, the popular drivers are 20-76% slower for this workload in my tests.<br><br>Some driver developers have reported issues with database/sql as an interface.<a href="https://t.co/NLVp0P2uiV">https://t.co/NLVp0P2uiV</a> <a href="https://t.co/RxTbgMZ1MG">pic.twitter.com/RxTbgMZ1MG</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1710249941904351718?ref_src=twsrc%5Etfw">October 6, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
+	</div>
 	<div class="feedback">
 	  <h4>Feedback</h4>
 	  <p>As always,

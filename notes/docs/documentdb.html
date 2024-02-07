@@ -62,7 +62,8 @@
     </header>
     <div class="container">
       <div class="col-6">
-        <p>In this post we'll write a rudimentary document database from scratch
+	<div class="post">
+          <p>In this post we'll write a rudimentary document database from scratch
 in Go. In less than 500 lines of code we'll be able to support the
 following interactions, inspired by Elasticsearch:</p>
 <div class="highlight"><pre><span></span>$<span class="w"> </span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;: &quot;Kevin&quot;, &quot;age&quot;: &quot;45&quot;}&#39;</span><span class="w"> </span>http://localhost:8080/docs
@@ -991,6 +992,7 @@ curl<span class="w"> </span>-s<span class="w"> </span>--get<span class="w"> </sp
 <p>Hey that's not bad.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Hey here&#39;s a new blog post on writing a document database from scratch with support for Lucene-like queries and basic indexes in less than 500 lines of Go<a href="https://t.co/M3js6Pj9h0">https://t.co/M3js6Pj9h0</a></p>&mdash; Phil Eaton (@phil_eaton) <a href="https://twitter.com/phil_eaton/status/1508546397943046150?ref_src=twsrc%5Etfw">March 28, 2022</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
+	</div>
 	<div class="feedback">
 	  <h4>Feedback</h4>
 	  <p>As always,
