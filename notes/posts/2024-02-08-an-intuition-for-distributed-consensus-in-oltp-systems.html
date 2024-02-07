@@ -57,7 +57,7 @@ modeling in [previous Raft
 posts](https://notes.eatonphil.com/tags/raft.html) I've written.
 
 All nodes in the cluster run the same Raft code (including the state
-machine code you provide), communicating among themselves. Nodes elect
+machine code you provide); communicating among themselves. Nodes elect
 a semi-permanent leader that accepts all reads and writes from
 clients. (Again, reads and writes are modeled as commands).
 
@@ -68,7 +68,7 @@ that accepts the command.
 
 The leader appends the command to its log and makes sure to replicate
 all commands in its log to followers in the same order. The leader
-sends periodic heartbeat commands to all followers to prolong its term
+sends periodic heartbeat messages to all followers to prolong its term
 as leader. If a follower hasn't heard from the leader within a period
 of time, it becomes a candidate and requests votes from the cluster.
 

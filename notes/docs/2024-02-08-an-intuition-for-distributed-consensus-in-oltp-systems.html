@@ -106,7 +106,7 @@ find concrete examples of exactly this replicated key-value store
 modeling in <a href="https://notes.eatonphil.com/tags/raft.html">previous Raft
 posts</a> I've written.</p>
 <p>All nodes in the cluster run the same Raft code (including the state
-machine code you provide), communicating among themselves. Nodes elect
+machine code you provide); communicating among themselves. Nodes elect
 a semi-permanent leader that accepts all reads and writes from
 clients. (Again, reads and writes are modeled as commands).</p>
 <p>To commit a new command to the cluster, clients send the command to
@@ -115,7 +115,7 @@ there is currently a leader. Clients retry until there is a leader
 that accepts the command.</p>
 <p>The leader appends the command to its log and makes sure to replicate
 all commands in its log to followers in the same order. The leader
-sends periodic heartbeat commands to all followers to prolong its term
+sends periodic heartbeat messages to all followers to prolong its term
 as leader. If a follower hasn't heard from the leader within a period
 of time, it becomes a candidate and requests votes from the cluster.</p>
 <p>When a follower is asked to accept a new command from a leader, it
