@@ -45,7 +45,7 @@ replicated state machine on top of a replicated log.
 A Raft library handles replicating and durably persisting a sequence
 (or <i>log</i>) of commands to all nodes in a cluster, or at least a
 majority of nodes. You provide the library a state machine that
-handles interpreting commands. From the perspective of the Raft
+interprets the replicated commands. From the perspective of the Raft
 library, commands are just opaque byte strings.
 
 For example, you could build a replicated key-value store out of `SET`
