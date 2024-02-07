@@ -186,9 +186,10 @@ you could be mounted on a network filesystem such as EBS.</p>
 <p>And processes themselves can crash due to low disk space or the OOM
 killer.</p>
 <p>It will take longer to achieve consensus to commit messages these
-scenarios. Since messages take longer to complete, followers will
-timeout more often, triggering leader election. And the leader
-election itself (which also requires consensus) will also take longer.</p>
+scenarios. If messages take longer to reach nodes, or if nodes are
+constantly crashing, followers will timeout more often, triggering
+leader election. And the leader election itself (which also requires
+consensus) will also take longer.</p>
 <p>The best case scenario for distributed consensus is where the network
 is reliable and low-latency. When disks are reliable and fast.</p>
 <p>TigerBeetle has an incredible <a href="https://sim.tigerbeetle.com/">visual
