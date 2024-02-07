@@ -324,13 +324,17 @@ and validating the logs against a TLA+ spec. Microsoft has such a
 project that has <a href="https://github.com/etcd-io/raft/issues/111">begun to see
 adoption</a> among
 open-source Raft implementations.</p>
-<h3 id="everything-aside,-consensus-is-expensive">Everything aside, consensus is expensive</h3><p>In order to get high availability, you replicate the same data to
-multiple nodes. This is, by definition, more work than storing data
-only on a single node.</p>
-<p>There is overhead to the entire consensus process. So if you do not
-need this level of availability and can settle for some process via
-backups, it's going to have lower latency and higher throughput than
-if it had to go through distributed consensus.</p>
+<h3 id="conclusion">Conclusion</h3><p>Everything aside, consensus is expensive. There is overhead to the
+entire consensus process. So if you do not need this level of
+availability and can settle for some process via backups, it's going
+to have lower latency and higher throughput than if it had to go
+through distributed consensus.</p>
+<p>Also, while MultiPaxos, Raft, and Viewstamped Replication are some of
+the most common algorithms for distributed consensus, there's also a
+world beyond. Two-phase commit, ZooKeeper Atomic Broadcast, PigPaxos,
+EPaxos, Accord by Cassandra. The world of distributed consensus also
+gets especially weird and interesting outside of OLTP systems.</p>
+<p>But that's enough for one post.</p>
 <h3 id="further-reading">Further reading</h3><ul>
 <li><a href="https://raft.github.io/raft.pdf">The Raft Paper</a></li>
 <li><a href="https://github.com/ongardie/raft.tla/blob/master/raft.tla">The Raft TLA+ Spec</a></li>
