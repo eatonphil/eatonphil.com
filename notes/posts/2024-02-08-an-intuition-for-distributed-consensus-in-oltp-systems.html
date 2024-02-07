@@ -260,8 +260,8 @@ at a time. Similarly, many commands at a time are submitted to
 followers. When any node needs to write commands to disk, it can batch
 commands to disk as well.
 
-But there's a step beyond this you can go that is actually opaque to
-the Raft library. Each opaque command the client submits can *also*
+But you can go a step beyond this in a way that is completely opaque
+to the Raft library. Each opaque command the client submits can *also*
 contain a batch of messages. In this scenario, only the user-provided
 state machine needs to be aware that each command it receives is
 actually a batch of messages that it should pull apart and interpret
