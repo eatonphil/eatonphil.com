@@ -156,13 +156,16 @@ A distributed system relies on communicating over the network. The
 worse the network, whether in terms of latency or reliability, the
 longer it will take for communication to happen.
 
-Similarly, disks can misdirect writes or corrupt data. Or you could be
-mounted on a network filesystem such as EBS.
+Aside from the network, disks can misdirect writes or corrupt data. Or
+you could be mounted on a network filesystem such as EBS.
 
-It will take longer to commit messages in both of these
-scenarios. Leader election will be triggered more often which also
-lowers availability. And the leader election (which also requires
-consensus) will also take longer.
+And processes themselves can crash due low disk space or the OOM
+killer.
+
+It will take longer to achieve consensus to commit messages these
+scenarios. Since messages take longer to complete, followers will
+timeout more often, triggering leader election. And the leader
+election itself (which also requires consensus) will also take longer.
 
 The best case scenario for distributed consensus is where the network
 is reliable and low-latency. When disks are reliable and fast.
