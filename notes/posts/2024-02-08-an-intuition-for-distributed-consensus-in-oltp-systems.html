@@ -42,19 +42,19 @@ Let's start with Raft.
 Raft is a distributed consensus algorithm that allows you to build a
 replicated state machine on top of a replicated log.
 
-For example, you could create a replicated key-value store out of
-`SET` and `GET` commands. You use a Raft library and provide a state
-machine that interprets a sequence (or <i>log</i>) of `SET` and `GET`
-commands to modify an in-memory hashtable as each `SET` and `GET` log
-entry demands. From the perspective of the Raft library, the commands
-are just opaque byte strings.
+A Raft library handles replicating and durably persisting a sequence
+(or <i>log</i>) of commands to all nodes in a cluster, or at least a
+majority of nodes. You provide the library a state machine that
+handles interpreting commands. From the perspective of the Raft
+library, commands are just opaque byte strings.
 
-The Raft library handles replicating and durably persisting the log to
-all nodes in the cluster, or at least a majority of nodes. Your state
-machine handles interpreting the log entries. You can find concrete
-examples of exactly this replicated key-value store modeling in
-[previous Raft posts](https://notes.eatonphil.com/tags/raft.html) I've
-written.
+For example, you could build a replicated key-value store out of `SET`
+and `GET` commands that are passed in by a client. You provide a Raft
+library state machine code that interprets the Raft log of `SET` and
+`GET` commands to modify an in-memory hashtable as each `SET` and
+`GET` command. You can find concrete examples of exactly this
+replicated key-value store modeling in [previous Raft
+posts](https://notes.eatonphil.com/tags/raft.html) I've written.
 
 A Raft cluster is a collection of nodes all running Raft code
 (including the state machine code you provide to interpret the Raft
