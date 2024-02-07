@@ -142,8 +142,9 @@ not the only consistency approach you'll see in the wild.
 As you increase the guarantees of your consistency model, you tend to
 sacrifice performance. Going the opposite direction, some production
 systems sacrifice consistency to improve performance. For example, you
-might allow stale reads from a replica so that you can reduce load on
-a leader.
+might allow stale reads from any node, reading only from local state
+and avoiding consensus, so that you can reduce load on a leader and
+avoid the overhead of consensus.
 
 There are formal definitions for lower consistency models, including
 sequential and read-your-writes. You can read the [Jepsen
