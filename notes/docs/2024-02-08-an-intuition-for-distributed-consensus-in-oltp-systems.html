@@ -244,9 +244,9 @@ machine and also provides a method for serializing the state machine
 to disk. The Raft library periodically serializes the state machine to
 disk and truncates the log.</p>
 <p>When a follower is so far behind that the leader no longer has a log
-entry (because it has been truncated), the leader transfers the entire
-snapshot to the follower. Then once it is caught up on snapshots, log
-entries can be transferred again.</p>
+entry (because it has been truncated), the leader transfers an entire
+snapshot to the follower. Then once the follower is caught up on
+snapshots, the leader can transfer normal log entries again.</p>
 <p>This technique is described in the Raft paper. While it isn't
 necessary for Raft to work, it's so important that it is hardly an
 optimization and more a required part of a production Raft system.</p>
