@@ -236,8 +236,8 @@ Raft cluster that replicates all data for the entire system.</p>
 advantage they have over Cockroach or Spanner is that they are
 conceptually simpler. Conceptually simpler often equates to easier to
 operate. That's a big deal.</p>
-<h3 id="optimizations">Optimizations</h3><p>We've covered some of the basics, but real-world implementations get
-more complex.</p>
+<h3 id="optimizations">Optimizations</h3><p>We've covered the basics of operation, but real-world implementations
+get more complex.</p>
 <h4 id="snapshots">Snapshots</h4><p>Rather than letting the log grow indefinitely, most libraries
 implement snapshotting. The user of the library provides a state
 machine and also provides a method for serializing the state machine
@@ -247,7 +247,9 @@ disk and truncates the log.</p>
 entry (because it has been truncated), the leader transfers the entire
 snapshot to the follower. Then once it is caught up on snapshots, log
 entries can be transferred again.</p>
-<p>This technique is described in the Raft paper.</p>
+<p>This technique is described in the Raft paper. While it isn't
+necessary for Raft to work, it's so important that it is hardly an
+optimization and more a required part of a production Raft system.</p>
 <h4 id="batching">Batching</h4><p>Rather than limiting clients of the cluster to submitting only one
 command at a time, it's common for the cluster to accept many commands
 at a time. Similarly, many commands at a time are submitted to
