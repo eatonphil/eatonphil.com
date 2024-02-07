@@ -4,11 +4,11 @@
 ###### raft,distributed consensus,draft
 
 Distributed consensus in transactional databases (e.g. etcd or
-Cockroach) are everywhere today. They typically build variations of
-log-based Paxos derivatives such as MultiPaxos, Viewstamped
-Replication, or Raft. These protocols are fairly standard and
-well-understood. But there are also new variations that come out each
-year, optimizing for various workloads.
+Cockroach) are everywhere today. These systems typically use
+variations of log-based Paxos derivatives such as MultiPaxos,
+Viewstamped Replication, or Raft. These protocols are fairly standard
+and well-understood. But there are also new variations that come out
+each year, optimizing for various workloads.
 
 So much software we use today, Kubernetes for example, ends up using
 these common protocols, Raft in particular, that even if you don't
