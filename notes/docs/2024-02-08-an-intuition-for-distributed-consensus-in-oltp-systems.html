@@ -70,9 +70,10 @@ variations of log-based Paxos-like algorithms such as MultiPaxos,
 Viewstamped Replication, or Raft. While there are new variations that
 come out each year, optimizing for various workloads, these algorithms
 are fairly standard and well-understood.</p>
-<p>In fact they are used in so many places that even if you don't decide
-to implement Raft (which is fun and I encourage it), it seems worth
-building an intuition for distributed consensus.</p>
+<p>In fact they are used in so many places, Kubernetes for example, that
+even if you don't decide to implement Raft (which is fun and I
+encourage it), it seems worth building an intuition for distributed
+consensus.</p>
 <p>What happens as you tweak a configuration. What happens as the
 production environment changes. Or what to reach for as product
 requirements change.</p>
@@ -222,8 +223,8 @@ or Spanner work is by sharding the data, transparent to the
 client. Within each shard data is replicated with a dedicated
 distributed consensus cluster.</p>
 <p>So, yes, distributed consensus can be a <em>part</em> of horizontal
-scaling. But again what it primarily solves is high availability via
-replication while remaining linearizable.</p>
+scaling. But again what distributed consensus primarily solves is high
+availability via replication while remaining linearizable.</p>
 <p>This is not a trivial point to
 make. <a href="https://web.archive.org/web/20230327030543/https://etcd.io/docs/v3.2/learning/why/#using-etcd-for-metadata">etcd</a>,
 <a href="https://web.archive.org/web/20231212132325/https://www.hashicorp.com/resources/operating-and-running-consul-at-scale">consul</a>,
@@ -334,8 +335,11 @@ entire consensus process. So if you do not need this level of
 availability and can settle for some process via backups, it's going
 to have lower latency and higher throughput than if it had to go
 through distributed consensus.</p>
+<p>If you do need high availability, distributed consensus can be a great
+choice. But consider the environment and what you want from your
+consensus algorithm.</p>
 <p>Also, while MultiPaxos, Raft, and Viewstamped Replication are some of
-the most common algorithms for distributed consensus, there's also a
+the most popular algorithms for distributed consensus, there is a
 world beyond. Two-phase commit, ZooKeeper Atomic Broadcast, PigPaxos,
 EPaxos, Accord by Cassandra. The world of distributed consensus also
 gets especially weird and interesting outside of OLTP systems.</p>
