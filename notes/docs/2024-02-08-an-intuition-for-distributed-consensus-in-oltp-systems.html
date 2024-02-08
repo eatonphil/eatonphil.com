@@ -218,16 +218,17 @@ different availability zones) seems pretty unlikely!</p>
 <h3 id="horizontal-scaling-with-distributed-consensus?-not-exactly">Horizontal scaling with distributed consensus? Not exactly</h3><p>All of this is to say that the most popular algorithms for distributed
 consensus, on their own, have nothing to do with horizontal scaling.</p>
 <p>The way that horizontally scaling databases like Cockroach or Yugabyte
-or Spanner work is by partitioning the data. Within each partition
-data is replicated with a dedicated distributed consensus cluster.</p>
-<p>So, yes, distributed consensus <em>can</em> be a part of horizontal
+or Spanner work is by sharding the data, transparent to the
+client. Within each shard data is replicated with a dedicated
+distributed consensus cluster.</p>
+<p>So, yes, distributed consensus can be a <em>part</em> of horizontal
 scaling. But again what it primarily solves is high availability via
 replication while remaining linearizable.</p>
 <p>This is not a trivial point to
 make. <a href="https://web.archive.org/web/20230327030543/https://etcd.io/docs/v3.2/learning/why/#using-etcd-for-metadata">etcd</a>,
 <a href="https://web.archive.org/web/20231212132325/https://www.hashicorp.com/resources/operating-and-running-consul-at-scale">consul</a>,
 and <a href="https://github.com/rqlite/rqlite">rqlite</a> are examples of
-databases that do not do partitioning, only replication, via a single
+databases that do not do sharding, only replication, via a single
 Raft cluster that replicates all data for the entire system.</p>
 <p>For these databases there is no horizontal scaling. If they support
 "horizontal scaling", they support this by doing non-linearizable
@@ -275,11 +276,10 @@ compression to network or disk.</p>
 log entries so searching the log was not a linear operation. Another
 little tweak was to introduce a page cache to eliminate unnecessary
 disk reads. This increased throughput for by an order of magnitude.</p>
-<h4 id="flexible-quorums">Flexible quorums</h4><p>This is a brilliant
-<a href="https://arxiv.org/pdf/1608.06696.pdf">optimization</a> by Heidi Howard
-and co. that shows you can relax the quorum required for committing
-new commands so long as you increase the quorum required for electing
-a leader.</p>
+<h4 id="flexible-quorums">Flexible quorums</h4><p>This brilliant <a href="https://arxiv.org/pdf/1608.06696.pdf">optimization</a> by
+Heidi Howard and co. shows you can relax the quorum required for
+committing new commands so long as you increase the quorum required
+for electing a leader.</p>
 <p>In an environment where leader election doesn't happen often, flexible
 quorums can increase throughput and decrease latency. And it's a
 pretty easy change to make!</p>

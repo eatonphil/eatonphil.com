@@ -207,10 +207,11 @@ All of this is to say that the most popular algorithms for distributed
 consensus, on their own, have nothing to do with horizontal scaling.
 
 The way that horizontally scaling databases like Cockroach or Yugabyte
-or Spanner work is by partitioning the data. Within each partition
-data is replicated with a dedicated distributed consensus cluster.
+or Spanner work is by sharding the data, transparent to the
+client. Within each shard data is replicated with a dedicated
+distributed consensus cluster.
 
-So, yes, distributed consensus *can* be a part of horizontal
+So, yes, distributed consensus can be a *part* of horizontal
 scaling. But again what it primarily solves is high availability via
 replication while remaining linearizable.
 
@@ -218,7 +219,7 @@ This is not a trivial point to
 make. [etcd](https://web.archive.org/web/20230327030543/https://etcd.io/docs/v3.2/learning/why/#using-etcd-for-metadata),
 [consul](https://web.archive.org/web/20231212132325/https://www.hashicorp.com/resources/operating-and-running-consul-at-scale),
 and [rqlite](https://github.com/rqlite/rqlite) are examples of
-databases that do not do partitioning, only replication, via a single
+databases that do not do sharding, only replication, via a single
 Raft cluster that replicates all data for the entire system.
 
 For these databases there is no horizontal scaling. If they support
@@ -291,11 +292,10 @@ disk reads. This increased throughput for by an order of magnitude.
 
 #### Flexible quorums
 
-This is a brilliant
-[optimization](https://arxiv.org/pdf/1608.06696.pdf) by Heidi Howard
-and co. that shows you can relax the quorum required for committing
-new commands so long as you increase the quorum required for electing
-a leader.
+This brilliant [optimization](https://arxiv.org/pdf/1608.06696.pdf) by
+Heidi Howard and co. shows you can relax the quorum required for
+committing new commands so long as you increase the quorum required
+for electing a leader.
 
 In an environment where leader election doesn't happen often, flexible
 quorums can increase throughput and decrease latency. And it's a
