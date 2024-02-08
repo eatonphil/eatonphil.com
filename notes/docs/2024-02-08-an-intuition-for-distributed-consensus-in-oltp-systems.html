@@ -284,8 +284,13 @@ a leader.</p>
 quorums can increase throughput and decrease latency. And it's a
 pretty easy change to make!</p>
 <h4 id="more">More</h4><p>These are just a couple common optimizations. You can also read about
-parallel state machine apply, parallel append to disk, witnesses, and
-leader leases. TiKV, Scylla, RedPanda, and Cockroach tend to have
+<a href="https://www.pingcap.com/blog/optimizing-raft-in-tikv/">parallel state machine
+apply</a>,
+<a href="https://www.pingcap.com/blog/optimizing-raft-in-tikv/">parallel append to
+disk</a>,
+witnesses,
+<a href="https://vldb.org/pvldb/vol14/p2203-whittaker.pdf">compartmentalization</a>,
+and leader leases. TiKV, Scylla, RedPanda, and Cockroach tend to have
 public material talking about this stuff.</p>
 <p>There are also a few people I follow who are often reviewing relevant
 papers, if they are not producing their own. I encourage you to follow
