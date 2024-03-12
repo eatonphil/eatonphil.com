@@ -1,0 +1,184 @@
+<!-- -*- mode: markdown -*- -->
+# First month on a database team
+## March 11, 2024
+###### databases
+
+I joined EnterpriseDB as a developer on a distributed Postgres product
+([PGD](https://enterprisedb.com/docs/pgd)) a little over a month
+ago. I haven't been a full-time developer in many years so I was a bit
+trepid, but it's been incredibly enjoyable to be able to focus on
+little technical details again. The process of onboarding myself has
+been pretty similar at each company in the last decade, though I think
+I've gotten better at it.
+
+Tricky things about joining a new company include figuring out the
+people, organization, and processes. What code exists? How does it
+work together? Who owns what? How can I find easy code issues to
+tackle? How do I know what's important (so I can avoid picking it up
+and becoming a bottleneck).
+
+Moreover, in the first few days or weeks you aren't exactly expected
+to contribute meaningfully to features or bugs. Your sprint
+contributions are not tracked too closely. The combination of what to
+avoid and the sprint-freedom you have leads to a few interesting and
+valuable areas to tackle on your own: the build process, tests,
+running the software, and docs.
+
+But code need not be ignored either. Some frequent areas to get your
+first code contributions in include user configuration code, error
+messages, and stale code comments.
+
+Onboarding is a whole-team activity and my team was incredibly
+helpful. Nonetheless we're all still responsible for ourselves. So I
+wanted to share some little 1st day, 1st week, 1st month projects I
+went through to bootstrap my understanding of the system.
+
+### Build process
+
+First off, where is the code and how do you build it? This requires
+you to have all the relevant dependencies. Much of my work is on a
+Postgres extension. This meant having a local Postgres development
+environment, having gcc, gmake (on mac), Perl, and so on. And
+furthermore, PGD is a pretty mature product so it supports building
+against multiple Postgres distributions. Can I build against all of
+them?
+
+The easiest situation is when there are instructions for all of this,
+linked directly from your main repo. When I started, the instructions
+did exist but in a variety of places. So over the first week I started
+collecting all of what I had learned about building the system, with
+dependencies, across distributions, and with various important flags
+(debug mode on, asserts enabled, etc.). I finished the first week by
+writing a little internal blog post called "Hacking on PGD".
+
+I hadn't yet figured out the team processes so I didn't want to bother
+anyone by trying to get this "blog post" committed anywhere yet as
+official internal documentation. Maybe there already was a good doc, I
+just didn't notice it yet. So I just published it in a private
+Confluence page and shared it in the private team slack. If anyone
+else benefited from it, great! Otherwise, I knew I'd want to refer
+back to it.
+
+This is an important attitude I think. It can be hard to tell what
+others will benefit from. If you get into the habit of writing things
+down internally for your own sake, but making it available internally,
+it is likely others will benefit from it too. This is something I've
+learned from years of blogging publicly outside of work. The simple
+act of writing a good post creates yourself as something of an
+authority. This is useful for yourself if no one else.
+
+#### Writing a good post
+
+Let's get distracted here for a second. One of the most important
+things I think in documentation is documenting not just what does
+exist but what doesn't. If you had to take a path to get something to
+work, did you try other paths that didn't work? It can be extremely
+useful to figure out what exactly is required for something.
+
+Was there a flag that you tried to build with but you didn't try
+building without it? Well try again without it and make sure it was
+necessary. Was there some process you executed where the build
+succeeded but you can't remember if it was actually necessary for the
+build to succeed?
+
+It's difficult to explain why I think this sort of precision is
+useful but I'm pretty sure it is. Maybe because it builds the habit of
+not treating things as magic when you can avoid it. It builds the
+habit of asking questions (if only to yourself) to understand and not
+just to get by. I don't know.
+
+### Testing
+
+After I got the builds working, I felt the obvious next step was to
+run tests. But what tests exist?  Are there unit tests? Integration
+tests? Anything else? Moreover, is there test coverage? I was certain
+I'd be able to find some low-hanging contributions to make if I could
+find some files with low test coverage.
+
+Alas, my certainty hit the wall in that there were in fact too many
+types of integration tests that all do provide coverage already. The
+easiest ways to get coverage with gcov were only reporting coverage
+for certain integration tests that we run locally. There are more
+integration tests run in cloud environments and getting coverage
+reports there to merge with my local coverage files would have
+required more knowledge of people and processes, areas that I wanted
+not to be forced to think about too quickly.
+
+It was around this point where I noticed a ticket that asked for a
+simple change to user configuration code. I was able to make the
+change pretty quickly and wanted to add tests. We have a powerful test
+framework built on top of Postgres's powerful Perl test framework. But
+it was a little difficult to figure out how to use it.
+
+So I copied code from other tests and pared it down until I got the
+smallest version of test code I could get. This took maybe a day or
+two of tweaking lines and rerunning tests since I didn't understand
+everything that was and wasn't required. Also it's Perl and I've never
+written Perl before so that took a bit of time and ChatGPT. (Arrays,
+man.)
+
+In the end though I was able to collect my learnings into another
+internal confluence post just about how to write tests, how to debug
+tests, how to do common things within tests (for example, ensuring a
+Postgres log line was outputted), etc. I published this post as well
+and shared it in the team Slack.
+
+### Running
+
+I had PGD built locally and was able to run integration tests locally,
+but I still hadn't gotten a cluster running and played with the
+eventual consistency demos I knew we supported. We had a great
+quickstart that ran through all the manual steps of getting a two-node
+cluster up. This was a distillation, for devs, of a more elaborate
+process we give to customers in a production-quality script.
+
+But I was looking for something in between of a production-quality
+script and manually initializing a local cluster. And I also wanted to
+practice my understanding of our test process. So I ported our
+quickstart to our integration test framework and made a PR with this
+new test, eventually merging this into the repo. And I wrote a minimal
+Python script for bringing up a local cluster. I've got an open PR to
+add this script to the repo. Maybe I'll learn though that a simple
+script such as this does already exist, and that's fine!  Docs The
+entire time, as I'd been trying to build and test and run PGD, I was
+trying to understand our terminology and architecture by going through
+our public docs. I had a lot of questions coming out of this I'd ask
+in the team channel. Not to toot my horn but I think it's somewhat of
+a superpower to be able/willing to ask "dumb questions". That's how I
+frame it anyway. "Dumb question: what does X mean in this paragraph?"
+Or, "dumb question: when we say performance improvement because of Y,
+what is the intuition here?" I was able to make a few more docs
+contributions as I read through the docs as well.
+
+But maybe the more important contributions were, when I got more
+comfortable with the team, proposing to merge my personal, internal
+Confluence blog posts into the repo as docs. I think in a number of
+cases, what I wrote about indeed hadn't been concisely collected
+before and thus was useful to have as team documentation.
+
+Even more challenging was trying to distill (a chunk of) the internal
+architecture. Only after following many varied internal docs and
+videos, and following through numerous code paths, was I able to
+propose an architecture diagram outlining major components and
+communication between them, with their differing formats (WAL records,
+internal enums, etc.) and means of communication (RPC, shared memory,
+etc.). This architecture diagram is still in review and may be totally
+off. But it's already helped at least me think about the system.
+
+In most cases this was all information that the team had already
+written or explained but just bringing it together and summarizing
+provided a different useful perspective I think. Even if none of the
+docs got merged it still helped to build my own understanding.
+
+### Beyond the repo
+
+Learning the project is just one aspect of onboarding. Beyond that I
+join the #cats channel, the #dogs channel, found some fellow New
+Yorkers and opened a NYC channel, and tried to Zoom with all the
+various people I'd see hanging around common team Slack channels. Try
+to walk the line between scouring the repo and Confluence and Jira
+myself and bugging people with my incessant questions.
+
+I've enjoyed my time at startups. I've been a dev, a manager, a
+founder, a cofounder. But I'm incredibly excited to be back, at a
+bigger company, full-time as a developer hacking on a database!
