@@ -103,7 +103,7 @@ writing a little internal blog post called "Hacking on PGD".</p>
 <p>I hadn't yet figured out the team processes so I didn't want to bother
 anyone by trying to get this "blog post" committed anywhere yet as
 official internal documentation. Maybe there already was a good doc, I
-just didn't notice it yet. So I just published it in a private
+just hadn't noticed it yet. So I just published it in a private
 Confluence page and shared it in the private team slack. If anyone
 else benefited from it, great! Otherwise, I knew I'd want to refer
 back to it.</p>
@@ -143,18 +143,20 @@ tests? Anything else? Moreover, is there test coverage? I was certain
 I'd be able to find some low-hanging contributions to make if I could
 find some files with low test coverage.</p>
 <p>Alas, my certainty hit the wall in that there were in fact too many
-types of integration tests that all do provide coverage already. The
-easiest ways to get coverage with gcov were only reporting coverage
-for certain integration tests that we run locally. There are more
-integration tests run in cloud environments and getting coverage
+types of integration tests that all do provide coverage already. They
+just don't all <em>report</em> coverage.</p>
+<p>The easiest ways to report coverage (with gcov) were only reporting
+coverage for certain integration tests that we run locally. There are
+more integration tests run in cloud environments and getting coverage
 reports there to merge with my local coverage files would have
 required more knowledge of people and processes, areas that I wanted
 not to be forced to think about too quickly.</p>
-<p>It was around this point where I noticed a ticket that asked for a
-simple change to user configuration code. I was able to make the
-change pretty quickly and wanted to add tests. We have a powerful test
-framework built on top of Postgres's powerful Perl test framework. But
-it was a little difficult to figure out how to use it.</p>
+<p>So coverage wasn't a good route to go. But it was around this point
+where I noticed a ticket that asked for a simple change to user
+configuration code. I was able to make the change pretty quickly and
+wanted to add tests. We have our own test framework built on top of
+Postgres's powerful Perl test framework. But it was a little difficult
+to figure out how to use either of them.</p>
 <p>So I copied code from other tests and pared it down until I got the
 smallest version of test code I could get. This took maybe a day or
 two of tweaking lines and rerunning tests since I didn't understand
@@ -172,7 +174,7 @@ eventual consistency demos I knew we supported. We had a great
 quickstart that ran through all the manual steps of getting a two-node
 cluster up. This was a distillation, for devs, of a more elaborate
 process we give to customers in a production-quality script.</p>
-<p>But I was looking for something in between of a production-quality
+<p>But I was looking for something in between a production-quality
 script and manually initializing a local cluster. And I also wanted to
 practice my understanding of our test process. So I ported our
 quickstart to our integration test framework and made a PR with this
