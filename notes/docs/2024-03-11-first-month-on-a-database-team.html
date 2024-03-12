@@ -111,14 +111,14 @@ back to it.</p>
 others will benefit from. If you get into the habit of writing things
 down internally for your own sake, but making it available internally,
 it is likely others will benefit from it too. This is something I've
-learned from years of blogging publicly outside of work. The simple
-act of writing a good post creates yourself as something of an
-authority. This is useful for yourself if no one else.</p>
+learned from years of blogging publicly outside of work.</p>
+<p>Moreover, the simple act of writing a good post creates yourself as
+something of an authority. This is useful for yourself if no one else.</p>
 <h4 id="writing-a-good-post">Writing a good post</h4><p>Let's get distracted here for a second. One of the most important
 things I think in documentation is documenting not just what does
 exist but what doesn't. If you had to take a path to get something to
 work, did you try other paths that didn't work? It can be extremely
-useful to figure out what exactly is required for something.</p>
+useful to figure out what <em>exactly</em> is required for something.</p>
 <p>Was there a flag that you tried to build with but you didn't try
 building without it? Well try again without it and make sure it was
 necessary. Was there some process you executed where the build
@@ -128,7 +128,7 @@ build to succeed?</p>
 useful but I'm pretty sure it is. Maybe because it builds the habit of
 not treating things as magic when you can avoid it. It builds the
 habit of asking questions (if only to yourself) to understand and not
-just to get by. I don't know.</p>
+just to get by.</p>
 <h4 id="static-analysis?-dynamic-analysis?">Static analysis? Dynamic analysis?</h4><p>Going back to builds, another aspect to consider is static and dynamic
 analysis. Are there special steps to using gdb or valgrind or other
 analyzers? Are you using them already? Can you get them running
@@ -151,16 +151,16 @@ more integration tests run in cloud environments and getting coverage
 reports there to merge with my local coverage files would have
 required more knowledge of people and processes, areas that I wanted
 not to be forced to think about too quickly.</p>
-<p>So coverage wasn't a good route to go. But it was around this point
-where I noticed a ticket that asked for a simple change to user
-configuration code. I was able to make the change pretty quickly and
-wanted to add tests. We have our own test framework built on top of
-Postgres's powerful Perl test framework. But it was a little difficult
-to figure out how to use either of them.</p>
+<p>So coverage wasn't a good route to go. But around this time, I noticed
+a ticket that asked for a simple change to user configuration code. I
+was able to make the change pretty quickly and wanted to add tests. We
+have our own test framework built on top of Postgres's powerful Perl
+test framework. But it was a little difficult to figure out how to use
+either of them.</p>
 <p>So I copied code from other tests and pared it down until I got the
 smallest version of test code I could get. This took maybe a day or
 two of tweaking lines and rerunning tests since I didn't understand
-everything that was and wasn't required. Also it's Perl and I've never
+everything that was/wasn't required. Also it's Perl and I've never
 written Perl before so that took a bit of time and ChatGPT. (Arrays,
 man.)</p>
 <p>In the end though I was able to collect my learnings into another
@@ -169,7 +169,7 @@ tests, how to do common things within tests (for example, ensuring a
 Postgres log line was outputted), etc. I published this post as well
 and shared it in the team Slack.</p>
 <h3 id="running">Running</h3><p>I had PGD built locally and was able to run integration tests locally,
-but I still hadn't gotten a cluster running and played with the
+but I still hadn't gotten a cluster running. Nor played with the
 eventual consistency demos I knew we supported. We had a great
 quickstart that ran through all the manual steps of getting a two-node
 cluster up. This was a distillation, for devs, of a more elaborate
@@ -190,8 +190,9 @@ I'd ask in the team channel.</p>
 able/willing to ask "dumb questions" in a group setting. That's how I
 frame it anyway. "Dumb question: what does X mean in this paragraph?"
 Or, "dumb question: when we say performance improvement because of Y,
-what is the intuition here?" I was able to make a few more docs
-contributions as I read through the docs as well.</p>
+what is the intuition here?" Because of the time spent here, I was
+able to make a few more docs contributions as I read through the docs
+as well.</p>
 <p>You have to balance where you ask your dumb questions though. Asking
 dumb questions to one person doesn't benefit the team. But asking dumb
 questions in too wide a group is sometimes bad politics. Asking "dumb
