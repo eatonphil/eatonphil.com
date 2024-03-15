@@ -144,7 +144,9 @@ standard library meant omitting stuff like checksums and common OS
 paths.</p>
 <p>It's a tradeoff and maybe makes the job of the standard library
 maintainer easier. But I don't think this is the ideal
-situation. Hopefully languages end up more like Go than like Rust in
+situation. Dependencies are useful but for ease of maintenance
+programmers should be kept to a reasonable minimum.</p>
+<p>Hopefully languages end up more like Go than like Rust in
 this regard.</p>
 <h3 id="explicit-allocation">Explicit allocation</h3><p>When folk discuss the Zig standard library's pattern of requiring an
 allocator argument for every method that allocates, they often talk
@@ -200,6 +202,12 @@ it's optional. From what I understand, C++ STL is like this too.</p>
 <p>These are both super useful for programming extensions. And it's one
 of the reasons I think Zig makes a ton of sense for Postgres
 extensions specifically.</p>
+<h3 id="praise-for-zig,-rust,-and-go-tooling">Praise for Zig, Rust, and Go tooling</h3><p>All three of these have got really great first-party tooling including
+build system, package management, test runners and formatters. The
+idea that the language should provide a great environment to code in
+(end-to-end) makes things simpler and nicer for programmers.</p>
+<p>Now if only Rust would apply the same philosophy to the standard
+library.</p>
 <h3 id="meandering-non-conclusion">Meandering non-conclusion</h3><p>Use the language you want to use. Zig and Rust are both nice
 alternatives to writing vanilla C. On the other hand, I've been
 pleasantly surprised writing Postgres C how high level it is. It's

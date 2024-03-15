@@ -103,7 +103,10 @@ paths.
 
 It's a tradeoff and maybe makes the job of the standard library
 maintainer easier. But I don't think this is the ideal
-situation. Hopefully languages end up more like Go than like Rust in
+situation. Dependencies are useful but for ease of maintenance
+programmers should be kept to a reasonable minimum.
+
+Hopefully languages end up more like Go than like Rust in
 this regard.
 
 ### Explicit allocation
@@ -174,6 +177,16 @@ it's optional. From what I understand, C++ STL is like this too.
 These are both super useful for programming extensions. And it's one
 of the reasons I think Zig makes a ton of sense for Postgres
 extensions specifically.
+
+### Praise for Zig, Rust, and Go tooling
+
+All three of these have got really great first-party tooling including
+build system, package management, test runners and formatters. The
+idea that the language should provide a great environment to code in
+(end-to-end) makes things simpler and nicer for programmers.
+
+Now if only Rust would apply the same philosophy to the standard
+library.
 
 ### Meandering non-conclusion
 
