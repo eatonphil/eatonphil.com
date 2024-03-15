@@ -95,11 +95,10 @@ memory is almost entirely managed through nested arenas (called
 finishes, recursively. Zig has builtin support for arenas, which is
 great.</p>
 <h3 id="standard-library">Standard library</h3><p>It seems regrettable that some languages have been shipping smaller
-standard libraries. It seems to increase build time and build
-flakiness (downloading dependencies), it increases bitrot over time as
-unnecessary breaking changes occur in third-party dependencies, and it
-encourages users of the language to install more transitively-unvetted
-third-party libraries.</p>
+standard libraries. Smaller standard libraries seem to encourage users
+of the language to install more transitively-unvetted third-party
+libraries, which increases build time and build flakiness, and which
+increases bitrot over time as unnecessary breaking changes occur.</p>
 <p>People have been making jokes about <code>node_modules</code> for a decade now, but
 this problem is just as bad in Rust codebases I've seen. And to a
 degree it happens in Java and Go as well, though their larger standard
