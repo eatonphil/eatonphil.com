@@ -103,11 +103,12 @@ increases bitrot over time as unnecessary breaking changes occur.</p>
 this problem is just as bad in Rust codebases I've seen. And to a
 degree it happens in Java and Go as well, though their larger standard
 libraries allow you to get further without dependencies.</p>
-<p>Zig has a strong standard library. But one of the goals of their
-package manager seemed to be to allow the standard library to be
-broken up; made smaller. For example, JSON support moving out of the
-standard library into a package. I don't know if that is actually the
-planned direction. I hope not.</p>
+<p>Zig has a good standard library, which may be Go and Java tier in a
+few years. But one goal of their package manager seemed to be
+to allow the standard library to be broken up; made smaller. For
+example, JSON support moving out of the standard library into a
+package. I don't know if that is actually the planned direction. I
+hope not.</p>
 <p>Having a large standard library doesn't mean that the programmer
 shouldn't be able to swap out implementations easily as needed. But
 all that requires is for the standard library to define an interface
