@@ -134,9 +134,9 @@ example. It has a `new()` method, a `next()` method, and a `done()`
 method. In most languages, it's basically impossible at the syntax or
 compiler-level to know if you are allocating in the `next()` method. You
 may know because you know the behavior of all the code in `next()` by
-heart. But that will be sort of rare.
+heart. But that won't happen all the time.
 
-Zig is practically alone in that if you write the `next()` method and
+Zig is basically alone in that if you write the `next()` method and
 and don't pass an allocator to any method in the `next()` body,
 nothing in that `next()` method will allocate.
 
@@ -147,19 +147,19 @@ accidentally ended up in `next()` instead.
 On the other hand, for all the same reasons, writing Zig is kind of a
 pain because everything takes an allocator!
 
-This sort of safety is not intrinsic to Zig, the language. It's a
+Explicit allocation is not intrinsic to Zig, the language. It is a
 convention that is prevalent in the standard library. There is still a
 global allocator and any user of Zig could decide to use the global
-allocator and then this benefit goes away. So this isn't a perfect
-solution.
+allocator. At which point you've got implicit allocation. So explicit
+allocation as a convention isn't a perfect solution.
 
-But it gives you a level of awareness of allocations you just can't
-get from typical Go or Rust or C code. But this depends on the
+But it, by default, gives you a level of awareness of allocations you
+just can't get from typical Go or Rust or C code, depending on the
 project's practices. Perhaps it's possible to switch off the Go, Rust
-and C standard library and use one where all allocations do take an
-allocator.
+and C standard library and use one where all functions that allocate
+do require an allocator.
 
-But this is still sort of a visual hack.
+But explicitly passing allocators is still sort of a visual hack.
 
 I think the ideal situation in the future will be that every language
 supports annotating blocks of code as `must-not-allocate` or something

@@ -168,8 +168,8 @@ example. It has a <code>new()</code> method, a <code>next()</code> method, and a
 method. In most languages, it's basically impossible at the syntax or
 compiler-level to know if you are allocating in the <code>next()</code> method. You
 may know because you know the behavior of all the code in <code>next()</code> by
-heart. But that will be sort of rare.</p>
-<p>Zig is practically alone in that if you write the <code>next()</code> method and
+heart. But that won't happen all the time.</p>
+<p>Zig is basically alone in that if you write the <code>next()</code> method and
 and don't pass an allocator to any method in the <code>next()</code> body,
 nothing in that <code>next()</code> method will allocate.</p>
 <p>In any other language you'd basically wait until you ran a profiler to
@@ -177,17 +177,17 @@ notice that some allocation you should have put in <code>new()</code>
 accidentally ended up in <code>next()</code> instead.</p>
 <p>On the other hand, for all the same reasons, writing Zig is kind of a
 pain because everything takes an allocator!</p>
-<p>This sort of safety is not intrinsic to Zig, the language. It's a
+<p>Explicit allocation is not intrinsic to Zig, the language. It is a
 convention that is prevalent in the standard library. There is still a
 global allocator and any user of Zig could decide to use the global
-allocator and then this benefit goes away. So this isn't a perfect
-solution.</p>
-<p>But it gives you a level of awareness of allocations you just can't
-get from typical Go or Rust or C code. But this depends on the
+allocator. At which point you've got implicit allocation. So explicit
+allocation as a convention isn't a perfect solution.</p>
+<p>But it, by default, gives you a level of awareness of allocations you
+just can't get from typical Go or Rust or C code, depending on the
 project's practices. Perhaps it's possible to switch off the Go, Rust
-and C standard library and use one where all allocations do take an
-allocator.</p>
-<p>But this is still sort of a visual hack.</p>
+and C standard library and use one where all functions that allocate
+do require an allocator.</p>
+<p>But explicitly passing allocators is still sort of a visual hack.</p>
 <p>I think the ideal situation in the future will be that every language
 supports annotating blocks of code as <code>must-not-allocate</code> or something
 along those lines. Either the compiler will enforce this and fail if
