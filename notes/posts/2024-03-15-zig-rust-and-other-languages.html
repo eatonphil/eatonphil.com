@@ -131,13 +131,17 @@ acknowledging allocations.
 This is particularly useful for hotpath code. Take an iterator for
 example. It has a `new()` method, a `next()` method, and a `done()`
 method. In most languages, it's basically impossible at the syntax or
-compiler-level to know if you are allocating in the next() method. You
+compiler-level to know if you are allocating in the `next()` method. You
 may know because you know the behavior of all the code in `next()` by
 heart. But that will be sort of rare.
 
 Zig is practically alone in that if you write the `next()` method and
 and don't pass an allocator to any method in the `next()` body,
 nothing in that `next()` method will allocate.
+
+In any other language you'd basically wait until you ran a profiler to
+notice that some allocation you should have put in `new()`
+accidentally ended up in `next()` instead.
 
 On the other hand, for all the same reasons, writing Zig is kind of a
 pain because everything takes an allocator!
@@ -167,20 +171,25 @@ as interesting to annotate blocks in JavaScript or Python as
 `must-not-allocate` too.
 
 Otherwise the current state of things is that you'd normally configure
-this sort of thing at the global level. But saying "there must not be
-any allocations in this entire program" doesn't seem as useful in
+this sort of thing at the global level. Saying "there must not be
+any allocations in this entire program" just doesn't seem as useful in
 general as being able to say "there must not be any allocations in
-this one block".  Optional, not required, allocator arguments Rust has
-nascent support for passing an allocator to methods that allocate. But
-it's optional. From what I understand, C++ STL is like this too.
+this one block".
+
+#### Optional, not required, allocator arguments
+
+Rust has nascent support for passing an allocator to methods that
+allocate. But it's optional. From what I understand, C++ STL is like
+this too.
 
 These are both super useful for programming extensions. And it's one
 of the reasons I think Zig makes a ton of sense for Postgres
-extensions specifically.
+extensions specifically. Because it was only and always ever built for
+running in an environment with someone else's allocator.
 
 ### Praise for Zig, Rust, and Go tooling
 
-All three of these have got really great first-party tooling including
+All three of these have really great first-party tooling including
 build system, package management, test runners and formatters. The
 idea that the language should provide a great environment to code in
 (end-to-end) makes things simpler and nicer for programmers.
@@ -190,9 +199,9 @@ idea that the language should provide a great environment to code in
 Use the language you want to use. Zig and Rust are both nice
 alternatives to writing vanilla C.
 
-On the other hand, I've been pleasantly surprised writing Postgres C
-how high level it is. It's almost a separate language since you're
-mostly dealing with user-facing constructs, like Postgres's Datum
+On the other hand, I've been pleasantly surprised writing Postgres C.
+How high level it is. It's almost a separate language since you're
+often dealing with user-facing constructs, like Postgres's Datum
 objects which represent what you might think of as a cell in a
 Postgres database. And you have access to the same functions that you
 get in Postgres SQL for working with Datums, but from C.
