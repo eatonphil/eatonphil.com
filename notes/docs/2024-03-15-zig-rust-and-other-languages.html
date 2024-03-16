@@ -158,7 +158,7 @@ are encouraged to pass around a debug allocator that tells you about
 memory leaks. But this doesn't seem too different from compiling a C
 project with a debug allocator or compiling with different sanitizers
 on and running tests against the binary produced. In both cases you
-basically deal with allocators at a global level depending on the
+mostly deal with allocators at a global level depending on the
 environment you're running the code in (production or tests).</p>
 <p>The real benefit of explicit allocations to me is much more
 trivial. You basically can't code a method in Zig without
@@ -169,11 +169,11 @@ method. In most languages, it's basically impossible at the syntax or
 compiler-level to know if you are allocating in the <code>next()</code> method. You
 may know because you know the behavior of all the code in <code>next()</code> by
 heart. But that won't happen all the time.</p>
-<p>Zig is basically alone in that if you write the <code>next()</code> method and
+<p>Zig is practically alone in that if you write the <code>next()</code> method and
 and don't pass an allocator to any method in the <code>next()</code> body,
 nothing in that <code>next()</code> method will allocate.</p>
-<p>In any other language you'd basically wait until you ran a profiler to
-notice that some allocation you should have put in <code>new()</code>
+<p>In any other language it might not be until you run a profiler that
+you notice an allocation that should have been done once in <code>new()</code>
 accidentally ended up in <code>next()</code> instead.</p>
 <p>On the other hand, for all the same reasons, writing Zig is kind of a
 pain because everything takes an allocator!</p>

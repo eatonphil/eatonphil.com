@@ -122,7 +122,7 @@ are encouraged to pass around a debug allocator that tells you about
 memory leaks. But this doesn't seem too different from compiling a C
 project with a debug allocator or compiling with different sanitizers
 on and running tests against the binary produced. In both cases you
-basically deal with allocators at a global level depending on the
+mostly deal with allocators at a global level depending on the
 environment you're running the code in (production or tests).
 
 The real benefit of explicit allocations to me is much more
@@ -136,12 +136,12 @@ compiler-level to know if you are allocating in the `next()` method. You
 may know because you know the behavior of all the code in `next()` by
 heart. But that won't happen all the time.
 
-Zig is basically alone in that if you write the `next()` method and
+Zig is practically alone in that if you write the `next()` method and
 and don't pass an allocator to any method in the `next()` body,
 nothing in that `next()` method will allocate.
 
-In any other language you'd basically wait until you ran a profiler to
-notice that some allocation you should have put in `new()`
+In any other language it might not be until you run a profiler that
+you notice an allocation that should have been done once in `new()`
 accidentally ended up in `next()` instead.
 
 On the other hand, for all the same reasons, writing Zig is kind of a
