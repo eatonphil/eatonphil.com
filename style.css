@@ -254,6 +254,10 @@ li code,
     line-height: 1.35rem;
 }
 
+table.nocode {
+    font-family: var(--sans-serif);
+}
+
 .title {
     color: #333;
     margin: 0;
