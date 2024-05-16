@@ -1142,8 +1142,12 @@ version. In contrast other major databases like MySQL store a diff.</p>
 quite a bit both in terms of results and in terms of
 optimizations. Everyone implements the ideas differently and to
 varying degrees.</p>
-<p>Hopefully seeing a simple implementation of MVCC and visibility rules
-helps to clarify things.</p>
+<p>Moreover, we have only begun to implement the behavior a real SQL
+database supports. For example, how do visibility rules and conflict
+detection work with range queries? What about sub-transactions, and
+save points? These will have to be covered another time.</p>
+<p>Hopefully seeing this simple implementation of MVCC and visibility rules
+helps to clarify at least some of the basics.</p>
 <p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Here&#39;s a new post walking through an implementation of MVCC and major SQL transaction isolation levels, in 400 lines of Go code.<br><br>These ideas might sound esoteric, but they impact almost every developer using any database.<a href="https://t.co/crFKM74R5h">https://t.co/crFKM74R5h</a> <a href="https://t.co/o9awTPpvvx">pic.twitter.com/o9awTPpvvx</a></p>&mdash; Phil Eaton (@eatonphil) <a href="https://twitter.com/eatonphil/status/1791225675287867742?ref_src=twsrc%5Etfw">May 16, 2024</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script></p>
 <style>.feedback{display:initial;}</style>
 	</div>
