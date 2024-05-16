@@ -79,8 +79,8 @@ haven't been able to internalize their lessons. So I built a little
 database to demonstrate the common isolation levels for myself. It
 turned out to be simpler than I expected, and also made the isolation
 levels much easier to reason about.</p>
-<p>Thank you to Justin Jaffray, Alex Miller, Sujay Jayakar, and Peter
-Veentjer for providing feedback and suggestions.</p>
+<p>Thank you to Justin Jaffray, Alex Miller, Sujay Jayakar, Peter
+Veentjer, and Michael Gasch for providing feedback and suggestions.</p>
 <h3 id="why-do-we-need-transaction-isolation?">Why do we need transaction isolation?</h3><p>If you already know the answer, feel free to skip this section.</p>
 <p>When I first started working with databases in CRUD applications, I
 did not understand the point of transactions. I was fairly certain
@@ -100,9 +100,9 @@ written:</p>
 <p>I would have thought that all users that were seen from the initial
 <code>SELECT</code> who matched the <code>some_complex_logic</code> filter would be exactly
 the same that are updated in my second SQL statement.</p>
-<p>And if I were using SQLite, that would have been right. But if I were
-using MySQL or Postgres or Oracle or SQL Server, and hadn't made any
-changes to defaults, that wouldn't necessarily be true!</p>
+<p>And if I were using SQLite, my guess would have been correct. But if I
+were using MySQL or Postgres or Oracle or SQL Server, and hadn't made
+any changes to defaults, that wouldn't necessarily be true!</p>
 <p>For example, some other connection and transaction could have set a
 <code>user</code>'s <code>group</code> to <code>admin</code> after the initial <code>SELECT</code> was
 executed. It would then be missed from the <code>some_complex_logic</code> check
@@ -125,11 +125,16 @@ implementing isolation levels, create what are called
 "anomalies". Examples include intimidating terms like "dirty reads"
 and "write cycles" and G2-Item.</p>
 <p>The topic is so complex that we've got decades of research papers
-criticizing SQL isolation levels, categorization of common isolation
-anomalies, walkthroughs of anomalies by Martin Kleppmann in Designing
-Data-Intensive Applications, documentation of vulnerability to common
-anomalies across isolation levels and major databases, and
-documentation of isolation-based bugs in major open-source ecommerce
+<a href="https://15721.courses.cs.cmu.edu/spring2019/papers/02-transactions/p1-berenson.pdf">critiquing</a>
+SQL isolation levels,
+<a href="https://pmg.csail.mit.edu/papers/icde00.pdf">categorization</a> of
+common isolation anomalies, walkthroughs of anomalies by Martin
+Kleppmann in <a href="https://dataintensive.net/">Designing Data-Intensive
+Applications</a>, Martin Kleppman's
+<a href="https://github.com/ept/hermitage">Hermitage</a> project documenting
+common anomalies across isolation levels in major databases, and the
+<a href="http://www.bailis.org/papers/acidrain-sigmod2017.pdf">ACIDRain paper</a>
+showing isolation-related bugs in major open-source ecommerce
 projects.</p>
 <p>These aren't just random links. They're each quite interesting. And
 particularly for practitioners who don't know why they should care,
@@ -149,21 +154,25 @@ developers tend not to change the default</li>
 (default or not)</li>
 </ul>
 <p>Transaction isolation levels are basically vibes. The only truth for
-real projects is Martin Kleppmann's Hermitage project that catalogs
-behavior across databases. And a truth some people align with is
-Generalized Isolation Level Definitions.</p>
+real projects is Martin Kleppmann's <a href="">Hermitage</a> project that
+catalogs behavior across databases. And a truth some people align with
+is <a href="https://pmg.csail.mit.edu/papers/icde00.pdf">Generalized Isolation Level
+Definitions</a>.</p>
 <p>So while all these linked works above are authoritative, and even
 though we can see that there might be some anomalies we have to worry
-about, the research can stil be difficult to internalize. And many
+about, the research can still be difficult to internalize. And many
 developers, my recent self included, do not have a great understanding
 of isolation levels.</p>
 <p>Throughout this post we'll stick to informal definitions of isolation
 levels to keep things simple.</p>
 <p>Let's dig in.</p>
 <h3 id="locks?-mvcc?">Locks? MVCC?</h3><p>Historically, databases implemented isolations with locking algorithms
-such as two-phase locking (not the same thing as two-phase
-commit). Multi-version concurrency control (MVCC) is an approach that
-lets us completely avoid locks.</p>
+such as <a href="https://faculty.cc.gatech.edu/~jarulraj/courses/8803-s22/slides/13-two-phase-locking-annotated.pdf">Two-Phase
+Locking</a>
+(not the same thing as <a href="https://www.cs.princeton.edu/courses/archive/fall16/cos418/docs/L6-2pc.pdf">Two-Phase
+Commit</a>). Multi-version
+concurrency control (MVCC) is an approach that lets us completely
+avoid locks.</p>
 <p>It's worthwhile to note that while we will validly not use locks
 (implementing what is called optimistic concurrency control or OCC),
 most MVCC databases do still use locks for certain things
@@ -171,15 +180,16 @@ most MVCC databases do still use locks for certain things
 <p>But this is the story of databases in general. There are numerous ways
 to implement things.</p>
 <p>We will take the simpler lockless route.</p>
-<p>Consider a key-value API. With MVCC, rather than storing only the
+<p>Consider a key-value database. With MVCC, rather than storing only the
 value for a key, we would store versions of the value.  The version
 includes the transaction id (a monotonic incrementing integer) wherein
 the version was created, and the transaction id wherein the version
 was deleted.</p>
-<p>With MVCC, it is possible to express transaction isolation levels as
-almost solely a set of different visibility rules for a version of a
-value, rules that vary by isolation level. So we will build up a
-general framework first and implement isolation levels last.</p>
+<p>With MVCC, it is possible to express transaction isolation levels
+almost solely as a set of different visibility rules for a version of
+a value; rules that vary by isolation level. So we will build up a
+general framework first and discuss and implement each isolation level
+last.</p>
 <h3 id="scaffolding">Scaffolding</h3><p>We'll build an in-memory key-value system that acts on transactions. I
 usually try to stick with only the standard library for projects like
 this but I really wanted a sorted data structure and Go doesn't
@@ -237,9 +247,9 @@ state.</p>
 </pre></div>
 <p>And we'll support a few major isolation levels.</p>
 <div class="highlight"><pre><span></span><span class="c1">// Loosest isolation at the top, strictest isolation at the bottom.</span>
-<span class="kd">type</span><span class="w"> </span><span class="nx">Isolation</span><span class="w"> </span><span class="kt">uint8</span>
+<span class="kd">type</span><span class="w"> </span><span class="nx">IsolationLevel</span><span class="w"> </span><span class="kt">uint8</span>
 <span class="kd">const</span><span class="w"> </span><span class="p">(</span>
-<span class="w">        </span><span class="nx">ReadUncommittedIsolation</span><span class="w"> </span><span class="nx">Isolation</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">iota</span>
+<span class="w">        </span><span class="nx">ReadUncommittedIsolation</span><span class="w"> </span><span class="nx">IsolationLevel</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">iota</span>
 <span class="w">        </span><span class="nx">ReadCommittedIsolation</span>
 <span class="w">        </span><span class="nx">RepeatableReadIsolation</span>
 <span class="w">        </span><span class="nx">SnapshotIsolation</span>
@@ -255,7 +265,7 @@ other transactions that were in-progress when this one started. And
 stricter isolation levels need to know about all keys read and written
 by a transaction.</p>
 <div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">Transaction</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nx">isolation</span><span class="w">  </span><span class="nx">Isolation</span>
+<span class="w">        </span><span class="nx">isolation</span><span class="w">  </span><span class="nx">IsolationLevel</span>
 <span class="w">        </span><span class="nx">id</span><span class="w">         </span><span class="kt">uint64</span>
 <span class="w">        </span><span class="nx">state</span><span class="w">      </span><span class="nx">TransactionState</span>
 
@@ -276,9 +286,9 @@ a value.</p>
 <p>The database will also store the next free transaction id it will use
 to assign ids to new transactions.</p>
 <div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">Database</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nx">defaultIsolation</span><span class="w">     </span><span class="nx">Isolation</span>
-<span class="w">        </span><span class="nx">store</span><span class="w">                     </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">][]</span><span class="nx">Value</span>
-<span class="w">        </span><span class="nx">transactions</span><span class="w">          </span><span class="nx">btree</span><span class="p">.</span><span class="nx">Map</span><span class="p">[</span><span class="kt">uint64</span><span class="p">,</span><span class="w"> </span><span class="nx">Transaction</span><span class="p">]</span>
+<span class="w">        </span><span class="nx">defaultIsolation</span><span class="w">  </span><span class="nx">IsolationLevel</span>
+<span class="w">        </span><span class="nx">store</span><span class="w">             </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">][]</span><span class="nx">Value</span>
+<span class="w">        </span><span class="nx">transactions</span><span class="w">      </span><span class="nx">btree</span><span class="p">.</span><span class="nx">Map</span><span class="p">[</span><span class="kt">uint64</span><span class="p">,</span><span class="w"> </span><span class="nx">Transaction</span><span class="p">]</span>
 <span class="w">        </span><span class="nx">nextTransactionId</span><span class="w"> </span><span class="kt">uint64</span>
 <span class="p">}</span>
 
@@ -293,7 +303,12 @@ to assign ids to new transactions.</p>
 <span class="w">        </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
-<p>There's a bit of book-keeping when creating a transaction, so we'll
+<p class="note">
+  Note that `store`, `transactions`, and `nextTransactionId` would
+  need to be guarded by a mutex or something if we were going to allow
+  access from multiple goroutines. The code in this post will not use
+  goroutines.
+</p><p>There's a bit of book-keeping when creating a transaction, so we'll
 make a dedicated method for this. We must give the new transaction an
 id, store all in-progress transactions, and add it to database
 transaction history.</p>
@@ -309,7 +324,7 @@ transaction history.</p>
 <span class="p">}</span>
 
 <span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span><span class="p">)</span><span class="w"> </span><span class="nx">newTransaction</span><span class="p">()</span><span class="w"> </span><span class="o">*</span><span class="nx">Transaction</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nx">t</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">Transaction</span><span class="p">{}</span>
+<span class="w">        </span><span class="nx">t</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">Transaction</span><span class="p">{}</span>
 <span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">isolation</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">defaultIsolation</span>
 <span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">state</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">InProgressTransaction</span>
 
@@ -325,7 +340,7 @@ transaction history.</p>
 
 <span class="w">        </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;starting transaction&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">id</span><span class="p">)</span>
 
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">t</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">t</span>
 <span class="p">}</span>
 </pre></div>
 <p>And we'll add a few more helpers for completing a transaction, for
@@ -354,7 +369,7 @@ fetching a transaction by id, and for validating a transaction.</p>
 <p>The final bit of scaffolding we'll set up is an abstraction for
 database connections. A connection will have at most associated one
 transaction. Users must ask the database for a new connection. Then
-within the connection they can manage a transactions.</p>
+within the connection they can manage a transaction.</p>
 <div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">Connection</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nx">tx</span><span class="w"> </span><span class="o">*</span><span class="nx">Transaction</span>
 <span class="w">        </span><span class="nx">db</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span>
@@ -548,10 +563,12 @@ levels.</p>
 <h3 id="isolation-levels-and-mvcc-visibility-rules">Isolation levels and MVCC visibility rules</h3><p>To varying degrees, transaction isolation levels prevent concurrent
 transactions from messing with each other. The looser isolation levels
 prevent this almost not at all.</p>
-<h4 id="read-uncommitted">Read Uncommitted</h4><p>According to Jepsen, the loosest isolation level, Read Uncommitted,
-has almost no restrictions. We can merely read the most recent version
-of a value, regardless of if the transaction that set it has committed
-or aborted or not.</p>
+<h4 id="read-uncommitted">Read Uncommitted</h4><p>According to
+<a href="https://jepsen.io/consistency/models/read-uncommitted">Jepsen</a>, the
+loosest isolation level, Read Uncommitted, has almost no
+restrictions. We can merely read the most recent version of a value,
+regardless of if the transaction that set it has committed or aborted
+or not.</p>
 <div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span><span class="p">)</span><span class="w"> </span><span class="nx">isvisible</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">Transaction</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="nx">Value</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
 <span class="w">       </span><span class="c1">// Read Uncommitted means we simply read the last value</span>
 <span class="w">       </span><span class="c1">// written. Even if the transaction that wrote this value has</span>
@@ -601,10 +618,12 @@ concurrent transactions will ever read or write conflicting keys
 though, this could be pretty efficient! The rules will only get more
 complex (and thus potentially more of a bottleneck) from here on.</p>
 <p>But for the most part, people don't use this isolation level. SQLite,
-Yugabyte, Cockroach, and Postgres don't even implement it. It is also
-not the default for any major database that does implement it.</p>
+Yugabyte, Cockroach, and Postgres <a href="https://github.com/ept/hermitage?tab=readme-ov-file#summary-of-test-results">don't
+even</a>
+implement it. It is also not the default for any major database that
+does implement it.</p>
 <p>Let's get a little stricter.</p>
-<h4 id="read-committed">Read Committed</h4><p>We'll pull again from Jepsen:</p>
+<h4 id="read-committed">Read Committed</h4><p>We'll pull again from <a href="https://jepsen.io/consistency/models/read-committed">Jepsen</a>:</p>
 <blockquote><p>Read committed is a consistency model which strengthens read
 uncommitted by preventing dirty reads: transactions are not allowed
 to observe writes from transactions which do not commit.</p>
@@ -650,7 +669,8 @@ relevant transaction.</p>
 </pre></div>
 <p>This begins to look useful! We will never read a value that isn't part
 of a committed transaction (or isn't part of our own
-transaction). Indeed this is the default isolation level for many
+transaction). Indeed this is the
+<a href="https://github.com/ept/hermitage">default</a> isolation level for many
 databases including Postgres, Yugabyte, Oracle, and SQL Server.</p>
 <p>Let's add a test to <code>main_test.go</code>. This is a bit long, but give it a
 slow read. It is thoroughly commented.</p>
@@ -727,8 +747,8 @@ if the transaction A did not modify data. Another transaction B may
 have committed changes between two statements in this transaction A.</p>
 <p>Let's get a little stricter.</p>
 <h4 id="repeatable-read">Repeatable Read</h4><p>Again as Jepsen says, Repeatable Read is the same as Read Committed
-but with the following anomaly not allowed (quoting from the ANSI SQL
-1999 standard):</p>
+but with the following anomaly not allowed (quoting from the <a href="https://web.cecs.pdx.edu/~len/sql1999.pdf">ANSI SQL
+1999 standard</a>):</p>
 <blockquote><p>P2 (“Non-repeatable read”): SQL-transaction T1 reads a
 row. SQL-transaction T2 then modifies or deletes that row and
 performs a COMMIT. If T1 then attempts to reread the row, it may
@@ -877,7 +897,9 @@ well commented.</p>
 <span class="p">}</span>
 </pre></div>
 <p>Let's get stricter!</p>
-<h4 id="snapshot-isolation">Snapshot Isolation</h4><p>Back to Jepsen for a definition:</p>
+<h4 id="snapshot-isolation">Snapshot Isolation</h4><p>Back to
+[Jepsen](<a href="https://jepsen.io/consistency/models/snapshot-isolation">https://jepsen.io/consistency/models/snapshot-isolation</a> for a
+definition:</p>
 <blockquote><p>In a snapshot isolated system, each transaction appears to operate
 on an independent, consistent snapshot of the database. Its changes
 are visible only to that transaction until commit time, when all
@@ -892,9 +914,9 @@ transactions must not overlap.</p>
 <p>This is why we tracked <code>writeset</code>. Every time a transaction modified
 or deleted a key, we added it to the transaction's <code>writeset</code>. To make
 sure we abort correctly, we'll add a conflict check to the commit
-step. (This idea is also well documented in A critique of snapshot
-isolation. This paper can be hard to find. Email me if you want a
-copy.)</p>
+step. (This idea is also well documented in <a href="https://dl.acm.org/doi/abs/10.1145/2168836.2168853">A critique of snapshot
+isolation</a>. This
+paper can be hard to find. Email me if you want a copy.)</p>
 <p>When a transaction A goes to commit, it will run a conflict test for
 any transaction B that has committed since this transaction A started.</p>
 <p>Serializable Isolation is going to have a similar check. So we'll add
@@ -981,7 +1003,7 @@ transaction A started, we must abort.</p>
 <span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
 <span class="p">}</span>
 </pre></div>
-<p>Since Snapshot Isolation shared all the same visibility rules as
+<p>Since Snapshot Isolation shares all the same visibility rules as
 Repeatable Read, the tests get to be a little simpler! We'll simply
 test that two transactions attempting to commit a write to the same
 key fail. Or specifically: that the second transaction cannot commit.</p>
@@ -1020,16 +1042,21 @@ TigerBeetle, do Actually Serial Execution where only one transaction
 runs at a time. But few databases implement Serializable like this
 because it removes a number of fair concurrent execution
 histories. For example, two concurrent read-only transactions.</p>
-<p>Postgres implements serializability via Serializable Snapshot
-Isolation. MySQL implements serializability via Two-Phase Locking
-(2PL). FoundationDB implements serializability via sequential
-timestamp assignment and conflict detection.</p>
-<p>But the paper, A critique of snapshot isolation, provides a simple
-(though not necessarily efficient; I have no clue) approach via what
-they call Write Snapshot Isolation. In their algorithm, if any two
-transactions read and write set intersect (but not write and write set
-intersect), the transaction should be aborted. And this (plus
-Repeatable Read rules) is sufficient for Serializability.</p>
+<p>Postgres implements serializability via <a href="https://drkp.net/papers/ssi-vldb12.pdf">Serializable Snapshot
+Isolation</a>. MySQL implements
+serializability via <a href="https://distributed-computing-musings.com/2022/02/transactions-two-phase-locking/">Two-Phase
+Locking</a>. FoundationDB
+implements serializability via <a href="https://apple.github.io/foundationdb/developer-guide.html">sequential timestamp assignment and
+conflict
+detection</a>.</p>
+<p>But the paper, <a href="https://dl.acm.org/doi/abs/10.1145/2168836.2168853">A critique of snapshot
+isolation</a>,
+provides a simple (though not necessarily efficient; I have no clue)
+approach via what they call Write Snapshot Isolation. In their
+algorithm, if any two transactions read and write set intersect (but
+not write and write set intersect), the transaction should be
+aborted. And this (plus Repeatable Read rules) is sufficient for
+Serializability.</p>
 <p>I leave it to that paper for the proof of correctness. In terms of
 implementing it though it's quite simple and very similar to the
 Snapshot Isolation we already mentioned.</p>
@@ -1084,7 +1111,8 @@ Snapshot Isolation we already mentioned.</p>
 <p>We see it work! And that's it for a basic implementation of MVCC and
 major transaction isolation levels.</p>
 <h3 id="production-quality-testing">Production-quality testing</h3><p>There are two major projects I'm aware of that help you test
-transaction implementations: Elle and Hermitage. These are probably
+transaction implementations: <a href="https://github.com/jepsen-io/elle">Elle</a>
+and <a href="https://github.com/ept/hermitage">Hermitage</a>. These are probably
 where I'd go looking if I were implementing this for real.</p>
 <p>This project took me long enough on its own and I felt reasonably
 comfortable with my tests that the gist of my logic was right that I
@@ -1103,10 +1131,11 @@ long. And what if multiple transactions made only small changes to the
 than key-value data. If a user has 100 columns and only updates one
 column a number of times, in our scheme we'd end up storing a ton of
 duplicate cell data for a row.</p>
-<p>This is a real-world issue in Postgres that was called out by Andy
-Pavlo and the Ottertune folks. It turns out that Postgres alone among
-major databases stores the entire value for every version. In contrast
-other major databases like MySQL store a diff.</p>
+<p>This is a real-world issue in Postgres that was <a href="https://ottertune.com/blog/the-part-of-postgresql-we-hate-the-most">called
+out</a>
+by Andy Pavlo and the Ottertune folks. It turns out that Postgres
+alone among major databases stores the entire value for every
+version. In contrast other major databases like MySQL store a diff.</p>
 <h3 id="conclusion">Conclusion</h3><p>This post only begins to demonstrate that database behavior differs
 quite a bit both in terms of results and in terms of
 optimizations. Everyone implements the ideas differently and to
