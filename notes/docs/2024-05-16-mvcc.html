@@ -1,0 +1,1752 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="canonical" href="https://notes.eatonphil.com/2024-05-16-mvcc.html">
+    <title>Implementing MVCC and major SQL transaction isolation levels | notes.eatonphil.com</title>
+    <meta name="description" content="Implementing MVCC and major SQL transaction isolation levels" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=IBM+Plex+Mono">
+  </head>
+  <body>
+    <header>
+      <!-- <div class="lfw"> -->
+      <!-- 	<div class="container"> -->
+      <!-- 	  <div class="row"> -->
+      <!-- 	    <a href="https://eatonphil.com/hire-me.html">Hire me!</a> -->
+      <!-- 	  </div> -->
+      <!-- 	</div> -->
+      <!-- </div> -->
+      <div class="container">
+        <div>
+          <div class="row">
+	    <div>
+	      <a href="https://eatonphil.com" class="sm-link">
+		Home
+              </a>
+	      <a href="/" class="sm-link">
+		Notes
+              </a>
+	      <a href="/favorites.html" class="sm-link hide-mobile">
+		Popular
+              </a>
+	      <a href="/rss.xml" class="sm-link">
+		RSS
+              </a>
+	    </div>
+
+	    <div class="subscribe">
+	      <!-- <a href="https://eatonphil.com/hire-me.html">Hire me</a> -->
+	      <!--
+		  Hardcode link to home page because some pages don't
+		  have a subscribe box. Some pages hide the subscribe.
+		-->
+	      <a class="fancy" href="https://eatonphil.com/subscribe.html">
+		Subscribe
+	      </a>
+            </div>
+	  </div>
+	  <hr />
+	  <div class="">
+            <h2>May 17, 2024</h2>
+            <h1>Implementing MVCC and major SQL transaction isolation levels</h1>
+	    
+            <div class="row" style="padding-bottom: 5px">
+              <div class="tags"><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/go.html" class="tag">go</a></div>
+            </div>
+	  </div>
+	</div>
+      </div>
+    </header>
+    <div class="container">
+      <div class="col-6">
+	<div class="post">
+          <p>In this post we'll build a database in 400 lines of code with basic
+support for five standard SQL transaction levels: Read Uncommitted,
+Read Committed, Repeatable Read, Snapshot Isolation and
+Serializable. We'll use multi-version concurrency control (MVCC) and
+optimistic control (OCC) to accomplish this. The goal isn't to be
+perfect but to explain the basics in a minimal way.</p>
+<p>You don't need to know what these terms mean in advance. I did not
+understand them before doing this project. But if you've ever dealt
+with SQL databases, transaction isolation levels are likely one of the
+dark corners you either 1) weren't aware of or 2) wanted not to think
+about. At least, this is how I felt.</p>
+<p>While there are many blog posts that list out isolation levels, I
+haven't been able to internalize their lessons. So I built a little
+database to demonstrate the common isolation levels for myself. It
+turned out to be simpler than I expected, and also made the isolation
+levels much easier to reason about.</p>
+<p>Thank you to Justin Jaffray, Alex Miller, Sujay Jayakar, and Peter
+Veentjer for providing feedback and suggestions.</p>
+<h3 id="why-do-we-need-transaction-isolation?">Why do we need transaction isolation?</h3><p>If you already know the answer, feel free to skip this section.</p>
+<p>When I first started working with databases in CRUD applications, I
+did not understand the point of transactions. I was fairly certain
+that transactions are locks. I was wrong about that, but more on that
+later.</p>
+<p>I can't remember exact code I wrote, but here's something I could have
+written:</p>
+<div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">database</span><span class="o">.</span><span class="n">transaction</span><span class="p">()</span> <span class="k">as</span> <span class="n">t</span><span class="p">:</span>
+  <span class="n">users</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;SELECT * FROM users WHERE group = &#39;admin&#39;;&quot;</span><span class="p">)</span>
+  <span class="n">ids</span> <span class="o">=</span> <span class="p">[]</span>
+  <span class="k">for</span> <span class="n">user</span> <span class="ow">in</span> <span class="n">users</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">some_complex_logic</span><span class="p">(</span><span class="n">user</span><span class="p">):</span>
+      <span class="n">ids</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+  <span class="n">t</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;UPDATE users SET metadata = &#39;some value&#39; WHERE id IN ($1)&#39;;&quot;</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
+</pre></div>
+<p>I would have thought that all users that were seen from the initial
+<code>SELECT</code> who matched the <code>some_complex_logic</code> filter would be exactly
+the same that are updated in my second SQL statement.</p>
+<p>And if I were using SQLite, that would have been right. But if I were
+using MySQL or Postgres or Oracle or SQL Server, and hadn't made any
+changes to defaults, that wouldn't necessarily be true!</p>
+<p>For example, some other connection and transaction could have set a
+<code>user</code>'s <code>group</code> to <code>admin</code> after the initial <code>SELECT</code> was
+executed. It would then be missed from the <code>some_complex_logic</code> check
+and from the subsequent <code>UPDATE</code>.</p>
+<p>Or, again after our initial <code>SELECT</code>, some other connection could have
+modified the <code>group</code> for some user that previously was <code>admin</code>. It
+would then be incorrectly part of the second <code>UPDATE</code> statement.</p>
+<p>These are just a few examples of what could go wrong.</p>
+<p>This is the realm of transaction isolation. How do multiple
+transactions running at the same time, interacting with the same data,
+interact with each other?</p>
+<p>The answer is: it depends. The SQL standard itself loosely prescribes
+four isolation levels. But every database implements these four levels
+slightly differently. Sometimes using entirely different
+algorithms. And even among the standard levels, the default isolation
+level for each database differs.</p>
+<p>Funky bugs that can show up across databases and across isolation
+levels, often dependent on particular details of common ways of
+implementing isolation levels, create what are called
+"anomalies". Examples include intimidating terms like "dirty reads"
+and "write cycles" and G2-Item.</p>
+<p>The topic is so complex that we've got decades of research papers
+criticizing SQL isolation levels, categorization of common isolation
+anomalies, walkthroughs of anomalies by Martin Kleppmann in Designing
+Data-Intensive Applications, documentation of vulnerability to common
+anomalies across isolation levels and major databases, and
+documentation of isolation-based bugs in major open-source ecommerce
+projects.</p>
+<p>These aren't just random links. They're each quite interesting. And
+particularly for practitioners who don't know why they should care,
+check out Designing Data-Intensive Applications and the last link on
+ACIDRain.</p>
+<p>And this is only a small list of some of the most interesting research
+and writing on the topic.</p>
+<p>So there's a wide variety of things to consider:</p>
+<ul>
+<li>Not every database implements transaction isolation levels
+identically, resulting in different behavior</li>
+<li>Not all researchers agree, and not all database developers agree, on
+what any given isolation level means</li>
+<li>Not every database has the same default isolation level, and most
+developers tend not to change the default</li>
+<li>Not every developer is correctly using the isolation level they pick
+(default or not)</li>
+</ul>
+<p>Transaction isolation levels are basically vibes. The only truth for
+real projects is Martin Kleppmann's Hermitage project that catalogs
+behavior across databases. And a truth some people align with is
+Generalized Isolation Level Definitions.</p>
+<p>So while all these linked works above are authoritative, and even
+though we can see that there might be some anomalies we have to worry
+about, the research can stil be difficult to internalize. And many
+developers, my recent self included, do not have a great understanding
+of isolation levels.</p>
+<p>Throughout this post we'll stick to informal definitions of isolation
+levels to keep things simple.</p>
+<p>Let's dig in.</p>
+<h3 id="locks?-mvcc?">Locks? MVCC?</h3><p>Historically, databases implemented isolations with locking algorithms
+such as two-phase locking (not the same thing as two-phase
+commit). Multi-version concurrency control (MVCC) is an approach that
+lets us completely avoid locks.</p>
+<p>It's worthwhile to note that while we will validly not use locks
+(implementing what is called optimistic concurrency control or OCC),
+most MVCC databases do still use locks for certain things
+(implementing what is called pessimistic concurrency control).</p>
+<p>But this is the story of databases in general. There are numerous ways
+to implement things.</p>
+<p>We will take the simpler lockless route.</p>
+<p>Consider a key-value API. With MVCC, rather than storing only the
+value for a key, we would store versions of the value.  The version
+includes the transaction id (a monotonic incrementing integer) wherein
+the version was created, and the transaction id wherein the version
+was deleted.</p>
+<p>With MVCC, it is possible to express transaction isolation levels as
+almost solely a set of different visibility rules for a version of a
+value, rules that vary by isolation level. So we will build up a
+general framework first and implement isolation levels last.</p>
+<h3 id="scaffolding">Scaffolding</h3><p>We'll build an in-memory key-value system that acts on transactions. I
+usually try to stick with only the standard library for projects like
+this but I really wanted a sorted data structure and Go doesn't
+implement one.</p>
+<p>In <code>main.go</code>, let's set up basic helpers for assertions and debugging:</p>
+<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;fmt&quot;</span>
+<span class="w">        </span><span class="s">&quot;os&quot;</span>
+<span class="w">        </span><span class="s">&quot;slices&quot;</span>
+
+<span class="w">        </span><span class="s">&quot;github.com/tidwall/btree&quot;</span>
+<span class="p">)</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">assert</span><span class="p">(</span><span class="nx">b</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="nx">msg</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">b</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nb">panic</span><span class="p">(</span><span class="nx">msg</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">assertEq</span><span class="p">[</span><span class="nx">C</span><span class="w"> </span><span class="kt">comparable</span><span class="p">](</span><span class="nx">a</span><span class="w"> </span><span class="nx">C</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="nx">C</span><span class="p">,</span><span class="w"> </span><span class="nx">prefix</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">a</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nb">panic</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%s &#39;%v&#39; != &#39;%v&#39;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">prefix</span><span class="p">,</span><span class="w"> </span><span class="nx">a</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="p">))</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">var</span><span class="w"> </span><span class="nx">DEBUG</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">slices</span><span class="p">.</span><span class="nx">Contains</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;--debug&quot;</span><span class="p">)</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">debug</span><span class="p">(</span><span class="nx">a</span><span class="w"> </span><span class="o">...</span><span class="kt">any</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">DEBUG</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="nx">args</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">append</span><span class="p">([]</span><span class="kt">any</span><span class="p">{</span><span class="s">&quot;[DEBUG]&quot;</span><span class="p">},</span><span class="w"> </span><span class="nx">a</span><span class="o">...</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">args</span><span class="o">...</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>As mentioned previously, a value in the database will be defined with
+start and end transaction ids.</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">Value</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">txStartId</span><span class="w"> </span><span class="kt">uint64</span>
+<span class="w">        </span><span class="nx">txEndId</span><span class="w">   </span><span class="kt">uint64</span>
+<span class="w">        </span><span class="nx">value</span><span class="w">     </span><span class="kt">string</span>
+<span class="p">}</span>
+</pre></div>
+<p>Every transaction will be in an in-progress, aborted, or committed
+state.</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">TransactionState</span><span class="w"> </span><span class="kt">uint8</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">(</span>
+<span class="w">        </span><span class="nx">InProgressTransaction</span><span class="w"> </span><span class="nx">TransactionState</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">iota</span>
+<span class="w">        </span><span class="nx">AbortedTransaction</span>
+<span class="w">        </span><span class="nx">CommittedTransaction</span>
+<span class="p">)</span>
+</pre></div>
+<p>And we'll support a few major isolation levels.</p>
+<div class="highlight"><pre><span></span><span class="c1">// Loosest isolation at the top, strictest isolation at the bottom.</span>
+<span class="kd">type</span><span class="w"> </span><span class="nx">Isolation</span><span class="w"> </span><span class="kt">uint8</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">(</span>
+<span class="w">        </span><span class="nx">ReadUncommittedIsolation</span><span class="w"> </span><span class="nx">Isolation</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">iota</span>
+<span class="w">        </span><span class="nx">ReadCommittedIsolation</span>
+<span class="w">        </span><span class="nx">RepeatableReadIsolation</span>
+<span class="w">        </span><span class="nx">SnapshotIsolation</span>
+<span class="w">        </span><span class="nx">SerializableIsolation</span>
+<span class="p">)</span>
+</pre></div>
+<p>We'll get into detail about the meaning of the levels later.</p>
+<p>A transaction has an isolation level, an id (monotonic increasing
+integer), and a current state. And although we won't make use of this
+data yet, transactions at stricter isolation levels will need some
+extra info. Specifically, stricter isolation levels need to know about
+other transactions that were in-progress when this one started. And
+stricter isolation levels need to know about all keys read and written
+by a transaction.</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">Transaction</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">isolation</span><span class="w">  </span><span class="nx">Isolation</span>
+<span class="w">        </span><span class="nx">id</span><span class="w">         </span><span class="kt">uint64</span>
+<span class="w">        </span><span class="nx">state</span><span class="w">      </span><span class="nx">TransactionState</span>
+
+<span class="w">        </span><span class="c1">// Used only by Repeatable Read and stricter.</span>
+<span class="w">        </span><span class="nx">inprogress</span><span class="w"> </span><span class="nx">btree</span><span class="p">.</span><span class="nx">Set</span><span class="p">[</span><span class="kt">uint64</span><span class="p">]</span>
+
+<span class="w">        </span><span class="c1">// Used only by Snapshot Isolation and stricter.</span>
+<span class="w">        </span><span class="nx">writeset</span><span class="w">   </span><span class="nx">btree</span><span class="p">.</span><span class="nx">Set</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span>
+<span class="w">        </span><span class="nx">readset</span><span class="w">    </span><span class="nx">btree</span><span class="p">.</span><span class="nx">Set</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+<p>We'll discuss why later.</p>
+<p>Finally, the database itself will have a default isolation level that
+each transaction will inherit (for our own convenience in tests).</p>
+<p>The database will have a mapping of keys to an array of value
+versions. Later elements in the array will represent newer versions of
+a value.</p>
+<p>The database will also store the next free transaction id it will use
+to assign ids to new transactions.</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">Database</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">defaultIsolation</span><span class="w">     </span><span class="nx">Isolation</span>
+<span class="w">        </span><span class="nx">store</span><span class="w">                     </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">][]</span><span class="nx">Value</span>
+<span class="w">        </span><span class="nx">transactions</span><span class="w">          </span><span class="nx">btree</span><span class="p">.</span><span class="nx">Map</span><span class="p">[</span><span class="kt">uint64</span><span class="p">,</span><span class="w"> </span><span class="nx">Transaction</span><span class="p">]</span>
+<span class="w">        </span><span class="nx">nextTransactionId</span><span class="w"> </span><span class="kt">uint64</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">newDatabase</span><span class="p">()</span><span class="w"> </span><span class="nx">Database</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">Database</span><span class="p">{</span>
+<span class="w">                </span><span class="nx">defaultIsolation</span><span class="p">:</span><span class="w">  </span><span class="nx">ReadCommittedIsolation</span><span class="p">,</span>
+<span class="w">                </span><span class="nx">store</span><span class="p">:</span><span class="w">             </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">][]</span><span class="nx">Value</span><span class="p">{},</span>
+<span class="w">                </span><span class="c1">// The `0` transaction id will be used to mean that</span>
+<span class="w">                </span><span class="c1">// the id was not set. So all valid transaction ids</span>
+<span class="w">                </span><span class="c1">// must start at 1.</span>
+<span class="w">                </span><span class="nx">nextTransactionId</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+<p>There's a bit of book-keeping when creating a transaction, so we'll
+make a dedicated method for this. We must give the new transaction an
+id, store all in-progress transactions, and add it to database
+transaction history.</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span><span class="p">)</span><span class="w"> </span><span class="nx">inprogress</span><span class="p">()</span><span class="w"> </span><span class="nx">btree</span><span class="p">.</span><span class="nx">Set</span><span class="p">[</span><span class="kt">uint64</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">ids</span><span class="w"> </span><span class="nx">btree</span><span class="p">.</span><span class="nx">Set</span><span class="p">[</span><span class="kt">uint64</span><span class="p">]</span>
+<span class="w">        </span><span class="nx">iter</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">Iter</span><span class="p">()</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">First</span><span class="p">();</span><span class="w"> </span><span class="nx">ok</span><span class="p">;</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">Next</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">iter</span><span class="p">.</span><span class="nx">Value</span><span class="p">().</span><span class="nx">state</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">InProgressTransaction</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">ids</span><span class="p">.</span><span class="nx">Insert</span><span class="p">(</span><span class="nx">iter</span><span class="p">.</span><span class="nx">Key</span><span class="p">())</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">ids</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span><span class="p">)</span><span class="w"> </span><span class="nx">newTransaction</span><span class="p">()</span><span class="w"> </span><span class="o">*</span><span class="nx">Transaction</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">t</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">Transaction</span><span class="p">{}</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">isolation</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">defaultIsolation</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">state</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">InProgressTransaction</span>
+
+<span class="w">        </span><span class="c1">// Assign and increment transaction id.</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">id</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">nextTransactionId</span>
+<span class="w">        </span><span class="nx">d</span><span class="p">.</span><span class="nx">nextTransactionId</span><span class="o">++</span>
+
+<span class="w">        </span><span class="c1">// Store all inprogress transaction ids.</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">inprogress</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">inprogress</span><span class="p">()</span>
+
+<span class="w">        </span><span class="c1">// Add this transaction to history.</span>
+<span class="w">        </span><span class="nx">d</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">Set</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="nx">t</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;starting transaction&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">id</span><span class="p">)</span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">t</span>
+<span class="p">}</span>
+</pre></div>
+<p>And we'll add a few more helpers for completing a transaction, for
+fetching a transaction by id, and for validating a transaction.</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span><span class="p">)</span><span class="w"> </span><span class="nx">completeTransaction</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">Transaction</span><span class="p">,</span><span class="w"> </span><span class="nx">state</span><span class="w"> </span><span class="nx">TransactionState</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;completing transaction &quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">id</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// Update transactions.</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">state</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">state</span>
+<span class="w">        </span><span class="nx">d</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">Set</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="nx">t</span><span class="p">)</span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span><span class="p">)</span><span class="w"> </span><span class="nx">transactionState</span><span class="p">(</span><span class="nx">txId</span><span class="w"> </span><span class="kt">uint64</span><span class="p">)</span><span class="w"> </span><span class="nx">Transaction</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">Get</span><span class="p">(</span><span class="nx">txId</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assert</span><span class="p">(</span><span class="nx">ok</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;valid transaction&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">t</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span><span class="p">)</span><span class="w"> </span><span class="nx">assertValidTransaction</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">Transaction</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">assert</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">id</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;valid id&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assert</span><span class="p">(</span><span class="nx">d</span><span class="p">.</span><span class="nx">transactionState</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">id</span><span class="p">).</span><span class="nx">state</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">InProgressTransaction</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;in progress&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>The final bit of scaffolding we'll set up is an abstraction for
+database connections. A connection will have at most associated one
+transaction. Users must ask the database for a new connection. Then
+within the connection they can manage a transactions.</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">Connection</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">tx</span><span class="w"> </span><span class="o">*</span><span class="nx">Transaction</span>
+<span class="w">        </span><span class="nx">db</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">c</span><span class="w"> </span><span class="o">*</span><span class="nx">Connection</span><span class="p">)</span><span class="w"> </span><span class="nx">execCommand</span><span class="p">(</span><span class="nx">command</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">debug</span><span class="p">(</span><span class="nx">command</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// TODO</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;unimplemented&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">c</span><span class="w"> </span><span class="o">*</span><span class="nx">Connection</span><span class="p">)</span><span class="w"> </span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="nx">cmd</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="nx">cmd</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;unexpected error&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">res</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span><span class="p">)</span><span class="w"> </span><span class="nx">newConnection</span><span class="p">()</span><span class="w"> </span><span class="o">*</span><span class="nx">Connection</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">Connection</span><span class="p">{</span>
+<span class="w">                </span><span class="nx">db</span><span class="p">:</span><span class="w"> </span><span class="nx">d</span><span class="p">,</span>
+<span class="w">                </span><span class="nx">tx</span><span class="p">:</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="s">&quot;unimplemented&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>And that's it for scaffolding. Now set up the go module and make sure
+this builds.</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>go<span class="w"> </span>mod<span class="w"> </span>init<span class="w"> </span>gomvcc
+<span class="go">go: creating new go.mod: module gomvcc</span>
+<span class="go">go: to add module requirements and sums:</span>
+<span class="go">        go mod tidy</span>
+<span class="gp">$ </span>go<span class="w"> </span>mod<span class="w"> </span>tidy
+<span class="go">go: finding module for package github.com/tidwall/btree</span>
+<span class="go">go: found github.com/tidwall/btree in github.com/tidwall/btree v1.7.0</span>
+<span class="gp">$ </span>go<span class="w"> </span>build
+<span class="gp">$ </span>./gomvcc
+<span class="go">panic: unimplemented</span>
+
+<span class="go">goroutine 1 [running]:</span>
+<span class="go">main.main()</span>
+<span class="go">        /Users/phil/tmp/main.go:166 +0x2c</span>
+</pre></div>
+<p>Great!</p>
+<h3 id="transaction-management">Transaction management</h3><p>When the user asks to begin a transaction, we ask the database for a
+new transaction and assign it to the current connection.</p>
+<div class="highlight"><pre><span></span><span class="w"> </span>func (c *Connection) execCommand(command string, args []string) (string, error) {
+<span class="w"> </span>        debug(command, args)
+
+<span class="gi">+       if command == &quot;begin&quot; {</span>
+<span class="gi">+               assertEq(c.tx, nil, &quot;no running transactions&quot;)</span>
+<span class="gi">+               c.tx = c.db.newTransaction()</span>
+<span class="gi">+               c.db.assertValidTransaction(c.tx)</span>
+<span class="gi">+               return fmt.Sprintf(&quot;%d&quot;, c.tx.id), nil</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="w"> </span>        // TODO
+<span class="w"> </span>        return &quot;&quot;, fmt.Errorf(&quot;unimplemented&quot;)
+<span class="w"> </span>}
+</pre></div>
+<p>To abort a transaction, we call the <code>completeTransaction</code> method
+(which makes sure the database transaction history gets updated) with
+the <code>AbortedTransaction</code> state.</p>
+<div class="highlight"><pre><span></span><span class="w"> </span>               return fmt.Sprintf(&quot;%d&quot;, c.tx.id), nil
+<span class="w"> </span>       }
+
+<span class="gi">+       if command == &quot;abort&quot; {</span>
+<span class="gi">+               c.db.assertValidTransaction(c.tx)</span>
+<span class="gi">+               err := c.db.completeTransaction(c.tx, AbortedTransaction)</span>
+<span class="gi">+               c.tx = nil</span>
+<span class="gi">+               return &quot;&quot;, err</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="w"> </span>        // TODO
+<span class="w"> </span>        return &quot;&quot;, fmt.Errorf(&quot;unimplemented&quot;)
+<span class="w"> </span>}
+</pre></div>
+<p>And to commit a transaction is similar.</p>
+<div class="highlight"><pre><span></span><span class="w"> </span>               return &quot;&quot;, err
+<span class="w"> </span>       }
+
+<span class="gi">+       if command == &quot;commit&quot; {</span>
+<span class="gi">+               c.db.assertValidTransaction(c.tx)</span>
+<span class="gi">+               err := c.db.completeTransaction(c.tx, CommittedTransaction)</span>
+<span class="gi">+               c.tx = nil</span>
+<span class="gi">+               return &quot;&quot;, err</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="w"> </span>        // TODO
+<span class="w"> </span>        return &quot;&quot;, fmt.Errorf(&quot;unimplemented&quot;)
+<span class="w"> </span>}
+</pre></div>
+<p>The neat thing about MVCC is that beginning, committing, and aborting
+a transaction is metadata work. Committing a transaction will get a
+bit more complex when we add support for Snapshot Isolation and
+Serializable Isolation, but we'll get to that later. Even then, it
+will not involve modifying any values we set, get, or delete.</p>
+<h3 id="get,-set,-delete">Get, set, delete</h3><p>Here is where things get fun. As mentioned earlier, the key-value
+store is actually <code>map[string][]Value</code>. With the more recent versions
+of a value at the end of the list of values for the key.</p>
+<p>For <code>get</code> support, we'll iterate the list of value versions backwards
+for the key. And we'll call a special new <code>isvisible</code> method to
+determine if this transaction can see this value. The first value that
+passes the <code>isvisible</code> test is the correct value for the transaction.</p>
+<div class="highlight"><pre><span></span><span class="w"> </span>               return &quot;&quot;, err
+<span class="w"> </span>       }
+
+<span class="gi">+       if command == &quot;get&quot; {</span>
+<span class="gi">+               c.db.assertValidTransaction(c.tx)</span>
+<span class="gi">+</span>
+<span class="gi">+               key := args[0]</span>
+<span class="gi">+</span>
+<span class="gi">+               c.tx.readset.Insert(key)</span>
+<span class="gi">+</span>
+<span class="gi">+               for i := len(c.db.store[key]) - 1; i &gt;= 0; i-- {</span>
+<span class="gi">+                       value := c.db.store[key][i]</span>
+<span class="gi">+                       debug(value, c.tx, c.db.isvisible(c.tx, value))</span>
+<span class="gi">+                       if c.db.isvisible(c.tx, value) {</span>
+<span class="gi">+                               return value.value, nil</span>
+<span class="gi">+                       }</span>
+<span class="gi">+               }</span>
+<span class="gi">+</span>
+<span class="gi">+               return &quot;&quot;, fmt.Errorf(&quot;cannot get key that does not exist&quot;)</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="w"> </span>        // TODO
+<span class="w"> </span>        return &quot;&quot;, fmt.Errorf(&quot;unimplemented&quot;)
+<span class="w"> </span>}
+</pre></div>
+<p>I snuck in tracking which keys are read, and we'll also soon sneak in
+tracking which keys are written. This is necessary in stricter
+isolation levels. More on that later.</p>
+<p><code>set</code> and <code>delete</code> are similar to get. But this time when we walk the
+list of value versions, we will set the <code>txEndId</code> for the value to the
+current transaction id if the value version is visible to this
+transaction.</p>
+<p>Then, for <code>set</code>, we'll append to the value version list with the new
+version of the value that starts at this current transaction.</p>
+<div class="highlight"><pre><span></span><span class="w"> </span>               return &quot;&quot;, err
+<span class="w"> </span>       }
+
+<span class="gi">+       if command == &quot;set&quot; || command == &quot;delete&quot; {</span>
+<span class="gi">+               c.db.assertValidTransaction(c.tx)</span>
+<span class="gi">+</span>
+<span class="gi">+               key := args[0]</span>
+<span class="gi">+</span>
+<span class="gi">+               // Mark all visible versions as now invalid.</span>
+<span class="gi">+               found := false</span>
+<span class="gi">+               for i := len(c.db.store[key]) - 1; i &gt;= 0; i-- {</span>
+<span class="gi">+                       value := &amp;c.db.store[key][i]</span>
+<span class="gi">+                       debug(value, c.tx, c.db.isvisible(c.tx, *value))</span>
+<span class="gi">+                       if c.db.isvisible(c.tx, *value) {</span>
+<span class="gi">+                               value.txEndId = c.tx.id</span>
+<span class="gi">+                               found = true</span>
+<span class="gi">+                       }</span>
+<span class="gi">+               }</span>
+<span class="gi">+               if command == &quot;delete&quot; &amp;&amp; !found {</span>
+<span class="gi">+                       return &quot;&quot;, fmt.Errorf(&quot;cannot delete key that does not exist&quot;)</span>
+<span class="gi">+               }</span>
+<span class="gi">+</span>
+<span class="gi">+               c.tx.writeset.Insert(key)</span>
+<span class="gi">+</span>
+<span class="gi">+               // And add a new version if it&#39;s a set command.</span>
+<span class="gi">+               if command == &quot;set&quot; {</span>
+<span class="gi">+                       value := args[1]</span>
+<span class="gi">+                       c.db.store[key] = append(c.db.store[key], Value{</span>
+<span class="gi">+                               txStartId: c.tx.id,</span>
+<span class="gi">+                               txEndId:   0,</span>
+<span class="gi">+                               value:     value,</span>
+<span class="gi">+                       })</span>
+<span class="gi">+</span>
+<span class="gi">+                       return value, nil</span>
+<span class="gi">+               }</span>
+<span class="gi">+</span>
+<span class="gi">+               // Delete ok.</span>
+<span class="gi">+               return &quot;&quot;, nil</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="w"> </span>       if command == &quot;get&quot; {
+<span class="w"> </span>               c.db.assertValidTransaction(c.tx)
+</pre></div>
+<p>This time rather than modifying the <code>readset</code> we modify the <code>writeset</code>
+for the transaction.</p>
+<p>And that is how commands get executed!</p>
+<p>Let's zoom in to the core of the problem we have mentioned but not
+implemented: MVCC visibility rules and how they differ by isolation
+levels.</p>
+<h3 id="isolation-levels-and-mvcc-visibility-rules">Isolation levels and MVCC visibility rules</h3><p>To varying degrees, transaction isolation levels prevent concurrent
+transactions from messing with each other. The looser isolation levels
+prevent this almost not at all.</p>
+<h4 id="read-uncommitted">Read Uncommitted</h4><p>According to Jepsen, the loosest isolation level, Read Uncommitted,
+has almost no restrictions. We can merely read the most recent version
+of a value, regardless of if the transaction that set it has committed
+or aborted or not.</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span><span class="p">)</span><span class="w"> </span><span class="nx">isvisible</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">Transaction</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="nx">Value</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">       </span><span class="c1">// Read Uncommitted means we simply read the last value</span>
+<span class="w">       </span><span class="c1">// written. Even if the transaction that wrote this value has</span>
+<span class="w">       </span><span class="c1">// not committed, and even if it has aborted.</span>
+<span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">isolation</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">ReadUncommittedIsolation</span><span class="w"> </span><span class="p">{</span>
+<span class="w">               </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">       </span><span class="p">}</span>
+
+<span class="w">       </span><span class="nx">assert</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;unsupported isolation level&quot;</span><span class="p">)</span>
+<span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="p">}</span>
+</pre></div>
+<p>Let's write a test that demonstrates this. We create two transactions,
+<code>c1</code> and <code>c2</code>, and set a key in <code>c1</code>. The value set for the key in
+<code>c1</code> should be immediately visible if <code>c2</code> asks for that key. In
+main_test.go:</p>
+<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;testing&quot;</span>
+<span class="p">)</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">TestReadUncommitted</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">database</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newDatabase</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">database</span><span class="p">.</span><span class="nx">defaultIsolation</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">ReadUncommittedIsolation</span>
+
+<span class="w">        </span><span class="nx">c1</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c2</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">})</span>
+
+<span class="w">        </span><span class="c1">// Update is visible to self.</span>
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c1 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// But since read uncommitted, also available to everyone else.</span>
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>That's pretty simple! But also pretty useless if your workload has
+conflicts. If you can arrange your workload in a way where you know no
+concurrent transactions will ever read or write conflicting keys
+though, this could be pretty efficient! The rules will only get more
+complex (and thus potentially more of a bottleneck) from here on.</p>
+<p>But for the most part, people don't use this isolation level. SQLite,
+Yugabyte, Cockroach, and Postgres don't even implement it. It is also
+not the default for any major database that does implement it.</p>
+<p>Let's get a little stricter.</p>
+<h4 id="read-committed">Read Committed</h4><p>We'll pull again from Jepsen:</p>
+<blockquote><p>Read committed is a consistency model which strengthens read
+uncommitted by preventing dirty reads: transactions are not allowed
+to observe writes from transactions which do not commit.</p>
+</blockquote>
+<p>This sounds pretty simple. In <code>isvisible</code> we'll make sure that the
+value has a <code>txStartId</code> that is either this transaction or a
+transaction that has committed. Moreover we will now begin checking
+against <code>txEndId</code> to make sure the value wasn't deleted by any
+relevant transaction.</p>
+<div class="highlight"><pre><span></span><span class="w"> </span>               return true
+<span class="w"> </span>       }
+
+<span class="gi">+       // Read Committed means we are allowed to read any values that</span>
+<span class="gi">+       // are committed at the point in time where we read.</span>
+<span class="gi">+       if t.isolation == ReadCommittedIsolation {</span>
+<span class="gi">+               // If the value was created by a transaction that is</span>
+<span class="gi">+               // not committed, and not this current transaction,</span>
+<span class="gi">+               // it&#39;s no good.</span>
+<span class="gi">+               if value.txStartId != t.id &amp;&amp;</span>
+<span class="gi">+                       d.transactionState(value.txStartId).state != CommittedTransaction {</span>
+<span class="gi">+                       return false</span>
+<span class="gi">+               }</span>
+<span class="gi">+</span>
+<span class="gi">+               // If the value was deleted in this transaction, it&#39;s no good.</span>
+<span class="gi">+               if value.txEndId == t.id {</span>
+<span class="gi">+                       return false</span>
+<span class="gi">+               }</span>
+<span class="gi">+</span>
+<span class="gi">+               // Or if the value was deleted in some other committed</span>
+<span class="gi">+               // transaction, it&#39;s no good.</span>
+<span class="gi">+               if value.txEndId &gt; 0 &amp;&amp;</span>
+<span class="gi">+                       d.transactionState(value.txEndId).state == CommittedTransaction {</span>
+<span class="gi">+                       return false</span>
+<span class="gi">+               }</span>
+<span class="gi">+</span>
+<span class="gi">+               // Otherwise the value is good.</span>
+<span class="gi">+               return true</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="w"> </span>       assert(false, &quot;unsupported isolation level&quot;)
+<span class="w"> </span>       return false
+<span class="w"> </span>}
+</pre></div>
+<p>This begins to look useful! We will never read a value that isn't part
+of a committed transaction (or isn't part of our own
+transaction). Indeed this is the default isolation level for many
+databases including Postgres, Yugabyte, Oracle, and SQL Server.</p>
+<p>Let's add a test to <code>main_test.go</code>. This is a bit long, but give it a
+slow read. It is thoroughly commented.</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">TestReadCommitted</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">database</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newDatabase</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">database</span><span class="p">.</span><span class="nx">defaultIsolation</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">ReadCommittedIsolation</span>
+
+<span class="w">        </span><span class="nx">c1</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c2</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// Local change is visible locally.</span>
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">})</span>
+
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c1 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// Update not available to this transaction since this is not</span>
+<span class="w">        </span><span class="c1">// committed.</span>
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// Now that it&#39;s been committed, it&#39;s visible in c2.</span>
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c3</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// Local change is visible locally.</span>
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;yall&quot;</span><span class="p">})</span>
+
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;yall&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c3 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// But not on the other commit, again.</span>
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;abort&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// And still not, if the other transaction aborted.</span>
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// And if we delete it, it should show up deleted locally.</span>
+<span class="w">        </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;delete&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// It should also show up as deleted in new transactions now</span>
+<span class="w">        </span><span class="c1">// that it has been committed.</span>
+<span class="w">        </span><span class="nx">c4</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c4</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c4</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c4 get x&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c4 get x&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>Again this seems great. However! You can easily get inconsistent data
+within a transaction at this isolation level. If the transaction A has
+multiple statements it can see different results per statement, even
+if the transaction A did not modify data. Another transaction B may
+have committed changes between two statements in this transaction A.</p>
+<p>Let's get a little stricter.</p>
+<h4 id="repeatable-read">Repeatable Read</h4><p>Again as Jepsen says, Repeatable Read is the same as Read Committed
+but with the following anomaly not allowed (quoting from the ANSI SQL
+1999 standard):</p>
+<blockquote><p>P2 (“Non-repeatable read”): SQL-transaction T1 reads a
+row. SQL-transaction T2 then modifies or deletes that row and
+performs a COMMIT. If T1 then attempts to reread the row, it may
+receive the modified value or discover that the row has been
+deleted.</p>
+</blockquote>
+<p>To support this, we will add additional checks to the Read Committed
+logic that make sure the value was not created and not deleted within
+a transaction that started before this transaction started.</p>
+<p>As it happens, this is the same logic that will be necessary for
+Snapshot Isolation and Serializable Isolation. The additional logic
+(that makes Snapshot Isolation and Serializable Isolation different)
+happens at commit time.</p>
+<div class="highlight"><pre><span></span><span class="w"> </span>               return true
+<span class="w"> </span>       }
+
+<span class="gd">-       assert(false, &quot;unsupported isolation level&quot;)</span>
+<span class="gd">-       return false</span>
+<span class="gi">+       // Repeatable Read, Snapshot Isolation, and Serializable</span>
+<span class="gi">+       // further restricts Read Committed so only versions from</span>
+<span class="gi">+       // transactions that completed before this one started are</span>
+<span class="gi">+       // visible.</span>
+<span class="gi">+</span>
+<span class="gi">+       // Snapshot Isolation and Serializable will do additional</span>
+<span class="gi">+       // checks at commit time.</span>
+<span class="gi">+       assert(t.isolation == RepeatableReadIsolation ||</span>
+<span class="gi">+               t.isolation == SnapshotIsolation ||</span>
+<span class="gi">+               t.isolation == SerializableIsolation, &quot;invalid isolation level&quot;)</span>
+<span class="gi">+       // Ignore values from transactions started after this one.</span>
+<span class="gi">+       if value.txStartId &gt; t.id {</span>
+<span class="gi">+               return false</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="gi">+       // Ignore values created from transactions in progress when</span>
+<span class="gi">+       // this one started.</span>
+<span class="gi">+       if t.inprogress.Contains(value.txStartId) {</span>
+<span class="gi">+               return false</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="gi">+       // If the value was created by a transaction that is not</span>
+<span class="gi">+       // committed, and not this current transaction, it&#39;s no good.</span>
+<span class="gi">+       if d.transactionState(value.txStartId).state != CommittedTransaction &amp;&amp;</span>
+<span class="gi">+               value.txStartId != t.id {</span>
+<span class="gi">+               return false</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="gi">+       // If the value was deleted in this transaction, it&#39;s no good.</span>
+<span class="gi">+       if value.txEndId == t.id {</span>
+<span class="gi">+               return false</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="gi">+       // Or if the value was deleted in some other committed</span>
+<span class="gi">+       // transaction that started before this one, it&#39;s no good.</span>
+<span class="gi">+       if value.txEndId &lt; t.id &amp;&amp;</span>
+<span class="gi">+               value.txEndId &gt; 0 &amp;&amp;</span>
+<span class="gi">+               d.transactionState(value.txEndId).state == CommittedTransaction &amp;&amp;</span>
+<span class="gi">+               !t.inprogress.Contains(value.txEndId) {</span>
+<span class="gi">+               return false</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="gi">+       return true</span>
+<span class="w"> </span>}
+
+<span class="w"> </span>type Connection struct {
+</pre></div>
+<p>How do I derive these rules? Mostly by writing tests that should pass
+or fail and seeing what doesn't make sense. I tried to steal from
+existing projects but these rules were not so simple to
+discover. Which is part of what I hope makes this project particularly
+useful to look at.</p>
+<p>Let's write a test for Repeatable Read. Again, the test is long but
+well commented.</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">TestRepeatableRead</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">database</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newDatabase</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">database</span><span class="p">.</span><span class="nx">defaultIsolation</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">RepeatableReadIsolation</span>
+
+<span class="w">        </span><span class="nx">c1</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c2</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// Local change is visible locally.</span>
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c1 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// Update not available to this transaction since this is not</span>
+<span class="w">        </span><span class="c1">// committed.</span>
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// Even after committing, it&#39;s not visible in an existing</span>
+<span class="w">        </span><span class="c1">// transaction.</span>
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// But is available in a new transaction.</span>
+<span class="w">        </span><span class="nx">c3</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c3 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// Local change is visible locally.</span>
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;yall&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;yall&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c3 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// But not on the other commit, again.</span>
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;abort&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// And still not, regardless of abort, because it&#39;s an older</span>
+<span class="w">        </span><span class="c1">// transaction.</span>
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// And again still the aborted set is still not on a new</span>
+<span class="w">        </span><span class="c1">// transaction.</span>
+<span class="w">        </span><span class="nx">c4</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c4</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c4</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c4 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c4</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;delete&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">c4</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// But the delete is visible to new transactions now that this</span>
+<span class="w">        </span><span class="c1">// has been committed.</span>
+<span class="w">        </span><span class="nx">c5</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c5</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c5</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c5 get x&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c5 get x&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>Let's get stricter!</p>
+<h4 id="snapshot-isolation">Snapshot Isolation</h4><p>Back to Jepsen for a definition:</p>
+<blockquote><p>In a snapshot isolated system, each transaction appears to operate
+on an independent, consistent snapshot of the database. Its changes
+are visible only to that transaction until commit time, when all
+changes become visible atomically to any transaction which begins at
+a later time. If transaction T1 has modified an object x, and
+another transaction T2 committed a write to x after T1’s snapshot
+began, and before T1’s commit, then T1 must abort.</p>
+</blockquote>
+<p>So Snapshot Isolation is the same as Repeatable Read but with one
+additional rule: the keys written by any two concurrent committed
+transactions must not overlap.</p>
+<p>This is why we tracked <code>writeset</code>. Every time a transaction modified
+or deleted a key, we added it to the transaction's <code>writeset</code>. To make
+sure we abort correctly, we'll add a conflict check to the commit
+step. (This idea is also well documented in A critique of snapshot
+isolation. This paper can be hard to find. Email me if you want a
+copy.)</p>
+<p>When a transaction A goes to commit, it will run a conflict test for
+any transaction B that has committed since this transaction A started.</p>
+<p>Serializable Isolation is going to have a similar check. So we'll add
+a helper for iterating through all relevant transactions, running a
+check function for any transaction that has committed.</p>
+<div class="highlight"><pre><span></span>func (d *Database) hasConflict(t1 *Transaction, conflictFn func(*Transaction, *Transaction) bool) bool {
+<span class="w"> </span>       iter := d.transactions.Iter()
+
+<span class="w"> </span>       // First see if there is any conflict with transactions that
+<span class="w"> </span>       // were in progress when this one started.
+<span class="w"> </span>       inprogressIter := t1.inprogress.Iter()
+<span class="w"> </span>       for ok := inprogressIter.First(); ok; ok = inprogressIter.Next() {
+<span class="w"> </span>               id := inprogressIter.Key()
+<span class="w"> </span>               found := iter.Seek(id)
+<span class="w"> </span>               if !found {
+<span class="w"> </span>                       continue
+<span class="w"> </span>               }
+<span class="w"> </span>               t2 := iter.Value()
+<span class="w"> </span>               if t2.state == CommittedTransaction {
+<span class="w"> </span>                       if conflictFn(t1, &amp;t2) {
+<span class="w"> </span>                               return true
+<span class="w"> </span>                       }
+<span class="w"> </span>               }
+<span class="w"> </span>       }
+
+<span class="w"> </span>       // Then see if there is any conflict with transactions that
+<span class="w"> </span>       // started and committed after this one started.
+<span class="w"> </span>       for id := t1.id; id &lt; d.nextTransactionId; id++ {
+<span class="w"> </span>               found := iter.Seek(id)
+<span class="w"> </span>               if !found {
+<span class="w"> </span>                       continue
+<span class="w"> </span>               }
+
+<span class="w"> </span>               t2 := iter.Value()
+<span class="w"> </span>               if t2.state == CommittedTransaction {
+<span class="w"> </span>                       if conflictFn(t1, &amp;t2) {
+<span class="w"> </span>                               return true
+<span class="w"> </span>                       }
+<span class="w"> </span>               }
+<span class="w"> </span>       }
+
+<span class="w"> </span>       return false
+}
+</pre></div>
+<p>It was around this point that I decided I did really need a B-Tree
+implementation and could not just stick to vanilla Go data structures.</p>
+<p>Now we can modify <code>completeTransaction</code> to do this check if the
+transaction intends to commit. If the current transaction A's write
+set intersects with any other transaction B committed since
+transaction A started, we must abort.</p>
+<div class="highlight"><pre><span></span><span class="w"> </span>func (d *Database) completeTransaction(t *Transaction, state TransactionState) error {
+<span class="w"> </span>        debug(&quot;completing transaction &quot;, t.id)
+
+<span class="gi">+</span>
+<span class="gi">+       if state == CommittedTransaction {</span>
+<span class="gi">+               // Snapshot Isolation imposes the additional constraint that</span>
+<span class="gi">+               // no transaction A may commit after writing any of the same</span>
+<span class="gi">+               // keys as transaction B has written and committed during</span>
+<span class="gi">+               // transaction A&#39;s life.</span>
+<span class="gi">+               if t.isolation == SnapshotIsolation &amp;&amp; d.hasConflict(t, func(t1 *Transaction, t2 *Transaction) bool {</span>
+<span class="gi">+                       return setsShareItem(t1.writeset, t2.writeset)</span>
+<span class="gi">+               }) {</span>
+<span class="gi">+                       d.completeTransaction(t, AbortedTransaction)</span>
+<span class="gi">+                       return fmt.Errorf(&quot;write-write conflict&quot;)</span>
+<span class="gi">+               }</span>
+<span class="gi">+       }</span>
+<span class="gi">+</span>
+<span class="w"> </span>        // Update transactions.
+<span class="w"> </span>        t.state = state
+<span class="w"> </span>        d.transactions.Set(t.id, *t)
+</pre></div>
+<p>Lastly, the definition of <code>setsShareItem</code>.</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">setsShareItem</span><span class="p">(</span><span class="nx">s1</span><span class="w"> </span><span class="nx">btree</span><span class="p">.</span><span class="nx">Set</span><span class="p">[</span><span class="kt">string</span><span class="p">],</span><span class="w"> </span><span class="nx">s2</span><span class="w"> </span><span class="nx">btree</span><span class="p">.</span><span class="nx">Set</span><span class="p">[</span><span class="kt">string</span><span class="p">])</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">s1Iter</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s1</span><span class="p">.</span><span class="nx">Iter</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">s2Iter</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s2</span><span class="p">.</span><span class="nx">Iter</span><span class="p">()</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s1Iter</span><span class="p">.</span><span class="nx">First</span><span class="p">();</span><span class="w"> </span><span class="nx">ok</span><span class="p">;</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">s1Iter</span><span class="p">.</span><span class="nx">Next</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">s1Key</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s1Iter</span><span class="p">.</span><span class="nx">Key</span><span class="p">()</span>
+<span class="w">                </span><span class="nx">found</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s2Iter</span><span class="p">.</span><span class="nx">Seek</span><span class="p">(</span><span class="nx">s1Key</span><span class="p">)</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">found</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="p">}</span>
+</pre></div>
+<p>Since Snapshot Isolation shared all the same visibility rules as
+Repeatable Read, the tests get to be a little simpler! We'll simply
+test that two transactions attempting to commit a write to the same
+key fail. Or specifically: that the second transaction cannot commit.</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">TestSnapshotIsolation_writewrite_conflict</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">database</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newDatabase</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">database</span><span class="p">.</span><span class="nx">defaultIsolation</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">SnapshotIsolation</span>
+
+<span class="w">        </span><span class="nx">c1</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c2</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c3</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">})</span>
+
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 commit&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;write-write conflict&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 commit&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// But unrelated keys cause no conflict.</span>
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;y&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;no conflict&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>Not bad! But let's get stricter.</p>
+<h4 id="serializable-isolation">Serializable Isolation</h4><p>In terms of end-result, this is the simplest isolation level to reason
+about. Serializable Isolation must appear as if only a single
+transaction were executing at a time. Some systems, like SQLite and
+TigerBeetle, do Actually Serial Execution where only one transaction
+runs at a time. But few databases implement Serializable like this
+because it removes a number of fair concurrent execution
+histories. For example, two concurrent read-only transactions.</p>
+<p>Postgres implements serializability via Serializable Snapshot
+Isolation. MySQL implements serializability via Two-Phase Locking
+(2PL). FoundationDB implements serializability via sequential
+timestamp assignment and conflict detection.</p>
+<p>But the paper, A critique of snapshot isolation, provides a simple
+(though not necessarily efficient; I have no clue) approach via what
+they call Write Snapshot Isolation. In their algorithm, if any two
+transactions read and write set intersect (but not write and write set
+intersect), the transaction should be aborted. And this (plus
+Repeatable Read rules) is sufficient for Serializability.</p>
+<p>I leave it to that paper for the proof of correctness. In terms of
+implementing it though it's quite simple and very similar to the
+Snapshot Isolation we already mentioned.</p>
+<p>Inside of <code>completeTransaction</code> add:</p>
+<div class="highlight"><pre><span></span><span class="w"> </span>               }) {
+<span class="w"> </span>                       d.completeTransaction(t, AbortedTransaction)
+<span class="w"> </span>                       return fmt.Errorf(&quot;write-write conflict&quot;)
+<span class="gi">+               }</span>
+<span class="gi">+</span>
+<span class="gi">+               // Serializable Isolation imposes the additional constraint that</span>
+<span class="gi">+               // no transaction A may commit after reading any of the same</span>
+<span class="gi">+               // keys as transaction B has written and committed during</span>
+<span class="gi">+               // transaction A&#39;s life, or vice-versa.</span>
+<span class="gi">+               if t.isolation == SerializableIsolation &amp;&amp; d.hasConflict(t, func(t1 *Transaction, t2 *Transaction) bool {</span>
+<span class="gi">+                       return setsShareItem(t1.readset, t2.writeset) ||</span>
+<span class="gi">+                               setsShareItem(t1.writeset, t2.readset)</span>
+<span class="gi">+               }) {</span>
+<span class="gi">+                       d.completeTransaction(t, AbortedTransaction)</span>
+<span class="gi">+                       return fmt.Errorf(&quot;read-write conflict&quot;)</span>
+<span class="w"> </span>               }
+<span class="w"> </span>       }
+</pre></div>
+<p>And if we add a test for read-write conflicts:</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">TestSerializableIsolation_readwrite_conflict</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">database</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newDatabase</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">database</span><span class="p">.</span><span class="nx">defaultIsolation</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">SerializableIsolation</span>
+
+<span class="w">        </span><span class="nx">c1</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c2</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c3</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">database</span><span class="p">.</span><span class="nx">newConnection</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;begin&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c5 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 commit&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;read-write conflict&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 commit&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// But unrelated keys cause no conflict.</span>
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;y&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;no conflict&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">c3</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>We see it work! And that's it for a basic implementation of MVCC and
+major transaction isolation levels.</p>
+<h3 id="production-quality-testing">Production-quality testing</h3><p>There are two major projects I'm aware of that help you test
+transaction implementations: Elle and Hermitage. These are probably
+where I'd go looking if I were implementing this for real.</p>
+<p>This project took me long enough on its own and I felt reasonably
+comfortable with my tests that the gist of my logic was right that I
+did not test further. For that reason it surely has bugs.</p>
+<h3 id="vacuuming-and-cleanup">Vacuuming and cleanup</h3><p>One of the major things this implementation does not do is cleaning up
+old data. Eventually, older versions of values will be required by no
+transactions. They should be removed from the value version
+array. Similarly, eventually older transactions will be required by no
+transactions. They should be removed from the database transaction
+history list.</p>
+<p>Even if we had the vacuuming process in place though, what about some
+extreme use patterns. What if a key's value was always going to be 1GB
+long. And what if multiple transactions made only small changes to the
+1GB data. We'd be duplicating a lot of the value across versions.</p>
+<p>It sounds less extreme when thinking about storing rows of data rather
+than key-value data. If a user has 100 columns and only updates one
+column a number of times, in our scheme we'd end up storing a ton of
+duplicate cell data for a row.</p>
+<p>This is a real-world issue in Postgres that was called out by Andy
+Pavlo and the Ottertune folks. It turns out that Postgres alone among
+major databases stores the entire value for every version. In contrast
+other major databases like MySQL store a diff.</p>
+<h3 id="conclusion">Conclusion</h3><p>This post only begins to demonstrate that database behavior differs
+quite a bit both in terms of results and in terms of
+optimizations. Everyone implements the ideas differently and to
+varying degrees.</p>
+<p>Hopefully seeing a simple implementation of MVCC and visibility rules
+helps to clarify things.</p>
+<style>.feedback{display:initial;}</style>
+	</div>
+	<div class="feedback">
+	  <h4>Feedback</h4>
+	  <p>As always,
+	      please <a href="mailto:phil@eatonphil.com">email</a>
+	      or <a href="https://twitter.com/eatonphil">tweet me</a>
+	      with questions, corrections, or ideas!</p>
+
+	</div>
+      </div>
+    </div>
+    <footer>
+      <div class="container">
+	<div>
+	  <div id="subscribe">
+	    <style type="text/css">
+  /* LOADER */
+  .ml-form-embedSubmitLoad {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+  }
+  .g-recaptcha {
+      transform: scale(1);
+      -webkit-transform: scale(1);
+      transform-origin: 0 0;
+      -webkit-transform-origin: 0 0;
+      height: ;
+  }
+  .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      border: 0;
+  }
+  .ml-form-embedSubmitLoad:after {
+      content: " ";
+      display: block;
+      width: 11px;
+      height: 11px;
+      margin: 1px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      border-color: #ffffff #ffffff #ffffff transparent;
+      animation: ml-form-embedSubmitLoad 1.2s linear infinite;
+  }
+  @keyframes ml-form-embedSubmitLoad {
+      0% {
+          transform: rotate(0deg);
+      }
+      100% {
+          transform: rotate(360deg);
+      }
+  }
+  #mlb2-3175296.ml-form-embedContainer {
+      box-sizing: border-box;
+      display: table;
+      margin: 0 auto;
+      position: static;
+      width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer h3,
+  #mlb2-3175296.ml-form-embedContainer p,
+  #mlb2-3175296.ml-form-embedContainer span,
+  #mlb2-3175296.ml-form-embedContainer button {
+      text-transform: none !important;
+      letter-spacing: normal !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper {
+      border-width: 0px;
+      border-color: transparent;
+  border-radius: 4px;
+  border-style: solid;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-left { text-align: left; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-center {
+  text-align: center;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-default { display: table-cell !important; vertical-align: middle !important; text-align: center !important; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-right { text-align: right; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedHeader img {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  height: auto;
+  margin: 0 auto !important;
+  max-width: 100%;
+  width: undefinedpx;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody.ml-form-embedBodyHorizontal {
+  padding-bottom: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent {
+  text-align: left;
+  margin: 0 0 20px 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p {
+  color: #000000;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  margin: 0 0 10px 0;
+  text-align: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol {
+  color: #000000;
+  font-size: 14px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol {
+  list-style-type: lower-alpha;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol ol {
+  list-style-type: lower-roman;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p a,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group {
+  text-align: left!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group label {
+  margin-bottom: 5px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: bold; font-style: normal; text-decoration: none;;
+  display: inline-block;
+  line-height: 20px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p:last-child,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody form {
+  margin: 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  margin: 0 0 20px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent.horozintalForm {
+  margin: 0;
+  padding: 0 0 20px 0;
+  width: 100%;
+  height: auto;
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow {
+  margin: 0 0 10px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-last-item {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-formfieldHorizintal {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-webkit-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-webkit-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-ms-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-ms-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow textarea, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow textarea {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-color: #cccccc!important;
+  background-color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input.custom-control-input[type="checkbox"]{
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-radius: 4px!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23fff' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::before  {
+  border-color: #000000!important;
+  background-color: #000000!important;
+  color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::after {
+  top: 2px;
+  box-sizing: border-box;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  position: absolute;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::after {
+  position: absolute;
+  top: 2px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-radio .custom-control-label::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-control, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-control {
+  position: relative;
+  display: block;
+  min-height: 1.5rem;
+  padding-left: 1.5rem;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input {
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  box-sizing: border-box;
+  padding: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label {
+  color: #000000;
+  font-size: 12px!important;
+  line-height: 22px;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  font-style: normal;
+  font-weight: 700;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-select, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-select {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 28px 10px 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+  background: url('https://assets.mlcdn.com/ml/images/default/dropdown.svg') no-repeat right .75rem center/8px 10px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow {
+  height: auto;
+  width: 100%;
+  float: left;
+  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 70%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal { width: 30%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal.labelsOn { padding-top: 25px;  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .horizontal-fields { box-sizing: border-box; float: left; padding-right: 10px;  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input {
+  background-color: #ffffff;
+  color: #333333;
+  border-color: #cccccc;
+  border-radius: 4px;
+  border-style: solid;
+  border-width: 1px;
+  font-size: 14px;
+  line-height: 20px;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: initial;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button {
+  background-color: #000000 !important;
+  border-color: #000000;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 4px;
+  box-shadow: none;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700;
+  line-height: 20px;
+  margin: 0 !important;
+  padding: 10px !important;
+  width: 100%;
+  height: auto;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button:hover {
+  background-color: #333333 !important;
+  border-color: #333333 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type="checkbox"] {
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description {
+  color: #000000;
+  display: block;
+  font-size: 12px;
+  text-align: left;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label {
+  font-weight: normal;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  display: block;
+  min-height: 24px;
+  padding-left: 24px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p {
+  color: #000000 !important;
+  font-size: 12px !important;
+  font-weight: normal !important;
+  line-height: 18px !important;
+  padding: 0 !important;
+  margin: 0 5px 0 0 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit {
+  margin: 0 0 20px 0;
+  float: left;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button {
+  background-color: #000000 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 21px !important;
+  height: auto;
+  padding: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button.loading {
+  display: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button:hover {
+  background-color: #333333 !important;
+  }
+  .ml-subscribe-close {
+  width: 30px;
+  height: 30px;
+  background: url('https://assets.mlcdn.com/ml/images/default/modal_close.png') no-repeat;
+  background-size: 30px;
+  cursor: pointer;
+  margin-top: -10px;
+  margin-right: -10px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  }
+  .ml-error input, .ml-error textarea, .ml-error select {
+  border-color: red!important;
+  }
+  .ml-error .custom-checkbox-radio-list {
+  border: 1px solid red !important;
+  border-radius: 4px;
+  padding: 10px;
+  }
+  .ml-error .label-description,
+  .ml-error .label-description p,
+  .ml-error .label-description p a,
+  .ml-error label:first-child {
+  color: #ff0000 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p:first-letter {
+  color: #ff0000 !important;
+  }
+  @media only screen and (max-width: 400px){
+  .ml-form-embedWrapper.embedDefault, .ml-form-embedWrapper.embedPopup { width: 100%!important; }
+  .ml-form-formContent.horozintalForm { float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow { height: auto!important; width: 100%!important; float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 100%!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal > div { padding-right: 0px!important; padding-bottom: 10px; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal { width: 100%!important; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal.labelsOn { padding-top: 0px!important; }
+    }
+</style>
+<div id="mlb2-3175296" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-3175296">
+  <hr />
+  <div class="ml-form-align-center ">
+    <div class="ml-form-embedWrapper embedForm">
+      <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+        <div class="ml-form-embedContent" style=" ">
+          <h4>Subscribe</h4>
+          <p>Enter your email if you'd like to be kept in the loop about future articles!<br><br>You can expect 2 to 4 messages per month depending on how motivated I'm feeling. :)</p>
+	  <p></p>
+	  <p>Cheers,<br>Phil</p>
+        </div>
+        <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/303114/forms/78235486326359572/subscribe" data-code="" method="post" target="_blank">
+          <div class="ml-form-formContent">
+            <div class="ml-form-fieldRow ml-last-item">
+              <div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
+                <!-- input -->
+                <input aria-label="email" aria-required="true" type="email" class="form-control" data-inputmask="" name="fields[email]" placeholder="Email" autocomplete="email">
+                <!-- /input -->
+                <!-- textarea -->
+                <!-- /textarea -->
+                <!-- select -->
+                <!-- /select -->
+                <!-- checkboxes -->
+		<!-- /checkboxes -->
+                <!-- radio -->
+                <!-- /radio -->
+                <!-- countries -->
+                <!-- /countries -->
+              </div>
+            </div>
+          </div>
+          <!-- Privacy policy -->
+          <!-- /Privacy policy -->
+	  <div class="ml-form-recaptcha ml-validate-required" style="float: left;">
+            <style type="text/css">
+	      .ml-form-recaptcha {
+		  margin-bottom: 20px;
+	      }
+	      .ml-form-recaptcha.ml-error iframe {
+		  border: solid 1px #ff0000;
+	      }
+	      @media screen and (max-width: 480px) {
+		  .ml-form-recaptcha {
+		      width: 220px!important
+		  }
+		  .g-recaptcha {
+		      transform: scale(0.78);
+		      -webkit-transform: scale(0.78);
+		      transform-origin: 0 0;
+		      -webkit-transform-origin: 0 0;
+		  }
+	      }
+	    </style>
+	    <script src="https://www.google.com/recaptcha/api.js"></script>
+	    <div class="g-recaptcha" data-sitekey="6Lf1KHQUAAAAAFNKEX1hdSWCS3mRMv4FlFaNslaD"></div>
+	  </div>
+          <input type="hidden" name="ml-submit" value="1">
+          <div class="ml-form-embedSubmit">
+            <button type="submit" class="primary">Subscribe</button>
+            <button disabled="disabled" style="display: none;" type="button" class="loading">
+              <div class="ml-form-embedSubmitLoad"></div>
+              <span class="sr-only">Loading...</span>
+            </button>
+          </div>
+          <input type="hidden" name="anticsrf" value="true">
+        </form>
+      </div>
+      <div class="ml-form-successBody row-success" style="display: none">
+        <div class="ml-form-successContent">
+          <h3>Thanks :)</h3>
+          <p>You're in.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function ml_webform_success_3175296() {
+      var $ = ml_jQuery || jQuery;
+      $('.ml-subscribe-form-3175296 .row-success').show();
+      $('.ml-subscribe-form-3175296 .row-form').hide();
+  }
+</script>
+<script src="https://groot.mailerlite.com/js/w/webforms.min.js?v300817f630ad0e957914d0b28a2b6d78" type="text/javascript"></script>
+
+	  </div>
+	</div>
+      </div>
+    </footer>
+    <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
+    <script>
+      function loadGA() {
+	  window.dataLayer = window.dataLayer || [];
+	  function gtag(){dataLayer.push(arguments);}
+	  gtag('js', new Date());
+	  gtag('config', 'UA-58109156-2');
+      }
+    </script>
+    <script defer src="https://cdn.usefathom.com/script.js" data-site="CEPUOLOQ"></script>
+  </body>
+</html>
