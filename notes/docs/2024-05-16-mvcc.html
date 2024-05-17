@@ -338,7 +338,7 @@ transaction history.</p>
 <span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">inprogress</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">inprogress</span><span class="p">()</span>
 
 <span class="w">        </span><span class="c1">// Add this transaction to history.</span>
-<span class="w">        </span><span class="nx">d</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">Set</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="nx">t</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">d</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">Set</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="p">)</span>
 
 <span class="w">        </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;starting transaction&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">id</span><span class="p">)</span>
 
@@ -471,7 +471,7 @@ the <code>AbortedTransaction</code> state.</p>
 a transaction is metadata work. Committing a transaction will get a
 bit more complex when we add support for Snapshot Isolation and
 Serializable Isolation, but we'll get to that later. Even then, it
-will not involve modifying any values we set, get, or delete.</p>
+will not involve modifying any values we get, set, or delete.</p>
 <h3 id="get,-set,-delete">Get, set, delete</h3><p>Here is where things get fun. As mentioned earlier, the key-value
 store is actually <code>map[string][]Value</code>. With the more recent versions
 of a value at the end of the list of values for the key.</p>
@@ -565,6 +565,14 @@ levels.</p>
 <h3 id="isolation-levels-and-mvcc-visibility-rules">Isolation levels and MVCC visibility rules</h3><p>To varying degrees, transaction isolation levels prevent concurrent
 transactions from messing with each other. The looser isolation levels
 prevent this almost not at all.</p>
+<p>Here is what the <a href="https://web.cecs.pdx.edu/~len/sql1999.pdf">1999 ANSI SQL
+standard</a> (page 84) has to
+say.</p>
+<p><img src="/sql99isolation.png" alt="/sql99isolation.png"></p>
+<p>But as I mentioned in the beginning of the post, we're going to be a
+bit informal. And we'll mostly refer to
+<a href="https://jepsen.io/consistency">Jepsen</a> summaries of each isolation
+levels.</p>
 <h4 id="read-uncommitted">Read Uncommitted</h4><p>According to
 <a href="https://jepsen.io/consistency/models/read-uncommitted">Jepsen</a>, the
 loosest isolation level, Read Uncommitted, has almost no

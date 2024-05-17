@@ -341,7 +341,7 @@ func (d *Database) newTransaction() *Transaction {
         t.inprogress = d.inprogress()
 
         // Add this transaction to history.
-        d.transactions.Set(t.id, *t)
+        d.transactions.Set(t.id, t)
 
         debug("starting transaction", t.id)
 
@@ -496,7 +496,7 @@ The neat thing about MVCC is that beginning, committing, and aborting
 a transaction is metadata work. Committing a transaction will get a
 bit more complex when we add support for Snapshot Isolation and
 Serializable Isolation, but we'll get to that later. Even then, it
-will not involve modifying any values we set, get, or delete.
+will not involve modifying any values we get, set, or delete.
 
 ### Get, set, delete
 
@@ -607,6 +607,17 @@ levels.
 To varying degrees, transaction isolation levels prevent concurrent
 transactions from messing with each other. The looser isolation levels
 prevent this almost not at all.
+
+Here is what the [1999 ANSI SQL
+standard](https://web.cecs.pdx.edu/~len/sql1999.pdf) (page 84) has to
+say.
+
+![/sql99isolation.png](/sql99isolation.png)
+
+But as I mentioned in the beginning of the post, we're going to be a
+bit informal. And we'll mostly refer to
+[Jepsen](https://jepsen.io/consistency) summaries of each isolation
+levels.
 
 #### Read Uncommitted
 
