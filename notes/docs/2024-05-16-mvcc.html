@@ -67,17 +67,17 @@
 support for five standard SQL transaction levels: Read Uncommitted,
 Read Committed, Repeatable Read, Snapshot Isolation and
 Serializable. We'll use multi-version concurrency control (MVCC) and
-optimistic control (OCC) to accomplish this. The goal isn't to be
-perfect but to explain the basics in a minimal way.</p>
+optimistic concurrency control (OCC) to accomplish this. The goal
+isn't to be perfect but to explain the basics in a minimal way.</p>
 <p>You don't need to know what these terms mean in advance. I did not
 understand them before doing this project. But if you've ever dealt
 with SQL databases, transaction isolation levels are likely one of the
 dark corners you either 1) weren't aware of or 2) wanted not to think
 about. At least, this is how I felt.</p>
 <p>While there are many blog posts that list out isolation levels, I
-haven't been able to internalize their lessons. So I built a little
+haven't been able to internalize their lessons. So I built this little
 database to demonstrate the common isolation levels for myself. It
-turned out to be simpler than I expected, and also made the isolation
+turned out to be simpler than I expected, and made the isolation
 levels much easier to reason about.</p>
 <p>Thank you to Justin Jaffray, Alex Miller, Sujay Jayakar, Peter
 Veentjer, and Michael Gasch for providing feedback and suggestions.</p>
