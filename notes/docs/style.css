@@ -423,7 +423,7 @@ table.nocode {
     border-bottom: 1px solid #ebecee;
 }
 
-.note, .note p, .note a {
+.note, .note p, .note a, .note code {
     font-size: .8rem;
 }
 
