@@ -306,10 +306,10 @@ func newDatabase() Database {
 ```
 
 <p class="note">
-  To be thread-safe <code>store</code>, <code>transactions</code>,
-  and <code>nextTransactionId</code> should be guarded by a mutex. To
-  keep the code small, this post will not use goroutines and thus does
-  not need mutexes.
+  To be thread-safe: <code>store</code>, <code>transactions</code>,
+  and <code>nextTransactionId</code> should be guarded by a mutex. But
+  to keep the code small, this post will not use goroutines and thus
+  does not need mutexes.
 </p>
 
 There's a bit of book-keeping when creating a transaction, so we'll

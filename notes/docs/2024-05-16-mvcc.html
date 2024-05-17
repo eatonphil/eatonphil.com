@@ -307,10 +307,10 @@ to assign ids to new transactions.</p>
 <span class="p">}</span>
 </pre></div>
 <p class="note">
-  To be thread-safe <code>store</code>, <code>transactions</code>,
-  and <code>nextTransactionId</code> should be guarded by a mutex. To
-  keep the code small, this post will not use goroutines and thus does
-  not need mutexes.
+  To be thread-safe: <code>store</code>, <code>transactions</code>,
+  and <code>nextTransactionId</code> should be guarded by a mutex. But
+  to keep the code small, this post will not use goroutines and thus
+  does not need mutexes.
 </p><p>There's a bit of book-keeping when creating a transaction, so we'll
 make a dedicated method for this. We must give the new transaction an
 id, store all in-progress transactions, and add it to database
