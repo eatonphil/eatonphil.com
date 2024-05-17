@@ -104,7 +104,8 @@ written:</p>
 the same that are updated in my second SQL statement.</p>
 <p>And if I were using SQLite, my guess would have been correct. But if I
 were using MySQL or Postgres or Oracle or SQL Server, and hadn't made
-any changes to defaults, that wouldn't necessarily be true!</p>
+any changes to defaults, that wouldn't necessarily be true! We'll
+discover exactly why throughout this post.</p>
 <p>For example, some other connection and transaction could have set a
 <code>user</code>'s <code>group</code> to <code>admin</code> after the initial <code>SELECT</code> was
 executed. It would then be missed from the <code>some_complex_logic</code> check
@@ -306,10 +307,10 @@ to assign ids to new transactions.</p>
 <span class="p">}</span>
 </pre></div>
 <p class="note">
-  Note that `store`, `transactions`, and `nextTransactionId` would
-  need to be guarded by a mutex or something if we were going to allow
-  access from multiple goroutines. The code in this post will not use
-  goroutines.
+  To be thread-safe <code>store</code>, <code>transactions</code>,
+  and <code>nextTransactionId</code> should be guarded by a mutex. To
+  keep the code small, this post will not use goroutines and thus does
+  not need mutexes.
 </p><p>There's a bit of book-keeping when creating a transaction, so we'll
 make a dedicated method for this. We must give the new transaction an
 id, store all in-progress transactions, and add it to database

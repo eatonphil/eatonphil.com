@@ -56,7 +56,8 @@ the same that are updated in my second SQL statement.
 
 And if I were using SQLite, my guess would have been correct. But if I
 were using MySQL or Postgres or Oracle or SQL Server, and hadn't made
-any changes to defaults, that wouldn't necessarily be true!
+any changes to defaults, that wouldn't necessarily be true! We'll
+discover exactly why throughout this post.
 
 For example, some other connection and transaction could have set a
 `user`'s `group` to `admin` after the initial `SELECT` was
@@ -305,10 +306,10 @@ func newDatabase() Database {
 ```
 
 <p class="note">
-  Note that `store`, `transactions`, and `nextTransactionId` would
-  need to be guarded by a mutex or something if we were going to allow
-  access from multiple goroutines. The code in this post will not use
-  goroutines.
+  To be thread-safe <code>store</code>, <code>transactions</code>,
+  and <code>nextTransactionId</code> should be guarded by a mutex. To
+  keep the code small, this post will not use goroutines and thus does
+  not need mutexes.
 </p>
 
 There's a bit of book-keeping when creating a transaction, so we'll
