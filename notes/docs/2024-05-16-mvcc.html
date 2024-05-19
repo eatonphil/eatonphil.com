@@ -190,9 +190,9 @@ the version was created, and the transaction id wherein the version
 was deleted.</p>
 <p>With MVCC, it is possible to express transaction isolation levels
 almost solely as a set of different visibility rules for a version of
-a value; rules that vary by isolation level. So we will build up a
-general framework first and discuss and implement each isolation level
-last.</p>
+a value; rules that vary by isolation level.</p>
+<p>So we will build up a general framework first and discuss and
+implement each isolation level last.</p>
 <h3 id="scaffolding">Scaffolding</h3><p>We'll build an in-memory key-value system that acts on transactions. I
 usually try to stick with only the standard library for projects like
 this but I really wanted a sorted data structure and Go doesn't
@@ -1046,7 +1046,20 @@ key fail. Or specifically: that the second transaction cannot commit.</p>
 <span class="p">}</span>
 </pre></div>
 <p>Not bad! But let's get stricter.</p>
-<h4 id="serializable-isolation">Serializable Isolation</h4><p>In terms of end-result, this is the simplest isolation level to reason
+<p class="note">
+  Upon further discussion with Alex Miller, and after reviewing <a
+  href="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/tr-95-51.pdf">A
+  Critique of ANSI SQL Isolation Levels</a>, the difference I am
+  trying to suggest (between Repeatable Read an Snapshot Isolation)
+  likely does not exist. A Critique of ANSI SQL Isolation Levels
+  mentions Repeatable Read must not exhibit P4 (Lost Update)
+  anomalies. And it mentions that you must check for read-write
+  conflicts to avoid these. Therefore it seems likely that you can't
+  easily separate Repeatable Read from Snapshot Isolation when
+  implemented using MVCC. The differences between Repeatable Read and
+  Snapshot Isolation may more readily show up when implementing
+  transactions the classical way with Two-Phase Locking.
+</p><h4 id="serializable-isolation">Serializable Isolation</h4><p>In terms of end-result, this is the simplest isolation level to reason
 about. Serializable Isolation must appear as if only a single
 transaction were executing at a time. Some systems, like SQLite and
 TigerBeetle, do Actually Serial Execution where only one transaction
