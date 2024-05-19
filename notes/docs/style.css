@@ -423,6 +423,10 @@ table.nocode {
     border-bottom: 1px solid #ebecee;
 }
 
+.note.note--edit::after {
+    content: 'EDIT';
+}
+
 .note, .note p, .note a, .note code {
     font-size: .8rem;
 }
