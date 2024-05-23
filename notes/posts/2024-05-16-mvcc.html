@@ -626,18 +626,20 @@ levels.
 According to
 [Jepsen](https://jepsen.io/consistency/models/read-uncommitted), the
 loosest isolation level, Read Uncommitted, has almost no
-restrictions. We can merely read the most recent version of a value,
-regardless of if the transaction that set it has committed or aborted
-or not.
+restrictions. We can merely read the most recent (non-deleted) version
+of a value, regardless of if the transaction that set it has committed
+or aborted or not.
 
 ```go
 func (d *Database) isvisible(t *Transaction, value Value) bool {
-       // Read Uncommitted means we simply read the last value
-       // written. Even if the transaction that wrote this value has
-       // not committed, and even if it has aborted.
-       if t.isolation == ReadUncommittedIsolation {
-               return true
-       }
+        // Read Uncommitted means we simply read the last value
+        // written. Even if the transaction that wrote this value has
+        // not committed, and even if it has aborted.
+        if t.isolation == ReadUncommittedIsolation {
+                // We must merely make sure the value has not been
+                // deleted.
+                return value.txEndId == 0
+        }
 
        assert(false, "unsupported isolation level")
        return false
@@ -675,8 +677,27 @@ func TestReadUncommitted(t *testing.T) {
         // But since read uncommitted, also available to everyone else.
         res = c2.mustExecCommand("get", []string{"x"})
         assertEq(res, "hey", "c2 get x")
+
+        // And if we delete, that should be respected.
+        res = c1.mustExecCommand("delete", []string{"x"})
+        assertEq(res, "", "c1 delete x")
+
+        res, err := c1.execCommand("get", []string{"x"})
+        assertEq(res, "", "c1 sees no x")
+        assertEq(err.Error(), "cannot get key that does not exist", "c1 sees no x")
+
+        res, err = c2.execCommand("get", []string{"x"})
+        assertEq(res, "", "c2 sees no x")
+        assertEq(err.Error(), "cannot get key that does not exist", "c2 sees no x")
 }
 ```
+
+<p class="note">
+  Thank you to @glaebhoerl
+  for <a href="https://twitter.com/glaebhoerl/status/1792912649304388043">pointing
+  out</a> that in an earlier version of this post, Read Uncommitted
+  incorrectly made deleted values visible.
+</p>
 
 That's pretty simple! But also pretty useless if your workload has
 conflicts. If you can arrange your workload in a way where you know no
@@ -839,7 +860,7 @@ but with the following anomaly not allowed (quoting from the [ANSI SQL
 > receive the modified value or discover that the row has been
 > deleted.
 
-To support this, we will add additional checks to the Read Committed
+To support this, we will add additional checks for the Read Committed
 logic that make sure the value was not created and not deleted within
 a transaction that started before this transaction started.
 
@@ -1161,6 +1182,12 @@ Not bad! But let's get stricter.
   implemented using MVCC. The differences between Repeatable Read and
   Snapshot Isolation may more readily show up when implementing
   transactions the classical way with Two-Phase Locking.
+  <br />
+  <br />
+  To reiterate, with MVCC and optimistic concurrency control, correct
+  implementations of Repeatable Read and Snapshot Isolation do not
+  seem to be distinguishable. Both require write-write conflict
+  detection.
 </p>
 
 #### Serializable Isolation

@@ -577,16 +577,18 @@ levels.</p>
 <h4 id="read-uncommitted">Read Uncommitted</h4><p>According to
 <a href="https://jepsen.io/consistency/models/read-uncommitted">Jepsen</a>, the
 loosest isolation level, Read Uncommitted, has almost no
-restrictions. We can merely read the most recent version of a value,
-regardless of if the transaction that set it has committed or aborted
-or not.</p>
+restrictions. We can merely read the most recent (non-deleted) version
+of a value, regardless of if the transaction that set it has committed
+or aborted or not.</p>
 <div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">Database</span><span class="p">)</span><span class="w"> </span><span class="nx">isvisible</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">Transaction</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="nx">Value</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
-<span class="w">       </span><span class="c1">// Read Uncommitted means we simply read the last value</span>
-<span class="w">       </span><span class="c1">// written. Even if the transaction that wrote this value has</span>
-<span class="w">       </span><span class="c1">// not committed, and even if it has aborted.</span>
-<span class="w">       </span><span class="k">if</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">isolation</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">ReadUncommittedIsolation</span><span class="w"> </span><span class="p">{</span>
-<span class="w">               </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">       </span><span class="p">}</span>
+<span class="w">        </span><span class="c1">// Read Uncommitted means we simply read the last value</span>
+<span class="w">        </span><span class="c1">// written. Even if the transaction that wrote this value has</span>
+<span class="w">        </span><span class="c1">// not committed, and even if it has aborted.</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">isolation</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">ReadUncommittedIsolation</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="c1">// We must merely make sure the value has not been</span>
+<span class="w">                </span><span class="c1">// deleted.</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nx">value</span><span class="p">.</span><span class="nx">txEndId</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">        </span><span class="p">}</span>
 
 <span class="w">       </span><span class="nx">assert</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;unsupported isolation level&quot;</span><span class="p">)</span>
 <span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span>
@@ -621,9 +623,26 @@ main_test.go:</p>
 <span class="w">        </span><span class="c1">// But since read uncommitted, also available to everyone else.</span>
 <span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
 <span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// And if we delete, that should be respected.</span>
+<span class="w">        </span><span class="nx">res</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;delete&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c1 delete x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c1</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c1 sees no x&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c1 sees no x&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 sees no x&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 sees no x&quot;</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
-<p>That's pretty simple! But also pretty useless if your workload has
+<p class="note">
+  Thank you to @glaebhoerl
+  for <a href="https://twitter.com/glaebhoerl/status/1792912649304388043">pointing
+  out</a> that in an earlier version of this post, Read Uncommitted
+  incorrectly made deleted values visible.
+</p><p>That's pretty simple! But also pretty useless if your workload has
 conflicts. If you can arrange your workload in a way where you know no
 concurrent transactions will ever read or write conflicting keys
 though, this could be pretty efficient! The rules will only get more
@@ -766,7 +785,7 @@ performs a COMMIT. If T1 then attempts to reread the row, it may
 receive the modified value or discover that the row has been
 deleted.</p>
 </blockquote>
-<p>To support this, we will add additional checks to the Read Committed
+<p>To support this, we will add additional checks for the Read Committed
 logic that make sure the value was not created and not deleted within
 a transaction that started before this transaction started.</p>
 <p>As it happens, this is the same logic that will be necessary for
@@ -1059,6 +1078,12 @@ key fail. Or specifically: that the second transaction cannot commit.</p>
   implemented using MVCC. The differences between Repeatable Read and
   Snapshot Isolation may more readily show up when implementing
   transactions the classical way with Two-Phase Locking.
+  <br />
+  <br />
+  To reiterate, with MVCC and optimistic concurrency control, correct
+  implementations of Repeatable Read and Snapshot Isolation do not
+  seem to be distinguishable. Both require write-write conflict
+  detection.
 </p><h4 id="serializable-isolation">Serializable Isolation</h4><p>In terms of end-result, this is the simplest isolation level to reason
 about. Serializable Isolation must appear as if only a single
 transaction were executing at a time. Some systems, like SQLite and
