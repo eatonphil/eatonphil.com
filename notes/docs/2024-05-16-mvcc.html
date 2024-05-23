@@ -663,7 +663,7 @@ value has a <code>txStartId</code> that is either this transaction or a
 transaction that has committed. Moreover we will now begin checking
 against <code>txEndId</code> to make sure the value wasn't deleted by any
 relevant transaction.</p>
-<div class="highlight"><pre><span></span><span class="w"> </span>               return true
+<div class="highlight"><pre><span></span><span class="w"> </span>               return value.txEndId == 0
 <span class="w"> </span>       }
 
 <span class="gi">+       // Read Committed means we are allowed to read any values that</span>

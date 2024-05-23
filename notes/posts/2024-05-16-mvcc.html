@@ -728,7 +728,7 @@ against `txEndId` to make sure the value wasn't deleted by any
 relevant transaction.
 
 ```diff
-                return true
+                return value.txEndId == 0
         }
 
 +       // Read Committed means we are allowed to read any values that
