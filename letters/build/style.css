@@ -18,7 +18,7 @@ body {
 
 hr {
     border: 0 none;
-    background: var(--primary);
+    background: #aaa;
     height: 1px;
 }
 
@@ -83,13 +83,13 @@ ul {
     padding: 0;
 }
 
-p, li, .post p a, .post li a {
+p, li, .col-6 a {
     font-family: var(--serif);
     line-height: 1.75rem;
     color: #334;
 }
 
-.post a {
+.col-6 a {
     text-decoration: none;
     border-bottom: 1px solid #aaa;
 }
@@ -101,15 +101,6 @@ li p {
 
 p:last-child, li:last-child {
     margin-bottom: 0;
-}
-
-a {
-    text-decoration: none;
-    color: var(--primary);
-}
-
-p a, li a {
-    text-decoration: underline;
 }
 
 blockquote {
@@ -347,6 +338,10 @@ table.nocode {
     font-family: var(--serif);
     font-size: .7rem;
     border-bottom: 1px solid #ebecee;
+}
+
+.note.note--edit::after {
+    content: 'EDIT';
 }
 
 .note, .note p, .note a, .note code {
