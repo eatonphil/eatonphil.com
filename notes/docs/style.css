@@ -160,7 +160,14 @@ ul {
 p, li, .post p a, .post li a, p a, li a {
     font-family: var(--serif);
     line-height: 1.75rem;
+}
+
+p, li {
     color: #334;
+}
+
+p a, li a {
+    color: #369;
 }
 
 .post a {
