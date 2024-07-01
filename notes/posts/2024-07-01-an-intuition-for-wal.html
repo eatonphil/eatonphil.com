@@ -1,0 +1,290 @@
+# A write-ahead log is not a universal part of durability
+## July 1, 2024
+###### databases
+
+A database does not need a write-ahead log (WAL) to achieve
+durability. A database can write its long-term data structure durably
+to disk before returning to a client. Granted, this is a bad idea! And
+granted, a WAL <b>is</b> critical for durability <b>by design</b> in most
+databases. But I think it's helpful to understand WALs by
+understanding what you <b>could</b> do without them.
+
+So let's look at what terrible design we can make for a durable
+database that has no write-ahead log. To motivate the idea of, and
+build an intuition for, a write-ahead log.
+
+But first, what is durability?
+
+### Durability 
+
+Durability happens in the context of a request a client makes to a
+data system (either an embedded system like SQLite or RocksDB or a
+standalone system like Postgres). Durability is a spectrum of
+guarantees the server provides when a client requests to write some
+data: that either the request succeeds and the data is safely written
+to disk, or the request fails and the client must retry or decide to
+do something else.
+
+It can be difficult to set an absolute definition for durability since
+different databases have different concepts of what can go wrong with
+disks (also called a "storage fault model"), or they have no concept
+at all.
+
+#### In-memory database
+
+Let's start from the beginning. An in-memory database has no
+durability at all. Here is pseudo-code for an in-memory database
+service.
+
+```python
+db = btree()
+
+def handle_write(req):
+  db.update(req.key, req.value)
+  return 200, {}
+
+def handle_read(req):
+  value = db.read(req.key)
+  return 200, {"value": value}
+```
+
+Throughout this post, for the sake of code brevity, imagine that the
+environment is concurrent and that data races around shared mutable
+values like `db` are protected somehow.  Writing to disk
+
+If we want to achieve the most basic level of durability, we can write
+this database to a file.
+
+```python
+f = open("kv.db")
+db = btree.init_from_disk(f)
+
+def handle_write(req):
+  db.update(req.key, req.value)
+  db.write_to_disk(f)
+  return 200, {}
+
+def handle_read(req):
+  value = db.read(req.key)
+  return 200, {"value": value}
+```
+
+`btree.write_to_disk` will call
+[pwrite(2)](https://linux.die.net/man/2/pwrite) under the hood.
+
+But this code isn't crash-safe. If the virtual or physical machine
+this code is running on reboots, the data we wrote to the file may not
+actually be on disk.
+
+#### fsync
+
+File data is buffered by the operating system by default. By general
+consensus, writing data without flushing the operating system buffer
+is not considered durable. Every so often a new database will show up
+on Hacker News claiming to beat all other databases on insert speed
+until a commenter points out the new database doesn't actually flush
+data to disk.
+
+In other words, the commonly accepted requirement for durability is
+that not only do you write data to a file on disk but you
+[fsync(2)](https://man7.org/linux/man-pages/man2/fsync.2.html) the
+file you wrote. This forces the operating system to flush to disk any
+data it has buffered.
+
+```python
+f = open("kv.db")
+db = btree.init_from_disk(f)
+
+def handle_write(req):
+  db.update(req.key, req.value)
+  db.write_to_disk(f)
+  f.fsync() # Force a flush
+  return 200, {}
+
+def handle_read(req):
+  value = db.read(req.key)
+  return 200, {"value": value}
+```
+
+Furthermore you must not ignore fsync failure. How you deal with fsync
+failure is up to you, but exiting immediately with a message that the
+user should restore from a backup is sometimes considered acceptable.
+
+Databases don't like to fsync because it's slow. Many major databases
+offer modes where they do not fsync data files before returning a
+success to a client. Postgres
+[offers](https://www.postgresql.org/docs/current/runtime-config-wal.html#GUC-FSYNC)
+this unsafe mode, though does not default to it and warns against
+it. And MongoDB defaults to this unsafe mode. See
+[storage.journal.commitIntervalMs](https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.journal.commitIntervalMs)
+and the [`j` write concern
+option](https://www.mongodb.com/docs/manual/reference/write-concern/#j-option).
+
+> The j option requests acknowledgment from MongoDB that the write
+operation has been written to the on-disk journal.
+
+MongoDB defaults to committing on an interval, returning a success to
+the client potentially before the write has been fsync-ed.
+
+This isn't particularly a dig on MongoDB. Almost every database trades
+safety for performance in some regard. For example, few databases but
+SQLite and Cockroach default to Serializable Isolation. While it is
+commonly agreed that basically no level below Serializable Isolation
+(that all other databases default to) can be reasoned about. Other
+databases offer Serializable Isolation, they just don't default to
+it. Because it can be slow.
+
+But let's get back to fsync. One way to amortize the cost of fsync is
+to delay requests so that you write data from each of them and then
+fsync the data from all requests. This is sometimes called group
+commit.
+
+For example, we could update the database in-memory but have a
+background thread serialize to disk and call fsync only every 5ms.
+
+```python
+f = open("kv.db")
+db = btree.init_from_disk(f)
+
+group_commit_sems = []
+
+@background_worker()
+def group_commit():
+  for:
+    if clock() % 5ms == 0:
+      for sem in group_commit_sems:
+        sem.signal()
+      db.write_to_disk(f)
+      f.fsync() # Durably flush for the group
+
+def handle_write(req):
+  db.update(req.key, req.value)
+  sem = semaphore()
+  group_commit_sems.push(sem)
+  sem.wait()
+  return 200, {}
+
+def handle_read(req):
+  value = db.read(req.key)
+  return 200, {"value": value}
+```
+
+Although it might sound similar to what MongoDB does, the critical
+difference is that `handle_write` waits to return a success until the
+write is durable via fsync.
+
+So to reiterate, the key idea for durability of a client request is
+that you have some version of the client message stored on disk
+durably with fsync before returning a success to a client.
+
+From now on in this post, when you see "durable" or "durability", it
+means that the data has been written and fsync-ed to disk.
+
+### Optimizing durable writes
+
+A key insight is that it's silly to serialize the entire permanent
+structure of the database to disk every time a user writes.
+
+We could just write the user's message itself to an append-only
+log. And then only periodically write the entire btree to disk. So
+long as we have fsync-ed the append-only log file, we can safely
+return to the user even if the btree itself has not yet been written
+to disk.
+
+The additional logic this requires is that on startup we must read the
+btree from disk and then replay the log on top of the btree.
+
+```python
+f = open("kv.db", "rw")
+db = btree.init_from_disk(f)
+
+log_f = open("kv.log", "rw")
+l = log.init_from_disk()
+for log in l.read_logs_from(db.last_log_index):
+  db.update(log.key, log.value)
+
+group_commit_sems = []
+
+@background_worker()
+def group_commit():
+  for:
+    if clock() % 5ms == 0:
+      for sem in group_commit_sems:
+        sem.signal()
+      log_f.fsync() # Durably flush wal data
+
+    if clock() % 1m == 0:
+      db.write_to_disk(f)
+      f.fsync() # Durably flush db data
+
+def handle_write(req):
+  l.write_to_disk(req)
+  db.update(req.key, req.value)
+  sem = semaphore()
+  group_commit_sems.push(sem)
+  sem.wait() # This time waiting for only the log to be flushed, not the btree.
+  return 200, {}
+
+def handle_read(req):
+  value = db.read(req.key)
+  return 200, {"value": value}
+```
+
+This is a write-ahead log! It's cheaper to write only these small
+messages representing the client request to disk. And we save the
+structured btree persistence for a less frequent durable write.
+
+This `btree.write_to_disk()` method is a bit of a strawman. No btree
+will rewrite the entire tree to disk every time. It will rewrite only
+what changed. However, these partial writes are invariably more
+expensive (i.e. more time-consuming) than simply appending to the
+write-ahead log.
+
+### Filesystem and disk bugs
+
+Sometimes filesystems will write data to the wrong place. Sometimes
+disks corrupt data. A solution to both of these is to checksum the
+data on write, store the checksum on disk, and confirm the checksum on
+read. This combined with a background process called scrubbing to
+validate unread data can help you learn quickly when your data has
+been corrupted and you must recover from backup.
+
+MongoDB's default storage engine WiredTiger <b>does</b> checksum data [by
+default](https://github.com/wiredtiger/wiredtiger/blob/develop/src/docs/tune-checksum.dox#L3).
+
+But some databases famous for integrity do not. Postgres does [no data
+checksumming](https://www.postgresql.org/docs/current/checksums.html)
+by default:
+
+> By default, data pages are not protected by checksums, but this can
+optionally be enabled for a cluster. When enabled, each data page
+includes a checksum that is updated when the page is written and
+verified each time the page is read. Only data pages are protected by
+checksums; internal data structures and temporary files are not.
+
+SQLite likewise does no checksumming by default. Checksumming is an
+[optional extension](https://www.sqlite.org/cksumvfs.html):
+
+> The checksum VFS extension is a VFS shim that adds an 8-byte
+checksum to the end of every page in an SQLite database. The checksum
+is added as each page is written and verified as each page is
+read. The checksum is intended to help detect database corruption
+caused by random bit-flips in the mass storage device.
+
+But even this isn't perfect. Disks and nodes can fail completely. At
+that point you can only improve durability by introducing redundancy
+across disks (and/or nodes), for example, via distributed consensus.
+ACID transactions require a WAL?  Some databases (like SQLite) require
+a write-ahead log to implement aspects of ACID transactions. But this
+need not be a requirement for ACID transactions if you do MVCC (SQLite
+does not). See my previous post on [implementing
+MVCC](https://notes.eatonphil.com/2024-05-16-mvcc.html) for details.
+
+### Conclusion
+
+A few key points. One, durability only matters if it is established
+before returning a success to the client. Second, a write-ahead log is
+a cheap way to get durability.
+
+And finally, durability is a spectrum. You need to read the docs for
+your database to understand what it does and does not.

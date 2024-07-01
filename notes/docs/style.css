@@ -193,10 +193,22 @@ p a, li a {
     text-decoration: underline;
 }
 
+blockquote:before {
+    display: block;
+    content: '“';
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    font-size: 50px;
+    color: var(--primary);
+}
+
 blockquote {
+    position: relative;
     background: #efefef;
-    padding: 1px 15px 15px 15px;
+    padding: 1px 15px 15px 45px;
     font-size: .9rem;
+    margin: 0;
 }
 
 .code-caption {
