@@ -166,10 +166,10 @@ group_commit_sems = []
 def group_commit():
   for:
     if clock() % 5ms == 0:
-      for sem in group_commit_sems:
-        sem.signal()
       db.write_to_disk(f)
       f.fsync() # Durably flush for the group
+      for sem in group_commit_sems:
+        sem.signal()
 
 def handle_write(req):
   db.update(req.key, req.value)
@@ -224,11 +224,13 @@ def group_commit():
   for:
     log_accumulator = log_page()
     if clock() % 5ms == 0:
-      for (log, sem) in group_commit_sems:
+      for (log, _) in group_commit_sems:
 	    log_accumulator.add(log)
-        sem.signal()
+
       log_f.write(log_accumulator.page()) # Write out all log entries at once
       log_f.fsync() # Durably flush wal data
+	  for (_, sem) in group_commit_sems:
+        sem.signal()
 
     if clock() % 1m == 0:
       db.write_to_disk(f)

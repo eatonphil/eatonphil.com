@@ -190,10 +190,10 @@ background thread serialize to disk and call fsync only every 5ms.</p>
 <span class="k">def</span> <span class="nf">group_commit</span><span class="p">():</span>
   <span class="k">for</span><span class="p">:</span>
     <span class="k">if</span> <span class="n">clock</span><span class="p">()</span> <span class="o">%</span> <span class="mi">5</span><span class="n">ms</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-      <span class="k">for</span> <span class="n">sem</span> <span class="ow">in</span> <span class="n">group_commit_sems</span><span class="p">:</span>
-        <span class="n">sem</span><span class="o">.</span><span class="n">signal</span><span class="p">()</span>
       <span class="n">db</span><span class="o">.</span><span class="n">write_to_disk</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
       <span class="n">f</span><span class="o">.</span><span class="n">fsync</span><span class="p">()</span> <span class="c1"># Durably flush for the group</span>
+      <span class="k">for</span> <span class="n">sem</span> <span class="ow">in</span> <span class="n">group_commit_sems</span><span class="p">:</span>
+        <span class="n">sem</span><span class="o">.</span><span class="n">signal</span><span class="p">()</span>
 
 <span class="k">def</span> <span class="nf">handle_write</span><span class="p">(</span><span class="n">req</span><span class="p">):</span>
   <span class="n">db</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">req</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
@@ -238,11 +238,13 @@ btree from disk and then replay the log on top of the btree.</p>
   <span class="k">for</span><span class="p">:</span>
     <span class="n">log_accumulator</span> <span class="o">=</span> <span class="n">log_page</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">clock</span><span class="p">()</span> <span class="o">%</span> <span class="mi">5</span><span class="n">ms</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-      <span class="k">for</span> <span class="p">(</span><span class="n">log</span><span class="p">,</span> <span class="n">sem</span><span class="p">)</span> <span class="ow">in</span> <span class="n">group_commit_sems</span><span class="p">:</span>
+      <span class="k">for</span> <span class="p">(</span><span class="n">log</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="n">group_commit_sems</span><span class="p">:</span>
         <span class="n">log_accumulator</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">log</span><span class="p">)</span>
-        <span class="n">sem</span><span class="o">.</span><span class="n">signal</span><span class="p">()</span>
+
       <span class="n">log_f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">log_accumulator</span><span class="o">.</span><span class="n">page</span><span class="p">())</span> <span class="c1"># Write out all log entries at once</span>
       <span class="n">log_f</span><span class="o">.</span><span class="n">fsync</span><span class="p">()</span> <span class="c1"># Durably flush wal data</span>
+      <span class="k">for</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">sem</span><span class="p">)</span> <span class="ow">in</span> <span class="n">group_commit_sems</span><span class="p">:</span>
+        <span class="n">sem</span><span class="o">.</span><span class="n">signal</span><span class="p">()</span>
 
     <span class="k">if</span> <span class="n">clock</span><span class="p">()</span> <span class="o">%</span> <span class="mi">1</span><span class="n">m</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
       <span class="n">db</span><span class="o">.</span><span class="n">write_to_disk</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
