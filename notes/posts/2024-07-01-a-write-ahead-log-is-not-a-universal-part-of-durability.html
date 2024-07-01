@@ -13,6 +13,8 @@ So let's look at what terrible design we can make for a durable
 database that has no write-ahead log. To motivate the idea of, and
 build an intuition for, a write-ahead log.
 
+Thank you to Alex Miller for reviewing a version of this post.
+
 But first, what is durability?
 
 ### Durability 
@@ -30,11 +32,12 @@ different databases have different concepts of what can go wrong with
 disks (also called a "storage fault model"), or they have no concept
 at all.
 
-#### In-memory database
+Let's start from the beginning.
 
-Let's start from the beginning. An in-memory database has no
-durability at all. Here is pseudo-code for an in-memory database
-service.
+#### An in-memory database
+
+An in-memory database has no durability at all. Here is pseudo-code
+for an in-memory database service.
 
 ```python
 db = btree()
@@ -70,7 +73,14 @@ def handle_read(req):
 ```
 
 `btree.write_to_disk` will call
-[pwrite(2)](https://linux.die.net/man/2/pwrite) under the hood.
+[pwrite(2)](https://linux.die.net/man/2/pwrite) under the hood. And
+we'll assume it does copy-on-write for only changed pages. So imagine
+we have a large database represented by a btree that takes up 10GiB on
+disk. With the btree algorithm, if we write a single entry to the
+btree, often only a single (often 4Kib) page will get written rather
+than all pages (holding all values) in the tree. At the same time, in
+the worst case, the entire tree (all 10GiB of data) may need to get
+rewritten.
 
 But this code isn't crash-safe. If the virtual or physical machine
 this code is running on reboots, the data we wrote to the file may not
@@ -133,6 +143,8 @@ commonly agreed that basically no level below Serializable Isolation
 (that all other databases default to) can be reasoned about. Other
 databases offer Serializable Isolation, they just don't default to
 it. Because it can be slow.
+
+#### Group commit
 
 But let's get back to fsync. One way to amortize the cost of fsync is
 to delay requests so that you write data from each of them and then
@@ -208,9 +220,12 @@ group_commit_sems = []
 @background_worker()
 def group_commit():
   for:
+    log_accumulator = log_page()
     if clock() % 5ms == 0:
-      for sem in group_commit_sems:
+      for (log, sem) in group_commit_sems:
+	    log_accumulator.add(log)
         sem.signal()
+      log_f.write(log_accumulator.page()) # Write out all log entries at once
       log_f.fsync() # Durably flush wal data
 
     if clock() % 1m == 0:
@@ -218,11 +233,11 @@ def group_commit():
       f.fsync() # Durably flush db data
 
 def handle_write(req):
-  l.write_to_disk(req)
   db.update(req.key, req.value)
   sem = semaphore()
-  group_commit_sems.push(sem)
-  sem.wait() # This time waiting for only the log to be flushed, not the btree.
+  log = req
+  group_commit_sems.push((log, sem))
+  sem.wait() # This time waiting for only the log to be written and flushed, not the btree.
   return 200, {}
 
 def handle_read(req):
@@ -230,15 +245,21 @@ def handle_read(req):
   return 200, {"value": value}
 ```
 
-This is a write-ahead log! It's cheaper to write only these small
-messages representing the client request to disk. And we save the
-structured btree persistence for a less frequent durable write.
+This is a write-ahead log!
 
-This `btree.write_to_disk()` method is a bit of a strawman. No btree
-will rewrite the entire tree to disk every time. It will rewrite only
-what changed. However, these partial writes are invariably more
-expensive (i.e. more time-consuming) than simply appending to the
-write-ahead log.
+Consider a few scenarios. One request writes the smallest key ever
+seen. And one request within the same millisecond writes the largest
+key ever seen. Writing these to disk on the btree means modifying at
+least two pages spread out in space on disk.
+
+But if we only have to durably write these two messages to a log, they
+can likely both be included in the same log page. ("Likely" so long as
+key and values are small enough that multiple can fit into the same
+page.)
+
+That is, it's cheaper to write only these small messages representing
+the client request to disk. And we save the structured btree
+persistence for a less frequent durable write.
 
 ### Filesystem and disk bugs
 
@@ -274,17 +295,30 @@ caused by random bit-flips in the mass storage device.
 But even this isn't perfect. Disks and nodes can fail completely. At
 that point you can only improve durability by introducing redundancy
 across disks (and/or nodes), for example, via distributed consensus.
-ACID transactions require a WAL?  Some databases (like SQLite) require
-a write-ahead log to implement aspects of ACID transactions. But this
-need not be a requirement for ACID transactions if you do MVCC (SQLite
-does not). See my previous post on [implementing
+
+### Other reasons you *need* a WAL?
+
+Some databases (like SQLite) require a write-ahead log to implement
+aspects of ACID transactions. But this need not be a requirement for
+ACID transactions if you do MVCC (SQLite does not). See my previous
+post on [implementing
 MVCC](https://notes.eatonphil.com/2024-05-16-mvcc.html) for details.
+
+Logical replication (also called change data capture (CDC)) is another
+interesting feature that requires a write-ahead log. The idea is that
+the log already preserves the exact order and changes that affect the
+database's "state machine". So we could copy these changes out of the
+system by tracking the write-ahead log, preserving change order, and
+apply these changes to a foreign system.
+
+But again, just CDC is not about durability. It's an ancillary feature
+that write-ahead logs make simple.
 
 ### Conclusion
 
-A few key points. One, durability only matters if it is established
-before returning a success to the client. Second, a write-ahead log is
-a cheap way to get durability.
+A few key points. One, durability primarily matters if it is
+established before returning a success to the client. Second, a
+write-ahead log is a cheap way to get durability.
 
 And finally, durability is a spectrum. You need to read the docs for
 your database to understand what it does and does not.

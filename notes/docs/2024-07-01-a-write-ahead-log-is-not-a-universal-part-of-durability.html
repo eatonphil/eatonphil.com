@@ -72,6 +72,7 @@ understanding what you <b>could</b> do without them.</p>
 <p>So let's look at what terrible design we can make for a durable
 database that has no write-ahead log. To motivate the idea of, and
 build an intuition for, a write-ahead log.</p>
+<p>Thank you to Alex Miller for reviewing a version of this post.</p>
 <p>But first, what is durability?</p>
 <h3 id="durability">Durability</h3><p>Durability happens in the context of a request a client makes to a
 data system (either an embedded system like SQLite or RocksDB or a
@@ -84,9 +85,9 @@ do something else.</p>
 different databases have different concepts of what can go wrong with
 disks (also called a "storage fault model"), or they have no concept
 at all.</p>
-<h4 id="in-memory-database">In-memory database</h4><p>Let's start from the beginning. An in-memory database has no
-durability at all. Here is pseudo-code for an in-memory database
-service.</p>
+<p>Let's start from the beginning.</p>
+<h4 id="an-in-memory-database">An in-memory database</h4><p>An in-memory database has no durability at all. Here is pseudo-code
+for an in-memory database service.</p>
 <div class="highlight"><pre><span></span><span class="n">db</span> <span class="o">=</span> <span class="n">btree</span><span class="p">()</span>
 
 <span class="k">def</span> <span class="nf">handle_write</span><span class="p">(</span><span class="n">req</span><span class="p">):</span>
@@ -115,7 +116,14 @@ this database to a file.</p>
   <span class="k">return</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}</span>
 </pre></div>
 <p><code>btree.write_to_disk</code> will call
-<a href="https://linux.die.net/man/2/pwrite">pwrite(2)</a> under the hood.</p>
+<a href="https://linux.die.net/man/2/pwrite">pwrite(2)</a> under the hood. And
+we'll assume it does copy-on-write for only changed pages. So imagine
+we have a large database represented by a btree that takes up 10GiB on
+disk. With the btree algorithm, if we write a single entry to the
+btree, often only a single (often 4Kib) page will get written rather
+than all pages (holding all values) in the tree. At the same time, in
+the worst case, the entire tree (all 10GiB of data) may need to get
+rewritten.</p>
 <p>But this code isn't crash-safe. If the virtual or physical machine
 this code is running on reboots, the data we wrote to the file may not
 actually be on disk.</p>
@@ -167,7 +175,7 @@ commonly agreed that basically no level below Serializable Isolation
 (that all other databases default to) can be reasoned about. Other
 databases offer Serializable Isolation, they just don't default to
 it. Because it can be slow.</p>
-<p>But let's get back to fsync. One way to amortize the cost of fsync is
+<h4 id="group-commit">Group commit</h4><p>But let's get back to fsync. One way to amortize the cost of fsync is
 to delay requests so that you write data from each of them and then
 fsync the data from all requests. This is sometimes called group
 commit.</p>
@@ -228,9 +236,12 @@ btree from disk and then replay the log on top of the btree.</p>
 <span class="nd">@background_worker</span><span class="p">()</span>
 <span class="k">def</span> <span class="nf">group_commit</span><span class="p">():</span>
   <span class="k">for</span><span class="p">:</span>
+    <span class="n">log_accumulator</span> <span class="o">=</span> <span class="n">log_page</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">clock</span><span class="p">()</span> <span class="o">%</span> <span class="mi">5</span><span class="n">ms</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-      <span class="k">for</span> <span class="n">sem</span> <span class="ow">in</span> <span class="n">group_commit_sems</span><span class="p">:</span>
+      <span class="k">for</span> <span class="p">(</span><span class="n">log</span><span class="p">,</span> <span class="n">sem</span><span class="p">)</span> <span class="ow">in</span> <span class="n">group_commit_sems</span><span class="p">:</span>
+        <span class="n">log_accumulator</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">log</span><span class="p">)</span>
         <span class="n">sem</span><span class="o">.</span><span class="n">signal</span><span class="p">()</span>
+      <span class="n">log_f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">log_accumulator</span><span class="o">.</span><span class="n">page</span><span class="p">())</span> <span class="c1"># Write out all log entries at once</span>
       <span class="n">log_f</span><span class="o">.</span><span class="n">fsync</span><span class="p">()</span> <span class="c1"># Durably flush wal data</span>
 
     <span class="k">if</span> <span class="n">clock</span><span class="p">()</span> <span class="o">%</span> <span class="mi">1</span><span class="n">m</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -238,25 +249,29 @@ btree from disk and then replay the log on top of the btree.</p>
       <span class="n">f</span><span class="o">.</span><span class="n">fsync</span><span class="p">()</span> <span class="c1"># Durably flush db data</span>
 
 <span class="k">def</span> <span class="nf">handle_write</span><span class="p">(</span><span class="n">req</span><span class="p">):</span>
-  <span class="n">l</span><span class="o">.</span><span class="n">write_to_disk</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
   <span class="n">db</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">req</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
   <span class="n">sem</span> <span class="o">=</span> <span class="n">semaphore</span><span class="p">()</span>
-  <span class="n">group_commit_sems</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">sem</span><span class="p">)</span>
-  <span class="n">sem</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span> <span class="c1"># This time waiting for only the log to be flushed, not the btree.</span>
+  <span class="n">log</span> <span class="o">=</span> <span class="n">req</span>
+  <span class="n">group_commit_sems</span><span class="o">.</span><span class="n">push</span><span class="p">((</span><span class="n">log</span><span class="p">,</span> <span class="n">sem</span><span class="p">))</span>
+  <span class="n">sem</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span> <span class="c1"># This time waiting for only the log to be written and flushed, not the btree.</span>
   <span class="k">return</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{}</span>
 
 <span class="k">def</span> <span class="nf">handle_read</span><span class="p">(</span><span class="n">req</span><span class="p">):</span>
   <span class="n">value</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
   <span class="k">return</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}</span>
 </pre></div>
-<p>This is a write-ahead log! It's cheaper to write only these small
-messages representing the client request to disk. And we save the
-structured btree persistence for a less frequent durable write.</p>
-<p>This <code>btree.write_to_disk()</code> method is a bit of a strawman. No btree
-will rewrite the entire tree to disk every time. It will rewrite only
-what changed. However, these partial writes are invariably more
-expensive (i.e. more time-consuming) than simply appending to the
-write-ahead log.</p>
+<p>This is a write-ahead log!</p>
+<p>Consider a few scenarios. One request writes the smallest key ever
+seen. And one request within the same millisecond writes the largest
+key ever seen. Writing these to disk on the btree means modifying at
+least two pages spread out in space on disk.</p>
+<p>But if we only have to durably write these two messages to a log, they
+can likely both be included in the same log page. ("Likely" so long as
+key and values are small enough that multiple can fit into the same
+page.)</p>
+<p>That is, it's cheaper to write only these small messages representing
+the client request to disk. And we save the structured btree
+persistence for a less frequent durable write.</p>
 <h3 id="filesystem-and-disk-bugs">Filesystem and disk bugs</h3><p>Sometimes filesystems will write data to the wrong place. Sometimes
 disks corrupt data. A solution to both of these is to checksum the
 data on write, store the checksum on disk, and confirm the checksum on
@@ -284,15 +299,23 @@ caused by random bit-flips in the mass storage device.</p>
 </blockquote>
 <p>But even this isn't perfect. Disks and nodes can fail completely. At
 that point you can only improve durability by introducing redundancy
-across disks (and/or nodes), for example, via distributed consensus.
-ACID transactions require a WAL?  Some databases (like SQLite) require
-a write-ahead log to implement aspects of ACID transactions. But this
-need not be a requirement for ACID transactions if you do MVCC (SQLite
-does not). See my previous post on <a href="https://notes.eatonphil.com/2024-05-16-mvcc.html">implementing
+across disks (and/or nodes), for example, via distributed consensus.</p>
+<h3 id="other-reasons-you-<em>need</em>-a-wal?">Other reasons you <em>need</em> a WAL?</h3><p>Some databases (like SQLite) require a write-ahead log to implement
+aspects of ACID transactions. But this need not be a requirement for
+ACID transactions if you do MVCC (SQLite does not). See my previous
+post on <a href="https://notes.eatonphil.com/2024-05-16-mvcc.html">implementing
 MVCC</a> for details.</p>
-<h3 id="conclusion">Conclusion</h3><p>A few key points. One, durability only matters if it is established
-before returning a success to the client. Second, a write-ahead log is
-a cheap way to get durability.</p>
+<p>Logical replication (also called change data capture (CDC)) is another
+interesting feature that requires a write-ahead log. The idea is that
+the log already preserves the exact order and changes that affect the
+database's "state machine". So we could copy these changes out of the
+system by tracking the write-ahead log, preserving change order, and
+apply these changes to a foreign system.</p>
+<p>But again, just CDC is not about durability. It's an ancillary feature
+that write-ahead logs make simple.</p>
+<h3 id="conclusion">Conclusion</h3><p>A few key points. One, durability primarily matters if it is
+established before returning a success to the client. Second, a
+write-ahead log is a cheap way to get durability.</p>
 <p>And finally, durability is a spectrum. You need to read the docs for
 your database to understand what it does and does not.</p>
 <style>.feedback{display:initial;}</style>
