@@ -100,8 +100,8 @@ for an in-memory database service.</p>
 </pre></div>
 <p>Throughout this post, for the sake of code brevity, imagine that the
 environment is concurrent and that data races around shared mutable
-values like <code>db</code> are protected somehow.  Writing to disk</p>
-<p>If we want to achieve the most basic level of durability, we can write
+values like <code>db</code> are protected somehow.</p>
+<h4 id="writing-to-disk">Writing to disk</h4><p>If we want to achieve the most basic level of durability, we can write
 this database to a file.</p>
 <div class="highlight"><pre><span></span><span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;kv.db&quot;</span><span class="p">)</span>
 <span class="n">db</span> <span class="o">=</span> <span class="n">btree</span><span class="o">.</span><span class="n">init_from_disk</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>

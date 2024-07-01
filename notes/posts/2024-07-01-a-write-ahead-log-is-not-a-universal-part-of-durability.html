@@ -53,7 +53,9 @@ def handle_read(req):
 
 Throughout this post, for the sake of code brevity, imagine that the
 environment is concurrent and that data races around shared mutable
-values like `db` are protected somehow.  Writing to disk
+values like `db` are protected somehow.
+
+#### Writing to disk
 
 If we want to achieve the most basic level of durability, we can write
 this database to a file.
