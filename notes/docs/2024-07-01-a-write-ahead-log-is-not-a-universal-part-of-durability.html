@@ -159,22 +159,21 @@ offer modes where they do not fsync data files before returning a
 success to a client. Postgres
 <a href="https://www.postgresql.org/docs/current/runtime-config-wal.html#GUC-FSYNC">offers</a>
 this unsafe mode, though does not default to it and warns against
-it. And MongoDB defaults to this unsafe mode. See
-<a href="https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.journal.commitIntervalMs">storage.journal.commitIntervalMs</a>
-and the <a href="https://www.mongodb.com/docs/manual/reference/write-concern/#j-option"><code>j</code> write concern
-option</a>.</p>
-<blockquote><p>The j option requests acknowledgment from MongoDB that the write
-operation has been written to the on-disk journal.</p>
-</blockquote>
-<p>MongoDB defaults to committing on an interval, returning a success to
-the client potentially before the write has been fsync-ed.</p>
-<p>This isn't particularly a dig on MongoDB. Almost every database trades
-safety for performance in some regard. For example, few databases but
-SQLite and Cockroach default to Serializable Isolation. While it is
-commonly agreed that basically no level below Serializable Isolation
-(that all other databases default to) can be reasoned about. Other
-databases offer Serializable Isolation, they just don't default to
-it. Because it can be slow.</p>
+it. MongoDB offers this unsafe mode but <a href="https://www.mongodb.com/docs/manual/core/journaling/#journaling-process">does not
+default</a>
+to it.</p>
+<p class="note">
+  An earlier version of this post said that MongoDB would unsafely
+  flush on an interval. Daniel Gomez Ferro from MongoDB messaged me
+  that while the docs are confusing, the default write concern
+  "majority" does actually imply "j: true" which means data is
+  synchronized (i.e. fsync-ed) before returning a success to a client.
+</p><p>Almost every database trades safety for performance in some
+regard. For example, few databases but SQLite and Cockroach default to
+Serializable Isolation. While it is commonly agreed that basically no
+level below Serializable Isolation (that all other databases default
+to) can be reasoned about. Other databases offer Serializable
+Isolation, they just don't default to it. Because it can be slow.</p>
 <h4 id="group-commit">Group commit</h4><p>But let's get back to fsync. One way to amortize the cost of fsync is
 to delay requests so that you write data from each of them and then
 fsync the data from all requests. This is sometimes called group
@@ -206,8 +205,7 @@ background thread serialize to disk and call fsync only every 5ms.</p>
   <span class="n">value</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
   <span class="k">return</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">}</span>
 </pre></div>
-<p>Although it might sound similar to what MongoDB does, the critical
-difference is that <code>handle_write</code> waits to return a success until the
+<p>It is critical that <code>handle_write</code> waits to return a success until the
 write is durable via fsync.</p>
 <p>So to reiterate, the key idea for durability of a client request is
 that you have some version of the client message stored on disk

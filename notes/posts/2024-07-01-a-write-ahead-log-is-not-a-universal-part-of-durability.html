@@ -127,24 +127,24 @@ offer modes where they do not fsync data files before returning a
 success to a client. Postgres
 [offers](https://www.postgresql.org/docs/current/runtime-config-wal.html#GUC-FSYNC)
 this unsafe mode, though does not default to it and warns against
-it. And MongoDB defaults to this unsafe mode. See
-[storage.journal.commitIntervalMs](https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.journal.commitIntervalMs)
-and the [`j` write concern
-option](https://www.mongodb.com/docs/manual/reference/write-concern/#j-option).
+it. MongoDB offers this unsafe mode but [does not
+default](https://www.mongodb.com/docs/manual/core/journaling/#journaling-process)
+to it.
 
-> The j option requests acknowledgment from MongoDB that the write
-operation has been written to the on-disk journal.
+<p class="note">
+  An earlier version of this post said that MongoDB would unsafely
+  flush on an interval. Daniel Gomez Ferro from MongoDB messaged me
+  that while the docs are confusing, the default write concern
+  "majority" does actually imply "j: true" which means data is
+  synchronized (i.e. fsync-ed) before returning a success to a client.
+</p>
 
-MongoDB defaults to committing on an interval, returning a success to
-the client potentially before the write has been fsync-ed.
-
-This isn't particularly a dig on MongoDB. Almost every database trades
-safety for performance in some regard. For example, few databases but
-SQLite and Cockroach default to Serializable Isolation. While it is
-commonly agreed that basically no level below Serializable Isolation
-(that all other databases default to) can be reasoned about. Other
-databases offer Serializable Isolation, they just don't default to
-it. Because it can be slow.
+Almost every database trades safety for performance in some
+regard. For example, few databases but SQLite and Cockroach default to
+Serializable Isolation. While it is commonly agreed that basically no
+level below Serializable Isolation (that all other databases default
+to) can be reasoned about. Other databases offer Serializable
+Isolation, they just don't default to it. Because it can be slow.
 
 #### Group commit
 
@@ -183,8 +183,7 @@ def handle_read(req):
   return 200, {"value": value}
 ```
 
-Although it might sound similar to what MongoDB does, the critical
-difference is that `handle_write` waits to return a success until the
+It is critical that `handle_write` waits to return a success until the
 write is durable via fsync.
 
 So to reiterate, the key idea for durability of a client request is
