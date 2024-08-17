@@ -232,14 +232,23 @@ Sitemap: https://notes.eatonphil.com/sitemap.xml""")
     for tag in all_tags:
         if tag == "draft":
             continue
-        posts = all_tags[tag]
-        file_name = '%s.html' % tag.replace(' ', '-').replace('/', '-')
-        with open('docs/tags/'+file_name, 'w') as f:
-            posts.sort(key=lambda post: datetime.strptime(post[2], '%B %d, %Y'))
-            posts.reverse()
-            tag_page = TAG_PAGE.format(tag)
-            tag_page += "\n".join([TAG_SUMMARY.format(*args) for args in posts])
-            f.write(TEMPLATE.format(post=tag_page, title="", tag=TAG, subtitle="", tags="", meta="", frequent_tags="", full_url="https://notes.eatonphil.com/tags/"+file_name, mail=MAIL, hide_on_index="", real_subtitle=""))
+
+        # At one point I renamed tags like database to databases. So
+        # generate both web pages to handle old links.
+        original_tag = tag
+        tag_variants = [tag]
+        if tag.endswith("s") and tag[:-1] not in all_tags:
+            tag_variants.append(tag[:-1])
+
+        for tag in tag_variants:
+            posts = all_tags[original_tag]
+            file_name = '%s.html' % tag.replace(' ', '-').replace('/', '-')
+            with open('docs/tags/'+file_name, 'w') as f:
+                posts.sort(key=lambda post: datetime.strptime(post[2], '%B %d, %Y'))
+                posts.reverse()
+                tag_page = TAG_PAGE.format(tag)
+                tag_page += "\n".join([TAG_SUMMARY.format(*args) for args in posts])
+                f.write(TEMPLATE.format(post=tag_page, title="", tag=TAG, subtitle="", tags="", meta="", frequent_tags="", full_url="https://notes.eatonphil.com/tags/"+file_name, mail=MAIL, hide_on_index="", real_subtitle=""))
 
 
 if __name__ == '__main__':
