@@ -1,0 +1,507 @@
+# What's the big deal about Deterministic Simulation Testing?
+## August 20, 2024
+###### testing,dst,draft
+
+Bugs in distributed systems are hard to find, largely because we have
+systems interacting in chaotic ways. It's about as far away as you can
+get from the ideal test environment: property testing a pure
+function. But what if we could write our code in a way we can replace
+the chaotic aspects of our distributed system during testing: run
+multiple programs communicating with each other on a single thread and
+control all randomness in each program? And property test this
+single-threaded version of the distributed system with controlled
+randomness, all the while injecting faults we might see in the
+real-world?
+
+Because when we can control all this and run property tests, we can
+trivially replay any bug we find. Without deterministic execution it
+can be anywhere from trivial to impossible to reproduce a bug someone
+found.
+
+Crazy as it sounds, people actually do this. It's called Deterministic
+Simulation Testing (DST). And it's become more and more popular with
+startups like FoundationDB, Antithesis, TigerBeetle, Polar Signals,
+and WarpStream; as well as folks like Tyler Neely and Pekka Enberg,
+talking about and making use of this technique.
+
+It has become so popular to talk about DST in my corner of the world
+that I worry it risks coming off sounding too magical and maybe a
+little hyped. It's worth getting a better understanding of both the
+benefits and the limitations.
+
+Thank you to Alex Miller for reviewing a version of this post.
+
+### Randomness and time
+
+A big source of non-determinism in business logic is the use of random
+numbers—in your code or your transitive dependencies or your language
+runtime or your operating system.
+
+Crucially, DST does not imply you can't have randomness! DST merely
+attempts to control randomness. DST assumes that you can have a global
+seed for all randomness in your program and that you can inject this
+seed each time you run your program in a simulation. While you are
+property-testing the program in the simulation, you will alter the
+seed on every run.
+
+But once you observe a bad state as a result of running the simulation
+on a random seed, you allow the user to enter the same seed
+again. This allows the user to recreate the entire program run that
+led to that observed bad state. Allows the user to debug the program
+trivially.
+
+Another big source of non-determinism is being dependent on time. As
+with randomness, DST does not mean you can't depend on time. DST means
+you must be able to control the clock during the simulation.
+
+DST being able to control non-determinism basically means you're doing
+dependency injection, or the old-school alternative to dependency
+injection called passing the dependency as an explicit
+parameter. Rather than referring to a global clock or a global seed,
+you need to be able to receive a clock or a seed from someone.
+
+```python
+# app.pseudocode
+
+def start(clock, seed):
+  # lots of business logic that might depend on time or do random things
+
+def main:
+  clock = time.clock()
+  seed = time.now()
+  app.start(clock, seed)
+```
+
+So that the simulator can do everything but the `main()` method with
+simulated clock and a seed the simulator controls:
+
+```python
+# sim.pseudocode
+
+import "app.pseudocode"
+
+def main:
+  sim_clock = make_sim_clock()
+  sim_seed = os.env.DST_SEED or time.now()
+  try:
+    app.start(sim_clock, sim_seed)
+  catch(e):
+    print("Bad execution at seed: %s", sim_seed)
+    throw e
+```
+
+Every time you run the simulator, it tries a new seed (unless you ask
+it to use an old seed so you can replay a bug). All states the
+application gets into are derived from this seed. Allowing you to try
+a wide range of state histories as you run the simulator time and time
+again with new seeds.
+
+### Converting an existing function
+
+Let's say that we had a helper method that kept calling a function
+until it succeeded, with backoff.
+
+```python
+# retry.pseudocode
+class Backoff:
+  def init:
+    this.rnd = rnd.new(seed = time.now())
+    this.tries = 0
+
+  async def retry_backoff(f):
+    while tries < 3:
+      if f():
+        return
+
+      await time.sleep(this.rnd.gen())
+      tries++
+```
+
+There is a single source of nondeterminism here and it's where we
+generate a seed. We could parameterize the seed, but since we want to
+call `time.sleep()` and since in DST we control the time, we can just
+parameterize `time`.
+
+```python
+# retry.psuedocode
+class Backoff:
+  def init(this, time):
+    this.time = time
+    this.rnd = rnd.new(seed = this.time.now())
+    this.tries = 0
+
+  async def retry_backoff(this, f):
+    while this.tries < 3:
+      if f():
+        return
+
+      await this.time.sleep(this.rnd.gen())
+      this.tries++
+```
+
+Now we can write a little simulator to test this:
+
+```python
+# sim.psuedocode
+import "retry.pseudocode"
+
+sim_time = {
+  now: 0
+  sleep: (ms) => {
+    await future.wait(ms)
+  }
+  tick: (ms) => now += ms
+}
+
+backoff = Backoff(sim_time)
+
+while true:
+  failures = 0
+  f = () => {
+    if rnd.rand() > 0.5:
+      failures++
+      return false
+
+    return true
+  }
+  try:
+    while sim_time.now < 60min:
+      promise = backoff.retry_backoff(f)
+      sim_time.tick(1ms)
+      if promise.read():
+        break
+    
+    assert_expect_failure_and_expected_time_elapse(sim_time, failures)
+  catch(e):
+    print("Found logical error with seed: %d", seed)
+    throw e
+```
+
+This demonstrates a few critical aspects of DST. First, the simulator
+itself depends on randomness. But allows the user to provide a seed so
+they can replay a simulation that discovers a bug. The controlled
+randomness in the simulator is what lets us do property testing.
+
+Second, the simulation workload must be written by the user. Even when
+you've got a platform like Antithesis that gives you an environment
+for DST, it's up to you to exercise the application.
+
+Now let's get a little more complex.
+
+### A single thread and asynchronous IO
+
+The determinism of multiple threads can only be controlled at the
+operating system or emulator or hypervisor layer. Realistically, that
+would require third-party systems like Antithesis or
+[Hermit](https://github.com/facebookexperimental/hermit) (which, don't
+get excited, is not actively developed and hasn't worked on any
+interesting program of mine) or [rr](https://rr-project.org/). These
+systems transparently transform multi-threaded code into single
+threaded code. But also note that Hermit and rr have only limited
+ability to do fault injection which, in addition to deterministic
+execution, is a goal of ours. And you can't run them on a mac.
+
+But we can, and would like, to write a simulator without writing a new
+operating system or emulator or hypervisor, and without a third-party
+system. So we must limit ourselves to writing code that can be
+collapsed into a single thread. Significantly, since using blocking IO
+would mean an entire class of concurrency bugs could not be discovered
+while running the simulator in a single thread, we must limit
+ourselves to asynchronous IO.
+
+Single threaded and asynchronous IO. These are already two big limitations.
+
+Some languages like Go are entirely built around transparent
+multi-threading and blocking IO. Polar Signals
+[solved](https://www.polarsignals.com/blog/posts/2024/05/28/mostly-dst-in-go)
+this for DST by compiling their application to WASM where it would run
+on a single thread. But that wasn't enough. Even on a single thread,
+the Go runtime intentionally schedules goroutines randomly. So Polar
+Signals forked the Go runtime to control this randomness with an
+environment variable. That's kind of crazy. Resonate took [another
+approach](https://github.com/resonatehq/resonate/blob/268c588e302f13187309e4b37636d19595d42fa1/internal/kernel/scheduler/coroutine.go)
+that also looks cumbersome. I'm not going to attempt to describe
+it. Go seems like a difficult choice of a language if you want to do
+DST.
+
+Like Go, Rust has no builtin async IO. The most mature async IO
+library is tokio. The tokio folks attempted to provide a
+tokio-compatible [simulator](https://github.com/tokio-rs/simulator)
+implementation with all sources of nondeterminism removed. From what I
+can tell, they did not at any point fully
+[succeed](https://github.com/tokio-rs/tokio/issues/1845). That repo
+has now been replaced with a "this is very experimental" tokio-rs
+project called [turmoil](https://github.com/tokio-rs/turmoil) that
+provides deterministic execution plus network fault injection. (But
+not disk fault injection. More on that later.) It isn't surprising
+that it is difficult to provide deterministic execution for an IO
+library that was not designed for it. tokio is a large project with
+many transitive dependencies. They must all be combed for
+non-determinism.
+
+On the other hand, Pekka has [already
+demonstrated](https://github.com/penberg/hiisi/blob/main/hiisi-server/src/io/generic.rs)
+for us how we might build a simpler Rust async IO library that is
+designed to be simulation tested. He modeled this on the TigerBeetle
+design King and I
+[wrote](https://tigerbeetle.com/blog/a-friendly-abstraction-over-iouring-and-kqueue)
+about two years ago.
+
+So let's sketch out a program that does buggy IO and let's look at how
+we can apply DST to it.
+
+```python
+# readfile.pseudocode
+def read_file(io, name, into_buffer):
+  f = await io.open(name)
+  read_buffer = [4096]u8{}
+  while true:
+    err, n_read = await f.read(&read_buffer)
+    if err == io.EOF:
+      into_buffer.copy_maybe_allocate(read_buffer[0:sizeof(read_buffer)])
+      return
+
+    if err:
+      throw err
+
+    into_buffer.copy_maybe_allocate(read_buffer[0:sizeof(read_buffer)])
+```
+
+In our simulator, we will provide a mocked out IO system and we will
+randomly inject various errors while asserting pre- and
+post-conditions.
+
+```python
+# sim.psuedocode
+import "readfile.pseudocode"
+
+seed = if os.env.DST_SEED ? int(os.env.DST_SEED) : time.now()
+rnd = rnd.new(seed)
+
+while true:
+  sim_disk_data = rnd.rand_bytes(10MB)
+  sim_fd = {
+    pos: 0
+    EOF: Error("eof")
+    read: (fd, buf) => {
+      partial_read = rnd.rand_in_range_inclusive(0, sizeof(buf))
+      memcpy(sim_disk_data, buf, fd.pos, partial_read)
+      fd.pos += partial_read
+      if fd.pos == sizeof(sim_disk_data):
+        return io.EOF, partial_read
+      return partial_read 
+    }
+  }
+  sim_io = {
+    open: (filename) => sim_fd
+  }
+
+  out_buf = Vector<u8>.new()
+  try:
+    read_file(sim_io, "somefile", out_buf)
+    assert_bytes_equal(out_buf.data, sim_disk_data)
+  catch (e):
+    print("Found logical error with seed: %d", seed)
+    throw e
+```
+
+And with this simulator we would have eventually caught our partial
+read bug! In our original program when we wrote:
+
+```python
+      into_buffer.copy_maybe_allocate(read_buffer[0:sizeof(read_buffer)])
+```
+
+We should have written:
+
+```python
+      into_buffer.copy_maybe_allocate(read_buffer[0:n_read])
+```
+
+Great! Let's get a little more complex.
+
+### A distributed system
+
+I already mentioned in the beginning that the gist of deterministic
+simulation testing a distributed system is that you get all of the
+nodes in the system to run in the same process. This would be
+basically impossible if you wanted to test a system that involved your
+application plus Kafka plus Postgres plus Redis. But if your system is
+a self-contained distributed system, such as one that embeds a Raft
+library for high availability of your application, you can multiple
+nodes into the same process!
+
+For a system like this, our simulator might look like:
+
+```python
+# sim.pseudocode
+import "distsys-node.pseudocode"
+
+seed = if os.env.DST_SEED ? int(os.env.DST_SEED) : time.now()
+rnd = rnd.new(seed)
+
+while true:
+  sim_fd = {
+    send(fd, buf) => {
+      # Inject random failure.
+      if rnd.rand() > .5:
+         throw Error('bad write')
+
+      # Inject random latency.
+      if rnd.rand() > .5:
+        await time.sleep(rnd.rand())
+
+      n_written = assert_ok(os.fd.write(buf))
+      return n_written
+    },
+    recv(fd, buf) => {
+      # Inject random failure.
+      if rnd.rand() > .5:
+         throw Error('bad read')
+
+      # Inject random latency.
+      if rnd.rand() > .5:
+        await time.sleep(rnd.rand())
+
+      return os.fd.read(buf)
+    }
+  }
+  sim_io = {
+    open: (filename) => {
+      # Inject random failure.
+      if rnd.rand() > .5:
+        throw Error('bad open')
+
+      # Inject random latency.
+      if rnd.rand() > .5:
+        await time.sleep(rnd.rand())
+
+      return sim_fd
+    }
+  }
+
+  all_ports = [6000, 6001, 6002]
+  nodes = [
+    await distsys-node.start(sim_io, all_ports[0], all_ports),
+    await distsys-node.start(sim_io, all_ports[1], all_ports),
+    await distsys-node.start(sim_io, all_ports[2], all_ports),
+  ]
+  history = []
+  try:
+    key = rnd.rand_bytes(10)
+    value = rnd.rand_bytes(10)
+    nodes[rnd.rand_in_range_inclusive(0, len(nodes)].insert(key, value)
+    history.add((key, value))
+    assert_valid_history(nodes, history)
+  catch (e):
+    print("Found logical error with seed: %d", seed)
+    throw e
+```
+
+I'm completely hand waving here to demonstrate the broader point and
+not any specific testing strategy for a specific distributed
+system. The important points are that these three nodes run in the
+same process, on different ports. We run a deterministic simulated
+workload against the three node system while injecting faults. And we
+are constantly checking for an invalid state. When we get the invalid
+state, we can be sure the user can easily recreate this invalid state.
+
+### Other sources of non-determinism
+
+Within some error rate, most CPU instructions and most CPU behavior is
+considered to be deterministic. There are, however, certain CPU
+instructions that are [definitely
+not](https://cs.stackexchange.com/questions/132842/under-which-conditions-a-given-program-is-deterministic-on-x86-64-machines/132856#132856). Unfortunately
+that might
+[include](https://github.com/facebookexperimental/hermit/issues/34)
+system calls. It might also
+[include](https://stackoverflow.com/a/8171032) malloc. There is very
+little to trust.
+
+Excepting Antithesis, most people doing DST seem not to worry about
+these smaller bits of nondeterminism. And it's generally agreed that
+DST is still worthwhile anyway. This makes sense since every bit of
+non-determinism you can eliminate makes it that much easier to
+reproduce bugs when you find them.
+
+The point is that determinism, even among DST practitioners, remains a spectrum.
+
+### Considerations
+
+As you may have noticed already from some of the pseudocode, DST is not a panacea.
+
+#### Consideration 1: Edges
+
+First, because you must swap out non-deterministic parts of your code,
+you are not actually testing the entirety of your code. You are
+certainly encouraged to keep the deterministic kernel large. But there
+will always be the non-deterministic edges.
+
+Without a system like Antithesis which gives you an entire
+deterministic machine, you can't test your whole program.
+
+But even with Antithesis you cannot test the integration between your
+system and external systems. You must mock out the external systems.
+
+It's also worth noting that there are many areas where you could
+inject simulation. You could do it at a high-level RPC and storage
+layer. This would be simpler and easier to understand. But then you'd
+be omitting testing and error-handling of lower-level errors.
+
+#### Consideration 2: Your workload(s)
+
+DST is dependent on your creativity and thoroughness of your workload
+as much as any other type of test or benchmark.
+
+Just as you wouldn't depend on one single benchmark to qualify your
+application, you may not want to depend on a single simulated
+workload.
+
+#### Consideration 3: Your knowledge of what you mocked
+
+When you mock out the behavior of disk or network IO, the benefits of
+DST are tied to your understanding of the spectrum of behavior that
+may happen in the real world.
+
+What are all possible error conditions? What are the extreme latency
+bounds of the original method? What about corruption or misdirected
+IO?
+
+The flipside here is that only in deterministic simulation testing can
+you configure these crazy scenarios to happen at a configurable
+regularity. You can kick off a set of runs that have especially high
+IO latency or especially high corrupt reads/writes. Joran and I wrote
+a year ago about how the TigerBeetle simulator does exactly this.
+
+#### Consideration 4: Non-reproducible seeds as code changes
+
+Critically, the reproducibility of DST only helps so long as your code
+doesn't change. As soon as your code changes, the seed may no longer
+even get you to the state where the bug was exhibited. So the
+reproducibility of DST means more that it may help you convert the
+seed simulation run into an integration test that describes the
+precise scenario even as the code changes.
+
+#### Consideration 5: Time and compute
+
+Because of Consideration 4, you need to keep rerunning the simulator
+not just to keep finding new seeds and new histories but because the
+new seeds and new histories may change every time you make changes to
+code.
+
+### Conclusion
+
+The degree to which you can place faith in DST alone, and not time
+spent in production, is limited. However, it certainly does no harm to
+employ DST. And, barring the considerations described above, will
+likely make the kernel of your product significantly more
+stable. Furthermore, everyone who uses DST knows about these
+considerations. I think it's just worthwhile to list them out to help
+folks who do not know DST to build an intuition for what it's
+excellent at.
+
+Further reading:
+
+- ["Testing Distributed Systems w/ Deterministic Simulation" by Will Wilson](https://www.youtube.com/watch?v=4fFDFbi3toc)
+- [(Mostly) Deterministic Simulation Testing in Go](https://www.polarsignals.com/blog/posts/2024/05/28/mostly-dst-in-go)
+- [Magical Deterministic Simulator for distributed systems in Rust](https://github.com/madsim-rs/madsim)

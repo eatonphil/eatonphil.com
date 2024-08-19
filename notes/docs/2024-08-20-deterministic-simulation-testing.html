@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="canonical" href="https://notes.eatonphil.com/2024-08-20-deterministic-simulation-testing.html">
+    <title>What's the big deal about Deterministic Simulation Testing? | notes.eatonphil.com</title>
+    <meta name="description" content="What's the big deal about Deterministic Simulation Testing?" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=IBM+Plex+Mono">
+  </head>
+  <body>
+    <header>
+      <!-- <div class="lfw"> -->
+      <!-- 	<div class="container"> -->
+      <!-- 	  <div class="row"> -->
+      <!-- 	    <a href="https://eatonphil.com/hire-me.html">Hire me!</a> -->
+      <!-- 	  </div> -->
+      <!-- 	</div> -->
+      <!-- </div> -->
+      <div class="container">
+        <div>
+          <div class="row">
+	    <div>
+	      <a href="https://eatonphil.com" class="sm-link">
+		Home
+              </a>
+	      <a href="/" class="sm-link">
+		Notes
+              </a>
+	      <a href="/favorites.html" class="sm-link hide-mobile">
+		Popular
+              </a>
+	      <a href="/rss.xml" class="sm-link">
+		RSS
+              </a>
+	    </div>
+
+	    <div class="subscribe">
+	      <!-- <a href="https://eatonphil.com/hire-me.html">Hire me</a> -->
+	      <!--
+		  Hardcode link to home page because some pages don't
+		  have a subscribe box. Some pages hide the subscribe.
+		-->
+	      <a class="fancy" href="https://eatonphil.com/subscribe.html">
+		Subscribe
+	      </a>
+            </div>
+	  </div>
+	  <hr />
+	  <div class="">
+            <h2>August 20, 2024</h2>
+            <h1>What's the big deal about Deterministic Simulation Testing?</h1>
+	    
+            <div class="row" style="padding-bottom: 5px">
+              ['testing', 'dst', 'draft']
+            </div>
+	  </div>
+	</div>
+      </div>
+    </header>
+    <div class="container">
+      <div class="col-6">
+	<div class="post">
+          <p>Bugs in distributed systems are hard to find, largely because we have
+systems interacting in chaotic ways. It's about as far away as you can
+get from the ideal test environment: property testing a pure
+function. But what if we could write our code in a way we can replace
+the chaotic aspects of our distributed system during testing: run
+multiple programs communicating with each other on a single thread and
+control all randomness in each program? And property test this
+single-threaded version of the distributed system with controlled
+randomness, all the while injecting faults we might see in the
+real-world?</p>
+<p>Because when we can control all this and run property tests, we can
+trivially replay any bug we find. Without deterministic execution it
+can be anywhere from trivial to impossible to reproduce a bug someone
+found.</p>
+<p>Crazy as it sounds, people actually do this. It's called Deterministic
+Simulation Testing (DST). And it's become more and more popular with
+startups like FoundationDB, Antithesis, TigerBeetle, Polar Signals,
+and WarpStream; as well as folks like Tyler Neely and Pekka Enberg,
+talking about and making use of this technique.</p>
+<p>It has become so popular to talk about DST in my corner of the world
+that I worry it risks coming off sounding too magical and maybe a
+little hyped. It's worth getting a better understanding of both the
+benefits and the limitations.</p>
+<p>Thank you to Alex Miller for reviewing a version of this post.</p>
+<h3 id="randomness-and-time">Randomness and time</h3><p>A big source of non-determinism in business logic is the use of random
+numbers—in your code or your transitive dependencies or your language
+runtime or your operating system.</p>
+<p>Crucially, DST does not imply you can't have randomness! DST merely
+attempts to control randomness. DST assumes that you can have a global
+seed for all randomness in your program and that you can inject this
+seed each time you run your program in a simulation. While you are
+property-testing the program in the simulation, you will alter the
+seed on every run.</p>
+<p>But once you observe a bad state as a result of running the simulation
+on a random seed, you allow the user to enter the same seed
+again. This allows the user to recreate the entire program run that
+led to that observed bad state. Allows the user to debug the program
+trivially.</p>
+<p>Another big source of non-determinism is being dependent on time. As
+with randomness, DST does not mean you can't depend on time. DST means
+you must be able to control the clock during the simulation.</p>
+<p>DST being able to control non-determinism basically means you're doing
+dependency injection, or the old-school alternative to dependency
+injection called passing the dependency as an explicit
+parameter. Rather than referring to a global clock or a global seed,
+you need to be able to receive a clock or a seed from someone.</p>
+<div class="highlight"><pre><span></span><span class="c1"># app.pseudocode</span>
+
+<span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="n">clock</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
+  <span class="c1"># lots of business logic that might depend on time or do random things</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">:</span>
+  <span class="n">clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">clock</span><span class="p">()</span>
+  <span class="n">seed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+  <span class="n">app</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">clock</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
+</pre></div>
+<p>So that the simulator can do everything but the <code>main()</code> method with
+simulated clock and a seed the simulator controls:</p>
+<div class="highlight"><pre><span></span><span class="c1"># sim.pseudocode</span>
+
+<span class="kn">import</span> <span class="s2">&quot;app.pseudocode&quot;</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">:</span>
+  <span class="n">sim_clock</span> <span class="o">=</span> <span class="n">make_sim_clock</span><span class="p">()</span>
+  <span class="n">sim_seed</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">DST_SEED</span> <span class="ow">or</span> <span class="n">time</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+  <span class="k">try</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">sim_clock</span><span class="p">,</span> <span class="n">sim_seed</span><span class="p">)</span>
+  <span class="n">catch</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Bad execution at seed: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">sim_seed</span><span class="p">)</span>
+    <span class="n">throw</span> <span class="n">e</span>
+</pre></div>
+<p>Every time you run the simulator, it tries a new seed (unless you ask
+it to use an old seed so you can replay a bug). All states the
+application gets into are derived from this seed. Allowing you to try
+a wide range of state histories as you run the simulator time and time
+again with new seeds.</p>
+<h3 id="converting-an-existing-function">Converting an existing function</h3><p>Let's say that we had a helper method that kept calling a function
+until it succeeded, with backoff.</p>
+<div class="highlight"><pre><span></span><span class="c1"># retry.pseudocode</span>
+<span class="k">class</span> <span class="nc">Backoff</span><span class="p">:</span>
+  <span class="k">def</span> <span class="nf">init</span><span class="p">:</span>
+    <span class="n">this</span><span class="o">.</span><span class="n">rnd</span> <span class="o">=</span> <span class="n">rnd</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">seed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="n">this</span><span class="o">.</span><span class="n">tries</span> <span class="o">=</span> <span class="mi">0</span>
+
+  <span class="k">async</span> <span class="k">def</span> <span class="nf">retry_backoff</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="k">while</span> <span class="n">tries</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+      <span class="k">if</span> <span class="n">f</span><span class="p">():</span>
+        <span class="k">return</span>
+
+      <span class="k">await</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">rnd</span><span class="o">.</span><span class="n">gen</span><span class="p">())</span>
+      <span class="n">tries</span><span class="o">++</span>
+</pre></div>
+<p>There is a single source of nondeterminism here and it's where we
+generate a seed. We could parameterize the seed, but since we want to
+call <code>time.sleep()</code> and since in DST we control the time, we can just
+parameterize <code>time</code>.</p>
+<div class="highlight"><pre><span></span><span class="c1"># retry.psuedocode</span>
+<span class="k">class</span> <span class="nc">Backoff</span><span class="p">:</span>
+  <span class="k">def</span> <span class="nf">init</span><span class="p">(</span><span class="n">this</span><span class="p">,</span> <span class="n">time</span><span class="p">):</span>
+    <span class="n">this</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="n">time</span>
+    <span class="n">this</span><span class="o">.</span><span class="n">rnd</span> <span class="o">=</span> <span class="n">rnd</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">seed</span> <span class="o">=</span> <span class="n">this</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="n">this</span><span class="o">.</span><span class="n">tries</span> <span class="o">=</span> <span class="mi">0</span>
+
+  <span class="k">async</span> <span class="k">def</span> <span class="nf">retry_backoff</span><span class="p">(</span><span class="n">this</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+    <span class="k">while</span> <span class="n">this</span><span class="o">.</span><span class="n">tries</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+      <span class="k">if</span> <span class="n">f</span><span class="p">():</span>
+        <span class="k">return</span>
+
+      <span class="k">await</span> <span class="n">this</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">rnd</span><span class="o">.</span><span class="n">gen</span><span class="p">())</span>
+      <span class="n">this</span><span class="o">.</span><span class="n">tries</span><span class="o">++</span>
+</pre></div>
+<p>Now we can write a little simulator to test this:</p>
+<div class="highlight"><pre><span></span><span class="c1"># sim.psuedocode</span>
+<span class="kn">import</span> <span class="s2">&quot;retry.pseudocode&quot;</span>
+
+<span class="n">sim_time</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">now</span><span class="p">:</span> <span class="mi">0</span>
+  <span class="n">sleep</span><span class="p">:</span> <span class="p">(</span><span class="n">ms</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="k">await</span> <span class="n">future</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">ms</span><span class="p">)</span>
+  <span class="p">}</span>
+  <span class="n">tick</span><span class="p">:</span> <span class="p">(</span><span class="n">ms</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">now</span> <span class="o">+=</span> <span class="n">ms</span>
+<span class="p">}</span>
+
+<span class="n">backoff</span> <span class="o">=</span> <span class="n">Backoff</span><span class="p">(</span><span class="n">sim_time</span><span class="p">)</span>
+
+<span class="k">while</span> <span class="n">true</span><span class="p">:</span>
+  <span class="n">failures</span> <span class="o">=</span> <span class="mi">0</span>
+  <span class="n">f</span> <span class="o">=</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">:</span>
+      <span class="n">failures</span><span class="o">++</span>
+      <span class="k">return</span> <span class="n">false</span>
+
+    <span class="k">return</span> <span class="n">true</span>
+  <span class="p">}</span>
+  <span class="k">try</span><span class="p">:</span>
+    <span class="k">while</span> <span class="n">sim_time</span><span class="o">.</span><span class="n">now</span> <span class="o">&lt;</span> <span class="mi">60</span><span class="nb">min</span><span class="p">:</span>
+      <span class="n">promise</span> <span class="o">=</span> <span class="n">backoff</span><span class="o">.</span><span class="n">retry_backoff</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+      <span class="n">sim_time</span><span class="o">.</span><span class="n">tick</span><span class="p">(</span><span class="mi">1</span><span class="n">ms</span><span class="p">)</span>
+      <span class="k">if</span> <span class="n">promise</span><span class="o">.</span><span class="n">read</span><span class="p">():</span>
+        <span class="k">break</span>
+
+    <span class="n">assert_expect_failure_and_expected_time_elapse</span><span class="p">(</span><span class="n">sim_time</span><span class="p">,</span> <span class="n">failures</span><span class="p">)</span>
+  <span class="n">catch</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Found logical error with seed: </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
+    <span class="n">throw</span> <span class="n">e</span>
+</pre></div>
+<p>This demonstrates a few critical aspects of DST. First, the simulator
+itself depends on randomness. But allows the user to provide a seed so
+they can replay a simulation that discovers a bug. The controlled
+randomness in the simulator is what lets us do property testing.</p>
+<p>Second, the simulation workload must be written by the user. Even when
+you've got a platform like Antithesis that gives you an environment
+for DST, it's up to you to exercise the application.</p>
+<p>Now let's get a little more complex.</p>
+<h3 id="a-single-thread-and-asynchronous-io">A single thread and asynchronous IO</h3><p>The determinism of multiple threads can only be controlled at the
+operating system or emulator or hypervisor layer. Realistically, that
+would require third-party systems like Antithesis or
+<a href="https://github.com/facebookexperimental/hermit">Hermit</a> (which, don't
+get excited, is not actively developed and hasn't worked on any
+interesting program of mine) or <a href="https://rr-project.org/">rr</a>. These
+systems transparently transform multi-threaded code into single
+threaded code. But also note that Hermit and rr have only limited
+ability to do fault injection which, in addition to deterministic
+execution, is a goal of ours. And you can't run them on a mac.</p>
+<p>But we can, and would like, to write a simulator without writing a new
+operating system or emulator or hypervisor, and without a third-party
+system. So we must limit ourselves to writing code that can be
+collapsed into a single thread. Significantly, since using blocking IO
+would mean an entire class of concurrency bugs could not be discovered
+while running the simulator in a single thread, we must limit
+ourselves to asynchronous IO.</p>
+<p>Single threaded and asynchronous IO. These are already two big limitations.</p>
+<p>Some languages like Go are entirely built around transparent
+multi-threading and blocking IO. Polar Signals
+<a href="https://www.polarsignals.com/blog/posts/2024/05/28/mostly-dst-in-go">solved</a>
+this for DST by compiling their application to WASM where it would run
+on a single thread. But that wasn't enough. Even on a single thread,
+the Go runtime intentionally schedules goroutines randomly. So Polar
+Signals forked the Go runtime to control this randomness with an
+environment variable. That's kind of crazy. Resonate took <a href="https://github.com/resonatehq/resonate/blob/268c588e302f13187309e4b37636d19595d42fa1/internal/kernel/scheduler/coroutine.go">another
+approach</a>
+that also looks cumbersome. I'm not going to attempt to describe
+it. Go seems like a difficult choice of a language if you want to do
+DST.</p>
+<p>Like Go, Rust has no builtin async IO. The most mature async IO
+library is tokio. The tokio folks attempted to provide a
+tokio-compatible <a href="https://github.com/tokio-rs/simulator">simulator</a>
+implementation with all sources of nondeterminism removed. From what I
+can tell, they did not at any point fully
+<a href="https://github.com/tokio-rs/tokio/issues/1845">succeed</a>. That repo
+has now been replaced with a "this is very experimental" tokio-rs
+project called <a href="https://github.com/tokio-rs/turmoil">turmoil</a> that
+provides deterministic execution plus network fault injection. (But
+not disk fault injection. More on that later.) It isn't surprising
+that it is difficult to provide deterministic execution for an IO
+library that was not designed for it. tokio is a large project with
+many transitive dependencies. They must all be combed for
+non-determinism.</p>
+<p>On the other hand, Pekka has <a href="https://github.com/penberg/hiisi/blob/main/hiisi-server/src/io/generic.rs">already
+demonstrated</a>
+for us how we might build a simpler Rust async IO library that is
+designed to be simulation tested. He modeled this on the TigerBeetle
+design King and I
+<a href="https://tigerbeetle.com/blog/a-friendly-abstraction-over-iouring-and-kqueue">wrote</a>
+about two years ago.</p>
+<p>So let's sketch out a program that does buggy IO and let's look at how
+we can apply DST to it.</p>
+<div class="highlight"><pre><span></span><span class="c1"># readfile.pseudocode</span>
+<span class="k">def</span> <span class="nf">read_file</span><span class="p">(</span><span class="n">io</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">into_buffer</span><span class="p">):</span>
+  <span class="n">f</span> <span class="o">=</span> <span class="k">await</span> <span class="n">io</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+  <span class="n">read_buffer</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4096</span><span class="p">]</span><span class="n">u8</span><span class="p">{}</span>
+  <span class="k">while</span> <span class="n">true</span><span class="p">:</span>
+    <span class="n">err</span><span class="p">,</span> <span class="n">n_read</span> <span class="o">=</span> <span class="k">await</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="o">&amp;</span><span class="n">read_buffer</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">==</span> <span class="n">io</span><span class="o">.</span><span class="n">EOF</span><span class="p">:</span>
+      <span class="n">into_buffer</span><span class="o">.</span><span class="n">copy_maybe_allocate</span><span class="p">(</span><span class="n">read_buffer</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">sizeof</span><span class="p">(</span><span class="n">read_buffer</span><span class="p">)])</span>
+      <span class="k">return</span>
+
+    <span class="k">if</span> <span class="n">err</span><span class="p">:</span>
+      <span class="n">throw</span> <span class="n">err</span>
+
+    <span class="n">into_buffer</span><span class="o">.</span><span class="n">copy_maybe_allocate</span><span class="p">(</span><span class="n">read_buffer</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">sizeof</span><span class="p">(</span><span class="n">read_buffer</span><span class="p">)])</span>
+</pre></div>
+<p>In our simulator, we will provide a mocked out IO system and we will
+randomly inject various errors while asserting pre- and
+post-conditions.</p>
+<div class="highlight"><pre><span></span><span class="c1"># sim.psuedocode</span>
+<span class="kn">import</span> <span class="s2">&quot;readfile.pseudocode&quot;</span>
+
+<span class="n">seed</span> <span class="o">=</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">DST_SEED</span> <span class="err">?</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">DST_SEED</span><span class="p">)</span> <span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+<span class="n">rnd</span> <span class="o">=</span> <span class="n">rnd</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
+<span class="k">while</span> <span class="n">true</span><span class="p">:</span>
+  <span class="n">sim_disk_data</span> <span class="o">=</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand_bytes</span><span class="p">(</span><span class="mi">10</span><span class="n">MB</span><span class="p">)</span>
+  <span class="n">sim_fd</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">pos</span><span class="p">:</span> <span class="mi">0</span>
+    <span class="n">EOF</span><span class="p">:</span> <span class="n">Error</span><span class="p">(</span><span class="s2">&quot;eof&quot;</span><span class="p">)</span>
+    <span class="n">read</span><span class="p">:</span> <span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">buf</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+      <span class="n">partial_read</span> <span class="o">=</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand_in_range_inclusive</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sizeof</span><span class="p">(</span><span class="n">buf</span><span class="p">))</span>
+      <span class="n">memcpy</span><span class="p">(</span><span class="n">sim_disk_data</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">fd</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="n">partial_read</span><span class="p">)</span>
+      <span class="n">fd</span><span class="o">.</span><span class="n">pos</span> <span class="o">+=</span> <span class="n">partial_read</span>
+      <span class="k">if</span> <span class="n">fd</span><span class="o">.</span><span class="n">pos</span> <span class="o">==</span> <span class="n">sizeof</span><span class="p">(</span><span class="n">sim_disk_data</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">io</span><span class="o">.</span><span class="n">EOF</span><span class="p">,</span> <span class="n">partial_read</span>
+      <span class="k">return</span> <span class="n">partial_read</span> 
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">sim_io</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nb">open</span><span class="p">:</span> <span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">sim_fd</span>
+  <span class="p">}</span>
+
+  <span class="n">out_buf</span> <span class="o">=</span> <span class="n">Vector</span><span class="o">&lt;</span><span class="n">u8</span><span class="o">&gt;.</span><span class="n">new</span><span class="p">()</span>
+  <span class="k">try</span><span class="p">:</span>
+    <span class="n">read_file</span><span class="p">(</span><span class="n">sim_io</span><span class="p">,</span> <span class="s2">&quot;somefile&quot;</span><span class="p">,</span> <span class="n">out_buf</span><span class="p">)</span>
+    <span class="n">assert_bytes_equal</span><span class="p">(</span><span class="n">out_buf</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">sim_disk_data</span><span class="p">)</span>
+  <span class="n">catch</span> <span class="p">(</span><span class="n">e</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Found logical error with seed: </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
+    <span class="n">throw</span> <span class="n">e</span>
+</pre></div>
+<p>And with this simulator we would have eventually caught our partial
+read bug! In our original program when we wrote:</p>
+<div class="highlight"><pre><span></span>      <span class="n">into_buffer</span><span class="o">.</span><span class="n">copy_maybe_allocate</span><span class="p">(</span><span class="n">read_buffer</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">sizeof</span><span class="p">(</span><span class="n">read_buffer</span><span class="p">)])</span>
+</pre></div>
+<p>We should have written:</p>
+<div class="highlight"><pre><span></span>      <span class="n">into_buffer</span><span class="o">.</span><span class="n">copy_maybe_allocate</span><span class="p">(</span><span class="n">read_buffer</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">n_read</span><span class="p">])</span>
+</pre></div>
+<p>Great! Let's get a little more complex.</p>
+<h3 id="a-distributed-system">A distributed system</h3><p>I already mentioned in the beginning that the gist of deterministic
+simulation testing a distributed system is that you get all of the
+nodes in the system to run in the same process. This would be
+basically impossible if you wanted to test a system that involved your
+application plus Kafka plus Postgres plus Redis. But if your system is
+a self-contained distributed system, such as one that embeds a Raft
+library for high availability of your application, you can multiple
+nodes into the same process!</p>
+<p>For a system like this, our simulator might look like:</p>
+<div class="highlight"><pre><span></span><span class="c1"># sim.pseudocode</span>
+<span class="kn">import</span> <span class="s2">&quot;distsys-node.pseudocode&quot;</span>
+
+<span class="n">seed</span> <span class="o">=</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">DST_SEED</span> <span class="err">?</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">DST_SEED</span><span class="p">)</span> <span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+<span class="n">rnd</span> <span class="o">=</span> <span class="n">rnd</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
+<span class="k">while</span> <span class="n">true</span><span class="p">:</span>
+  <span class="n">sim_fd</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">send</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">buf</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+      <span class="c1"># Inject random failure.</span>
+      <span class="k">if</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">.5</span><span class="p">:</span>
+         <span class="n">throw</span> <span class="n">Error</span><span class="p">(</span><span class="s1">&#39;bad write&#39;</span><span class="p">)</span>
+
+      <span class="c1"># Inject random latency.</span>
+      <span class="k">if</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">.5</span><span class="p">:</span>
+        <span class="k">await</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">())</span>
+
+      <span class="n">n_written</span> <span class="o">=</span> <span class="n">assert_ok</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">fd</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">buf</span><span class="p">))</span>
+      <span class="k">return</span> <span class="n">n_written</span>
+    <span class="p">},</span>
+    <span class="n">recv</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">buf</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+      <span class="c1"># Inject random failure.</span>
+      <span class="k">if</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">.5</span><span class="p">:</span>
+         <span class="n">throw</span> <span class="n">Error</span><span class="p">(</span><span class="s1">&#39;bad read&#39;</span><span class="p">)</span>
+
+      <span class="c1"># Inject random latency.</span>
+      <span class="k">if</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">.5</span><span class="p">:</span>
+        <span class="k">await</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">())</span>
+
+      <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">fd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">buf</span><span class="p">)</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">sim_io</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nb">open</span><span class="p">:</span> <span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+      <span class="c1"># Inject random failure.</span>
+      <span class="k">if</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">.5</span><span class="p">:</span>
+        <span class="n">throw</span> <span class="n">Error</span><span class="p">(</span><span class="s1">&#39;bad open&#39;</span><span class="p">)</span>
+
+      <span class="c1"># Inject random latency.</span>
+      <span class="k">if</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">.5</span><span class="p">:</span>
+        <span class="k">await</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">())</span>
+
+      <span class="k">return</span> <span class="n">sim_fd</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="n">all_ports</span> <span class="o">=</span> <span class="p">[</span><span class="mi">6000</span><span class="p">,</span> <span class="mi">6001</span><span class="p">,</span> <span class="mi">6002</span><span class="p">]</span>
+  <span class="n">nodes</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="k">await</span> <span class="n">distsys</span><span class="o">-</span><span class="n">node</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">sim_io</span><span class="p">,</span> <span class="n">all_ports</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">all_ports</span><span class="p">),</span>
+    <span class="k">await</span> <span class="n">distsys</span><span class="o">-</span><span class="n">node</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">sim_io</span><span class="p">,</span> <span class="n">all_ports</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">all_ports</span><span class="p">),</span>
+    <span class="k">await</span> <span class="n">distsys</span><span class="o">-</span><span class="n">node</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">sim_io</span><span class="p">,</span> <span class="n">all_ports</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">all_ports</span><span class="p">),</span>
+  <span class="p">]</span>
+  <span class="n">history</span> <span class="o">=</span> <span class="p">[]</span>
+  <span class="k">try</span><span class="p">:</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand_bytes</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand_bytes</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">nodes</span><span class="p">[</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand_in_range_inclusive</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">nodes</span><span class="p">)]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+    <span class="n">history</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+    <span class="n">assert_valid_history</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">history</span><span class="p">)</span>
+  <span class="n">catch</span> <span class="p">(</span><span class="n">e</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Found logical error with seed: </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
+    <span class="n">throw</span> <span class="n">e</span>
+</pre></div>
+<p>I'm completely hand waving here to demonstrate the broader point and
+not any specific testing strategy for a specific distributed
+system. The important points are that these three nodes run in the
+same process, on different ports. We run a deterministic simulated
+workload against the three node system while injecting faults. And we
+are constantly checking for an invalid state. When we get the invalid
+state, we can be sure the user can easily recreate this invalid state.</p>
+<h3 id="other-sources-of-non-determinism">Other sources of non-determinism</h3><p>Within some error rate, most CPU instructions and most CPU behavior is
+considered to be deterministic. There are, however, certain CPU
+instructions that are <a href="https://cs.stackexchange.com/questions/132842/under-which-conditions-a-given-program-is-deterministic-on-x86-64-machines/132856#132856">definitely
+not</a>. Unfortunately
+that might
+<a href="https://github.com/facebookexperimental/hermit/issues/34">include</a>
+system calls. It might also
+<a href="https://stackoverflow.com/a/8171032">include</a> malloc. There is very
+little to trust.</p>
+<p>Excepting Antithesis, most people doing DST seem not to worry about
+these smaller bits of nondeterminism. And it's generally agreed that
+DST is still worthwhile anyway. This makes sense since every bit of
+non-determinism you can eliminate makes it that much easier to
+reproduce bugs when you find them.</p>
+<p>The point is that determinism, even among DST practitioners, remains a spectrum.</p>
+<h3 id="considerations">Considerations</h3><p>As you may have noticed already from some of the pseudocode, DST is not a panacea.</p>
+<h4 id="consideration-1:-edges">Consideration 1: Edges</h4><p>First, because you must swap out non-deterministic parts of your code,
+you are not actually testing the entirety of your code. You are
+certainly encouraged to keep the deterministic kernel large. But there
+will always be the non-deterministic edges.</p>
+<p>Without a system like Antithesis which gives you an entire
+deterministic machine, you can't test your whole program.</p>
+<p>But even with Antithesis you cannot test the integration between your
+system and external systems. You must mock out the external systems.</p>
+<p>It's also worth noting that there are many areas where you could
+inject simulation. You could do it at a high-level RPC and storage
+layer. This would be simpler and easier to understand. But then you'd
+be omitting testing and error-handling of lower-level errors.</p>
+<h4 id="consideration-2:-your-workload(s)">Consideration 2: Your workload(s)</h4><p>DST is dependent on your creativity and thoroughness of your workload
+as much as any other type of test or benchmark.</p>
+<p>Just as you wouldn't depend on one single benchmark to qualify your
+application, you may not want to depend on a single simulated
+workload.</p>
+<h4 id="consideration-3:-your-knowledge-of-what-you-mocked">Consideration 3: Your knowledge of what you mocked</h4><p>When you mock out the behavior of disk or network IO, the benefits of
+DST are tied to your understanding of the spectrum of behavior that
+may happen in the real world.</p>
+<p>What are all possible error conditions? What are the extreme latency
+bounds of the original method? What about corruption or misdirected
+IO?</p>
+<p>The flipside here is that only in deterministic simulation testing can
+you configure these crazy scenarios to happen at a configurable
+regularity. You can kick off a set of runs that have especially high
+IO latency or especially high corrupt reads/writes. Joran and I wrote
+a year ago about how the TigerBeetle simulator does exactly this.</p>
+<h4 id="consideration-4:-non-reproducible-seeds-as-code-changes">Consideration 4: Non-reproducible seeds as code changes</h4><p>Critically, the reproducibility of DST only helps so long as your code
+doesn't change. As soon as your code changes, the seed may no longer
+even get you to the state where the bug was exhibited. So the
+reproducibility of DST means more that it may help you convert the
+seed simulation run into an integration test that describes the
+precise scenario even as the code changes.</p>
+<h4 id="consideration-5:-time-and-compute">Consideration 5: Time and compute</h4><p>Because of Consideration 4, you need to keep rerunning the simulator
+not just to keep finding new seeds and new histories but because the
+new seeds and new histories may change every time you make changes to
+code.</p>
+<h3 id="conclusion">Conclusion</h3><p>The degree to which you can place faith in DST alone, and not time
+spent in production, is limited. However, it certainly does no harm to
+employ DST. And, barring the considerations described above, will
+likely make the kernel of your product significantly more
+stable. Furthermore, everyone who uses DST knows about these
+considerations. I think it's just worthwhile to list them out to help
+folks who do not know DST to build an intuition for what it's
+excellent at.</p>
+<p>Further reading:</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=4fFDFbi3toc">"Testing Distributed Systems w/ Deterministic Simulation" by Will Wilson</a></li>
+<li><a href="https://www.polarsignals.com/blog/posts/2024/05/28/mostly-dst-in-go">(Mostly) Deterministic Simulation Testing in Go</a></li>
+<li><a href="https://github.com/madsim-rs/madsim">Magical Deterministic Simulator for distributed systems in Rust</a></li>
+</ul>
+
+	</div>
+	<div class="feedback">
+	  <h4>Feedback</h4>
+	  <p>As always,
+	      please <a href="mailto:phil@eatonphil.com">email</a>
+	      or <a href="https://twitter.com/eatonphil">tweet me</a>
+	      with questions, corrections, or ideas!</p>
+
+	</div>
+      </div>
+    </div>
+    <footer>
+      <div class="container">
+	<div>
+	  <div id="subscribe">
+	    <style type="text/css">
+  /* LOADER */
+  .ml-form-embedSubmitLoad {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+  }
+  .g-recaptcha {
+      transform: scale(1);
+      -webkit-transform: scale(1);
+      transform-origin: 0 0;
+      -webkit-transform-origin: 0 0;
+      height: ;
+  }
+  .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      border: 0;
+  }
+  .ml-form-embedSubmitLoad:after {
+      content: " ";
+      display: block;
+      width: 11px;
+      height: 11px;
+      margin: 1px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      border-color: #ffffff #ffffff #ffffff transparent;
+      animation: ml-form-embedSubmitLoad 1.2s linear infinite;
+  }
+  @keyframes ml-form-embedSubmitLoad {
+      0% {
+          transform: rotate(0deg);
+      }
+      100% {
+          transform: rotate(360deg);
+      }
+  }
+  #mlb2-3175296.ml-form-embedContainer {
+      box-sizing: border-box;
+      display: table;
+      margin: 0 auto;
+      position: static;
+      width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer h3,
+  #mlb2-3175296.ml-form-embedContainer p,
+  #mlb2-3175296.ml-form-embedContainer span,
+  #mlb2-3175296.ml-form-embedContainer button {
+      text-transform: none !important;
+      letter-spacing: normal !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper {
+      border-width: 0px;
+      border-color: transparent;
+  border-radius: 4px;
+  border-style: solid;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-left { text-align: left; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-center {
+  text-align: center;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-default { display: table-cell !important; vertical-align: middle !important; text-align: center !important; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-right { text-align: right; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedHeader img {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  height: auto;
+  margin: 0 auto !important;
+  max-width: 100%;
+  width: undefinedpx;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody.ml-form-embedBodyHorizontal {
+  padding-bottom: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent {
+  text-align: left;
+  margin: 0 0 20px 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p {
+  color: #000000;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  margin: 0 0 10px 0;
+  text-align: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol {
+  color: #000000;
+  font-size: 14px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol {
+  list-style-type: lower-alpha;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol ol {
+  list-style-type: lower-roman;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p a,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group {
+  text-align: left!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group label {
+  margin-bottom: 5px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: bold; font-style: normal; text-decoration: none;;
+  display: inline-block;
+  line-height: 20px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p:last-child,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody form {
+  margin: 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  margin: 0 0 20px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent.horozintalForm {
+  margin: 0;
+  padding: 0 0 20px 0;
+  width: 100%;
+  height: auto;
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow {
+  margin: 0 0 10px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-last-item {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-formfieldHorizintal {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-webkit-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-webkit-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-ms-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-ms-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow textarea, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow textarea {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-color: #cccccc!important;
+  background-color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input.custom-control-input[type="checkbox"]{
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-radius: 4px!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23fff' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::before  {
+  border-color: #000000!important;
+  background-color: #000000!important;
+  color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::after {
+  top: 2px;
+  box-sizing: border-box;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  position: absolute;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::after {
+  position: absolute;
+  top: 2px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-radio .custom-control-label::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-control, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-control {
+  position: relative;
+  display: block;
+  min-height: 1.5rem;
+  padding-left: 1.5rem;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input {
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  box-sizing: border-box;
+  padding: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label {
+  color: #000000;
+  font-size: 12px!important;
+  line-height: 22px;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  font-style: normal;
+  font-weight: 700;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-select, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-select {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 28px 10px 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+  background: url('https://assets.mlcdn.com/ml/images/default/dropdown.svg') no-repeat right .75rem center/8px 10px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow {
+  height: auto;
+  width: 100%;
+  float: left;
+  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 70%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal { width: 30%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal.labelsOn { padding-top: 25px;  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .horizontal-fields { box-sizing: border-box; float: left; padding-right: 10px;  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input {
+  background-color: #ffffff;
+  color: #333333;
+  border-color: #cccccc;
+  border-radius: 4px;
+  border-style: solid;
+  border-width: 1px;
+  font-size: 14px;
+  line-height: 20px;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: initial;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button {
+  background-color: #000000 !important;
+  border-color: #000000;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 4px;
+  box-shadow: none;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700;
+  line-height: 20px;
+  margin: 0 !important;
+  padding: 10px !important;
+  width: 100%;
+  height: auto;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button:hover {
+  background-color: #333333 !important;
+  border-color: #333333 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type="checkbox"] {
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description {
+  color: #000000;
+  display: block;
+  font-size: 12px;
+  text-align: left;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label {
+  font-weight: normal;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  display: block;
+  min-height: 24px;
+  padding-left: 24px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p {
+  color: #000000 !important;
+  font-size: 12px !important;
+  font-weight: normal !important;
+  line-height: 18px !important;
+  padding: 0 !important;
+  margin: 0 5px 0 0 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit {
+  margin: 0 0 20px 0;
+  float: left;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button {
+  background-color: #000000 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 21px !important;
+  height: auto;
+  padding: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button.loading {
+  display: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button:hover {
+  background-color: #333333 !important;
+  }
+  .ml-subscribe-close {
+  width: 30px;
+  height: 30px;
+  background: url('https://assets.mlcdn.com/ml/images/default/modal_close.png') no-repeat;
+  background-size: 30px;
+  cursor: pointer;
+  margin-top: -10px;
+  margin-right: -10px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  }
+  .ml-error input, .ml-error textarea, .ml-error select {
+  border-color: red!important;
+  }
+  .ml-error .custom-checkbox-radio-list {
+  border: 1px solid red !important;
+  border-radius: 4px;
+  padding: 10px;
+  }
+  .ml-error .label-description,
+  .ml-error .label-description p,
+  .ml-error .label-description p a,
+  .ml-error label:first-child {
+  color: #ff0000 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p:first-letter {
+  color: #ff0000 !important;
+  }
+  @media only screen and (max-width: 400px){
+  .ml-form-embedWrapper.embedDefault, .ml-form-embedWrapper.embedPopup { width: 100%!important; }
+  .ml-form-formContent.horozintalForm { float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow { height: auto!important; width: 100%!important; float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 100%!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal > div { padding-right: 0px!important; padding-bottom: 10px; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal { width: 100%!important; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal.labelsOn { padding-top: 0px!important; }
+    }
+</style>
+<div id="mlb2-3175296" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-3175296">
+  <hr />
+  <div class="ml-form-align-center ">
+    <div class="ml-form-embedWrapper embedForm">
+      <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+        <div class="ml-form-embedContent" style=" ">
+          <h4>Subscribe</h4>
+          <p>Enter your email if you'd like to be kept in the loop about future articles!<br><br>You can expect 2 to 4 messages per month depending on how motivated I'm feeling. :)</p>
+	  <p></p>
+	  <p>Cheers,<br>Phil</p>
+        </div>
+        <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/303114/forms/78235486326359572/subscribe" data-code="" method="post" target="_blank">
+          <div class="ml-form-formContent">
+            <div class="ml-form-fieldRow ml-last-item">
+              <div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
+                <!-- input -->
+                <input aria-label="email" aria-required="true" type="email" class="form-control" data-inputmask="" name="fields[email]" placeholder="Email" autocomplete="email">
+                <!-- /input -->
+                <!-- textarea -->
+                <!-- /textarea -->
+                <!-- select -->
+                <!-- /select -->
+                <!-- checkboxes -->
+		<!-- /checkboxes -->
+                <!-- radio -->
+                <!-- /radio -->
+                <!-- countries -->
+                <!-- /countries -->
+              </div>
+            </div>
+          </div>
+          <!-- Privacy policy -->
+          <!-- /Privacy policy -->
+	  <div class="ml-form-recaptcha ml-validate-required" style="float: left;">
+            <style type="text/css">
+	      .ml-form-recaptcha {
+		  margin-bottom: 20px;
+	      }
+	      .ml-form-recaptcha.ml-error iframe {
+		  border: solid 1px #ff0000;
+	      }
+	      @media screen and (max-width: 480px) {
+		  .ml-form-recaptcha {
+		      width: 220px!important
+		  }
+		  .g-recaptcha {
+		      transform: scale(0.78);
+		      -webkit-transform: scale(0.78);
+		      transform-origin: 0 0;
+		      -webkit-transform-origin: 0 0;
+		  }
+	      }
+	    </style>
+	    <script src="https://www.google.com/recaptcha/api.js"></script>
+	    <div class="g-recaptcha" data-sitekey="6Lf1KHQUAAAAAFNKEX1hdSWCS3mRMv4FlFaNslaD"></div>
+	  </div>
+          <input type="hidden" name="ml-submit" value="1">
+          <div class="ml-form-embedSubmit">
+            <button type="submit" class="primary">Subscribe</button>
+            <button disabled="disabled" style="display: none;" type="button" class="loading">
+              <div class="ml-form-embedSubmitLoad"></div>
+              <span class="sr-only">Loading...</span>
+            </button>
+          </div>
+          <input type="hidden" name="anticsrf" value="true">
+        </form>
+      </div>
+      <div class="ml-form-successBody row-success" style="display: none">
+        <div class="ml-form-successContent">
+          <h3>Thanks :)</h3>
+          <p>You're in.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function ml_webform_success_3175296() {
+      var $ = ml_jQuery || jQuery;
+      $('.ml-subscribe-form-3175296 .row-success').show();
+      $('.ml-subscribe-form-3175296 .row-form').hide();
+  }
+</script>
+<script src="https://groot.mailerlite.com/js/w/webforms.min.js?v300817f630ad0e957914d0b28a2b6d78" type="text/javascript"></script>
+
+	  </div>
+	</div>
+      </div>
+    </footer>
+    <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
+    <script>
+      function loadGA() {
+	  window.dataLayer = window.dataLayer || [];
+	  function gtag(){dataLayer.push(arguments);}
+	  gtag('js', new Date());
+	  gtag('config', 'UA-58109156-2');
+      }
+    </script>
+    <script defer src="https://cdn.usefathom.com/script.js" data-site="CEPUOLOQ"></script>
+  </body>
+</html>
