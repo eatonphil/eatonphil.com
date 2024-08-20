@@ -496,6 +496,23 @@ precise scenario even as the code changes.</p>
 not just to keep finding new seeds and new histories but because the
 new seeds and new histories may change every time you make changes to
 code.</p>
+<h3 id="what-about-jepsen?">What about Jepsen?</h3><p>Jepsen does limited process and network fault injection while testing
+for linearizability. It's a fantastic project.</p>
+<p>However, it represents a pure subset of what is popssible with
+Deterministic Simulation Testing (if you put in the effort to get
+there).</p>
+<p>And even more importantly, Jepsen has nothing to do with deterministic
+execution.</p>
+<p>Here's another Will Wilson
+<a href="https://antithesis.com/blog/is_something_bugging_you/">quote</a> for you
+on Jepsen:</p>
+<blockquote><p>Anyway, we did this for a while and found all of the bugs in the
+database. I know, I know, that’s an insane thing to say. It’s kind
+of true though. In the entire history of the company, I think we
+only ever had one or two bugs reported by a customer. Ever. Kyle
+Kingsbury aka “aphyr” didn’t even bother testing it with Jepsen,
+because he didn’t think he’d find anything.</p>
+</blockquote>
 <h3 id="conclusion">Conclusion</h3><p>The degree to which you can place faith in DST alone, and not time
 spent in production, has limits. However, it certainly does no harm to
 employ DST. And, barring the considerations described above, will
