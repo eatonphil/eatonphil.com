@@ -28,8 +28,9 @@ that I worry it risks coming off sounding too magical and maybe a
 little hyped. It's worth getting a better understanding of both the
 benefits and the limitations.
 
-Thank you to Alex Miller and Will Wilson for reviewing a version of
-this post.
+Thank you to [Alex Miller](https://www.linkedin.com/in/alexmillerdb/)
+and [Will Wilson](https://www.linkedin.com/in/will-wilson-330276112/)
+for reviewing a version of this post.
 
 ### Randomness and time
 
@@ -472,23 +473,30 @@ workload.
 
 Or as Will Wilson put it for me:
 
-> The biggest challenge of DST in my experience, which could be
-> thought of under the topic of workload design but is really its own
-> thing, is that tuning all the random distributions, fault injection,
-> etc. so that it actually produces interesting behavior is very
-> challenging and very labor intensive. As with fuzzing or [Property
-> Based Testing], it's terrifyingly easy to build a DST system that
-> appears to be doing a ton of testing, but actually never explores very
-> much of the state space of your program. At FoundationDB, the vast,
-> vast majority of the work we put into the simulator was this highly
-> manual iterative process of looking at was and wasn't being covered in
-> tests and figuring out how to make the tests better. The tricky part
-> is that unlike with fuzzing, mere branch coverage in your code is
-> usually a pretty poor signal for the kinds of systems you want to test
-> with DST. At Antithesis we handle this with <a
+> The biggest challenge of DST in my experience is that tuning all the
+> random distributions, the parameters of your system, the workload,
+> the fault injection, etc. so that it produces interesting behavior
+> is very challenging and very labor intensive. As with fuzzing or
+> PBT, it's terrifyingly easy to build a DST system that appears to be
+> doing a ton of testing, but actually never explores very much of the
+> state space of your system. At FoundationDB, the vast majority of
+> the work we put into the simulator was an iterative process of
+> hunting for what wasn't being covered by our tests and then figuring
+> out how to make the tests better. This process often resembles
+> science more than it does engineering.
+
+> Unfortunately, unlike with fuzzing, mere branch coverage in your
+> code is usually a pretty poor signal for the kinds of systems you
+> want to test with DST. At Antithesis we handle this with <a
 > href="https://antithesis.com/docs/best_practices/sometimes_assertions.html">Sometimes
-> assertions</a>, at [FoundationDB] we did something pretty similar...
-      
+> assertions</a>, at FDB we did something pretty similar, and I assume
+> TigerBeetle and others have their own version of this. But of course
+> the ultimate figure of merit is whether your DST system is finding
+> 100% of your bugs. It's quite difficult to get to the point that it
+> does. The truly ambitious part of Antithesis isn't the hypervisor,
+> but the fact that we also aim to solve the much harder "is my DST
+> working?" problem with minimal human guidance or supervision.
+    
 #### Consideration 3: Your knowledge of what you mocked
 
 When you mock out the behavior of disk or network IO, the benefits of
