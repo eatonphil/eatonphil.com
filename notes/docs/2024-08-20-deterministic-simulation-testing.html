@@ -63,20 +63,19 @@
     <div class="container">
       <div class="col-6">
 	<div class="post">
-          <p>Bugs in distributed systems are hard to find, largely because we have
-systems interacting in chaotic ways. It's about as far away as you can
-get from the ideal test environment: property testing a pure
-function. But what if we could write our code in a way we can replace
-the chaotic aspects of our distributed system during testing: run
-multiple programs communicating with each other on a single thread and
-control all randomness in each program? And property test this
-single-threaded version of the distributed system with controlled
-randomness, all the while injecting faults we might see in the
+          <p>Bugs in distributed systems are hard to find, largely because systems
+interact in chaotic ways. And even once you've found the bug, it can be
+anywhere from simple to impossible to reproduce it. It's about as far
+away as you can get from the ideal test environment: property testing
+a pure function.</p>
+<p>But what if we could write our code in a way that we can isolate the
+chaotic aspects of our distributed system during <i>testing</i>: run
+multiple systems communicating with each other on a <i>single
+thread</i> and control all randomness in each system? And property
+test this single-threaded version of the distributed system with
+controlled randomness, all the while injecting faults (fancy term for
+unhappy path behavior like errors and latency) we might see in the
 real-world?</p>
-<p>Because when we can control all this and run property tests, we can
-trivially replay any bug we find. Without deterministic execution it
-can be anywhere from trivial to impossible to reproduce a bug someone
-found.</p>
 <p>Crazy as it sounds, people actually do this. It's called Deterministic
 Simulation Testing (DST). And it's become more and more popular with
 startups like FoundationDB, Antithesis, TigerBeetle, Polar Signals,
@@ -86,29 +85,30 @@ talking about and making use of this technique.</p>
 that I worry it risks coming off sounding too magical and maybe a
 little hyped. It's worth getting a better understanding of both the
 benefits and the limitations.</p>
-<p>Thank you to Alex Miller for reviewing a version of this post.</p>
+<p>Thank you to Alex Miller and Will Wilson for reviewing a version of
+this post.</p>
 <h3 id="randomness-and-time">Randomness and time</h3><p>A big source of non-determinism in business logic is the use of random
 numbers—in your code or your transitive dependencies or your language
 runtime or your operating system.</p>
 <p>Crucially, DST does not imply you can't have randomness! DST merely
-attempts to control randomness. DST assumes that you can have a global
-seed for all randomness in your program and that you can inject this
-seed each time you run your program in a simulation. While you are
-property-testing the program in the simulation, you will alter the
-seed on every run.</p>
-<p>But once you observe a bad state as a result of running the simulation
-on a random seed, you allow the user to enter the same seed
-again. This allows the user to recreate the entire program run that
-led to that observed bad state. Allows the user to debug the program
-trivially.</p>
+assumes that you have a global seed for all randomness in your program
+and that the simulator controls the seed. The seed may change across
+runs of the simulator.</p>
+<p>Once you observe a bad state as a result of running the simulation on
+a random seed, you allow the user to enter the same seed again. This
+allows the user to recreate the entire program run that led to that
+observed bad state. Allows the user to debug the program trivially.</p>
 <p>Another big source of non-determinism is being dependent on time. As
 with randomness, DST does not mean you can't depend on time. DST means
 you must be able to control the clock during the simulation.</p>
-<p>DST being able to control non-determinism basically means you're doing
-dependency injection, or the old-school alternative to dependency
-injection called passing the dependency as an explicit
-parameter. Rather than referring to a global clock or a global seed,
-you need to be able to receive a clock or a seed from someone.</p>
+<p>To "control" randomness or time basically means you support dependency
+injection, or the old-school alternative to dependency injection
+called <i>passing the dependency as an explicit parameter</i>. Rather
+than referring to a global clock or a global seed, you need to be able
+to receive a clock or a seed from someone.</p>
+<p>For example we might separate the operation of an application into the
+language's <code>main()</code> entrypoint and an actual application <code>start()</code>
+entrypoint.</p>
 <div class="highlight"><pre><span></span><span class="c1"># app.pseudocode</span>
 
 <span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="n">clock</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
@@ -119,8 +119,9 @@ you need to be able to receive a clock or a seed from someone.</p>
   <span class="n">seed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
   <span class="n">app</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">clock</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
 </pre></div>
-<p>So that the simulator can do everything but the <code>main()</code> method with
-simulated clock and a seed the simulator controls:</p>
+<p>The application entrypoint is where we must be able to
+swap out a real clock or real random seed for one controlled by our
+simulator:</p>
 <div class="highlight"><pre><span></span><span class="c1"># sim.pseudocode</span>
 
 <span class="kn">import</span> <span class="s2">&quot;app.pseudocode&quot;</span>
@@ -134,11 +135,7 @@ simulated clock and a seed the simulator controls:</p>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Bad execution at seed: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">sim_seed</span><span class="p">)</span>
     <span class="n">throw</span> <span class="n">e</span>
 </pre></div>
-<p>Every time you run the simulator, it tries a new seed (unless you ask
-it to use an old seed so you can replay a bug). All states the
-application gets into are derived from this seed. Allowing you to try
-a wide range of state histories as you run the simulator time and time
-again with new seeds.</p>
+<p>Let's look at another example.</p>
 <h3 id="converting-an-existing-function">Converting an existing function</h3><p>Let's say that we had a helper method that kept calling a function
 until it succeeded, with backoff.</p>
 <div class="highlight"><pre><span></span><span class="c1"># retry.pseudocode</span>
@@ -148,12 +145,12 @@ until it succeeded, with backoff.</p>
     <span class="n">this</span><span class="o">.</span><span class="n">tries</span> <span class="o">=</span> <span class="mi">0</span>
 
   <span class="k">async</span> <span class="k">def</span> <span class="nf">retry_backoff</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
-    <span class="k">while</span> <span class="n">tries</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+    <span class="k">while</span> <span class="n">this</span><span class="o">.</span><span class="n">tries</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
       <span class="k">if</span> <span class="n">f</span><span class="p">():</span>
         <span class="k">return</span>
 
       <span class="k">await</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">this</span><span class="o">.</span><span class="n">rnd</span><span class="o">.</span><span class="n">gen</span><span class="p">())</span>
-      <span class="n">tries</span><span class="o">++</span>
+      <span class="n">this</span><span class="o">.</span><span class="n">tries</span><span class="o">++</span>
 </pre></div>
 <p>There is a single source of nondeterminism here and it's where we
 generate a seed. We could parameterize the seed, but since we want to
@@ -222,11 +219,14 @@ operating system or emulator or hypervisor layer. Realistically, that
 would require third-party systems like Antithesis or
 <a href="https://github.com/facebookexperimental/hermit">Hermit</a> (which, don't
 get excited, is not actively developed and hasn't worked on any
-interesting program of mine) or <a href="https://rr-project.org/">rr</a>. These
-systems transparently transform multi-threaded code into single
+interesting program of mine) or <a href="https://rr-project.org/">rr</a>.</p>
+<p>These systems transparently transform multi-threaded code into single
 threaded code. But also note that Hermit and rr have only limited
 ability to do fault injection which, in addition to deterministic
-execution, is a goal of ours. And you can't run them on a mac.</p>
+execution, is a goal of ours. And you can't run them on a mac. And
+<a href="https://github.com/rr-debugger/rr/issues/1373">can't</a>
+<a href="https://github.com/facebookexperimental/hermit?tab=readme-ov-file#support">run</a>
+them on ARM.</p>
 <p>But we can, and would like, to write a simulator without writing a new
 operating system or emulator or hypervisor, and without a third-party
 system. So we must limit ourselves to writing code that can be
@@ -334,8 +334,8 @@ nodes in the system to run in the same process. This would be
 basically impossible if you wanted to test a system that involved your
 application plus Kafka plus Postgres plus Redis. But if your system is
 a self-contained distributed system, such as one that embeds a Raft
-library for high availability of your application, you can multiple
-nodes into the same process!</p>
+library for high availability of your application, you can actually
+run multiple nodes into the same process!</p>
 <p>For a system like this, our simulator might look like:</p>
 <div class="highlight"><pre><span></span><span class="c1"># sim.pseudocode</span>
 <span class="kn">import</span> <span class="s2">&quot;distsys-node.pseudocode&quot;</span>
@@ -396,6 +396,11 @@ nodes into the same process!</p>
     <span class="n">nodes</span><span class="p">[</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand_in_range_inclusive</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">nodes</span><span class="p">)]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
     <span class="n">history</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
     <span class="n">assert_valid_history</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">history</span><span class="p">)</span>
+
+    <span class="c1"># Crash a process every so often</span>
+    <span class="k">if</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">0.75</span><span class="p">:</span>
+      <span class="n">node</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand_in_range_inclusive</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">)]</span>
+      <span class="n">node</span><span class="o">.</span><span class="n">restart</span><span class="p">()</span>
   <span class="n">catch</span> <span class="p">(</span><span class="n">e</span><span class="p">):</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Found logical error with seed: </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
     <span class="n">throw</span> <span class="n">e</span>
@@ -403,11 +408,14 @@ nodes into the same process!</p>
 <p>I'm completely hand waving here to demonstrate the broader point and
 not any specific testing strategy for a specific distributed
 system. The important points are that these three nodes run in the
-same process, on different ports. We run a deterministic simulated
-workload against the three node system while injecting faults. And we
-are constantly checking for an invalid state. When we get the invalid
-state, we can be sure the user can easily recreate this invalid state.</p>
-<h3 id="other-sources-of-non-determinism">Other sources of non-determinism</h3><p>Within some error rate, most CPU instructions and most CPU behavior is
+same process, on different ports.</p>
+<p>We control disk IO. We control network IO. We control how time
+elapses. We run a deterministic simulated workload against the three
+node system while injecting disk, network, and process faults.</p>
+<p>And we are constantly checking for an invalid state. When we get the
+invalid state, we can be sure the user can easily recreate this
+invalid state.</p>
+<h3 id="other-sources-of-non-determinism">Other sources of non-determinism</h3><p>Within some error margin, most CPU instructions and most CPU behavior are
 considered to be deterministic. There are, however, certain CPU
 instructions that are <a href="https://cs.stackexchange.com/questions/132842/under-which-conditions-a-given-program-is-deterministic-on-x86-64-machines/132856#132856">definitely
 not</a>. Unfortunately
@@ -416,12 +424,13 @@ that might
 system calls. It might also
 <a href="https://stackoverflow.com/a/8171032">include</a> malloc. There is very
 little to trust.</p>
-<p>Excepting Antithesis, most people doing DST seem not to worry about
-these smaller bits of nondeterminism. And it's generally agreed that
-DST is still worthwhile anyway. This makes sense since every bit of
+<p>If we <a href="https://antithesis.com/blog/deterministic_hypervisor/">ignore</a>
+Antithesis, people doing DST seem not to worry about these smaller
+bits of nondeterminism. Yet it's generally agreed that DST is still
+worthwhile anyway. The intuition here is that every bit of
 non-determinism you can eliminate makes it that much easier to
 reproduce bugs when you find them.</p>
-<p>The point is that determinism, even among DST practitioners, remains a spectrum.</p>
+<p>Put another way: determinism, even among DST practitioners, remains a spectrum.</p>
 <h3 id="considerations">Considerations</h3><p>As you may have noticed already from some of the pseudocode, DST is not a panacea.</p>
 <h4 id="consideration-1:-edges">Consideration 1: Edges</h4><p>First, because you must swap out non-deterministic parts of your code,
 you are not actually testing the entirety of your code. You are
@@ -429,7 +438,7 @@ certainly encouraged to keep the deterministic kernel large. But there
 will always be the non-deterministic edges.</p>
 <p>Without a system like Antithesis which gives you an entire
 deterministic machine, you can't test your whole program.</p>
-<p>But even with Antithesis you cannot test the integration between your
+<p>But even with Antithesis you cannot test the <i>integration</i> between your
 system and external systems. You must mock out the external systems.</p>
 <p>It's also worth noting that there are many areas where you could
 inject simulation. You could do it at a high-level RPC and storage
@@ -440,6 +449,24 @@ as much as any other type of test or benchmark.</p>
 <p>Just as you wouldn't depend on one single benchmark to qualify your
 application, you may not want to depend on a single simulated
 workload.</p>
+<p>Or as Will Wilson put it for me:</p>
+<blockquote><p>The biggest challenge of DST in my experience, which could be
+thought of under the topic of workload design but is really its own
+thing, is that tuning all the random distributions, fault injection,
+etc. so that it actually produces interesting behavior is very
+challenging and very labor intensive. As with fuzzing or [Property
+Based Testing], it's terrifyingly easy to build a DST system that
+appears to be doing a ton of testing, but actually never explores very
+much of the state space of your program. At FoundationDB, the vast,
+vast majority of the work we put into the simulator was this highly
+manual iterative process of looking at was and wasn't being covered in
+tests and figuring out how to make the tests better. The tricky part
+is that unlike with fuzzing, mere branch coverage in your code is
+usually a pretty poor signal for the kinds of systems you want to test
+with DST. At Antithesis we handle this with <a
+href="https://antithesis.com/docs/best_practices/sometimes_assertions.html">Sometimes
+assertions</a>, at FDB we did something pretty similar...</p>
+</blockquote>
 <h4 id="consideration-3:-your-knowledge-of-what-you-mocked">Consideration 3: Your knowledge of what you mocked</h4><p>When you mock out the behavior of disk or network IO, the benefits of
 DST are tied to your understanding of the spectrum of behavior that
 may happen in the real world.</p>
@@ -447,12 +474,13 @@ may happen in the real world.</p>
 bounds of the original method? What about corruption or misdirected
 IO?</p>
 <p>The flipside here is that only in deterministic simulation testing can
-you configure these crazy scenarios to happen at a configurable
-regularity. You can kick off a set of runs that have especially high
-IO latency or especially high corrupt reads/writes. Joran and I wrote
+you configure these crazy scenarios to happen at a <i>configurable
+regularity</i>. You can kick off a set of runs that have especially
+high IO latency or especially high corrupt reads/writes. Joran and I
+<a href="https://tigerbeetle.com/blog/2023-07-11-we-put-a-distributed-database-in-the-browser">wrote</a>
 a year ago about how the TigerBeetle simulator does exactly this.</p>
-<h4 id="consideration-4:-non-reproducible-seeds-as-code-changes">Consideration 4: Non-reproducible seeds as code changes</h4><p>Critically, the reproducibility of DST only helps so long as your code
-doesn't change. As soon as your code changes, the seed may no longer
+<h4 id="consideration-4:-non-reproducible-seeds-as-code-changes">Consideration 4: Non-reproducible seeds as code changes</h4><p>Critically, the reproducibility of DST only helps so long as your <i>code
+doesn't change</i>. As soon as your code changes, the seed may no longer
 even get you to the state where the bug was exhibited. So the
 reproducibility of DST means more that it may help you convert the
 seed simulation run into an integration test that describes the
