@@ -330,6 +330,10 @@ aside p {
     margin-left: -100px;
 }
 
+.highlight .err {
+    border: 0 !important;
+}
+
 .highlight pre {
     margin: 0;
 }
