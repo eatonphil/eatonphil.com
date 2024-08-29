@@ -450,6 +450,10 @@ th, td {
     border-collapse: collapse;
 }
 
+th {
+    border-top: 0;
+}
+
 @media (max-width: 650px) {
     pre {
         width: 100%;
