@@ -527,3 +527,8 @@ header .lfw .container a {
 .hide-on-index {
     display: none;
 }
+
+p.bold {
+    border: 1px solid var(--primary);
+    padding: 15px;
+}
