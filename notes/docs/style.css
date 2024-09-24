@@ -102,6 +102,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 {
+    font-size: 2.2rem;
     margin: 1rem 0 .5rem 0;
 }
 
@@ -118,7 +119,7 @@ h2.fp-h2 {
 }
 
 h3 {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
     line-height: 1.6rem;
 }
 h3.fp-h3 {
@@ -524,6 +525,10 @@ th, td {
     border-collapse: collapse;
 }
 
+th {
+    border-top: 0;
+}
+
 @media (max-width: 650px) {
     pre {
         width: 100%;
@@ -595,4 +600,9 @@ header .lfw .container a {
 
 .hide-on-index {
     display: none;
+}
+
+p.bold {
+    border: 1px solid var(--primary);
+    padding: 15px;
 }
