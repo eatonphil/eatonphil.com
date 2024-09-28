@@ -595,7 +595,8 @@ header .lfw .container > div {
 }
 
 header .lfw .container a {
-    color: #333;
+    /*color: #333;*/
+    font-size: .8rem;
 }
 
 .hide-on-index {
