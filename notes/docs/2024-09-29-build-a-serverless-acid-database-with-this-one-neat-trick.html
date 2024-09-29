@@ -94,7 +94,7 @@ follow a naming scheme that includes the transaction id in the file
 name. When a new transaction starts, it finds all existing metadata
 files and picks its own transaction id by adding 1 to the oldest
 transaction id it sees.</p>
-<p>When a transaction goes to to commit, writing the metadata file will
+<p>When a transaction goes to commit, writing the metadata file will
 fail if another transaction has already picked the same transaction
 id.</p>
 <p>If a transaction does no writes and creates no tables, the transaction

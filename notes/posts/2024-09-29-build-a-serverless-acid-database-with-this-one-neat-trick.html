@@ -42,7 +42,7 @@ name. When a new transaction starts, it finds all existing metadata
 files and picks its own transaction id by adding 1 to the oldest
 transaction id it sees.
 
-When a transaction goes to to commit, writing the metadata file will
+When a transaction goes to commit, writing the metadata file will
 fail if another transaction has already picked the same transaction
 id.
 
