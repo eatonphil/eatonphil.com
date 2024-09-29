@@ -66,9 +66,9 @@
           <p>Delta Lake is an open protocol for serverless ACID databases. Due to
 its simplicity, scalability, and the number of open-source
 implementations, it's quickly becoming the DuckDB of serverless
-transactional databases. Iceberg is a contender too, and is similar in
-many ways. But since Delta Lake is simpler (simple != better) that's
-where we'll focus in this post.</p>
+transactional databases for analytics workloads. Iceberg is a
+contender too, and is similar in many ways. But since Delta Lake is
+simpler (simple != better) that's where we'll focus in this post.</p>
 <p>Delta Lake has one of the most accessible database papers I've read
 (<a href="https://www.vldb.org/pvldb/vol13/p3411-armbrust.pdf">link</a>). It's
 kind of like the
@@ -92,7 +92,7 @@ PutIfAbsent operation on the metadata file for the transaction.</p>
 <p>This method of concurrency control works because the metadata files
 follow a naming scheme that includes the transaction id in the file
 name. When a new transaction starts, it finds all existing metadata
-files and picks its own transaction id by adding 1 to the oldest
+files and picks its own transaction id by adding 1 to the largest
 transaction id it sees.</p>
 <p>When a transaction goes to commit, writing the metadata file will
 fail if another transaction has already picked the same transaction
