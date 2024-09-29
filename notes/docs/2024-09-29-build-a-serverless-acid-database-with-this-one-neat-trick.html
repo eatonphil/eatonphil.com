@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="canonical" href="https://notes.eatonphil.com/2024-09-29-build-a-serverless-acid-database-with-this-one-neat-trick.html">
+    <title>Build a serverless ACID database with this one neat trick (atomic PutIfAbsent) | notes.eatonphil.com</title>
+    <meta name="description" content="Build a serverless ACID database with this one neat trick (atomic PutIfAbsent)" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=IBM+Plex+Mono">
+  </head>
+  <body>
+    <header>
+      <div class="lfw">
+	<div class="container">
+	  <div class="row">
+	    <a href="https://eatonphil.com/chat.html">Running databases in production? Let's chat!</a>
+	  </div>
+	</div>
+      </div>
+      <div class="container">
+        <div>
+          <div class="row">
+	    <div>
+	      <a href="https://eatonphil.com" class="sm-link">
+		Home
+              </a>
+	      <a href="/" class="sm-link">
+		Notes
+              </a>
+	      <a href="/favorites.html" class="sm-link hide-mobile">
+		Popular
+              </a>
+	      <a href="/rss.xml" class="sm-link">
+		RSS
+              </a>
+	    </div>
+
+	    <div class="subscribe">
+	      <!-- <a href="https://eatonphil.com/hire-me.html">Hire me</a> -->
+	      <!--
+		  Hardcode link to home page because some pages don't
+		  have a subscribe box. Some pages hide the subscribe.
+		-->
+	      <a class="fancy" href="https://eatonphil.com/subscribe.html">
+		Subscribe
+	      </a>
+            </div>
+	  </div>
+	  <hr />
+	  <div class="">
+            <h2>September 29, 2024</h2>
+            <h1>Build a serverless ACID database with this one neat trick (atomic PutIfAbsent)</h1>
+	    
+            <div class="row" style="padding-bottom: 5px">
+              <div class="tags"><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/go.html" class="tag">go</a><a href="/tags/delta-lake.html" class="tag">delta-lake</a></div>
+            </div>
+	  </div>
+	</div>
+      </div>
+    </header>
+    <div class="container">
+      <div class="col-6">
+	<div class="post">
+          <p>Delta Lake is an open protocol for serverless ACID databases. Due to
+its simplicity, scalability, and the number of open-source
+implementations, it's quickly becoming the DuckDB of serverless
+transactional databases. Iceberg is a contender too, and is similar in
+many ways. But since Delta Lake is simpler (simple != better) that's
+where we'll focus in this post.</p>
+<p>Delta Lake has one of the most accessible database papers I've read
+(<a href="https://www.vldb.org/pvldb/vol13/p3411-armbrust.pdf">link</a>). It's
+kind of like the
+<a href="https://github.com/xoreaxeaxeax/movfuscator">movfuscator</a> of
+databases.</p>
+<p>Thanks to its simplicity, in this post we'll implement a Delta
+Lake-inspired serverless ACID database in 500 lines of Go code with
+zero dependencies. It will support creating tables, inserting rows
+into a table, and scanning all rows in a table. All while allowing
+concurrent readers and writers and achieving <a href="https://jepsen.io/consistency">snapshot
+isolation</a>.</p>
+<p>There are other critical parts of Delta Lake we'll ignore: updating
+rows, deleting rows, checkpointing the transaction metadata log,
+compaction, and probably much more I'm not aware of. We must start
+somewhere.</p>
+<p>All code for this post is <a href="https://github.com/eatonphil/otf">available on GitHub</a>.</p>
+<h3 id="delta-lake-basics">Delta Lake basics</h3><p>Delta Lake writes immutable data files to blob storage. It stores the
+names of new data files for a transaction in a metadata file. It
+handles concurrency (i.e. achieves snapshot isolation) with an atomic
+PutIfAbsent operation on the metadata file for the transaction.</p>
+<p>This method of concurrency control works because the metadata files
+follow a naming scheme that includes the transaction id in the file
+name. When a new transaction starts, it finds all existing metadata
+files and picks its own transaction id by adding 1 to the oldest
+transaction id it sees.</p>
+<p>When a transaction goes to to commit, writing the metadata file will
+fail if another transaction has already picked the same transaction
+id.</p>
+<p>If a transaction does no writes and creates no tables, the transaction
+does not attempt to write any metadata file. Snapshot isolation!</p>
+<p>Let's dig into the implementation.</p>
+<h3 id="boilerplate">Boilerplate</h3><p>Let's give ourselves some nice assertion methods, a debug method, and
+a uuid generator. In <code>main.go</code>:</p>
+<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="s">&quot;encoding/json&quot;</span>
+<span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+<span class="w">    </span><span class="s">&quot;io&quot;</span>
+<span class="w">    </span><span class="s">&quot;os&quot;</span>
+<span class="w">    </span><span class="s">&quot;path&quot;</span>
+<span class="w">    </span><span class="s">&quot;slices&quot;</span>
+<span class="w">    </span><span class="s">&quot;strings&quot;</span>
+<span class="p">)</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">assert</span><span class="p">(</span><span class="nx">b</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="nx">msg</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">b</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">msg</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">assertEq</span><span class="p">[</span><span class="nx">C</span><span class="w"> </span><span class="kt">comparable</span><span class="p">](</span><span class="nx">a</span><span class="w"> </span><span class="nx">C</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="nx">C</span><span class="p">,</span><span class="w"> </span><span class="nx">prefix</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">a</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%s &#39;%v&#39; != &#39;%v&#39;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">prefix</span><span class="p">,</span><span class="w"> </span><span class="nx">a</span><span class="p">,</span><span class="w"> </span><span class="nx">b</span><span class="p">))</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">var</span><span class="w"> </span><span class="nx">DEBUG</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">slices</span><span class="p">.</span><span class="nx">Contains</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;--debug&quot;</span><span class="p">)</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">debug</span><span class="p">(</span><span class="nx">a</span><span class="w"> </span><span class="o">...</span><span class="kt">any</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">DEBUG</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">args</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">append</span><span class="p">([]</span><span class="kt">any</span><span class="p">{</span><span class="s">&quot;[DEBUG]&quot;</span><span class="p">},</span><span class="w"> </span><span class="nx">a</span><span class="o">...</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">args</span><span class="o">...</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c1">// https://datatracker.ietf.org/doc/html/rfc4122#section-4.4</span>
+<span class="kd">func</span><span class="w"> </span><span class="nx">uuidv4</span><span class="p">()</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">f</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Open</span><span class="p">(</span><span class="s">&quot;/dev/random&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">assert</span><span class="p">(</span><span class="nx">err</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;could not open /dev/random: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">))</span>
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+
+<span class="w">    </span><span class="nx">buf</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">n</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Read</span><span class="p">(</span><span class="nx">buf</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">assert</span><span class="p">(</span><span class="nx">err</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;could not read 16 bytes from /dev/random: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">))</span>
+<span class="w">    </span><span class="nx">assert</span><span class="p">(</span><span class="nx">n</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">buf</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;expected 16 bytes from /dev/random&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// Set bit 6 to 0</span>
+<span class="w">    </span><span class="nx">buf</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="p">^(</span><span class="nb">byte</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">6</span><span class="p">)</span>
+<span class="w">    </span><span class="c1">// Set bit 7 to 1</span>
+<span class="w">    </span><span class="nx">buf</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">7</span>
+
+<span class="w">    </span><span class="c1">// Set version</span>
+<span class="w">    </span><span class="nx">buf</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="p">^(</span><span class="nb">byte</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">4</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">buf</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="p">^(</span><span class="nb">byte</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">5</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">buf</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">6</span>
+<span class="w">    </span><span class="nx">buf</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="p">^(</span><span class="nb">byte</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">7</span><span class="p">)</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%x-%x-%x-%x-%x&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">buf</span><span class="p">[:</span><span class="mi">4</span><span class="p">],</span>
+<span class="w">        </span><span class="nx">buf</span><span class="p">[</span><span class="mi">4</span><span class="p">:</span><span class="mi">6</span><span class="p">],</span>
+<span class="w">        </span><span class="nx">buf</span><span class="p">[</span><span class="mi">6</span><span class="p">:</span><span class="mi">8</span><span class="p">],</span>
+<span class="w">        </span><span class="nx">buf</span><span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">10</span><span class="p">],</span>
+<span class="w">        </span><span class="nx">buf</span><span class="p">[</span><span class="mi">10</span><span class="p">:</span><span class="mi">16</span><span class="p">])</span>
+<span class="p">}</span>
+</pre></div>
+<p>Is that uuid method correct? Hopefully. Efficient? No. But it's
+preferable to avoid dependencies in pedagogical projects.</p>
+<p>Moving on.</p>
+<h3 id="blob-storage-requirements">Blob storage requirements</h3><p>As mentioned above, the basic requirement is that we support
+atomically writing some bytes to a location if the location doesn't
+already exist.</p>
+<p>On top of that we also need the ability to list locations by prefix,
+and the ability to read the bytes at some location.</p>
+<p class="note">
+  We'll diverge from Delta Lake in how we name files on disk. For one,
+  we'll keep all files in the same directory with a fixed prefix for
+  metadata and another table name prefix for each data file. This
+  simplifies the implementation of <code>listPrefix</code> a bit.
+</p><p>So let's set up an interface to describe these requirements:</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">objectStorage</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Must be atomic.</span>
+<span class="w">    </span><span class="nx">putIfAbsent</span><span class="p">(</span><span class="nx">name</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">bytes</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span>
+<span class="w">    </span><span class="nx">listPrefix</span><span class="p">(</span><span class="nx">prefix</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">read</span><span class="p">(</span><span class="nx">name</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>And this is literally all we need to get ACID transactions. That's crazy!</p>
+<h4 id="atomic-put-and-cloud-blob-storage">Atomic Put and cloud blob storage</h4><p>We could implement the atomic <code>putIfAbsent</code> part of this interface in
+2024 using <a href="https://aws.amazon.com/about-aws/whats-new/2024/08/amazon-s3-conditional-writes/">conditional
+writes</a>
+on S3. Or we could implement this interface with the <code>If-None-Match</code>
+<a href="https://learn.microsoft.com/en-us/rest/api/storageservices/specifying-conditional-headers-for-blob-service-operations">header</a>
+on Azure Cloud Storage. Or we could implement this interface with the
+<code>x-goog-if-generation-match</code>
+<a href="https://cloud.google.com/storage/docs/xml-api/put-object">header</a> on
+Google Cloud Storage.</p>
+<p>Indeed a good exercise for the reader would be to implement this
+interface for other blob storage providers and see your serverless
+cloud database in action!</p>
+<p>But the simplest method of all is to implement it on the filesystem,
+which is what we'll do next.</p>
+<h3 id="a-filesystem-blob-store">A filesystem blob store</h3><p>If we had a server we could implement atomic <code>putIfAbsent</code> with a
+mutex. But we're serverless baby. Thankfully, POSIX <a href="https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html">supports atomic
+file
+creation</a>
+if you open the file with <code>O_CREAT | O_EXCL</code>.</p>
+<p>So we'll just open the file and write out all the bytes. If there is
+an error at any point, we must remove the file.</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">fileObjectStorage</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">basedir</span><span class="w"> </span><span class="kt">string</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">newFileObjectStorage</span><span class="p">(</span><span class="nx">basedir</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="nx">fileObjectStorage</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">fileObjectStorage</span><span class="p">{</span><span class="nx">basedir</span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">fos</span><span class="w"> </span><span class="o">*</span><span class="nx">fileObjectStorage</span><span class="p">)</span><span class="w"> </span><span class="nx">putIfAbsent</span><span class="p">(</span><span class="nx">name</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">bytes</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">filename</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">fos</span><span class="p">.</span><span class="nx">basedir</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">f</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">OpenFile</span><span class="p">(</span><span class="nx">filename</span><span class="p">,</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">O_WRONLY</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_EXCL</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_CREATE</span><span class="p">,</span><span class="w"> </span><span class="mo">0644</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">written</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="nx">bufSize</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">16</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">written</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">bytes</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">toWrite</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">min</span><span class="p">(</span><span class="nx">written</span><span class="o">+</span><span class="nx">bufSize</span><span class="p">,</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">bytes</span><span class="p">))</span>
+<span class="w">        </span><span class="nx">n</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">bytes</span><span class="p">[</span><span class="nx">written</span><span class="p">:</span><span class="nx">toWrite</span><span class="p">])</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">removeErr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">filename</span><span class="p">)</span>
+<span class="w">            </span><span class="nx">assert</span><span class="p">(</span><span class="nx">removeErr</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not remove&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="nx">written</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">n</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Sync</span><span class="p">()</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">removeErr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">filename</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assert</span><span class="p">(</span><span class="nx">removeErr</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not remove&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">removeErr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">filename</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assert</span><span class="p">(</span><span class="nx">removeErr</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not remove&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
+<p><code>listPrefix</code> and <code>read</code> are minimal wrappers around filesystem APIs:</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">fos</span><span class="w"> </span><span class="o">*</span><span class="nx">fileObjectStorage</span><span class="p">)</span><span class="w"> </span><span class="nx">listPrefix</span><span class="p">(</span><span class="nx">prefix</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">dir</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">fos</span><span class="p">.</span><span class="nx">basedir</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">f</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Open</span><span class="p">(</span><span class="nx">dir</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">files</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">io</span><span class="p">.</span><span class="nx">EOF</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">names</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span>
+<span class="w">        </span><span class="nx">names</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Readdirnames</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">io</span><span class="p">.</span><span class="nx">EOF</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">n</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">names</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">prefix</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">strings</span><span class="p">.</span><span class="nx">HasPrefix</span><span class="p">(</span><span class="nx">n</span><span class="p">,</span><span class="w"> </span><span class="nx">prefix</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">files</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">files</span><span class="p">,</span><span class="w"> </span><span class="nx">n</span><span class="p">)</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">files</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">fos</span><span class="w"> </span><span class="o">*</span><span class="nx">fileObjectStorage</span><span class="p">)</span><span class="w"> </span><span class="nx">read</span><span class="p">(</span><span class="nx">name</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">filename</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">fos</span><span class="p">.</span><span class="nx">basedir</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="p">)</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">ReadFile</span><span class="p">(</span><span class="nx">filename</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>It is worth talking a bit about reading a directory though. Go doesn't
+provide a nice iterator API for us and I didn't want to implement this
+as callbacks with
+<a href="https://pkg.go.dev/path/filepath#WalkDir"><code>path/filepath.WalkDir</code></a>.</p>
+<p>We could use <a href="https://pkg.go.dev/os#File.ReadDir"><code>os.File.ReadDir</code></a>
+but it allocates for all files in the directory. Sure, in a
+pedagogical project we don't worry about millions of files. But the
+<code>ReadDir</code> API, the error cases in particular, also isn't much simpler
+than <a href="https://pkg.go.dev/os#File.Readdirnames"><code>Readdirnames</code></a>.</p>
+<p class="note">
+  What's more, even though we iterated through batches of directory
+  entries, and did prefix filtering before accumulating, we still could
+  have considered returning an iterator here ourselves. It seems
+  possible and likely that the number of data files grows quite large in
+  a production system. But I was lazy.
+</p><p>It would be nice if Go introduced an actual iterator API for
+reading a directory. :)</p>
+<h4 id="delta-lake-and-stale-reads">Delta Lake and stale reads</h4><p>In any case the ACID properties of Delta Lake (and Iceberg) don't
+depend on being able to read up-to-date data.</p>
+<p>This is because concurrent (or stale) transactions that <em>write</em> will
+<em>fail on commit</em>. And also because all files written (even metadata
+files) are immutable.</p>
+<p>Since all data is immutable, we will always be able to read at least a
+consistent snapshot of data. But we will never be able to get
+SERIALIZABLE <strong>read-only</strong> transactions. This is just how Delta Lake
+and Iceberg work. And it is a <a href="https://jepsen.io/consistency">similar</a>
+or better consistency level to what any major SQL database <a href="https://github.com/ept/hermitage">gives you
+by default</a>.</p>
+<p>You'll see what I mean later on when we implement transaction commits.</p>
+<h3 id="transaction-boilerplate">Transaction boilerplate</h3><p>Now that we've got a blob storage abstraction and a filesystem
+implementation of it, let's start sketching out what a client and what
+a transaction looks like.</p>
+<p>In Delta Lake, a transaction consists of a list of actions. An action
+might be to define a table's schema, or to add a data file, or to
+remove a data file, etc. In this post we'll only implement the first
+two actions.</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">DataobjectAction</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">Name</span><span class="w">  </span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">Table</span><span class="w"> </span><span class="kt">string</span>
+<span class="p">}</span>
+
+<span class="kd">type</span><span class="w"> </span><span class="nx">ChangeMetadataAction</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">Table</span><span class="w">   </span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">Columns</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span>
+<span class="p">}</span>
+
+<span class="c1">// an enum, only one field will be non-nil</span>
+<span class="kd">type</span><span class="w"> </span><span class="nx">Action</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">AddDataobject</span><span class="w">  </span><span class="o">*</span><span class="nx">DataobjectAction</span>
+<span class="w">    </span><span class="nx">ChangeMetadata</span><span class="w"> </span><span class="o">*</span><span class="nx">ChangeMetadataAction</span>
+<span class="w">    </span><span class="c1">// TODO: Support object removal.</span>
+<span class="w">    </span><span class="c1">// DeleteDataobject *DataobjectAction</span>
+<span class="p">}</span>
+</pre></div>
+<p>These fields are all exported (i.e. capitalized, if you're not
+familiar with Go) because we will be writing them to disk when the
+transaction commits as the transaction's metadata.</p>
+<p>In fact <code>Action</code>s and the transaction's id will be the only parts of
+the transaction we write to disk. Everything else will be in-memory
+state.</p>
+<p>For our convenience we will track in memory a history of all previous
+actions, a mapping of table columns, and a mapping of unflushed data
+by table.</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">transaction</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">Id</span><span class="w"> </span><span class="kt">int</span>
+
+<span class="w">    </span><span class="c1">// Both are mapping table name to a list of actions on the table.</span>
+<span class="w">    </span><span class="nx">previousActions</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">][]</span><span class="nx">Action</span>
+<span class="w">    </span><span class="nx">Actions</span><span class="w">         </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">][]</span><span class="nx">Action</span>
+
+<span class="w">    </span><span class="c1">// Mapping tables to column names.</span>
+<span class="w">    </span><span class="nx">tables</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">][]</span><span class="kt">string</span>
+
+<span class="w">    </span><span class="c1">// Mapping table name to unflushed/in-memory rows. When rows</span>
+<span class="w">    </span><span class="c1">// are flushed, the dataobject that contains them is added to</span>
+<span class="w">    </span><span class="c1">// `tx.actions` above and `tx.unflushedDataPointer[table]` is</span>
+<span class="w">    </span><span class="c1">// reset to `0`.</span>
+<span class="w">    </span><span class="nx">unflushedData</span><span class="w">        </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="o">*</span><span class="p">[</span><span class="nx">DATAOBJECT_SIZE</span><span class="p">][]</span><span class="kt">any</span>
+<span class="w">    </span><span class="nx">unflushedDataPointer</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">int</span>
+<span class="p">}</span>
+</pre></div>
+<p>Only the current <code>transaction</code> will ever have
+<code>transaction.previousActions</code> filled out. <code>transaction.tables</code> will be
+populated when the transaction starts by reading through
+<code>transaction.previousActions</code> for <code>ChangeMetadataAction</code>s, and we will
+also add onto it when we create a table in the current transaction.</p>
+<p>We will append to <code>transaction.Actions</code> every time we write a new data
+file and every time we create a new table.</p>
+<p>We will add rows to <code>transaction.unflushedData</code> for a table until
+<code>transaction.unflushedDataPointer</code> for that table reaches
+<code>DATAOBJECT_SIZE</code> upon which time we will write that data to disk and
+add a <code>DataobjectAction</code> entry to <code>transaction.Actions</code>.</p>
+<h3 id="client-boilerplate">Client boilerplate</h3><p>A <code>client</code> will consistent of an <code>objectStorage</code> implementation and a
+possibly empty <code>*transaction</code>. Empty meaning there is no current
+transaction.</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">client</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">os</span><span class="w"> </span><span class="nx">objectStorage</span>
+<span class="w">    </span><span class="c1">// Current transaction, if any. Only one transaction per</span>
+<span class="w">    </span><span class="c1">// client at a time. All reads and writes must be within a</span>
+<span class="w">    </span><span class="c1">// transaction.</span>
+<span class="w">    </span><span class="nx">tx</span><span class="w"> </span><span class="o">*</span><span class="nx">transaction</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">newClient</span><span class="p">(</span><span class="nx">os</span><span class="w"> </span><span class="nx">objectStorage</span><span class="p">)</span><span class="w"> </span><span class="nx">client</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">client</span><span class="p">{</span><span class="nx">os</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">var</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="nx">errExistingTx</span><span class="w">  </span><span class="p">=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Existing Transaction&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">errNoTx</span><span class="w">        </span><span class="p">=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;No Transaction&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">errTableExists</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Table Exists&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">errNoTable</span><span class="w">     </span><span class="p">=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;No Such Table&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+<h4 id="client-or-database?">Client or database?</h4><p>In a previous version of my code I named this <code>client</code> struct
+<code>database</code>. But that's misleading. There is no central database. There
+is just the client and the blob storage.</p>
+<p>Clients work with transactions directly and only when attempting to
+commit does the blob storage abstraction let the client know if the
+transaction succeeded or not.</p>
+<h3 id="starting-a-transaction">Starting a transaction</h3><p>When we start a transaction, we will first read all existing
+transactions from disk and accumulate the actions from each prior
+transaction.</p>
+<p>We will interpret <code>ChangeMetadataAction</code>s and materialize them into a
+current view of all tables.</p>
+<p>And we will assign a transaction ID to this transaction to be 1
+greater than the largest existing transaction ID we see.</p>
+<p>Again it doesn't matter if the <code>listPrefix</code> call we use returns an
+up-to-date list. Out-of-date transactions attempting to write will be
+caught when we go to commit the transaction.</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">client</span><span class="p">)</span><span class="w"> </span><span class="nx">newTx</span><span class="p">()</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">errExistingTx</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">logPrefix</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;_log_&quot;</span>
+<span class="w">    </span><span class="nx">txLogFilenames</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">os</span><span class="p">.</span><span class="nx">listPrefix</span><span class="p">(</span><span class="nx">logPrefix</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">tx</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">transaction</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">tx</span><span class="p">.</span><span class="nx">previousActions</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">][]</span><span class="nx">Action</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">tx</span><span class="p">.</span><span class="nx">Actions</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">][]</span><span class="nx">Action</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">tx</span><span class="p">.</span><span class="nx">tables</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">][]</span><span class="kt">string</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedData</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="o">*</span><span class="p">[</span><span class="nx">DATAOBJECT_SIZE</span><span class="p">][]</span><span class="kt">any</span><span class="p">{}</span>
+<span class="w">    </span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedDataPointer</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">int</span><span class="p">{}</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">txLogFilename</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">txLogFilenames</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">bytes</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">os</span><span class="p">.</span><span class="nx">read</span><span class="p">(</span><span class="nx">txLogFilename</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="kd">var</span><span class="w"> </span><span class="nx">oldTx</span><span class="w"> </span><span class="nx">transaction</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">Unmarshal</span><span class="p">(</span><span class="nx">bytes</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">oldTx</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="c1">// Transaction metadata files are sorted</span>
+<span class="w">        </span><span class="c1">// lexicographically so that the most recent</span>
+<span class="w">        </span><span class="c1">// transaction (i.e. the one with the largest</span>
+<span class="w">        </span><span class="c1">// transaction id) will be last and tx.Id will end up</span>
+<span class="w">        </span><span class="c1">// 1 greater than the most recent transaction ID we</span>
+<span class="w">        </span><span class="c1">// see on disk.</span>
+<span class="w">        </span><span class="nx">tx</span><span class="p">.</span><span class="nx">Id</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">oldTx</span><span class="p">.</span><span class="nx">Id</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="nx">table</span><span class="p">,</span><span class="w"> </span><span class="nx">actions</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">oldTx</span><span class="p">.</span><span class="nx">Actions</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">action</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">actions</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="nx">action</span><span class="p">.</span><span class="nx">AddDataobject</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nx">tx</span><span class="p">.</span><span class="nx">previousActions</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">tx</span><span class="p">.</span><span class="nx">previousActions</span><span class="p">[</span><span class="nx">table</span><span class="p">],</span><span class="w"> </span><span class="nx">action</span><span class="p">)</span>
+<span class="w">                </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nx">action</span><span class="p">.</span><span class="nx">ChangeMetadata</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="c1">// Store the latest version of</span>
+<span class="w">                    </span><span class="c1">// each table in memory for</span>
+<span class="w">                    </span><span class="c1">// easy lookup.</span>
+<span class="w">                    </span><span class="nx">mtd</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">action</span><span class="p">.</span><span class="nx">ChangeMetadata</span>
+<span class="w">                    </span><span class="nx">tx</span><span class="p">.</span><span class="nx">tables</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">mtd</span><span class="p">.</span><span class="nx">Columns</span>
+<span class="w">                </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nb">panic</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;unsupported action: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">action</span><span class="p">))</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">tx</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
+<p>And we're set.</p>
+<h3 id="creating-a-table">Creating a table</h3><p>When we create a table, we need to add a <code>ChangeMetadataAction</code> to the
+transactions <code>Actions</code>. And we also want to add the table info to the
+in-memory <code>transaction.tables</code> field.</p>
+<p>We don't do any of this durably. The change here will be written to
+disk on commit (if the transaction succeeds).</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">client</span><span class="p">)</span><span class="w"> </span><span class="nx">createTable</span><span class="p">(</span><span class="nx">table</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">columns</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">errNoTx</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">exists</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">tables</span><span class="p">[</span><span class="nx">table</span><span class="p">];</span><span class="w"> </span><span class="nx">exists</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">errTableExists</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Store it in the in-memory mapping.</span>
+<span class="w">    </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">tables</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">columns</span>
+
+<span class="w">    </span><span class="c1">// And also add it to the action history for future transactions.</span>
+<span class="w">    </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">Actions</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">Actions</span><span class="p">[</span><span class="nx">table</span><span class="p">],</span><span class="w"> </span><span class="nx">Action</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">ChangeMetadata</span><span class="p">:</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">ChangeMetadataAction</span><span class="p">{</span>
+<span class="w">            </span><span class="nx">Table</span><span class="p">:</span><span class="w">   </span><span class="nx">table</span><span class="p">,</span>
+<span class="w">            </span><span class="nx">Columns</span><span class="p">:</span><span class="w"> </span><span class="nx">columns</span><span class="p">,</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">    </span><span class="p">})</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
+<p>Easy peasy. Now for the fun part, writing data!</p>
+<h3 id="writing-a-row">Writing a row</h3><p>This is the next area where we'll diverge from Delta Lake. For the
+sake of zero dependencies we are going to store data in-memory as an
+array of array of <code>any</code>. And when we later write rows to disk we'll
+write them as JSON. A real Delta Lake implementation would store data
+in-memory in Apache Arrow format, and write to disk as Parquet.</p>
+<p>In line with Delta Lake though we will buffer data in memory until we
+get 64K rows. When we get 64K rows for a particular table we will
+flush all those rows to disk. (When we go to commit a transaction we
+will flush any outstanding rows.)</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">client</span><span class="p">)</span><span class="w"> </span><span class="nx">writeRow</span><span class="p">(</span><span class="nx">table</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">row</span><span class="w"> </span><span class="p">[]</span><span class="kt">any</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">errNoTx</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">tables</span><span class="p">[</span><span class="nx">table</span><span class="p">];</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">errNoTable</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Try to find an unflushed/in-memory dataobject for this table</span>
+<span class="w">    </span><span class="nx">pointer</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedDataPointer</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedDataPointer</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">        </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedData</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[</span><span class="nx">DATAOBJECT_SIZE</span><span class="p">][]</span><span class="kt">any</span><span class="p">{}</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">pointer</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nx">DATAOBJECT_SIZE</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">d</span><span class="p">.</span><span class="nx">flushRows</span><span class="p">(</span><span class="nx">table</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">pointer</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedData</span><span class="p">[</span><span class="nx">table</span><span class="p">][</span><span class="nx">pointer</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">row</span>
+<span class="w">    </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedDataPointer</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span><span class="o">++</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
+<p>Now let's implement flushing.</p>
+<h3 id="flushing-a-data-object">Flushing a data object</h3><p>Recall that data objects in Delta Lake (and Iceberg) are
+immutable. Once we've got enough data to write a data object, we give
+it a unique name, write it to disk, and add a <code>AddObjectAction</code> to the
+transaction's list of <code>Actions</code>.</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">dataobject</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">Table</span><span class="w"> </span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">Name</span><span class="w">  </span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">Data</span><span class="w">  </span><span class="p">[</span><span class="nx">DATAOBJECT_SIZE</span><span class="p">][]</span><span class="kt">any</span>
+<span class="w">    </span><span class="nx">Len</span><span class="w">   </span><span class="kt">int</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">client</span><span class="p">)</span><span class="w"> </span><span class="nx">flushRows</span><span class="p">(</span><span class="nx">table</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">errNoTx</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// First write out dataobject if there is anything to write out.</span>
+<span class="w">    </span><span class="nx">pointer</span><span class="p">,</span><span class="w"> </span><span class="nx">exists</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedDataPointer</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">exists</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">pointer</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">df</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dataobject</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">Table</span><span class="p">:</span><span class="w"> </span><span class="nx">table</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">Name</span><span class="p">:</span><span class="w">  </span><span class="nx">uuidv4</span><span class="p">(),</span>
+<span class="w">        </span><span class="nx">Data</span><span class="p">:</span><span class="w">  </span><span class="o">*</span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedData</span><span class="p">[</span><span class="nx">table</span><span class="p">],</span>
+<span class="w">        </span><span class="nx">Len</span><span class="p">:</span><span class="w">   </span><span class="nx">pointer</span><span class="p">,</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nx">bytes</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">Marshal</span><span class="p">(</span><span class="nx">df</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">os</span><span class="p">.</span><span class="nx">putIfAbsent</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;_table_%s_%s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">table</span><span class="p">,</span><span class="w"> </span><span class="nx">df</span><span class="p">.</span><span class="nx">Name</span><span class="p">),</span><span class="w"> </span><span class="nx">bytes</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Then record the newly written data file.</span>
+<span class="w">    </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">Actions</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">Actions</span><span class="p">[</span><span class="nx">table</span><span class="p">],</span><span class="w"> </span><span class="nx">Action</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">AddDataobject</span><span class="p">:</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">DataobjectAction</span><span class="p">{</span>
+<span class="w">            </span><span class="nx">Table</span><span class="p">:</span><span class="w"> </span><span class="nx">table</span><span class="p">,</span>
+<span class="w">            </span><span class="nx">Name</span><span class="p">:</span><span class="w">  </span><span class="nx">df</span><span class="p">.</span><span class="nx">Name</span><span class="p">,</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">    </span><span class="p">})</span>
+
+<span class="w">    </span><span class="c1">// Reset in-memory pointer.</span>
+<span class="w">    </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedDataPointer</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
+<p>That's it for writing data! Let's now look at reading data.</p>
+<h3 id="scanning-a-table">Scanning a table</h3><p>We're going to make scanning mildly more complicated than it needed to
+be in pedagogical code because we'll have <code>client.scan()</code> return an
+iterator rather than an array with all rows.</p>
+<p>The <code>scanIterator</code> will first read from in-memory (unflushed)
+data. And then it will read through every data object for the table
+that is still a part of this transaction. We will know which data
+objects are still a part of this transaction by reading through all
+<code>AddDataobject</code> actions. A future version of this project would also
+eliminate data object files from the list by observing
+<code>DeleteDataobject</code> actions. But we don't do that in this post.</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">client</span><span class="p">)</span><span class="w"> </span><span class="nx">scan</span><span class="p">(</span><span class="nx">table</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">scanIterator</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">errNoTx</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">dataobjects</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">allActions</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">previousActions</span><span class="p">[</span><span class="nx">table</span><span class="p">],</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">Actions</span><span class="p">[</span><span class="nx">table</span><span class="p">]</span><span class="o">...</span><span class="p">)</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">action</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">allActions</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">action</span><span class="p">.</span><span class="nx">AddDataobject</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">dataobjects</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">dataobjects</span><span class="p">,</span><span class="w"> </span><span class="nx">action</span><span class="p">.</span><span class="nx">AddDataobject</span><span class="p">.</span><span class="nx">Name</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">unflushedRows</span><span class="w"> </span><span class="p">[</span><span class="nx">DATAOBJECT_SIZE</span><span class="p">][]</span><span class="kt">any</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">data</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedData</span><span class="p">[</span><span class="nx">table</span><span class="p">];</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">unflushedRows</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="o">*</span><span class="nx">data</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">scanIterator</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">unflushedRows</span><span class="p">:</span><span class="w">    </span><span class="nx">unflushedRows</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">unflushedRowsLen</span><span class="p">:</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">unflushedDataPointer</span><span class="p">[</span><span class="nx">table</span><span class="p">],</span>
+<span class="w">        </span><span class="nx">d</span><span class="p">:</span><span class="w">                </span><span class="nx">d</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">table</span><span class="p">:</span><span class="w">            </span><span class="nx">table</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">dataobjects</span><span class="p">:</span><span class="w">      </span><span class="nx">dataobjects</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
+<p>The <code>scanIterator</code> needs to track where we are in in-memory rows, in
+data objects, and within a particular data object.</p>
+<div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">scanIterator</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">d</span><span class="w">     </span><span class="o">*</span><span class="nx">client</span>
+<span class="w">    </span><span class="nx">table</span><span class="w"> </span><span class="kt">string</span>
+
+<span class="w">    </span><span class="c1">// First we iterate through unflushed rows.</span>
+<span class="w">    </span><span class="nx">unflushedRows</span><span class="w">       </span><span class="p">[</span><span class="nx">DATAOBJECT_SIZE</span><span class="p">][]</span><span class="kt">any</span>
+<span class="w">    </span><span class="nx">unflushedRowsLen</span><span class="w">    </span><span class="kt">int</span>
+<span class="w">    </span><span class="nx">unflushedRowPointer</span><span class="w"> </span><span class="kt">int</span>
+
+<span class="w">    </span><span class="c1">// Then we move through each dataobject.</span>
+<span class="w">    </span><span class="nx">dataobjects</span><span class="w">        </span><span class="p">[]</span><span class="kt">string</span>
+<span class="w">    </span><span class="nx">dataobjectsPointer</span><span class="w"> </span><span class="kt">int</span>
+
+<span class="w">    </span><span class="c1">// And within each dataobject we iterate through rows.</span>
+<span class="w">    </span><span class="nx">dataobject</span><span class="w">           </span><span class="o">*</span><span class="nx">dataobject</span>
+<span class="w">    </span><span class="nx">dataobjectRowPointer</span><span class="w"> </span><span class="kt">int</span>
+<span class="p">}</span>
+</pre></div>
+<p>And the <code>scanIterator</code> will be driven by a <code>next()</code> method that goes
+through in-memory data first and then through what's on disk.</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">client</span><span class="p">)</span><span class="w"> </span><span class="nx">readDataobject</span><span class="p">(</span><span class="nx">table</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">dataobject</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">bytes</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">os</span><span class="p">.</span><span class="nx">read</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;_table_%s_%s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">table</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="p">))</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">do</span><span class="w"> </span><span class="nx">dataobject</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">Unmarshal</span><span class="p">(</span><span class="nx">bytes</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">do</span><span class="p">)</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">do</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="p">}</span>
+
+<span class="c1">// returns (nil, nil) when done</span>
+<span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">si</span><span class="w"> </span><span class="o">*</span><span class="nx">scanIterator</span><span class="p">)</span><span class="w"> </span><span class="nx">next</span><span class="p">()</span><span class="w"> </span><span class="p">([]</span><span class="kt">any</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Iterate through in-memory rows first.</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">si</span><span class="p">.</span><span class="nx">unflushedRowPointer</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nx">si</span><span class="p">.</span><span class="nx">unflushedRowsLen</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">row</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">si</span><span class="p">.</span><span class="nx">unflushedRows</span><span class="p">[</span><span class="nx">si</span><span class="p">.</span><span class="nx">unflushedRowPointer</span><span class="p">]</span>
+<span class="w">        </span><span class="nx">si</span><span class="p">.</span><span class="nx">unflushedRowPointer</span><span class="o">++</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">row</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// If we&#39;ve gotten through all dataobjects on disk we&#39;re done.</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobjectsPointer</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobjects</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobject</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">name</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobjects</span><span class="p">[</span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobjectsPointer</span><span class="p">]</span>
+<span class="w">        </span><span class="nx">o</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">si</span><span class="p">.</span><span class="nx">d</span><span class="p">.</span><span class="nx">readDataobject</span><span class="p">(</span><span class="nx">si</span><span class="p">.</span><span class="nx">table</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobject</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">o</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobjectRowPointer</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobject</span><span class="p">.</span><span class="nx">Len</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobjectsPointer</span><span class="o">++</span>
+<span class="w">        </span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobject</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobjectRowPointer</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">si</span><span class="p">.</span><span class="nx">next</span><span class="p">()</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">row</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobject</span><span class="p">.</span><span class="nx">Data</span><span class="p">[</span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobjectRowPointer</span><span class="p">]</span>
+<span class="w">    </span><span class="nx">si</span><span class="p">.</span><span class="nx">dataobjectRowPointer</span><span class="o">++</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">row</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
+<p>That's it for scanning a table! The final piece of the puzzle is
+committing a transaction.</p>
+<h3 id="committing-a-transaction">Committing a transaction</h3><p>When we commit a transaction we must flush any remaining data. A
+read-only transaction (one which has no <code>Actions</code>) is immediately
+done. There is no concurrency check.</p>
+<p>Otherwise we will serialize transaction state and attempt to
+atomically <code>putIfAbsent</code>.</p>
+<p>The only way this will fail is if there is another concurrent writer.</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">client</span><span class="p">)</span><span class="w"> </span><span class="nx">commitTx</span><span class="p">()</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">errNoTx</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Flush any outstanding data</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">table</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">tables</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">flushRows</span><span class="p">(</span><span class="nx">table</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">wrote</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">actions</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">Actions</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">actions</span><span class="p">)</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">wrote</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="c1">// Read-only transaction, no need to do a concurrency check.</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">wrote</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">filename</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;_log_%020d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">Id</span><span class="p">)</span>
+<span class="w">    </span><span class="c1">// We won&#39;t store previous actions, they will be recovered on</span>
+<span class="w">    </span><span class="c1">// new transactions. So unset them. Honestly not totally</span>
+<span class="w">    </span><span class="c1">// clear why.</span>
+<span class="w">    </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">.</span><span class="nx">previousActions</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="nx">bytes</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">json</span><span class="p">.</span><span class="nx">Marshal</span><span class="p">(</span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">os</span><span class="p">.</span><span class="nx">putIfAbsent</span><span class="p">(</span><span class="nx">filename</span><span class="p">,</span><span class="w"> </span><span class="nx">bytes</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">nil</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="p">}</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nb">panic</span><span class="p">(</span><span class="s">&quot;unimplemented&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>This is the crux of Delta Lake. It's simple. And honestly it's a bit
+shocking. Real Delta Lake does support automatic retries in some
+cases. But primarily you are limited to a single writer per table,
+even if the writers are writing non-conflicting rows. Iceberg is
+basically the same here, it's just how metadata is tracked that
+differs.</p>
+<p>The Delta Lake and Iceberg folks apparently wanted to avoid
+FoundationDB (i.e. the Snowflake architecture, which is mentioned in
+the Delta Lake paper) so much that they'd give up row-level
+concurrency to be mostly serverless.</p>
+<p>Is it worth it? Dunno. Delta Lake and Iceberg are getting massive
+adoption. Many very smart people have worked, and continue to work, on
+both. Moreover it is apparently what the market wants. Every
+database-like product is implementing, or is planning to implement,
+Delta Lake or Iceberg.</p>
+<h3 id="trying-it-out">Trying it out</h3><p>Let's add a test in <code>main_test.go</code> to see what happens with concurrent
+writers. Follow the comments and debug logs for details:</p>
+<div class="highlight"><pre><span></span><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="s">&quot;os&quot;</span>
+<span class="w">    </span><span class="s">&quot;testing&quot;</span>
+<span class="p">)</span>
+
+<span class="kd">func</span><span class="w"> </span><span class="nx">TestConcurrentTableWriters</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">dir</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">MkdirTemp</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;test-database&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">dir</span><span class="p">)</span>
+
+<span class="w">    </span><span class="nx">fos</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newFileObjectStorage</span><span class="p">(</span><span class="nx">dir</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">c1Writer</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newClient</span><span class="p">(</span><span class="nx">fos</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">c2Writer</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newClient</span><span class="p">(</span><span class="nx">fos</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// Have c2Writer start up a transaction.</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2Writer</span><span class="p">.</span><span class="nx">newTx</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not start first c2 tx&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c2] new tx&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// But then have c1Writer start a transaction and commit it first.</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">newTx</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not start first c1 tx&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1] new tx&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">createTable</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;a&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;b&quot;</span><span class="p">})</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not create x&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1] Created table&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">writeRow</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">any</span><span class="p">{</span><span class="s">&quot;Joey&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">})</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not write first row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1] Wrote row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">writeRow</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">any</span><span class="p">{</span><span class="s">&quot;Yue&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">})</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not write second row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1] Wrote row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">commitTx</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not commit tx&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1] Committed tx&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// Now go back to c2 and write data.</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2Writer</span><span class="p">.</span><span class="nx">createTable</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;a&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;b&quot;</span><span class="p">})</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not create x&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c2] Created table&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2Writer</span><span class="p">.</span><span class="nx">writeRow</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">any</span><span class="p">{</span><span class="s">&quot;Holly&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">})</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not write first row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c2] Wrote row&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2Writer</span><span class="p">.</span><span class="nx">commitTx</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">assert</span><span class="p">(</span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;concurrent commit must fail&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c2] tx not committed&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>Try it out:</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>go<span class="w"> </span>mod<span class="w"> </span>init<span class="w"> </span>otf
+<span class="gp">$ </span>go<span class="w"> </span>mod<span class="w"> </span>tidy
+<span class="gp">$ </span>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-run<span class="w"> </span>TestConcurrentTableWriters<span class="w"> </span>--<span class="w"> </span>--debug
+<span class="go">[DEBUG] [c2] new tx</span>
+<span class="go">[DEBUG] [c1] new tx</span>
+<span class="go">[DEBUG] [c1] Created table</span>
+<span class="go">[DEBUG] [c1] Wrote row</span>
+<span class="go">[DEBUG] [c1] Wrote row</span>
+<span class="go">[DEBUG] [c1] Committed tx</span>
+<span class="go">[DEBUG] [c2] Created table</span>
+<span class="go">[DEBUG] [c2] Wrote row</span>
+<span class="go">[DEBUG] [c2] tx not committed</span>
+<span class="go">PASS</span>
+<span class="go">ok      otf 0.311s</span>
+</pre></div>
+<p>That's pretty cool.</p>
+<p>And what about a reader and concurrent writer? Observe that the reader
+always reads a snapshot. Follow the comments again for detail:</p>
+<div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="nx">TestConcurrentReaderWithWriterReadsSnapshot</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">dir</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">MkdirTemp</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;test-database&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">dir</span><span class="p">)</span>
+
+<span class="w">    </span><span class="nx">fos</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newFileObjectStorage</span><span class="p">(</span><span class="nx">dir</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">c1Writer</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newClient</span><span class="p">(</span><span class="nx">fos</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">c2Reader</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">newClient</span><span class="p">(</span><span class="nx">fos</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// First create some data and commit the transaction.</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">newTx</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not start first c1 tx&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1Writer] Started tx&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">createTable</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;a&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;b&quot;</span><span class="p">})</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not create x&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1Writer] Created table&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">writeRow</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">any</span><span class="p">{</span><span class="s">&quot;Joey&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">})</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not write first row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1Writer] Wrote row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">writeRow</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">any</span><span class="p">{</span><span class="s">&quot;Yue&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">})</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not write second row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1Writer] Wrote row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">commitTx</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not commit tx&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1Writer] Committed tx&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// Now start a new transaction for more edits.</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">newTx</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not start second c1 tx&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1Writer] Starting new write tx&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// Before we commit this second write-transaction, start a</span>
+<span class="w">    </span><span class="c1">// read transaction.</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2Reader</span><span class="p">.</span><span class="nx">newTx</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not start c2 tx&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c2Reader] Started tx&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// Write and commit rows in c1.</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">writeRow</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">any</span><span class="p">{</span><span class="s">&quot;Ada&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">})</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not write third row&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1Writer] Wrote third row&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// Scan x in read-only transaction</span>
+<span class="w">    </span><span class="nx">it</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c2Reader</span><span class="p">.</span><span class="nx">scan</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not scan x&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c2Reader] Started scanning&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">seen</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">row</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">it</span><span class="p">.</span><span class="nx">next</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not iterate x scan&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">row</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c2Reader] Done scanning&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c2Reader] Got row in reader tx&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">row</span><span class="p">)</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">seen</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="s">&quot;Joey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;row mismatch in c1&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">row</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;row mismatch in c1&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="s">&quot;Yue&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;row mismatch in c1&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">row</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="mf">2.0</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;row mismatch in c1&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="nx">seen</span><span class="o">++</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">seen</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;expected two rows&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// Scan x in c1 write transaction</span>
+<span class="w">    </span><span class="nx">it</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">scan</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not scan x in c1&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1Writer] Started scanning&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">seen</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">row</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">it</span><span class="p">.</span><span class="nx">next</span><span class="p">()</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not iterate x scan in c1&quot;</span><span class="p">)</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">row</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1Writer] Done scanning&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="k">break</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1Writer] Got row in tx&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">row</span><span class="p">)</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">seen</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="s">&quot;Ada&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;row mismatch in c1&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="c1">// Since this hasn&#39;t been serialized to JSON, it&#39;s still an int not a float.</span>
+<span class="w">            </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">row</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;row mismatch in c1&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nx">seen</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="s">&quot;Joey&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;row mismatch in c1&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">row</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;row mismatch in c1&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="s">&quot;Yue&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;row mismatch in c1&quot;</span><span class="p">)</span>
+<span class="w">            </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">row</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="mf">2.0</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;row mismatch in c1&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="nx">seen</span><span class="o">++</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">seen</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;expected three rows&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// Writer committing should succeed.</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c1Writer</span><span class="p">.</span><span class="nx">commitTx</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not commit second tx&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c1Writer] Committed tx&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">// Reader committing should succeed.</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">c2Reader</span><span class="p">.</span><span class="nx">commitTx</span><span class="p">()</span>
+<span class="w">    </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not commit read-only tx&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">debug</span><span class="p">(</span><span class="s">&quot;[c2Reader] Committed tx&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+<p>Run it:</p>
+<div class="highlight"><pre><span></span><span class="gp">$ </span>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-run<span class="w"> </span>TestConcurrentReaderWithWriterReadsSnapshot<span class="w"> </span>--<span class="w"> </span>--debug
+<span class="go">[DEBUG] [c1Writer] Started tx</span>
+<span class="go">[DEBUG] [c1Writer] Created table</span>
+<span class="go">[DEBUG] [c1Writer] Wrote row</span>
+<span class="go">[DEBUG] [c1Writer] Wrote row</span>
+<span class="go">[DEBUG] [c1Writer] Committed tx</span>
+<span class="go">[DEBUG] [c1Writer] Starting new write tx</span>
+<span class="go">[DEBUG] [c2Reader] Started tx</span>
+<span class="go">[DEBUG] [c1Writer] Wrote third row</span>
+<span class="go">[DEBUG] [c2Reader] Started scanning</span>
+<span class="go">[DEBUG] [c2Reader] Got row in reader tx [Joey 1]</span>
+<span class="go">[DEBUG] [c2Reader] Got row in reader tx [Yue 2]</span>
+<span class="go">[DEBUG] [c2Reader] Done scanning</span>
+<span class="go">[DEBUG] [c1Writer] Started scanning</span>
+<span class="go">[DEBUG] [c1Writer] Got row in tx [Ada 3]</span>
+<span class="go">[DEBUG] [c1Writer] Got row in tx [Joey 1]</span>
+<span class="go">[DEBUG] [c1Writer] Got row in tx [Yue 2]</span>
+<span class="go">[DEBUG] [c1Writer] Done scanning</span>
+<span class="go">[DEBUG] [c1Writer] Committed tx</span>
+<span class="go">[DEBUG] [c2Reader] Committed tx</span>
+<span class="go">PASS</span>
+<span class="go">ok      otf 0.252s</span>
+</pre></div>
+<p>Sweet.</p>
+<h3 id="what's-next?">What's next?</h3><p>As mentioned, we didn't touch a lot of things. Handling updates and
+deletes, transaction log checkpoints, data object compaction, etc.</p>
+<p>Take a close look at the <a href="https://www.vldb.org/pvldb/vol13/p3411-armbrust.pdf">Delta Lake
+paper</a> and the
+<a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md">Delta Lake
+Spec</a> and
+see what you can do!</p>
+<style>.feedback{display:initial;}</style>
+	</div>
+	<div class="feedback">
+	  <h4>Feedback</h4>
+	  <p>As always,
+	      please <a href="mailto:phil@eatonphil.com">email</a>
+	      or <a href="https://twitter.com/eatonphil">tweet me</a>
+	      with questions, corrections, or ideas!</p>
+
+	</div>
+      </div>
+    </div>
+    <footer>
+      <div class="container">
+	<div>
+	  <div id="subscribe">
+	    <style type="text/css">
+  /* LOADER */
+  .ml-form-embedSubmitLoad {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+  }
+  .g-recaptcha {
+      transform: scale(1);
+      -webkit-transform: scale(1);
+      transform-origin: 0 0;
+      -webkit-transform-origin: 0 0;
+      height: ;
+  }
+  .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      border: 0;
+  }
+  .ml-form-embedSubmitLoad:after {
+      content: " ";
+      display: block;
+      width: 11px;
+      height: 11px;
+      margin: 1px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      border-color: #ffffff #ffffff #ffffff transparent;
+      animation: ml-form-embedSubmitLoad 1.2s linear infinite;
+  }
+  @keyframes ml-form-embedSubmitLoad {
+      0% {
+          transform: rotate(0deg);
+      }
+      100% {
+          transform: rotate(360deg);
+      }
+  }
+  #mlb2-3175296.ml-form-embedContainer {
+      box-sizing: border-box;
+      display: table;
+      margin: 0 auto;
+      position: static;
+      width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer h3,
+  #mlb2-3175296.ml-form-embedContainer p,
+  #mlb2-3175296.ml-form-embedContainer span,
+  #mlb2-3175296.ml-form-embedContainer button {
+      text-transform: none !important;
+      letter-spacing: normal !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper {
+      border-width: 0px;
+      border-color: transparent;
+  border-radius: 4px;
+  border-style: solid;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-left { text-align: left; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-center {
+  text-align: center;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-default { display: table-cell !important; vertical-align: middle !important; text-align: center !important; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-right { text-align: right; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedHeader img {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  height: auto;
+  margin: 0 auto !important;
+  max-width: 100%;
+  width: undefinedpx;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody.ml-form-embedBodyHorizontal {
+  padding-bottom: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent {
+  text-align: left;
+  margin: 0 0 20px 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p {
+  color: #000000;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  margin: 0 0 10px 0;
+  text-align: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol {
+  color: #000000;
+  font-size: 14px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol {
+  list-style-type: lower-alpha;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol ol {
+  list-style-type: lower-roman;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p a,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group {
+  text-align: left!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group label {
+  margin-bottom: 5px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: bold; font-style: normal; text-decoration: none;;
+  display: inline-block;
+  line-height: 20px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p:last-child,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody form {
+  margin: 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  margin: 0 0 20px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent.horozintalForm {
+  margin: 0;
+  padding: 0 0 20px 0;
+  width: 100%;
+  height: auto;
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow {
+  margin: 0 0 10px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-last-item {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-formfieldHorizintal {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-webkit-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-webkit-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-ms-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-ms-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow textarea, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow textarea {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-color: #cccccc!important;
+  background-color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input.custom-control-input[type="checkbox"]{
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-radius: 4px!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23fff' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::before  {
+  border-color: #000000!important;
+  background-color: #000000!important;
+  color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::after {
+  top: 2px;
+  box-sizing: border-box;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  position: absolute;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::after {
+  position: absolute;
+  top: 2px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-radio .custom-control-label::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-control, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-control {
+  position: relative;
+  display: block;
+  min-height: 1.5rem;
+  padding-left: 1.5rem;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input {
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  box-sizing: border-box;
+  padding: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label {
+  color: #000000;
+  font-size: 12px!important;
+  line-height: 22px;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  font-style: normal;
+  font-weight: 700;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-select, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-select {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 28px 10px 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+  background: url('https://assets.mlcdn.com/ml/images/default/dropdown.svg') no-repeat right .75rem center/8px 10px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow {
+  height: auto;
+  width: 100%;
+  float: left;
+  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 70%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal { width: 30%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal.labelsOn { padding-top: 25px;  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .horizontal-fields { box-sizing: border-box; float: left; padding-right: 10px;  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input {
+  background-color: #ffffff;
+  color: #333333;
+  border-color: #cccccc;
+  border-radius: 4px;
+  border-style: solid;
+  border-width: 1px;
+  font-size: 14px;
+  line-height: 20px;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: initial;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button {
+  background-color: #000000 !important;
+  border-color: #000000;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 4px;
+  box-shadow: none;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700;
+  line-height: 20px;
+  margin: 0 !important;
+  padding: 10px !important;
+  width: 100%;
+  height: auto;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button:hover {
+  background-color: #333333 !important;
+  border-color: #333333 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type="checkbox"] {
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description {
+  color: #000000;
+  display: block;
+  font-size: 12px;
+  text-align: left;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label {
+  font-weight: normal;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  display: block;
+  min-height: 24px;
+  padding-left: 24px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p {
+  color: #000000 !important;
+  font-size: 12px !important;
+  font-weight: normal !important;
+  line-height: 18px !important;
+  padding: 0 !important;
+  margin: 0 5px 0 0 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit {
+  margin: 0 0 20px 0;
+  float: left;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button {
+  background-color: #000000 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 21px !important;
+  height: auto;
+  padding: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button.loading {
+  display: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button:hover {
+  background-color: #333333 !important;
+  }
+  .ml-subscribe-close {
+  width: 30px;
+  height: 30px;
+  background: url('https://assets.mlcdn.com/ml/images/default/modal_close.png') no-repeat;
+  background-size: 30px;
+  cursor: pointer;
+  margin-top: -10px;
+  margin-right: -10px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  }
+  .ml-error input, .ml-error textarea, .ml-error select {
+  border-color: red!important;
+  }
+  .ml-error .custom-checkbox-radio-list {
+  border: 1px solid red !important;
+  border-radius: 4px;
+  padding: 10px;
+  }
+  .ml-error .label-description,
+  .ml-error .label-description p,
+  .ml-error .label-description p a,
+  .ml-error label:first-child {
+  color: #ff0000 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p:first-letter {
+  color: #ff0000 !important;
+  }
+  @media only screen and (max-width: 400px){
+  .ml-form-embedWrapper.embedDefault, .ml-form-embedWrapper.embedPopup { width: 100%!important; }
+  .ml-form-formContent.horozintalForm { float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow { height: auto!important; width: 100%!important; float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 100%!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal > div { padding-right: 0px!important; padding-bottom: 10px; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal { width: 100%!important; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal.labelsOn { padding-top: 0px!important; }
+    }
+</style>
+<div id="mlb2-3175296" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-3175296">
+  <hr />
+  <div class="ml-form-align-center ">
+    <div class="ml-form-embedWrapper embedForm">
+      <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+        <div class="ml-form-embedContent" style=" ">
+          <h4>Subscribe</h4>
+          <p>Enter your email if you'd like to be kept in the loop about future articles!<br><br>You can expect 2 to 4 messages per month depending on how motivated I'm feeling. :)</p>
+	  <p></p>
+	  <p>Cheers,<br>Phil</p>
+        </div>
+        <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/303114/forms/78235486326359572/subscribe" data-code="" method="post" target="_blank">
+          <div class="ml-form-formContent">
+            <div class="ml-form-fieldRow ml-last-item">
+              <div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
+                <!-- input -->
+                <input aria-label="email" aria-required="true" type="email" class="form-control" data-inputmask="" name="fields[email]" placeholder="Email" autocomplete="email">
+                <!-- /input -->
+                <!-- textarea -->
+                <!-- /textarea -->
+                <!-- select -->
+                <!-- /select -->
+                <!-- checkboxes -->
+		<!-- /checkboxes -->
+                <!-- radio -->
+                <!-- /radio -->
+                <!-- countries -->
+                <!-- /countries -->
+              </div>
+            </div>
+          </div>
+          <!-- Privacy policy -->
+          <!-- /Privacy policy -->
+	  <div class="ml-form-recaptcha ml-validate-required" style="float: left;">
+            <style type="text/css">
+	      .ml-form-recaptcha {
+		  margin-bottom: 20px;
+	      }
+	      .ml-form-recaptcha.ml-error iframe {
+		  border: solid 1px #ff0000;
+	      }
+	      @media screen and (max-width: 480px) {
+		  .ml-form-recaptcha {
+		      width: 220px!important
+		  }
+		  .g-recaptcha {
+		      transform: scale(0.78);
+		      -webkit-transform: scale(0.78);
+		      transform-origin: 0 0;
+		      -webkit-transform-origin: 0 0;
+		  }
+	      }
+	    </style>
+	    <script src="https://www.google.com/recaptcha/api.js"></script>
+	    <div class="g-recaptcha" data-sitekey="6Lf1KHQUAAAAAFNKEX1hdSWCS3mRMv4FlFaNslaD"></div>
+	  </div>
+          <input type="hidden" name="ml-submit" value="1">
+          <div class="ml-form-embedSubmit">
+            <button type="submit" class="primary">Subscribe</button>
+            <button disabled="disabled" style="display: none;" type="button" class="loading">
+              <div class="ml-form-embedSubmitLoad"></div>
+              <span class="sr-only">Loading...</span>
+            </button>
+          </div>
+          <input type="hidden" name="anticsrf" value="true">
+        </form>
+      </div>
+      <div class="ml-form-successBody row-success" style="display: none">
+        <div class="ml-form-successContent">
+          <h3>Thanks :)</h3>
+          <p>You're in.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function ml_webform_success_3175296() {
+      var $ = ml_jQuery || jQuery;
+      $('.ml-subscribe-form-3175296 .row-success').show();
+      $('.ml-subscribe-form-3175296 .row-form').hide();
+  }
+</script>
+<script src="https://groot.mailerlite.com/js/w/webforms.min.js?v300817f630ad0e957914d0b28a2b6d78" type="text/javascript"></script>
+
+	  </div>
+	</div>
+      </div>
+    </footer>
+    <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
+    <script>
+      function loadGA() {
+	  window.dataLayer = window.dataLayer || [];
+	  function gtag(){dataLayer.push(arguments);}
+	  gtag('js', new Date());
+	  gtag('config', 'UA-58109156-2');
+      }
+    </script>
+    <script defer src="https://cdn.usefathom.com/script.js" data-site="CEPUOLOQ"></script>
+  </body>
+</html>
