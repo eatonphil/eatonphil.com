@@ -415,8 +415,11 @@ current view of all tables.</p>
 <p>And we will assign a transaction ID to this transaction to be 1
 greater than the largest existing transaction ID we see.</p>
 <p>Again it doesn't matter if the <code>listPrefix</code> call we use returns an
-up-to-date list. Out-of-date transactions attempting to write will be
-caught when we go to commit the transaction.</p>
+up-to-date list. Notably on blob storage there are few guarantees
+about LIST operations recency. The Delta Lake paper mentions this too.</p>
+<p>Out-of-date transactions attempting to write will be caught when we go
+to commit the transaction. Out-of-date transactions attempting only to
+read will still read a consistent snapshot.</p>
 <div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">client</span><span class="p">)</span><span class="w"> </span><span class="nx">newTx</span><span class="p">()</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">tx</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">errExistingTx</span>

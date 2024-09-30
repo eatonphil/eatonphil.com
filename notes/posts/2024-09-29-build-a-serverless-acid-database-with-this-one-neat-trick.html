@@ -436,8 +436,12 @@ And we will assign a transaction ID to this transaction to be 1
 greater than the largest existing transaction ID we see.
 
 Again it doesn't matter if the `listPrefix` call we use returns an
-up-to-date list. Out-of-date transactions attempting to write will be
-caught when we go to commit the transaction.
+up-to-date list. Notably on blob storage there are few guarantees
+about LIST operations recency. The Delta Lake paper mentions this too.
+
+Out-of-date transactions attempting to write will be caught when we go
+to commit the transaction. Out-of-date transactions attempting only to
+read will still read a consistent snapshot.
 
 ```go
 func (d *client) newTx() error {
