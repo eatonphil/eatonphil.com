@@ -142,6 +142,12 @@ and the ability to read the bytes at some location.
   we'll keep all files in the same directory with a fixed prefix for
   metadata and another table name prefix for each data file. This
   simplifies the implementation of <code>listPrefix</code> a bit.
+  <br />
+  <br />
+  However, this also diverges from Delta Lake in that transactions
+  will represent all tables. In Delta Lake that is not so. Delta Lake
+  has a per-table transaction log. Only transactions that read and
+  write the same table in Delta Lake achieve snapshot isolation.
 </p>
 
 So let's set up an interface to describe these requirements:
@@ -388,7 +394,7 @@ add a `DataobjectAction` entry to `transaction.Actions`.
 
 ### Client boilerplate
 
-A `client` will consistent of an `objectStorage` implementation and a
+A `client` will consist of an `objectStorage` implementation and a
 possibly empty `*transaction`. Empty meaning there is no current
 transaction.
 
@@ -829,6 +835,14 @@ cases. But primarily you are limited to a single writer per table,
 even if the writers are writing non-conflicting rows. Iceberg is
 basically the same here, it's just how metadata is tracked that
 differs.
+
+<p class="note">
+  As mentioned in another note above, our implementation is actually
+  stricter than Delta Lake since it manages all table transaction logs
+  together. This means you can get snapshot isolation across all
+  tables (which Delta Lake doesn't support) but it will mean
+  significantly more contention and failed write transactions.
+</p>
 
 The Delta Lake and Iceberg folks apparently wanted to avoid
 FoundationDB (i.e. the Snowflake architecture, which is mentioned in

@@ -180,6 +180,12 @@ and the ability to read the bytes at some location.</p>
   we'll keep all files in the same directory with a fixed prefix for
   metadata and another table name prefix for each data file. This
   simplifies the implementation of <code>listPrefix</code> a bit.
+  <br />
+  <br />
+  However, this also diverges from Delta Lake in that transactions
+  will represent all tables. In Delta Lake that is not so. Delta Lake
+  has a per-table transaction log. Only transactions that read and
+  write the same table in Delta Lake achieve snapshot isolation.
 </p><p>So let's set up an interface to describe these requirements:</p>
 <div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">objectStorage</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="c1">// Must be atomic.</span>
@@ -379,7 +385,7 @@ file and every time we create a new table.</p>
 <code>transaction.unflushedDataPointer</code> for that table reaches
 <code>DATAOBJECT_SIZE</code> upon which time we will write that data to disk and
 add a <code>DataobjectAction</code> entry to <code>transaction.Actions</code>.</p>
-<h3 id="client-boilerplate">Client boilerplate</h3><p>A <code>client</code> will consistent of an <code>objectStorage</code> implementation and a
+<h3 id="client-boilerplate">Client boilerplate</h3><p>A <code>client</code> will consist of an <code>objectStorage</code> implementation and a
 possibly empty <code>*transaction</code>. Empty meaning there is no current
 transaction.</p>
 <div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">client</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
@@ -763,7 +769,13 @@ cases. But primarily you are limited to a single writer per table,
 even if the writers are writing non-conflicting rows. Iceberg is
 basically the same here, it's just how metadata is tracked that
 differs.</p>
-<p>The Delta Lake and Iceberg folks apparently wanted to avoid
+<p class="note">
+  As mentioned in another note above, our implementation is actually
+  stricter than Delta Lake since it manages all table transaction logs
+  together. This means you can get snapshot isolation across all
+  tables (which Delta Lake doesn't support) but it will mean
+  significantly more contention and failed write transactions.
+</p><p>The Delta Lake and Iceberg folks apparently wanted to avoid
 FoundationDB (i.e. the Snowflake architecture, which is mentioned in
 the Delta Lake paper) so much that they'd give up row-level
 concurrency to be mostly serverless.</p>
