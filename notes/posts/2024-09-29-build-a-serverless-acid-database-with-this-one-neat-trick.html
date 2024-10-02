@@ -254,9 +254,10 @@ func (fos *fileObjectStorage) putIfAbsent(name string, bytes []byte) error {
   <a
   href="https://news.ycombinator.com/item?id=41702593">yencabulator</a>
   on HN pointed out that an earlier version of this post had a buggy
-  implementation of <code>putIfAbsent</code> that would leave around
-  potentially bad metadata files if the <code>os.Remove</code> call
-  ever failed.
+  implementation of <code>putIfAbsent</code> (that attempted to manage
+  atomicity solely via <code>O_EXCL | O_CREAT</code>) would leave
+  around potentially bad metadata files if the <code>os.Remove</code>
+  call ever failed.
   <br />
   <br />
   The <code>link</code> approach works around that because the file is
