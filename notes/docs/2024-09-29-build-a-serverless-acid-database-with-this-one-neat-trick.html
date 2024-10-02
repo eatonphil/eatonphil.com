@@ -210,8 +210,9 @@ cloud database in action!</p>
 <p>But the simplest method of all is to implement it on the filesystem,
 which is what we'll do next.</p>
 <h3 id="a-filesystem-blob-store">A filesystem blob store</h3><p>If we had a server we could implement atomic <code>putIfAbsent</code> with a
-mutex. But we're serverless baby. Thankfully, POSIX <a href="https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html">supports
-link</a>.</p>
+mutex. But we're serverless baby. Thankfully, POSIX <a href="https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html">supports atomic
+link</a>
+which will fail if the new name is already a file.</p>
 <p>So we'll just create a temporary file and write out all
 bytes. Finally, we link the temporary file to the permanent name we
 intended. If there is an error at any point, we must remove the file.</p>

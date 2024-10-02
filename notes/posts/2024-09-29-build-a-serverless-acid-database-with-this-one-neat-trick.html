@@ -185,8 +185,9 @@ which is what we'll do next.
 ### A filesystem blob store
 
 If we had a server we could implement atomic `putIfAbsent` with a
-mutex. But we're serverless baby. Thankfully, POSIX [supports
-link](https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html).
+mutex. But we're serverless baby. Thankfully, POSIX [supports atomic
+link](https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html)
+which will fail if the new name is already a file.
 
 So we'll just create a temporary file and write out all
 bytes. Finally, we link the temporary file to the permanent name we
