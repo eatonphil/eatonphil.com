@@ -210,12 +210,11 @@ cloud database in action!</p>
 <p>But the simplest method of all is to implement it on the filesystem,
 which is what we'll do next.</p>
 <h3 id="a-filesystem-blob-store">A filesystem blob store</h3><p>If we had a server we could implement atomic <code>putIfAbsent</code> with a
-mutex. But we're serverless baby. Thankfully, POSIX <a href="https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html">supports atomic
-file
-creation</a>
-if you open the file with <code>O_CREAT | O_EXCL</code>.</p>
-<p>So we'll just open the file and write out all the bytes. If there is
-an error at any point, we must remove the file.</p>
+mutex. But we're serverless baby. Thankfully, POSIX <a href="https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html">supports
+link</a>.</p>
+<p>So we'll just create a temporary file and write out all
+bytes. Finally, we link the temporary file to the permanent name we
+intended. If there is an error at any point, we must remove the file.</p>
 <div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">fileObjectStorage</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nx">basedir</span><span class="w"> </span><span class="kt">string</span>
 <span class="p">}</span>
@@ -225,8 +224,8 @@ an error at any point, we must remove the file.</p>
 <span class="p">}</span>
 
 <span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">fos</span><span class="w"> </span><span class="o">*</span><span class="nx">fileObjectStorage</span><span class="p">)</span><span class="w"> </span><span class="nx">putIfAbsent</span><span class="p">(</span><span class="nx">name</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">bytes</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nx">filename</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">fos</span><span class="p">.</span><span class="nx">basedir</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="p">)</span>
-<span class="w">    </span><span class="nx">f</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">OpenFile</span><span class="p">(</span><span class="nx">filename</span><span class="p">,</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">O_WRONLY</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_EXCL</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_CREATE</span><span class="p">,</span><span class="w"> </span><span class="mo">0644</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">tmpfilename</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">fos</span><span class="p">.</span><span class="nx">basedir</span><span class="p">,</span><span class="w"> </span><span class="nx">uuidv4</span><span class="p">())</span>
+<span class="w">    </span><span class="nx">f</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">OpenFile</span><span class="p">(</span><span class="nx">tmpfilename</span><span class="p">,</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">O_WRONLY</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_CREATE</span><span class="p">,</span><span class="w"> </span><span class="mo">0644</span><span class="p">)</span>
 <span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
 <span class="w">    </span><span class="p">}</span>
@@ -237,7 +236,7 @@ an error at any point, we must remove the file.</p>
 <span class="w">        </span><span class="nx">toWrite</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">min</span><span class="p">(</span><span class="nx">written</span><span class="o">+</span><span class="nx">bufSize</span><span class="p">,</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">bytes</span><span class="p">))</span>
 <span class="w">        </span><span class="nx">n</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">bytes</span><span class="p">[</span><span class="nx">written</span><span class="p">:</span><span class="nx">toWrite</span><span class="p">])</span>
 <span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nx">removeErr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">filename</span><span class="p">)</span>
+<span class="w">            </span><span class="nx">removeErr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">tmpfilename</span><span class="p">)</span>
 <span class="w">            </span><span class="nx">assert</span><span class="p">(</span><span class="nx">removeErr</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not remove&quot;</span><span class="p">)</span>
 <span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
 <span class="w">        </span><span class="p">}</span>
@@ -247,14 +246,22 @@ an error at any point, we must remove the file.</p>
 
 <span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Sync</span><span class="p">()</span>
 <span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nx">removeErr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">filename</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">removeErr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">tmpfilename</span><span class="p">)</span>
 <span class="w">        </span><span class="nx">assert</span><span class="p">(</span><span class="nx">removeErr</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not remove&quot;</span><span class="p">)</span>
 <span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
 <span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nx">removeErr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">filename</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">removeErr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">tmpfilename</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assert</span><span class="p">(</span><span class="nx">removeErr</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not remove&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">filename</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">fos</span><span class="p">.</span><span class="nx">basedir</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="p">)</span>
+<span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Link</span><span class="p">(</span><span class="nx">tmpfilename</span><span class="p">,</span><span class="w"> </span><span class="nx">filename</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">removeErr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Remove</span><span class="p">(</span><span class="nx">tmpfilename</span><span class="p">)</span>
 <span class="w">        </span><span class="nx">assert</span><span class="p">(</span><span class="nx">removeErr</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;could not remove&quot;</span><span class="p">)</span>
 <span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
 <span class="w">    </span><span class="p">}</span>
@@ -262,7 +269,18 @@ an error at any point, we must remove the file.</p>
 <span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
 <span class="p">}</span>
 </pre></div>
-<p><code>listPrefix</code> and <code>read</code> are minimal wrappers around filesystem APIs:</p>
+<p class="note">
+  <a
+  href="https://news.ycombinator.com/item?id=41702593">yencabulator</a>
+  on HN pointed out that an earlier version of this post had a buggy
+  implementation of <code>putIfAbsent</code> that would leave around
+  potentially bad metadata files if the <code>os.Remove</code> call
+  ever failed.
+  <br />
+  <br />
+  The <code>link</code> approach works around that because the file is
+  already fully and correctly written by the time we do the link.
+</p><p><code>listPrefix</code> and <code>read</code> are minimal wrappers around filesystem APIs:</p>
 <div class="highlight"><pre><span></span><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">fos</span><span class="w"> </span><span class="o">*</span><span class="nx">fileObjectStorage</span><span class="p">)</span><span class="w"> </span><span class="nx">listPrefix</span><span class="p">(</span><span class="nx">prefix</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nx">dir</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">fos</span><span class="p">.</span><span class="nx">basedir</span><span class="p">)</span>
 <span class="w">    </span><span class="nx">f</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Open</span><span class="p">(</span><span class="nx">dir</span><span class="p">)</span>

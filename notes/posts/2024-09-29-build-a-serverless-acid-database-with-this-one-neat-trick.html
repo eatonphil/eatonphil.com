@@ -185,13 +185,12 @@ which is what we'll do next.
 ### A filesystem blob store
 
 If we had a server we could implement atomic `putIfAbsent` with a
-mutex. But we're serverless baby. Thankfully, POSIX [supports atomic
-file
-creation](https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html)
-if you open the file with `O_CREAT | O_EXCL`.
+mutex. But we're serverless baby. Thankfully, POSIX [supports
+link](https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html).
 
-So we'll just open the file and write out all the bytes. If there is
-an error at any point, we must remove the file.
+So we'll just create a temporary file and write out all
+bytes. Finally, we link the temporary file to the permanent name we
+intended. If there is an error at any point, we must remove the file.
 
 ```go
 type fileObjectStorage struct {
@@ -203,8 +202,8 @@ func newFileObjectStorage(basedir string) *fileObjectStorage {
 }
 
 func (fos *fileObjectStorage) putIfAbsent(name string, bytes []byte) error {
-	filename := path.Join(fos.basedir, name)
-	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_EXCL|os.O_CREATE, 0644)
+	tmpfilename := path.Join(fos.basedir, uuidv4())
+	f, err := os.OpenFile(tmpfilename, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
@@ -215,7 +214,7 @@ func (fos *fileObjectStorage) putIfAbsent(name string, bytes []byte) error {
 		toWrite := min(written+bufSize, len(bytes))
 		n, err := f.Write(bytes[written:toWrite])
 		if err != nil {
-			removeErr := os.Remove(filename)
+			removeErr := os.Remove(tmpfilename)
 			assert(removeErr == nil, "could not remove")
 			return err
 		}
@@ -225,14 +224,22 @@ func (fos *fileObjectStorage) putIfAbsent(name string, bytes []byte) error {
 
 	err = f.Sync()
 	if err != nil {
-		removeErr := os.Remove(filename)
+		removeErr := os.Remove(tmpfilename)
 		assert(removeErr == nil, "could not remove")
 		return err
 	}
 
 	err = f.Close()
 	if err != nil {
-		removeErr := os.Remove(filename)
+		removeErr := os.Remove(tmpfilename)
+		assert(removeErr == nil, "could not remove")
+		return err
+	}
+
+	filename := path.Join(fos.basedir, name)
+	err = os.Link(tmpfilename, filename)
+	if err != nil {
+		removeErr := os.Remove(tmpfilename)
 		assert(removeErr == nil, "could not remove")
 		return err
 	}
@@ -240,6 +247,19 @@ func (fos *fileObjectStorage) putIfAbsent(name string, bytes []byte) error {
 	return nil
 }
 ```
+
+<p class="note">
+  <a
+  href="https://news.ycombinator.com/item?id=41702593">yencabulator</a>
+  on HN pointed out that an earlier version of this post had a buggy
+  implementation of <code>putIfAbsent</code> that would leave around
+  potentially bad metadata files if the <code>os.Remove</code> call
+  ever failed.
+  <br />
+  <br />
+  The <code>link</code> approach works around that because the file is
+  already fully and correctly written by the time we do the link.
+</p>
 
 `listPrefix` and `read` are minimal wrappers around filesystem APIs:
 
