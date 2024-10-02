@@ -191,7 +191,8 @@ which will fail if the new name is already a file.
 
 So we'll just create a temporary file and write out all
 bytes. Finally, we link the temporary file to the permanent name we
-intended. If there is an error at any point, we must remove the file.
+intended. For cleanliness (not correctness), if there is an error at
+any point, we'll remove the temporary file.
 
 ```go
 type fileObjectStorage struct {

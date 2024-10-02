@@ -215,7 +215,8 @@ link</a>
 which will fail if the new name is already a file.</p>
 <p>So we'll just create a temporary file and write out all
 bytes. Finally, we link the temporary file to the permanent name we
-intended. If there is an error at any point, we must remove the file.</p>
+intended. For cleanliness (not correctness), if there is an error at
+any point, we'll remove the temporary file.</p>
 <div class="highlight"><pre><span></span><span class="kd">type</span><span class="w"> </span><span class="nx">fileObjectStorage</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nx">basedir</span><span class="w"> </span><span class="kt">string</span>
 <span class="p">}</span>
