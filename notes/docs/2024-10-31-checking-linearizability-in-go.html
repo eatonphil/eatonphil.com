@@ -64,10 +64,12 @@
       <div class="col-6">
 	<div class="post">
           <p><!-- -*- mode: markdown -*- --></p>
-<p>You want to check for strict consistency for your project (<a href="https://jepsen.io/consistency/models/linearizable">linearizability</a>)
+<p>You want to check for strict consistency for your project
+(<a href="https://jepsen.io/consistency/models/linearizable">linearizability</a>)
 but you don't want to have to <a href="https://github.com/jepsen-io/">deal with the
-JVM</a>. <a href="https://github.com/anishathalye/porcupine">Porcupine</a>
-has you covered!</p>
+JVM</a>. <a href="https://github.com/anishathalye/porcupine">Porcupine</a>,
+used by a number of real-world systems like etcd and TiDB, has you
+covered!</p>
 <p>Importantly, neither Jepsen projects nor Porcupine can <em>prove</em>
 linearizability. They can only help you <em>build confidence</em> that you
 aren't obviously <em>violating</em> linearizability.</p>
