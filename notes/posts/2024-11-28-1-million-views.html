@@ -14,6 +14,44 @@ I started regularly blogging in 2018. For some reason I decided to
 write a blog post every month. And while I have definitely skipped a
 month or two here or there, on average I've written 2 posts per month.
 
+### Framework
+
+At least since 2018 this site has been built with a static site
+generator. I might have used some 3rd-party generator at one point but
+for as long as I can remember it has been mostly built with a [little
+Python
+script](https://github.com/eatonphil/eatonphil.com/blob/main/notes/scripts/build.py)
+I wrote.
+
+I did this because I used to get so pissed when static site generators
+would pointlessly change their APIs and I'd have to make pointless
+changes. I have not had to make any significant changes to my build
+code in many years.
+
+I hosted on Github Pages for most of the time but I wanted more
+flexibility with subdomains (ultimately not something I liked) and the
+ability to view server-side logs (ultimately not something I ever do)
+so I think this site is hosted on an OVH machine now. But at this
+point it's basically inertia keeping me there. If you have no good
+reason not to, sticking with Github Pages is perfect.
+
+I used to use Google Analytics but then they shut down the old version
+and the new version was ridiculously confusing to use and I couldn't
+find the very basic information I wanted so I moved to Fathom.
+
+I used to track all subscribers in a Google Form and bcc them but this
+became untenable eventually after 1000 subscribers. GMail rate limits
+you per day. I currently use MailerLite for subscriptions and sending
+email about new posts. But this is an absolutely terrible
+service. They proxy all links behind a domain that adblockers hate and
+they also visually shorten the URL.
+
+I just want a service that has a hosted form for collecting
+subscribers and a `<textarea>` that lets me dump raw HTML and send
+that as an email to my subscribers. No branding, no watermarks, no
+link proxying. This apparently doesn't quite exist. I am too lazy to
+figure out Amazon SES so I stick with MailerLite for now.
+
 ### Evolution
 
 In the beginning I talked more about little interpreters in JavaScript
