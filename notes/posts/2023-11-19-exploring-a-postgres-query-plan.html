@@ -242,7 +242,7 @@ And in the `postgres` foreground process you should see a log:
 2023-11-19 17:42:03.045 GMT [3242321] STATEMENT:  SELECT a FROM x WHERE a > 1;
 ```
 
-That's our hook! Interestingly only the `INSERT` and `CREATE`
+That's our hook! Interestingly only the `INSERT` and `SELECT`
 statements show up, not the `DROP` and `CREATE`.
 
 Now let's see if we can reconstruct the query text from that first

@@ -246,7 +246,7 @@ exercise the hook:</p>
 <span class="go">2023-11-19 17:42:03.045 GMT [3242321] LOG:  [pgexec] HOOKED SUCCESSFULLY!</span>
 <span class="go">2023-11-19 17:42:03.045 GMT [3242321] STATEMENT:  SELECT a FROM x WHERE a &gt; 1;</span>
 </pre></div>
-<p>That's our hook! Interestingly only the <code>INSERT</code> and <code>CREATE</code>
+<p>That's our hook! Interestingly only the <code>INSERT</code> and <code>SELECT</code>
 statements show up, not the <code>DROP</code> and <code>CREATE</code>.</p>
 <p>Now let's see if we can reconstruct the query text from that first
 argument, the <code>QueryDesc*</code> that <code>pgexec_run_hook</code> receives. And let's
