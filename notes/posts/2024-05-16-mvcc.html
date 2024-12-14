@@ -45,9 +45,9 @@ with database.transaction() as t:
   ids = []
   for user in users:
     if some_complex_logic(user):
-      ids.push(user.id)
+      ids.append(user.id)
 
-  t.query("UPDATE users SET metadata = 'some value' WHERE id IN ($1)';", ids)
+  t.query("UPDATE users SET metadata = 'some value' WHERE id IN ($1);", ids)
 ```
 
 I would have thought that all users that were seen from the initial
@@ -1014,7 +1014,7 @@ Let's get stricter!
 #### Snapshot Isolation
 
 Back to
-[Jepsen](https://jepsen.io/consistency/models/snapshot-isolation for a
+[Jepsen](https://jepsen.io/consistency/models/snapshot-isolation) for a
 definition:
 
 > In a snapshot isolated system, each transaction appears to operate
@@ -1173,7 +1173,7 @@ Not bad! But let's get stricter.
   Upon further discussion with Alex Miller, and after reviewing <a
   href="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/tr-95-51.pdf">A
   Critique of ANSI SQL Isolation Levels</a>, the difference I am
-  trying to suggest (between Repeatable Read an Snapshot Isolation)
+  trying to suggest (between Repeatable Read and Snapshot Isolation)
   likely does not exist. A Critique of ANSI SQL Isolation Levels
   mentions Repeatable Read must not exhibit P4 (Lost Update)
   anomalies. And it mentions that you must check for read-write
@@ -1263,7 +1263,7 @@ func TestSerializableIsolation_readwrite_conflict(t *testing.T) {
         c1.mustExecCommand("commit", nil)
 
         _, err := c2.execCommand("get", []string{"x"})
-        assertEq(err.Error(), "cannot get key that does not exist", "c5 get x")
+        assertEq(err.Error(), "cannot get key that does not exist", "c2 get x")
 
         res, err := c2.execCommand("commit", nil)
         assertEq(res, "", "c2 commit")
@@ -1312,7 +1312,7 @@ This is a real-world issue in Postgres that was [called
 out](https://ottertune.com/blog/the-part-of-postgresql-we-hate-the-most)
 by Andy Pavlo and the Ottertune folks. It turns out that Postgres
 alone among major databases stores the entire value for every
-version. In contrast other major databases like MySQL store a diff.
+version. In contrast, other major databases like MySQL store a diff.
 
 ### Conclusion
 
