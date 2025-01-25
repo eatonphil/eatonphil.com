@@ -1,0 +1,77 @@
+# An explosion of transitive dependencies
+## January 25, 2025
+###### rust,go,python,java,c-sharp
+
+A small standard library means an explosion in transitive
+dependencies. A more comprehensive standard library helps you minimize
+dependencies. Don't misunderstand me: in a real-world project, it is
+practically impossible to have zero dependencies.
+
+Armin Ronacher
+[called](https://lucumr.pocoo.org/2025/1/24/build-it-yourself/) for a
+vibe shift among programmers and I think that this actually exists
+already. Everyone I speak to on this topic has agreed that minimizing
+dependencies is ideal.
+
+Rust and JavaScript, with their incredibly minimal standard libraries,
+[work against this
+ideal](https://notes.eatonphil.com/2024-03-15-zig-rust-and-other-languages.html#standard-library). Go,
+Python, Java, and C# in contrast have a decent standard library, which
+helps minimize the explosion of transitive dependencies.
+
+### Examples
+
+I think the standard library should reasonably include:
+
+- JSON, CSV, and Parquet support
+- HTTP/2 support (which includes TLS, compression, random number generation, etc.)
+- Support for asynchronous IO
+- A logging abstraction
+- A SQL client abstraction
+- Key abstract data types (BTrees, hashmaps, sets, and growable arrays)
+- Utilities for working with Unicode, time and timezones
+
+But I don't think it needs to include:
+
+- Excel support
+- PostgreSQL or Oracle clients
+- Flatbuffers support
+- Niche data structures
+
+Neither of these are intended to be complete lists, just examples.
+
+### Walled gardens
+
+Minimal standard libraries force companies earlier on as they grow to
+build out their own internal collection of "standard libraries". This
+allows larger companies to avoid the explosion of transitive
+dependencies over time. All companies likely do something like this
+over time as they grow. But again, smaller standard libraries
+incentivizes companies to build this internal standard library earlier
+on.
+
+In contrast, smaller organizations do not have the resources to foster
+such an internal ecosystem. Smaller organizations and the community
+overall do not benefit from the internal standard libraries of larger
+organizations.
+
+Maybe it will lead to libraries like Boost for
+JavaScript and Rust programmers. This could be fine.
+
+### Versioning
+
+A comprehensive standard library does not prevent the
+language developers from releasing new versions of the standard
+library. It is trivial to do this with naming like Go has done
+with the [v2](https://go.dev/blog/v2-go-modules)
+pattern. [math/rand/v2](https://go.dev/blog/randv2) is an example.
+
+### Conclusion
+
+My concern about the standard library does not stop me from using
+Rust and JavaScript. Furthermore, they could choose to invest in the standard
+library at any time. We have already begun to see
+[Bun](https://bun.sh/docs/api/s3) and [Deno](https://jsr.io/@std)
+to do exactly this. But it is clearly an area
+for improvement in Rust and JavaScript. And a mistake for other
+languages to avoid repeating.
