@@ -74,10 +74,7 @@ already. Everyone I speak to on this topic has agreed that minimizing
 dependencies is ideal.</p>
 <p>Rust and JavaScript, with their incredibly minimal standard libraries,
 <a href="https://notes.eatonphil.com/2024-03-15-zig-rust-and-other-languages.html#standard-library">work against this
-ideal</a>
-and <a href="https://medium.com/@john_25313/c-isnt-a-hangover-rust-isn-t-a-hangover-cure-580c9b35b5ce#:~:text=Rust%20makes%20it,for%20their%20libraries.">make it
-harder</a>
-to secure your supply chain. Go, Python, Java, and C# in contrast have
+ideal</a>. Go, Python, Java, and C# in contrast have
 a decent standard library, which helps minimize the explosion of
 transitive dependencies.</p>
 <h3 id="examples">Examples</h3><p>I think the standard library should reasonably include:</p>
@@ -119,8 +116,13 @@ language developers from releasing new versions of the standard
 library. It is trivial to do this with naming like Go has done
 with the <a href="https://go.dev/blog/v2-go-modules">v2</a>
 pattern. <a href="https://go.dev/blog/randv2">math/rand/v2</a> is an example.</p>
-<h3 id="conclusion">Conclusion</h3><p>My concern about the standard library does not stop me from using
-Rust and JavaScript. Furthermore, they could choose to invest in the standard
+<h3 id="conclusion">Conclusion</h3><p>I'm primarily thinking about maintainability, not security. You can
+read about the <a href="https://medium.com/@john_25313/c-isnt-a-hangover-rust-isn-t-a-hangover-cure-580c9b35b5ce#:~:text=Rust%20makes%20it,for%20their%20libraries.">security
+risks</a>
+of using a language with an ecosystem like Rust from someone who is an
+expert on the matter.</p>
+<p>My concern about the standard library does not stop me from using
+Rust and JavaScript. They could choose to invest in the standard
 library at any time. We have already begun to see
 <a href="https://bun.sh/docs/api/s3">Bun</a> and <a href="https://jsr.io/@std">Deno</a>
 to do exactly this. But it is clearly an area

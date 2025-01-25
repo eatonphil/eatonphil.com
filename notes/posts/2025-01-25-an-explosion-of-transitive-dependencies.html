@@ -15,10 +15,7 @@ dependencies is ideal.
 
 Rust and JavaScript, with their incredibly minimal standard libraries,
 [work against this
-ideal](https://notes.eatonphil.com/2024-03-15-zig-rust-and-other-languages.html#standard-library)
-and [make it
-harder](https://medium.com/@john_25313/c-isnt-a-hangover-rust-isn-t-a-hangover-cure-580c9b35b5ce#:~:text=Rust%20makes%20it,for%20their%20libraries.)
-to secure your supply chain. Go, Python, Java, and C# in contrast have
+ideal](https://notes.eatonphil.com/2024-03-15-zig-rust-and-other-languages.html#standard-library). Go, Python, Java, and C# in contrast have
 a decent standard library, which helps minimize the explosion of
 transitive dependencies.
 
@@ -75,8 +72,14 @@ pattern. [math/rand/v2](https://go.dev/blog/randv2) is an example.
 
 ### Conclusion
 
+I'm primarily thinking about maintainability, not security. You can
+read about the [security
+risks](https://medium.com/@john_25313/c-isnt-a-hangover-rust-isn-t-a-hangover-cure-580c9b35b5ce#:~:text=Rust%20makes%20it,for%20their%20libraries.)
+of using a language with an ecosystem like Rust from someone who is an
+expert on the matter.
+
 My concern about the standard library does not stop me from using
-Rust and JavaScript. Furthermore, they could choose to invest in the standard
+Rust and JavaScript. They could choose to invest in the standard
 library at any time. We have already begun to see
 [Bun](https://bun.sh/docs/api/s3) and [Deno](https://jsr.io/@std)
 to do exactly this. But it is clearly an area
