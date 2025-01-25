@@ -26,14 +26,14 @@
 		<a href="https://eatonphil.com" class="sm-link">
 		  Home
 		</a>
+		{{ if ne .Section "Notes" }}
+		<a href="https://notes.eatonphil.com" class="sm-link">
+		  Blog
+		</a>
+		{{ end }}
 		{{ if .Section }}
 		<a href="/" class="sm-link">
 		  {{ .Section }}
-		</a>
-		{{ end }}
-		{{ if eq .Section "Notes" }}
-		<a href="/favorites.html" class="sm-link">
-		  Popular
 		</a>
 		{{ end }}
 		<a href="https://notes.eatonphil.com/rss.xml" class="sm-link">
@@ -43,7 +43,7 @@
 
 	      <div class="subscribe">
 		<!-- <a href="https://eatonphil.com/hire-me.html">Hire me</a> -->
-		<a class="fancy" href="https://eatonphil.com/subscribe.html">
+		<a href="https://eatonphil.com/subscribe.html">
 		  Subscribe
 		</a>
               </div>
