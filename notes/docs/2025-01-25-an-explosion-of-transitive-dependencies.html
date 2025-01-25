@@ -95,19 +95,22 @@ helps minimize the explosion of transitive dependencies.</p>
 <li>Niche data structures</li>
 </ul>
 <p>Neither of these are intended to be complete lists, just examples.</p>
-<h3 id="walled-gardens">Walled gardens</h3><p>Minimal standard libraries force companies earlier on as they grow to
-build out their own internal collection of "standard libraries". This
-allows larger companies to avoid the explosion of transitive
-dependencies over time. All companies likely do something like this
-over time as they grow. But again, smaller standard libraries
-incentivizes companies to build this internal standard library earlier
-on.</p>
-<p>In contrast, smaller organizations do not have the resources to foster
-such an internal ecosystem. Smaller organizations and the community
-overall do not benefit from the internal standard libraries of larger
-organizations.</p>
-<p>Maybe it will lead to libraries like Boost for
-JavaScript and Rust programmers. This could be fine.</p>
+<h3 id="walled-gardens">Walled gardens</h3><p>Minimal standard libraries force growing companies to build out their
+own internal collection of "standard libraries". As one example,
+Bloomberg <a href="https://github.com/bloomberg/bde/wiki">did this</a> with
+C++. And I've heard of companies doing this already with Rust. This
+allows larger companies to manage and minimize the explosion of
+transitive dependencies over time.</p>
+<p>All growing companies likely do something like this eventually. But
+again, smaller standard libraries incentivize companies to build this
+internal standard library earlier on. And the community benefits
+relatively little from these internal standard libraries. The
+community would benefit more if large organizations contributed back
+to an actual standard library.</p>
+<p>Smaller organizations do not have the capacity to build these internal
+standard libraries.</p>
+<p>Maybe the situation will lead to libraries like Boost for
+JavaScript and Rust programmers. That could be fine.</p>
 <h3 id="versioning">Versioning</h3><p>A comprehensive standard library does not prevent the
 language developers from releasing new versions of the standard
 library. It is trivial to do this with naming like Go has done

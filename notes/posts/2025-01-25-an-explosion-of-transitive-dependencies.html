@@ -42,21 +42,25 @@ Neither of these are intended to be complete lists, just examples.
 
 ### Walled gardens
 
-Minimal standard libraries force companies earlier on as they grow to
-build out their own internal collection of "standard libraries". This
-allows larger companies to avoid the explosion of transitive
-dependencies over time. All companies likely do something like this
-over time as they grow. But again, smaller standard libraries
-incentivizes companies to build this internal standard library earlier
-on.
+Minimal standard libraries force growing companies to build out their
+own internal collection of "standard libraries". As one example,
+Bloomberg [did this](https://github.com/bloomberg/bde/wiki) with
+C++. And I've heard of companies doing this already with Rust. This
+allows larger companies to manage and minimize the explosion of
+transitive dependencies over time.
 
-In contrast, smaller organizations do not have the resources to foster
-such an internal ecosystem. Smaller organizations and the community
-overall do not benefit from the internal standard libraries of larger
-organizations.
+All growing companies likely do something like this eventually. But
+again, smaller standard libraries incentivize companies to build this
+internal standard library earlier on. And the community benefits
+relatively little from these internal standard libraries. The
+community would benefit more if large organizations contributed back
+to an actual standard library.
 
-Maybe it will lead to libraries like Boost for
-JavaScript and Rust programmers. This could be fine.
+Smaller organizations do not have the capacity to build these internal
+standard libraries.
+
+Maybe the situation will lead to libraries like Boost for
+JavaScript and Rust programmers. That could be fine.
 
 ### Versioning
 
