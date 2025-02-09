@@ -198,7 +198,7 @@ func interpret(ctx context, f *ast.File) {
 
 Now that we have the idea of return management and contexts set out,
 let's fill out the actual function declaration callback. Inside we'll
-need to copy the the context so variables declared inside the function
+need to copy the context so variables declared inside the function
 are not visible outside. Then we'll iterate over the parameters and
 map them in context to the associated argument. Finally we'll
 interpret the body.

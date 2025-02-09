@@ -169,7 +169,7 @@ specify the backend (and from now on we'll default to LLVM).</p>
 
 <span class="nx">main</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">argv</span><span class="p">);</span>
 </pre></div>
-<h3 id="the-llvm-backend">The LLVM backend</h3><p>We'll add <code>src/backend/llvm.js</code> and And expose
+<h3 id="the-llvm-backend">The LLVM backend</h3><p>We'll add <code>src/backend/llvm.js</code> and expose
 <code>compile</code> and <code>build</code> functions.</p>
 <h4 id="compile(ast)">compile(ast)</h4><p>This will work the same as it did for the x86 backend, creating a new
 <code>Compiler</code> helper object, creating a scope manager (which
