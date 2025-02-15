@@ -1,0 +1,125 @@
+# From web developer to database developer in 10 years
+## February 15, 2025
+###### career
+
+Last month I completed my first year at EnterpriseDB. I'm on the team
+that built and maintains
+[pglogical](https://github.com/2ndQuadrant/pglogical) and a good chunk
+of the logical replication functionality that exists in community
+Postgres. Most of my work, our work, is in C and Rust with tests in
+Perl and Python. Our focus these days is a descendant of pglogical
+called [Postgres
+Distributed](https://www.enterprisedb.com/docs/pgd/latest/) which
+supports replicating DDL, tunable consistency across the cluster, etc.
+
+### Black boxes
+
+I was a web developer from 2014-2021†. I wrote
+JavaScript and HTML and CSS and whatever server-side language: Python
+or Go or PHP. I was a hands-on engineering manager from 2017-2021. I
+was pretty clueless about databases and indeed database knowledge was
+not a serious part of any interview I did.
+
+Throughout that time (2014-2021) I wanted to move my career forward as
+quickly as possible so I spent much of my free time doing educational
+projects and writing about them on this blog (or previous incarnations
+of it). I learned how to write primitive HTTP servers, how to write
+little parsers and interpreters and compilers. It was a virtuous cycle
+because the internet (Hacker News anyway) liked reading these posts
+and I wanted to learn how the black boxes worked.
+
+But I shied away from data structures and algorithms (DSA) because
+they seemed complicated and useless to the work that I did. That is,
+until 2020 when an inbox page started loading more and more slowly as
+the inbox grew. My coworker pointed me at [Use The Index,
+Luke](https://use-the-index-luke.com/) and the DSA scales fell from my
+eyes. I wanted to understand this new black box so I [built a little
+in-memory SQL
+database](https://notes.eatonphil.com/database-basics.html) with
+support for indexes.
+
+I'm a college dropout so even while I was interested in compilers and
+interpreters earlier in my career I never dreamed I could get a job
+working on them. Only geniuses and PhDs did that work and I was
+neither. However, I could keep working on little database side
+projects like I always had before, [so I did](https://notes.eatonphil.com/tags/databases.html). Another example is the
+[set of explorations](https://notes.eatonphil.com/tags/raft.html) I did around Raft implementations, others' and my
+own.
+
+### Startups
+
+From 2021-2024 I tried to start [a
+company](https://github.com/multiprocessio/datastation) and when that
+didn't pan out I joined TigerBeetle as a cofounder to work on
+marketing and community. It was during this time I started the
+[Software Internals Discord](https://eatonphil.com/discord.html) and
+[/r/databasedevelopment](https://www.reddit.com/r/databasedevelopment/)
+which have since kind of exploded in popularity among professionals
+and academics in database and distributed systems.
+
+TigerBeetle was my first job at a database company, and while I
+contributed bits of code I was not a developer there. Still it was an
+incredible learning experience both on the cofounder side and on the
+database side. I wrote articles with King and Joran that helped teach
+and affirm for myself the basics of databases and consensus-based
+distributed systems.
+
+### Holding out
+
+When I left TigerBeetle in 2024 I still was not completely sure if I
+could get a job as an actual database developer. My network had
+exploded since 2021 when I started my own company that didn't pan out
+so I had no trouble getting referrals at database companies.
+
+But my background kept leading hiring managers to suggest putting me
+on cloud teams doing orchestration in Go around a database rather than
+working on the database itself. I was unhappy with this type-casting
+so I held out while unemployed and continued to write posts and [host
+virtual hackweeks](https://eatonphil.com/archive.html) messing with
+Postgres and MySQL. I started the [first
+incarnation](https://eatonphil.com/2024-database-design-and-implementation.html)
+of the Software Internals Book Club during this time, reading
+Designing Data Intensive Applications with 5-20 other developers in
+Bryant Park. During this time I also started the [NYC Systems Coffee
+Club](https://eatonphil.com/nyc-systems-coffee-club.html).
+
+### Postgres
+
+After about four months of searching I ended up with three good
+offers, all to do C and Rust development on Postgres (extensions) as
+an individual contributor. Working on extensions might sound like the
+definition of not-sexy but Postgres APIs are so loosely abstracted
+it's really as if you're working on Postgres itself.
+
+You can mess with almost anything in Postgres so you really have to be
+very aware of what you're doing. And where you can't mess with
+something in Postgres because an API doesn't yet exist, companies have
+the tendency to just fork Postgres so they can. (This tendency isn't
+specific to Postgres, almost every open-source database company has a
+long-running internal fork or two of the database.)
+
+### EnterpriseDB
+
+Two of the three offers were from early-stage startups and after more
+than 3 years being part of the earliest stages of startups I was happy
+for a break. Moreover the third offer was from [one of the biggest
+contributors](https://www.enterprisedb.com/blog/Which-Companies-Supporting-PostgreSQL-Development)
+to Postgres, EnterpriseDB. I think you can probably come up with
+different rankings of companies using different metrics so I'm only
+saying EnterpriseDB is one of the biggest contributors.
+
+It seemed like the best place to be to learn a lot and contribute
+something meaningful.
+
+Anyway, I've now been working at EnterpriseDB for over a year so I
+wanted to share this retrospective. I wanted to cover what it's like
+coming from engineering management and founding companies to going
+back to being an individual contributor.
+
+Spoiler: incredibly fun, and astounding to think of all the limitations
+we put on ourselves based on our job description but that don't
+actually exist. But it has been hard enough to make myself write this
+much so I'm calling it a day.
+
+† From 2011-2014 I also did contract web development but this was
+part-time while I was in school.
