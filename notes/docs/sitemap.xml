@@ -608,4 +608,8 @@
     <loc>https://notes.eatonphil.com/2025-02-15-from-web-developer-to-database-developer-in-10-years.html</loc>
     <lastmod>2025-02-15</lastmod>
  </url>
+  <url>
+    <loc>https://notes.eatonphil.com/2025-02-28-minimal-downtime-postgres-major-version-upgrades-edb-postgres-distributed.html</loc>
+    <lastmod>2025-02-28</lastmod>
+ </url>
 </urlset>
