@@ -1,0 +1,130 @@
+title = Data Storage, Replication, and Integrity Syllabus
+
+---
+
+<p>
+  Reading list designed to help programmers understand the domain of
+  storage, replication, and integrity. There are basically no modern
+  books on the topic as a whole.
+</p>
+
+<p>
+  THIS IS WORK IN PROGRESS. [Send me](mailto:phil@eatonphil.com) suggestions.
+</p>
+
+### Part 1: Data structures
+
+<p>
+  Reading list:
+</p>
+
+<ul>
+  <li>
+    B-Tree
+    <ul>
+      <li>[More Modern B-Tree Techniques](https://www.nowpublishers.com/article/Details/DBS-070)</li>
+      <li>[An Introduction to B epsilon trees and Write Optimization](https://www.usenix.org/system/files/login/articles/login_oct15_05_bender.pdf)</li>
+      <li>[B-Tree Visualization](https://www.cs.usfca.edu/~galles/visualization/BTree.html)</li>
+      <li>[B-Trees Are Back: Engineering Fast and Pageable Node Layouts](https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf)</li>
+    </ul>
+  </li>
+  <li>
+    LSM Tree
+    <ul>
+      <li>[LSM-based Storage Techniques: A Survey](https://arxiv.org/pdf/1812.07527)</li>
+      <li>[A Critical Survey on Log-Structured Merge Trees](https://www.researchgate.net/profile/Sophianos-Vasileios-2/publication/385097991_A_Critical_Survey_on_Log-Structured_Merge_Trees/links/671666e968ac304149a58478/A-Critical-Survey-on-Log-Structured-Merge-Trees.pdf)</li>
+      <li>[Towards Flexibility and Robustness of LSM Trees](https://arxiv.org/pdf/2311.10005)</li>
+    </ul>
+  </li>
+  <li>[Btree vs LSM](https://github.com/wiredtiger/wiredtiger/wiki/Btree-vs-LSM)</li>
+  <li>[Revisiting B+-tree vs. LSM-tree](https://www.usenix.org/publications/loginonline/revisit-b-tree-vs-lsm-tree-upon-arrival-modern-storage-hardware-built)</li>
+</ul>
+
+<p>Key topics: LSM Tree, B-Tree</p>
+
+### Part 2: Dealing with failure
+
+<p>Reading list:</p>
+
+<ul>
+  <li>[Enhancing File System Integrity Through Checksums](https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=c15fac2198414e96db38d176aa22d52293264eac)</li>
+  <li>[End-to-end Data Integrity for File Systems: A ZFS Case Study](https://www.usenix.org/legacy/event/fast10/tech/full_papers/fast10proceedings.pdf#page=37)</li>
+  <li>[Can Applications Recover from fsync Failures?](https://www.usenix.org/system/files/atc20-rebello.pdf)</li>
+  <li>[An Analysis of Latent Sector Errors in Disk Drives](https://research.cs.wisc.edu/adsl/Publications/latent-sigmetrics07.pdf)</li>
+  <li>[Gray Failure: The Achilles' Heel of Cloud-Scale Systems](https://www.microsoft.com/en-us/research/wp-content/uploads/2017/06/paper-1.pdf)</li>
+  <li>[The Tail at Store: A Revelation from Millions of Hours of Disk and SSD Deployments](https://www.usenix.org/system/files/conference/fast16/fast16-papers-hao.pdf)</li>
+  <li>[The Tail at Scale](https://courses.cs.duke.edu//cps296.4/fall13/838-CloudPapers/dean_longtail.pdf)</li>
+  <li>[An Analysis of Data Corruption in the Storage Stack](https://www.usenix.org/legacy/events/fast08/tech/full_papers/bairavasundaram/bairavasundaram.pdf)</li>
+  <li>[A Study of SSD Reliability in Large Scale Enterprise Storage Deployments](https://www.usenix.org/system/files/fast20-maneas.pdf)</li>
+</ul>
+
+<p>
+  Key topics: torn writes, torn reads, misdirected writes, misdirected reads, use of checksums, fsync
+</p>
+
+### Part 3: IO models
+
+<p>
+  Reading list:
+</p>
+
+<ul>
+  <li>[Understanding Modern Storage APIs: A systematic study of libaio, SPDK, and io_uring](https://atlarge-research.com/pdfs/2022-systor-apis.pdf)</li>
+  <li>[What Modern NVMe Storage Can Do, And How To Exploit It: High-Performance I/O for High-Performance Storage Engines](https://vldb.org/pvldb/vol16/p2090-haas.pdf)</li>
+  <li>[Asynchronous I/O — With Great Power Comes Great Responsibility](https://arxiv.org/pdf/2411.16254)</li>
+  <li>[Characteristics of multithreading models for high-performance IO driven network applications](https://arxiv.org/pdf/0909.4934)</li>
+</ul>
+
+<p>
+  Key topics: thread-per-core, io_uring, epoll, aio, spdk
+</p>
+
+### Part 4: Replication
+
+<p>Reading list:</p>
+
+<ul>
+  <li>[Data Replication Design Spectrum](https://transactional.blog/blog/2024-data-replication-design-spectrum)</li>
+  <li>
+    Quorums and leaderless consensus
+    <ul>
+      <li>[Cassandra \- A Decentralized Structured Storage System](https://www.cs.cornell.edu/projects/ladis2009/papers/lakshman-ladis2009.pdf)</li>
+      <li>[EPaxos Revisited](https://www.usenix.org/system/files/nsdi21-tollman.pdf)</li>
+      <li>[Fast General Purpose Transactions in Apache Cassandra](https://cwiki.apache.org/confluence/download/attachments/188744725/Accord.pdf?version=1&modificationDate=1630847737000&api=v2)</li>
+    </ul>
+  </li>
+  <li>
+    Reconfiguration
+    <ul>
+      <li>
+	[Object Storage on CRAQ](https://www.usenix.org/legacy/event/usenix09/tech/full_papers/terrace/terrace.pdf)
+	<ul>
+	  <li>[6.824 FAQ for Object Storage on CRAQ](http://nil.lcs.mit.edu/6.824/2020/papers/craq-faq.txt)</li>
+	</ul>
+      </li>
+      <li>[FoundationDB: A Distributed Unbundled Transactional Key Value Store](https://www.foundationdb.org/files/fdb-paper.pdf)</li>
+      <li>[Taurus Database: How to be Fast, Available, and Frugal in the Cloud](https://arxiv.org/pdf/2412.02792)</li>
+      <li>[PacificA: Replication in Log-Based Distributed Storage Systems](https://www.microsoft.com/en-us/research/wp-content/uploads/2008/02/tr-2008-25.pdf)</li>
+    </ul>
+  </li>
+  <li>
+    Leader-based consensus
+    <ul>
+      <li>
+	[In Search of an Understandable Consensus Algorithm (Extended Version)](https://raft.github.io/raft.pdf)
+	<ul>
+	  <li>[Consensus: Bridging Theory and Practice](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf)</li>
+	  <li>[Paxos vs Raft: Have we reached consensus on distributed consensus?](https://arxiv.org/pdf/2004.05074)</li>
+	  <li>[Paxos Made Live \- An Engineering Perspective](https://www.cs.utexas.edu/~lorenzo/corsi/cs380d/papers/paper2-1.pdf)</li>
+	  <li>[A TiKV Source Code Walkthrough – Raft Optimization](https://www.pingcap.com/blog/optimizing-raft-in-tikv/)</li>
+	  <li>[Simplifying Redpanda Raft implementation](https://www.redpanda.com/blog/simplifying-raft-replication-in-redpanda)</li>
+	</ul>
+      </li>
+      <li>[Viewstamped Replication Revisited](https://pmg.csail.mit.edu/papers/vr-revisited.pdf)
+    </ul>
+  </li>
+</ul>
+
+<p>
+  Key topics: raft, paxos, chain replication, viewstamped replication
+</p>
