@@ -8,6 +8,16 @@ files, particularly in transactional contexts where you actually care
 about the integrity of the data and when you are editing data in place
 (versus copy-on-write for example).
 
+We'll go into a few scenarios where the following can happen:
+
+* Data you write never actually makes it to disk
+* Data you write get sent to the wrong location on disk
+* Data you read is read from the wrong location on disk
+* Data gets corrupted on disk
+
+And how real-world data systems think about these scenarios. (They
+don't always think of them at all!)
+
 If I don't say otherwise I'm talking about behavior on Linux.
 
 The post is largely a review of two papers: [Parity Lost and Parity

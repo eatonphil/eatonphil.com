@@ -65,6 +65,15 @@ applications (not just databases!) that read and write
 files, particularly in transactional contexts where you actually care
 about the integrity of the data and when you are editing data in place
 (versus copy-on-write for example).</p>
+<p>We'll go into a few scenarios where the following can happen:</p>
+<ul>
+<li>Data you write never actually makes it to disk</li>
+<li>Data you write get sent to the wrong location on disk</li>
+<li>Data you read is read from the wrong location on disk</li>
+<li>Data gets corrupted on disk</li>
+</ul>
+<p>And how real-world data systems think about these scenarios. (They
+don't always think of them at all!)</p>
 <p>If I don't say otherwise I'm talking about behavior on Linux.</p>
 <p>The post is largely a review of two papers: <a href="https://www.usenix.org/legacy/event/fast08/tech/full_papers/krioukov/krioukov.pdf">Parity Lost and Parity
 Regained</a>
