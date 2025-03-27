@@ -91,8 +91,8 @@ data to non-volatile storage, you may lose data.
 With
 [O_DIRECT](https://man7.org/linux/man-pages/man2/open.2.html#:~:text=O_DIRECT%20%28since%20Linux%202.4.10%29),
 file writes succeed when the data is copied to at least the *disk
-cache*. Alternatively you could open the file with O_DIRECT|O_SYNC
-(or O_DIRECT|O_DSYNC) and forgo fsync calls.
+cache*. Alternatively you could open the file with `O_DIRECT|O_SYNC`
+(or `O_DIRECT|O_DSYNC`) and forgo fsync calls.
 
 fsync on macOS is a no-op.
 
@@ -127,7 +127,7 @@ on that file descriptor at all).
 Don't be [2018-era Postgres](https://danluu.com/fsyncgate/).
 
 The only way to have known which exact write failed would be to open
-the file with O_DIRECT|O_SYNC (or O_DIRECT|O_DSYNC), though this
+the file with `O_DIRECT|O_SYNC` (or `O_DIRECT|O_DSYNC`), though this
 is not the only way to handle fsync failures.
 
 #### The data was corrupted
