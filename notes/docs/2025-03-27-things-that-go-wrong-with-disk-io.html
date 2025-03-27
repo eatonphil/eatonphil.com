@@ -61,12 +61,12 @@
       <div class="col-6">
 	<div class="post">
           <p>There are a few interesting scenarios to keep in mind when writing
-applications (not just databases!) that interact with read and writes
+applications (not just databases!) that read and write
 files, particularly in transactional contexts where you actually care
 about the integrity of the data and when you are editing data in place
 (versus copy-on-write for example).</p>
 <p>If I don't say otherwise I'm talking about behavior on Linux.</p>
-<p>The research version of this blog post is <a href="https://www.usenix.org/legacy/event/fast08/tech/full_papers/krioukov/krioukov.pdf">Parity Lost and Parity
+<p>The post is largely a review of two papers: <a href="https://www.usenix.org/legacy/event/fast08/tech/full_papers/krioukov/krioukov.pdf">Parity Lost and Parity
 Regained</a>
 and <a href="https://citeseerx.ist.psu.edu/document?repid=rep1&amp;type=pdf&amp;doi=8e486139d944cc7291666082bc5a74814af6e388">Characteristics, Impact, and Tolerance of Partial Disk
 Failures</a>. These
@@ -164,7 +164,7 @@ regardless of the default.</p>
 sector size of your disk is a write guaranteed to be atomic. If you
 need to write multiple sectors of data atomically there is the risk
 that some sectors are written and then the system crashes or
-restarts. This is called torn writes or torn pages.</p>
+restarts. This behavior is called torn writes or torn pages.</p>
 <p><a href="https://wiki.postgresql.org/wiki/Full_page_writes">Postgres</a>,
 <a href="https://www.sqlite.org/psow.html">SQLite</a>, and MySQL
 (<a href="https://dev.mysql.com/doc/refman/8.4/en/glossary.html#glos_torn_page">InnoDB</a>)
@@ -178,9 +178,9 @@ ext4</a>) you may also not have
 to worry about torn writes. On the other hand, this amplifies writes
 2x.</p>
 <h4 id="the-data-didn't-reach-disk,-part-2">The data didn't reach disk, part 2</h4><p>Sometimes fsync succeeds but the data isn't actually on disk because
-the disk is lying. These are called lost writes or phantom writes. You
-can be resilient to phantom writes by always reading back what you
-wrote (expensive) or versioning what you wrote.</p>
+the disk is lying. This behavior is called lost writes or phantom
+writes. You can be resilient to phantom writes by always reading back
+what you wrote (expensive) or versioning what you wrote.</p>
 <p>Databases and file systems generally do not seem to handle this
 situation.</p>
 <h4 id="the-data-was-written-to-the-wrong-place,-read-from-the-wrong-place">The data was written to the wrong place, read from the wrong place</h4><p>If you aren't including where data is supposed to be on disk as part

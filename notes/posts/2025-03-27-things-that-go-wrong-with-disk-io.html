@@ -3,14 +3,14 @@
 ###### disks,databases,linux
 
 There are a few interesting scenarios to keep in mind when writing
-applications (not just databases!) that interact with read and writes
+applications (not just databases!) that read and write
 files, particularly in transactional contexts where you actually care
 about the integrity of the data and when you are editing data in place
 (versus copy-on-write for example).
 
 If I don't say otherwise I'm talking about behavior on Linux.
 
-The research version of this blog post is [Parity Lost and Parity
+The post is largely a review of two papers: [Parity Lost and Parity
 Regained](https://www.usenix.org/legacy/event/fast08/tech/full_papers/krioukov/krioukov.pdf)
 and [Characteristics, Impact, and Tolerance of Partial Disk
 Failures](https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=8e486139d944cc7291666082bc5a74814af6e388). These
@@ -148,7 +148,7 @@ Only when the page size you write = block size of your filesystem =
 sector size of your disk is a write guaranteed to be atomic. If you
 need to write multiple sectors of data atomically there is the risk
 that some sectors are written and then the system crashes or
-restarts. This is called torn writes or torn pages.
+restarts. This behavior is called torn writes or torn pages.
 
 [Postgres](https://wiki.postgresql.org/wiki/Full_page_writes),
 [SQLite](https://www.sqlite.org/psow.html), and MySQL
@@ -167,9 +167,9 @@ to worry about torn writes. On the other hand, this amplifies writes
 #### The data didn't reach disk, part 2
 
 Sometimes fsync succeeds but the data isn't actually on disk because
-the disk is lying. These are called lost writes or phantom writes. You
-can be resilient to phantom writes by always reading back what you
-wrote (expensive) or versioning what you wrote.
+the disk is lying. This behavior is called lost writes or phantom
+writes. You can be resilient to phantom writes by always reading back
+what you wrote (expensive) or versioning what you wrote.
 
 Databases and file systems generally do not seem to handle this
 situation.
