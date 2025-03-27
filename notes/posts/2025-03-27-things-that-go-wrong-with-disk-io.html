@@ -1,0 +1,193 @@
+# Things that go wrong with disk IO
+## March 27, 2025
+###### disks,databases,linux
+
+There are a few interesting scenarios to keep in mind when writing
+applications (not just databases!) that interact with read and writes
+files, particularly in transactional contexts where you actually care
+about the integrity of the data and when you are editing data in place
+(versus copy-on-write for example).
+
+If I don't say otherwise I'm talking about behavior on Linux.
+
+The research version of this blog post is [Parity Lost and Parity
+Regained](https://www.usenix.org/legacy/event/fast08/tech/full_papers/krioukov/krioukov.pdf)
+and [Characteristics, Impact, and Tolerance of Partial Disk
+Failures](https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=8e486139d944cc7291666082bc5a74814af6e388).
+
+These two papers also go into the frequency of some of the issues
+discussed here. These behaviors actually happen in real life!
+
+Thank you to Alex Miller and George Xanthakis for reviewing a draft of
+this post.
+
+### Terminology
+
+Some of these terms are reused in different contexts, and sometimes
+they are reused because they effectively mean the same thing in a
+certain configuration. But I'll try to be explicit to avoid confusion.
+
+#### Sector
+
+The smallest amount of data that can be read and written atomically by
+hardware. It used to be 512 bytes, but on modern disks it is often
+4KiB. There doesn't seem to be any safe assumption you can make about
+sector size, despite file system defaults (see below). You must check
+your disks to know.
+
+#### Block (filesystem/kernel view)
+
+Typically set to the sector size since only this block size is
+atomic. The [default in ext4 is
+4KiB](https://docs.kernel.org/filesystems/ext4/overview.html).
+
+#### Page (kernel view)
+
+A disk block that is in memory. Any reads/writes less than the size of
+a block will read the entire block into kernel memory even if less
+than that amount is sent back to userland.
+
+#### Page (database/application view)
+
+The smallest amount of data the system (database, application, etc.)
+chooses to act on, when it's read or written or held in memory. The
+page size is some multiple of the filesystem/kernel block size
+(including the multiple being 1). SQLite's [default page
+size](https://www.sqlite.org/pgszchng2016.html) is 4KiB. MySQL's
+[default page
+size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_page_size)
+is 16KiB. Postgres's [default page
+size](https://www.postgresql.org/docs/current/storage-page-layout.html)
+is 8KiB.
+
+### Things that go wrong
+
+#### The data didn't reach disk
+
+By default, file writes succeed when the data is copied into kernel
+memory (buffered IO). The man page for
+[write(2)](https://man7.org/linux/man-pages/man2/write.2.html) says:
+
+> A successful return from write() does not make any guarantee that
+data has been committed to disk.  On some filesystems, including NFS,
+it does not even guarantee that space has successfully been reserved
+for the data.  In this case, some errors might be delayed until a
+future write(), fsync(2), or even close(2).  The only way to be sure
+is to call fsync(2) after you are done writing all your data.
+
+If you don't call fsync on Linux the data isn't necessarily durably on
+disk, and if the system crashes or restarts before the disk writes the
+data to non-volatile storage, you may lose data.
+
+With
+[O_DIRECT](https://man7.org/linux/man-pages/man2/open.2.html#:~:text=O_DIRECT%20%28since%20Linux%202.4.10%29),
+file writes succeed when the data is copied to at least the *disk
+cache*. Alternatively you could open the file with O_DIRECT|O_SYNC
+(or O_DIRECT|O_DSYNC) and forgo fsync calls.
+
+fsync on macOS is a no-op.
+
+If you're confused, read [Userland Disk
+I/O](https://transactional.blog/how-to-learn/disk-io).
+
+Postgres, SQLite, MongoDB, MySQL fsync data before considering a
+transaction successful by default. RocksDB does not.
+
+#### The data was fsynced but fsync failed
+
+fsync isn't guaranteed to succeed. And when it fails you can't tell
+which write failed. It [may not even be a failure of a write to a file
+that your process
+opened](https://docs.kernel.org/filesystems/vfs.html):
+
+> Ideally, the kernel would report errors only on file descriptions
+on which writes were done that subsequently failed to be written
+back. The generic pagecache infrastructure does not track the file
+descriptions that have dirtied each individual page however, so
+determining which file descriptors should get back an error is not
+possible.
+
+> Instead, the generic writeback error tracking infrastructure in the
+kernel settles for reporting errors to fsync on all file descriptions
+that were open at the time that the error occurred. In a situation
+with multiple writers, all of them will get back an error on a
+subsequent fsync, even if all of the writes done through that
+particular file descriptor succeeded (or even if there were no writes
+on that file descriptor at all).
+
+Don't be [2018-era Postgres](https://danluu.com/fsyncgate/).
+
+The only way to have known which exact write failed would be to open
+the file with O_DIRECT|O_SYNC (or O_DIRECT|O_DSYNC), though this
+is not the only way to handle fsync failures.
+
+#### The data was corrupted
+
+If you don't checksum your data on write and check the checksum on
+read (as well as periodic scrubbing a la ZFS) you will never be aware
+if and when the data gets corrupted and you will have to restore (who
+knows how far back in time) from backups if and when you notice.
+
+[ZFS](https://openzfs.github.io/openzfs-docs/Basic%20Concepts/Checksums.html),
+MongoDB
+([WiredTiger](https://source.wiredtiger.com/develop/tune_checksum.html)),
+MySQL
+([InnoDB](https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_checksum_algorithm)),
+and
+[RocksDB](https://github.com/facebook/rocksdb/wiki/Full-File-Checksum-and-Checksum-Handoff)
+checksum data by default. Postgres and
+[SQLite](https://www.sqlite.org/cksumvfs.html) do not (though
+[databases created from Postgres
+18+](https://github.com/postgres/postgres/commit/04bec894a04c) will).
+
+You should probably turn on checksums on any system that supports it,
+regardless of the default.
+
+#### The data was partially written
+
+Only when the page size you write = block size of your filesystem =
+sector size of your disk is a write guaranteed to be atomic. If you
+need to write multiple sectors of data atomically there is the risk
+that some sectors are written and then the system crashes or
+restarts. This is called torn writes or torn pages.
+
+[Postgres](https://wiki.postgresql.org/wiki/Full_page_writes),
+[SQLite](https://www.sqlite.org/psow.html), and MySQL
+([InnoDB](https://dev.mysql.com/doc/refman/8.4/en/glossary.html#glos_torn_page))
+handle torn writes. Torn writes are by definition not relevant to
+immutable storage systems like RocksDB (and other LSM Tree or
+Copy-on-Write systems like MongoDB (WiredTiger)) unless writes (that
+update *metadata*) span sectors.
+
+If your file system duplicates all writes like MySQL (InnoDB) does
+(like you can with [data=journal in
+ext4](https://unix.stackexchange.com/a/129507)) you may also not have
+to worry about torn writes. On the other hand, this amplifies writes
+2x.
+
+#### The data didn't reach disk, part 2
+
+Sometimes fsync succeeds but the data isn't actually on disk because
+the disk is lying. These are called lost writes or phantom writes. You
+can be resilient to phantom writes by always reading back what you
+wrote (expensive) or versioning what you wrote.
+
+Databases and file systems generally do not seem to handle this
+situation.
+
+#### The data was written to the wrong place, read from the wrong place
+
+If you aren't including where data is supposed to be on disk as part
+of the checksum or page itself, you risk being unaware that you wrote
+data to the wrong place or that you read from the wrong place. This is
+called misdirected writes/reads.
+
+Databases and file systems generally do not seem to handle this
+situation.
+
+### Further reading
+
+In increasing levels of paranoia (laudatory) follow
+[ZFS](https://research.cs.wisc.edu/wind/Publications/zfs-corruption-fast10.pdf),
+Andrea and Remzi Arpaci-Dusseau, and
+[TigerBeetle](https://docs.tigerbeetle.com/concepts/safety/).

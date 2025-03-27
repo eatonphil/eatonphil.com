@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="canonical" href="https://notes.eatonphil.com/2025-03-27-things-that-go-wrong-with-disk-io.html">
+    <title>Things that go wrong with disk IO | notes.eatonphil.com</title>
+    <meta name="description" content="Things that go wrong with disk IO" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=IBM+Plex+Mono">
+  </head>
+  <body>
+    <header>
+      <div class="lfw">
+	<div class="container">
+	  <div class="row">
+	    <a href="https://eatonphil.com/chat.html">Want to chat? Donate to one of these charities!</a>
+	  </div>
+	</div>
+      </div>
+      <div class="container">
+        <div>
+          <div class="row">
+	    <div>
+	      <a href="https://eatonphil.com" class="sm-link">
+		Home
+              </a>
+	      <a href="/" class="sm-link">
+		Blog
+              </a>
+	      <a href="/rss.xml" class="sm-link">
+		RSS
+              </a>
+	    </div>
+
+	    <div class="subscribe">
+	      <!-- <a href="https://eatonphil.com/hire-me.html">Hire me</a> -->
+	      <!--
+		  Hardcode link to home page because some pages don't
+		  have a subscribe box. Some pages hide the subscribe.
+		-->
+	      <a href="https://eatonphil.com/subscribe.html">
+		Subscribe
+	      </a>
+            </div>
+	  </div>
+	  <hr />
+	  <div class="">
+            <h2>March 27, 2025</h2>
+            <h1>Things that go wrong with disk IO</h1>
+	    
+            <div class="row" style="padding-bottom: 5px">
+              <div class="tags"><a href="/tags/disks.html" class="tag">disks</a><a href="/tags/databases.html" class="tag">databases</a><a href="/tags/linux.html" class="tag">linux</a></div>
+            </div>
+	  </div>
+	</div>
+      </div>
+    </header>
+    <div class="container">
+      <div class="col-6">
+	<div class="post">
+          <p>There are a few interesting scenarios to keep in mind when writing
+applications (not just databases!) that interact with read and writes
+files, particularly in transactional contexts where you actually care
+about the integrity of the data and when you are editing data in place
+(versus copy-on-write for example).</p>
+<p>If I don't say otherwise I'm talking about behavior on Linux.</p>
+<p>The research version of this blog post is <a href="https://www.usenix.org/legacy/event/fast08/tech/full_papers/krioukov/krioukov.pdf">Parity Lost and Parity
+Regained</a>
+and <a href="https://citeseerx.ist.psu.edu/document?repid=rep1&amp;type=pdf&amp;doi=8e486139d944cc7291666082bc5a74814af6e388">Characteristics, Impact, and Tolerance of Partial Disk
+Failures</a>.</p>
+<p>These two papers also go into the frequency of some of the issues
+discussed here. These behaviors actually happen in real life!</p>
+<p>Thank you to Alex Miller and George Xanthakis for reviewing a draft of
+this post.</p>
+<h3 id="terminology">Terminology</h3><p>Some of these terms are reused in different contexts, and sometimes
+they are reused because they effectively mean the same thing in a
+certain configuration. But I'll try to be explicit to avoid confusion.</p>
+<h4 id="sector">Sector</h4><p>The smallest amount of data that can be read and written atomically by
+hardware. It used to be 512 bytes, but on modern disks it is often
+4KiB. There doesn't seem to be any safe assumption you can make about
+sector size, despite file system defaults (see below). You must check
+your disks to know.</p>
+<h4 id="block-(filesystem/kernel-view)">Block (filesystem/kernel view)</h4><p>Typically set to the sector size since only this block size is
+atomic. The <a href="https://docs.kernel.org/filesystems/ext4/overview.html">default in ext4 is
+4KiB</a>.</p>
+<h4 id="page-(kernel-view)">Page (kernel view)</h4><p>A disk block that is in memory. Any reads/writes less than the size of
+a block will read the entire block into kernel memory even if less
+than that amount is sent back to userland.</p>
+<h4 id="page-(database/application-view)">Page (database/application view)</h4><p>The smallest amount of data the system (database, application, etc.)
+chooses to act on, when it's read or written or held in memory. The
+page size is some multiple of the filesystem/kernel block size
+(including the multiple being 1). SQLite's <a href="https://www.sqlite.org/pgszchng2016.html">default page
+size</a> is 4KiB. MySQL's
+<a href="https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_page_size">default page
+size</a>
+is 16KiB. Postgres's <a href="https://www.postgresql.org/docs/current/storage-page-layout.html">default page
+size</a>
+is 8KiB.</p>
+<h3 id="things-that-go-wrong">Things that go wrong</h3><h4 id="the-data-didn't-reach-disk">The data didn't reach disk</h4><p>By default, file writes succeed when the data is copied into kernel
+memory (buffered IO). The man page for
+<a href="https://man7.org/linux/man-pages/man2/write.2.html">write(2)</a> says:</p>
+<blockquote><p>A successful return from write() does not make any guarantee that
+data has been committed to disk.  On some filesystems, including NFS,
+it does not even guarantee that space has successfully been reserved
+for the data.  In this case, some errors might be delayed until a
+future write(), fsync(2), or even close(2).  The only way to be sure
+is to call fsync(2) after you are done writing all your data.</p>
+</blockquote>
+<p>If you don't call fsync on Linux the data isn't necessarily durably on
+disk, and if the system crashes or restarts before the disk writes the
+data to non-volatile storage, you may lose data.</p>
+<p>With
+<a href="https://man7.org/linux/man-pages/man2/open.2.html#:~:text=O_DIRECT%20%28since%20Linux%202.4.10%29">O_DIRECT</a>,
+file writes succeed when the data is copied to at least the <em>disk
+cache</em>. Alternatively you could open the file with O_DIRECT|O_SYNC
+(or O_DIRECT|O_DSYNC) and forgo fsync calls.</p>
+<p>fsync on macOS is a no-op.</p>
+<p>If you're confused, read <a href="https://transactional.blog/how-to-learn/disk-io">Userland Disk
+I/O</a>.</p>
+<p>Postgres, SQLite, MongoDB, MySQL fsync data before considering a
+transaction successful by default. RocksDB does not.</p>
+<h4 id="the-data-was-fsynced-but-fsync-failed">The data was fsynced but fsync failed</h4><p>fsync isn't guaranteed to succeed. And when it fails you can't tell
+which write failed. It <a href="https://docs.kernel.org/filesystems/vfs.html">may not even be a failure of a write to a file
+that your process
+opened</a>:</p>
+<blockquote><p>Ideally, the kernel would report errors only on file descriptions
+on which writes were done that subsequently failed to be written
+back. The generic pagecache infrastructure does not track the file
+descriptions that have dirtied each individual page however, so
+determining which file descriptors should get back an error is not
+possible.</p>
+<p>Instead, the generic writeback error tracking infrastructure in the
+kernel settles for reporting errors to fsync on all file descriptions
+that were open at the time that the error occurred. In a situation
+with multiple writers, all of them will get back an error on a
+subsequent fsync, even if all of the writes done through that
+particular file descriptor succeeded (or even if there were no writes
+on that file descriptor at all).</p>
+</blockquote>
+<p>Don't be <a href="https://danluu.com/fsyncgate/">2018-era Postgres</a>.</p>
+<p>The only way to have known which exact write failed would be to open
+the file with O_DIRECT|O_SYNC (or O_DIRECT|O_DSYNC), though this
+is not the only way to handle fsync failures.</p>
+<h4 id="the-data-was-corrupted">The data was corrupted</h4><p>If you don't checksum your data on write and check the checksum on
+read (as well as periodic scrubbing a la ZFS) you will never be aware
+if and when the data gets corrupted and you will have to restore (who
+knows how far back in time) from backups if and when you notice.</p>
+<p><a href="https://openzfs.github.io/openzfs-docs/Basic%20Concepts/Checksums.html">ZFS</a>,
+MongoDB
+(<a href="https://source.wiredtiger.com/develop/tune_checksum.html">WiredTiger</a>),
+MySQL
+(<a href="https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_checksum_algorithm">InnoDB</a>),
+and
+<a href="https://github.com/facebook/rocksdb/wiki/Full-File-Checksum-and-Checksum-Handoff">RocksDB</a>
+checksum data by default. Postgres and
+<a href="https://www.sqlite.org/cksumvfs.html">SQLite</a> do not (though
+<a href="https://github.com/postgres/postgres/commit/04bec894a04c">databases created from Postgres
+18+</a> will).</p>
+<p>You should probably turn on checksums on any system that supports it,
+regardless of the default.</p>
+<h4 id="the-data-was-partially-written">The data was partially written</h4><p>Only when the page size you write = block size of your filesystem =
+sector size of your disk is a write guaranteed to be atomic. If you
+need to write multiple sectors of data atomically there is the risk
+that some sectors are written and then the system crashes or
+restarts. This is called torn writes or torn pages.</p>
+<p><a href="https://wiki.postgresql.org/wiki/Full_page_writes">Postgres</a>,
+<a href="https://www.sqlite.org/psow.html">SQLite</a>, and MySQL
+(<a href="https://dev.mysql.com/doc/refman/8.4/en/glossary.html#glos_torn_page">InnoDB</a>)
+handle torn writes. Torn writes are by definition not relevant to
+immutable storage systems like RocksDB (and other LSM Tree or
+Copy-on-Write systems like MongoDB (WiredTiger)) unless writes (that
+update <em>metadata</em>) span sectors.</p>
+<p>If your file system duplicates all writes like MySQL (InnoDB) does
+(like you can with <a href="https://unix.stackexchange.com/a/129507">data=journal in
+ext4</a>) you may also not have
+to worry about torn writes. On the other hand, this amplifies writes
+2x.</p>
+<h4 id="the-data-didn't-reach-disk,-part-2">The data didn't reach disk, part 2</h4><p>Sometimes fsync succeeds but the data isn't actually on disk because
+the disk is lying. These are called lost writes or phantom writes. You
+can be resilient to phantom writes by always reading back what you
+wrote (expensive) or versioning what you wrote.</p>
+<p>Databases and file systems generally do not seem to handle this
+situation.</p>
+<h4 id="the-data-was-written-to-the-wrong-place,-read-from-the-wrong-place">The data was written to the wrong place, read from the wrong place</h4><p>If you aren't including where data is supposed to be on disk as part
+of the checksum or page itself, you risk being unaware that you wrote
+data to the wrong place or that you read from the wrong place. This is
+called misdirected writes/reads.</p>
+<p>Databases and file systems generally do not seem to handle this
+situation.</p>
+<h3 id="further-reading">Further reading</h3><p>In increasing levels of paranoia (laudatory) follow
+<a href="https://research.cs.wisc.edu/wind/Publications/zfs-corruption-fast10.pdf">ZFS</a>,
+Andrea and Remzi Arpaci-Dusseau, and
+<a href="https://docs.tigerbeetle.com/concepts/safety/">TigerBeetle</a>.</p>
+<style>.feedback{display:initial;}</style>
+	</div>
+	<div class="feedback">
+	  <h4>Feedback</h4>
+	  <p>As always,
+	      please <a href="mailto:phil@eatonphil.com">email</a>
+	      or <a href="https://twitter.com/eatonphil">tweet me</a>
+	      with questions, corrections, or ideas!</p>
+
+	</div>
+      </div>
+    </div>
+    <footer>
+      <div class="container">
+	<div>
+	  <div id="subscribe">
+	    <style type="text/css">
+  /* LOADER */
+  .ml-form-embedSubmitLoad {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+  }
+  .g-recaptcha {
+      transform: scale(1);
+      -webkit-transform: scale(1);
+      transform-origin: 0 0;
+      -webkit-transform-origin: 0 0;
+      height: ;
+  }
+  .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      border: 0;
+  }
+  .ml-form-embedSubmitLoad:after {
+      content: " ";
+      display: block;
+      width: 11px;
+      height: 11px;
+      margin: 1px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      border-color: #ffffff #ffffff #ffffff transparent;
+      animation: ml-form-embedSubmitLoad 1.2s linear infinite;
+  }
+  @keyframes ml-form-embedSubmitLoad {
+      0% {
+          transform: rotate(0deg);
+      }
+      100% {
+          transform: rotate(360deg);
+      }
+  }
+  #mlb2-3175296.ml-form-embedContainer {
+      box-sizing: border-box;
+      display: table;
+      margin: 0 auto;
+      position: static;
+      width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer h3,
+  #mlb2-3175296.ml-form-embedContainer p,
+  #mlb2-3175296.ml-form-embedContainer span,
+  #mlb2-3175296.ml-form-embedContainer button {
+      text-transform: none !important;
+      letter-spacing: normal !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper {
+      border-width: 0px;
+      border-color: transparent;
+  border-radius: 4px;
+  border-style: solid;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-left { text-align: left; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-center {
+  text-align: center;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-default { display: table-cell !important; vertical-align: middle !important; text-align: center !important; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-align-right { text-align: right; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedHeader img {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  height: auto;
+  margin: 0 auto !important;
+  max-width: 100%;
+  width: undefinedpx;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody.ml-form-embedBodyHorizontal {
+  padding-bottom: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent {
+  text-align: left;
+  margin: 0 0 20px 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p {
+  color: #000000;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  margin: 0 0 10px 0;
+  text-align: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ul,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol {
+  color: #000000;
+  font-size: 14px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol {
+  list-style-type: lower-alpha;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent ol ol ol,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent ol ol ol {
+  list-style-type: lower-roman;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p a,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group {
+  text-align: left!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-block-form .ml-field-group label {
+  margin-bottom: 5px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: bold; font-style: normal; text-decoration: none;;
+  display: inline-block;
+  line-height: 20px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedContent p:last-child,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-successBody .ml-form-successContent p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody form {
+  margin: 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  margin: 0 0 20px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow {
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-formContent.horozintalForm {
+  margin: 0;
+  padding: 0 0 20px 0;
+  width: 100%;
+  height: auto;
+  float: left;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow {
+  margin: 0 0 10px 0;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-last-item {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow.ml-formfieldHorizintal {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-webkit-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-webkit-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input::-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input::-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-ms-input-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-ms-input-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input:-moz-placeholder,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input:-moz-placeholder { color: #333333; }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow textarea, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow textarea {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  height: auto;
+  line-height: 21px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-color: #cccccc!important;
+  background-color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow input.custom-control-input[type="checkbox"]{
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  border-radius: 4px!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23fff' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input:checked~.custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox input[type=checkbox]:checked~.label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type=checkbox]:checked~.label-description::before  {
+  border-color: #000000!important;
+  background-color: #000000!important;
+  color: #ffffff!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label::after {
+  top: 2px;
+  box-sizing: border-box;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  position: absolute;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before {
+  top: 0px!important;
+  box-sizing: border-box!important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-control-label::after {
+  position: absolute;
+  top: 2px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::before, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::before {
+  position: absolute;
+  top: 4px;
+  left: -1.5rem;
+  display: block;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  content: "";
+  background-color: #ffffff;
+  border: #adb5bd solid 1px;
+  border-radius: 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  position: absolute;
+  top: 0px!important;
+  left: -1.5rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  content: "";
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-radio .custom-control-label::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .custom-checkbox .custom-control-label::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedPermissions .ml-form-embedPermissionsOptionsCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-interestGroupsRow .ml-form-interestGroupsRowCheckbox .label-description::after, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description::after {
+  background: no-repeat 50%/50% 50%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-control, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-control {
+  position: relative;
+  display: block;
+  min-height: 1.5rem;
+  padding-left: 1.5rem;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-input, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-input {
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  box-sizing: border-box;
+  padding: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-radio .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-checkbox .custom-control-label, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-checkbox .custom-control-label {
+  color: #000000;
+  font-size: 12px!important;
+  line-height: 22px;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  font-style: normal;
+  font-weight: 700;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-fieldRow .custom-select, #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow .custom-select {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border-color: #cccccc;
+  border-radius: 4px !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 28px 10px 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+  background: url('https://assets.mlcdn.com/ml/images/default/dropdown.svg') no-repeat right .75rem center/8px 10px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow {
+  height: auto;
+  width: 100%;
+  float: left;
+  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 70%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal { width: 30%; float: left; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-button-horizontal.labelsOn { padding-top: 25px;  }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .horizontal-fields { box-sizing: border-box; float: left; padding-right: 10px;  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow input {
+  background-color: #ffffff;
+  color: #333333;
+  border-color: #cccccc;
+  border-radius: 4px;
+  border-style: solid;
+  border-width: 1px;
+  font-size: 14px;
+  line-height: 20px;
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: 10px 10px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: initial;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button {
+  background-color: #000000 !important;
+  border-color: #000000;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 4px;
+  box-shadow: none;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700;
+  line-height: 20px;
+  margin: 0 !important;
+  padding: 10px !important;
+  width: 100%;
+  height: auto;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-horizontalRow button:hover {
+  background-color: #333333 !important;
+  border-color: #333333 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow input[type="checkbox"] {
+  box-sizing: border-box;
+  padding: 0;
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+  margin-top: 5px;
+  margin-left: -1.5rem;
+  overflow: visible;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow .label-description {
+  color: #000000;
+  display: block;
+  font-size: 12px;
+  text-align: left;
+  margin-bottom: 0;
+  position: relative;
+  vertical-align: top;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label {
+  font-weight: normal;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  display: block;
+  min-height: 24px;
+  padding-left: 24px;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label a {
+  color: #000000;
+  text-decoration: underline;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p {
+  color: #000000 !important;
+  font-size: 12px !important;
+  font-weight: normal !important;
+  line-height: 18px !important;
+  padding: 0 !important;
+  margin: 0 5px 0 0 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow label p:last-child {
+  margin: 0;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit {
+  margin: 0 0 20px 0;
+  float: left;
+  width: 100%;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button {
+  background-color: #000000 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 21px !important;
+  height: auto;
+  padding: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button.loading {
+  display: none;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-embedSubmit button:hover {
+  background-color: #333333 !important;
+  }
+  .ml-subscribe-close {
+  width: 30px;
+  height: 30px;
+  background: url('https://assets.mlcdn.com/ml/images/default/modal_close.png') no-repeat;
+  background-size: 30px;
+  cursor: pointer;
+  margin-top: -10px;
+  margin-right: -10px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  }
+  .ml-error input, .ml-error textarea, .ml-error select {
+  border-color: red!important;
+  }
+  .ml-error .custom-checkbox-radio-list {
+  border: 1px solid red !important;
+  border-radius: 4px;
+  padding: 10px;
+  }
+  .ml-error .label-description,
+  .ml-error .label-description p,
+  .ml-error .label-description p a,
+  .ml-error label:first-child {
+  color: #ff0000 !important;
+  }
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p,
+  #mlb2-3175296.ml-form-embedContainer .ml-form-embedWrapper .ml-form-embedBody .ml-form-checkboxRow.ml-error .label-description p:first-letter {
+  color: #ff0000 !important;
+  }
+  @media only screen and (max-width: 400px){
+  .ml-form-embedWrapper.embedDefault, .ml-form-embedWrapper.embedPopup { width: 100%!important; }
+  .ml-form-formContent.horozintalForm { float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow { height: auto!important; width: 100%!important; float: left!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal { width: 100%!important; }
+  .ml-form-formContent.horozintalForm .ml-form-horizontalRow .ml-input-horizontal > div { padding-right: 0px!important; padding-bottom: 10px; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal { width: 100%!important; }
+    .ml-form-formContent.horozintalForm .ml-button-horizontal.labelsOn { padding-top: 0px!important; }
+    }
+</style>
+<div id="mlb2-3175296" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-3175296">
+  <hr />
+  <div class="ml-form-align-center ">
+    <div class="ml-form-embedWrapper embedForm">
+      <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+        <div class="ml-form-embedContent" style=" ">
+          <h4>Subscribe</h4>
+          <p>Enter your email if you'd like to be kept in the loop about future articles!<br><br>You can expect 2 to 4 messages per month depending on how motivated I'm feeling. :)</p>
+	  <p></p>
+	  <p>Cheers,<br>Phil</p>
+        </div>
+        <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/303114/forms/78235486326359572/subscribe" data-code="" method="post" target="_blank">
+          <div class="ml-form-formContent">
+            <div class="ml-form-fieldRow ml-last-item">
+              <div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
+                <!-- input -->
+                <input aria-label="email" aria-required="true" type="email" class="form-control" data-inputmask="" name="fields[email]" placeholder="Email" autocomplete="email">
+                <!-- /input -->
+                <!-- textarea -->
+                <!-- /textarea -->
+                <!-- select -->
+                <!-- /select -->
+                <!-- checkboxes -->
+		<!-- /checkboxes -->
+                <!-- radio -->
+                <!-- /radio -->
+                <!-- countries -->
+                <!-- /countries -->
+              </div>
+            </div>
+          </div>
+          <!-- Privacy policy -->
+          <!-- /Privacy policy -->
+	  <div class="ml-form-recaptcha ml-validate-required" style="float: left;">
+            <style type="text/css">
+	      .ml-form-recaptcha {
+		  margin-bottom: 20px;
+	      }
+	      .ml-form-recaptcha.ml-error iframe {
+		  border: solid 1px #ff0000;
+	      }
+	      @media screen and (max-width: 480px) {
+		  .ml-form-recaptcha {
+		      width: 220px!important
+		  }
+		  .g-recaptcha {
+		      transform: scale(0.78);
+		      -webkit-transform: scale(0.78);
+		      transform-origin: 0 0;
+		      -webkit-transform-origin: 0 0;
+		  }
+	      }
+	    </style>
+	    <script src="https://www.google.com/recaptcha/api.js"></script>
+	    <div class="g-recaptcha" data-sitekey="6Lf1KHQUAAAAAFNKEX1hdSWCS3mRMv4FlFaNslaD"></div>
+	  </div>
+          <input type="hidden" name="ml-submit" value="1">
+          <div class="ml-form-embedSubmit">
+            <button type="submit" class="primary">Subscribe</button>
+            <button disabled="disabled" style="display: none;" type="button" class="loading">
+              <div class="ml-form-embedSubmitLoad"></div>
+              <span class="sr-only">Loading...</span>
+            </button>
+          </div>
+          <input type="hidden" name="anticsrf" value="true">
+        </form>
+      </div>
+      <div class="ml-form-successBody row-success" style="display: none">
+        <div class="ml-form-successContent">
+          <h3>Thanks :)</h3>
+          <p>You're in.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function ml_webform_success_3175296() {
+      var $ = ml_jQuery || jQuery;
+      $('.ml-subscribe-form-3175296 .row-success').show();
+      $('.ml-subscribe-form-3175296 .row-form').hide();
+  }
+</script>
+<script src="https://groot.mailerlite.com/js/w/webforms.min.js?v300817f630ad0e957914d0b28a2b6d78" type="text/javascript"></script>
+
+	  </div>
+	</div>
+      </div>
+    </footer>
+    <script async onload="loadGA()" src="https://www.googletagmanager.com/gtag/js?id=UA-58109156-2"></script>
+    <script>
+      function loadGA() {
+	  window.dataLayer = window.dataLayer || [];
+	  function gtag(){dataLayer.push(arguments);}
+	  gtag('js', new Date());
+	  gtag('config', 'UA-58109156-2');
+      }
+    </script>
+    <script defer src="https://cdn.usefathom.com/script.js" data-site="CEPUOLOQ"></script>
+  </body>
+</html>
