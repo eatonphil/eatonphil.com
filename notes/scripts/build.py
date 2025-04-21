@@ -125,7 +125,7 @@ def main():
         tags = tags_raw.split(",")
         tags_html = get_html_tags(tags)
         # Ignore drafts for all but the page itself.
-        if "draft" in tags:
+        if "draft" in tags or "archive" in tags:
             t = out_file.split('.')[0].title()
             with open('docs/' + out_file, 'w') as f:
                 f.write(TEMPLATE.format(post=output, meta="", tag=header, subtitle=date, real_subtitle=real_subtitle, title=header, tags=tags, frequent_tags=tags_html, full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL, hide_on_index=""))
@@ -146,7 +146,7 @@ def main():
     frequent_tags_data = sorted(tags_with_counts.items(), key=lambda x: (x[1], x[0]), reverse=True)
     frequent_tags = []
     for tag, count in [t for t in frequent_tags_data if t[0] != 'external'][:20]:
-        if tag == "draft":
+        if tag == "draft" or tag == "archive":
             continue
         frequent_tags.append(f'<a href="/tags/{tag.replace(" ", "-").replace("/", "-")}.html" class="tag">{tag} ({count})</a>')
     frequent_tags = "".join(frequent_tags)
@@ -223,7 +223,7 @@ Sitemap: https://notes.eatonphil.com/sitemap.xml""")
     tag_index_data = sorted(tags_with_counts.items(), key=lambda x: x[1], reverse=True)
     tag_index = []
     for tag, count in tag_index_data:
-        if tag == "draft":
+        if tag == "draft" or tag == "archive":
             continue
         tag_index.append(f'<a href="/tags/{tag.replace(" ", "-").replace("/", "-")}.html" class="tag {"tag--common" if i < 20 else ""}">{tag} ({count})</a>')
     with open('docs/tags/index.html', 'w') as f:
@@ -232,7 +232,7 @@ Sitemap: https://notes.eatonphil.com/sitemap.xml""")
 
     # Write each individual tag page
     for tag in all_tags:
-        if tag == "draft":
+        if tag == "draft" or tag == "archive":
             continue
 
         # At one point I renamed tags like database to databases. So
