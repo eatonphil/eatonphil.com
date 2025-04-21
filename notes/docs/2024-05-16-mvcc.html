@@ -92,9 +92,9 @@ written:</p>
   <span class="n">ids</span> <span class="o">=</span> <span class="p">[]</span>
   <span class="k">for</span> <span class="n">user</span> <span class="ow">in</span> <span class="n">users</span><span class="p">:</span>
     <span class="k">if</span> <span class="n">some_complex_logic</span><span class="p">(</span><span class="n">user</span><span class="p">):</span>
-      <span class="n">ids</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+      <span class="n">ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
 
-  <span class="n">t</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;UPDATE users SET metadata = &#39;some value&#39; WHERE id IN ($1)&#39;;&quot;</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
+  <span class="n">t</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;UPDATE users SET metadata = &#39;some value&#39; WHERE id IN ($1);&quot;</span><span class="p">,</span> <span class="n">ids</span><span class="p">)</span>
 </pre></div>
 <p>I would have thought that all users that were seen from the initial
 <code>SELECT</code> who matched the <code>some_complex_logic</code> filter would be exactly
@@ -925,7 +925,7 @@ well commented.</p>
 </pre></div>
 <p>Let's get stricter!</p>
 <h4 id="snapshot-isolation">Snapshot Isolation</h4><p>Back to
-[Jepsen](<a href="https://jepsen.io/consistency/models/snapshot-isolation">https://jepsen.io/consistency/models/snapshot-isolation</a> for a
+<a href="https://jepsen.io/consistency/models/snapshot-isolation">Jepsen</a> for a
 definition:</p>
 <blockquote><p>In a snapshot isolated system, each transaction appears to operate
 on an independent, consistent snapshot of the database. Its changes
@@ -1066,7 +1066,7 @@ key fail. Or specifically: that the second transaction cannot commit.</p>
   Upon further discussion with Alex Miller, and after reviewing <a
   href="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/tr-95-51.pdf">A
   Critique of ANSI SQL Isolation Levels</a>, the difference I am
-  trying to suggest (between Repeatable Read an Snapshot Isolation)
+  trying to suggest (between Repeatable Read and Snapshot Isolation)
   likely does not exist. A Critique of ANSI SQL Isolation Levels
   mentions Repeatable Read must not exhibit P4 (Lost Update)
   anomalies. And it mentions that you must check for read-write
@@ -1143,7 +1143,7 @@ Snapshot Isolation we already mentioned.</p>
 <span class="w">        </span><span class="nx">c1</span><span class="p">.</span><span class="nx">mustExecCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
 
 <span class="w">        </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;get&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">})</span>
-<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c5 get x&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">err</span><span class="p">.</span><span class="nx">Error</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;cannot get key that does not exist&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 get x&quot;</span><span class="p">)</span>
 
 <span class="w">        </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c2</span><span class="p">.</span><span class="nx">execCommand</span><span class="p">(</span><span class="s">&quot;commit&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
 <span class="w">        </span><span class="nx">assertEq</span><span class="p">(</span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;c2 commit&quot;</span><span class="p">)</span>
@@ -1181,7 +1181,7 @@ duplicate cell data for a row.</p>
 out</a>
 by Andy Pavlo and the Ottertune folks. It turns out that Postgres
 alone among major databases stores the entire value for every
-version. In contrast other major databases like MySQL store a diff.</p>
+version. In contrast, other major databases like MySQL store a diff.</p>
 <h3 id="conclusion">Conclusion</h3><p>This post only begins to demonstrate that database behavior differs
 quite a bit both in terms of results and in terms of
 optimizations. Everyone implements the ideas differently and to
