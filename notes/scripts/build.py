@@ -133,7 +133,7 @@ def main():
 
         if real_subtitle != "":
             real_subtitle = f"<div class='realsubtitle'>{real_subtitle}</div>"
-        post_data.append((out_file, title[1], title[2], post, output, tags_html, real_subtitle))
+        post_data.append((out_file, title[1], title[2], post, output, tags, tags_html, real_subtitle))
         for tag in tags:
             if tag not in all_tags:
                 all_tags[tag] = []
@@ -151,7 +151,7 @@ def main():
         frequent_tags.append(f'<a href="/tags/{tag.replace(" ", "-").replace("/", "-")}.html" class="tag">{tag} ({count})</a>')
     frequent_tags = "".join(frequent_tags)
 
-    for (out_file, title, date, _, output, tags_html, real_subtitle) in post_data:
+    for (out_file, title, date, _, output, _, tags_html, real_subtitle) in post_data:
         with open('docs/' + out_file, 'w') as f:
             f.write(TEMPLATE.format(post=output+showfeedback, title=title, subtitle=date, tag=title, tags=tags_html, meta="", frequent_tags=frequent_tags, full_url="https://notes.eatonphil.com/"+out_file, mail=MAIL, hide_on_index="", real_subtitle=real_subtitle))
 
@@ -163,7 +163,7 @@ def main():
         prev_post_year = str(datetime.today().year + 1) if i == 0 else post_data[i-1][2].split(' ')[-1]
         if year != prev_post_year:
             notes.append('<h3>{}</h3>'.format(year))
-        note = POST_SUMMARY.format(*args[2:3], *args[:2], args[5])
+        note = POST_SUMMARY.format(*args[2:3], *args[:2], args[6])
         notes.append(note)
 
     home_page = HOME_PAGE.format(
@@ -181,12 +181,14 @@ def main():
                 shutil.copy(f, os.path.join('../', other_folder, 'style.css'))
 
     fg = FeedGenerator()
-    for url, title, date, post, content, _, _ in reversed(post_data):
+    for url, title, date, post, content, tags, _, _ in reversed(post_data):
         fe = fg.add_entry()
         fe.id('http://notes.eatonphil.com/' + url)
         fe.title(title)
         fe.link(href='http://notes.eatonphil.com/' + url)
         fe.pubDate(datetime.strptime(date, '%B %d, %Y').replace(tzinfo=timezone.utc))
+        for tag in tags:
+            fe.category(term=tag, scheme="http://notes.eatonphil.com/tags/", label=tag)
         fe.content(content)
 
     fg.id('http://notes.eatonphil.com/')
@@ -199,7 +201,7 @@ def main():
 
     with open('docs/sitemap.xml', 'w') as f:
         urls = []
-        for url, _, date, _, _, _, _ in reversed(post_data):
+        for url, _, date, _, _, _, _, _ in reversed(post_data):
             urls.append("""  <url>
     <loc>https://notes.eatonphil.com/{url}</loc>
     <lastmod>{date}</lastmod>
