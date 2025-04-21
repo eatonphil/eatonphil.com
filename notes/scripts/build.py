@@ -220,7 +220,7 @@ Sitemap: https://notes.eatonphil.com/sitemap.xml""")
     if not os.path.exists('docs/tags'):
         os.makedirs('docs/tags')
     # Write tag index
-    tag_index_data = sorted(tags_with_counts.items(), key=lambda x: x[1], reverse=True)
+    tag_index_data = sorted(tags_with_counts.items(), key=lambda x: x[0])
     tag_index = []
     for tag, count in tag_index_data:
         if tag == "draft" or tag == "archive":
