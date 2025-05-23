@@ -624,4 +624,8 @@
     <loc>https://notes.eatonphil.com/2025-04-22-burn-your-title.html</loc>
     <lastmod>2025-04-22</lastmod>
  </url>
+  <url>
+    <loc>https://notes.eatonphil.com/2025-05-22-debugging-memory-leaks-postgres-heaptrack-edition.html</loc>
+    <lastmod>2025-05-22</lastmod>
+ </url>
 </urlset>

@@ -9,6 +9,8 @@ from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import guess_lexer, get_lexer_by_name
 
+NOT_PLURAL = ['cities', 'postgres', 'kubernetes', 'distsys', 'companies', 'less', 'css']
+
 STATIC = [
     'style.css',
 ]
@@ -239,7 +241,7 @@ Sitemap: https://notes.eatonphil.com/sitemap.xml""")
         # generate both web pages to handle old links.
         original_tag = tag
         tag_variants = [tag]
-        if tag.endswith("s") and tag[:-1] not in all_tags:
+        if tag.endswith("s") and tag[:-1] not in all_tags and tag not in NOT_PLURAL:
             tag_variants.append(tag[:-1])
 
         for tag in tag_variants:
