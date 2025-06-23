@@ -628,4 +628,8 @@
     <loc>https://notes.eatonphil.com/2025-05-26-cheerleading.html</loc>
     <lastmod>2025-05-26</lastmod>
  </url>
+  <url>
+    <loc>https://notes.eatonphil.com/2025-06-21-debugging-memory-leaks-postgres-jemalloc-edition.html</loc>
+    <lastmod>2025-06-21</lastmod>
+ </url>
 </urlset>
