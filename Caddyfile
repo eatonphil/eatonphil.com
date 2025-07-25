@@ -1,6 +1,6 @@
 https://eatonphil.com {
 	encode zstd gzip
-	
+
 	# Set this path to your site's directory.
 	root * /usr/share/caddy/home/build
 
@@ -19,7 +19,7 @@ https://eatonphil.com {
 
 https://lists.eatonphil.com {
 	encode zstd gzip
-	
+
 	# Set this path to your site's directory.
 	root * /usr/share/caddy/lists/build
 
@@ -38,7 +38,7 @@ https://lists.eatonphil.com {
 
 https://notes.eatonphil.com {
 	encode zstd gzip
-	
+
 	# Set this path to your site's directory.
 	root * /usr/share/caddy/notes/docs
 
@@ -57,7 +57,7 @@ https://notes.eatonphil.com {
 
 https://letters.eatonphil.com {
 	encode zstd gzip
-	
+
 	# Set this path to your site's directory.
 	root * /usr/share/caddy/letters/build
 
@@ -76,7 +76,7 @@ https://letters.eatonphil.com {
 
 https://shouldiwriteablogpostaboutit.eatonphil.com {
 	encode zstd gzip
-	
+
 	# Set this path to your site's directory.
 	root * /usr/share/caddy/shouldiwriteablogpostaboutit/build
 
