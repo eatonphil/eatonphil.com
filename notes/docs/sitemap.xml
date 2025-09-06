@@ -648,4 +648,8 @@
     <loc>https://notes.eatonphil.com/2025-08-14-set-single-node-edb-postgres-distributed-cluster-ubuntu.html</loc>
     <lastmod>2025-08-14</lastmod>
  </url>
+  <url>
+    <loc>https://notes.eatonphil.com/2025-09-04-analytics-query-goes-6x-faster-edb-postgres-distributeds-new-analytics-engine.html</loc>
+    <lastmod>2025-09-04</lastmod>
+ </url>
 </urlset>
