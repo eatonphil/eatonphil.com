@@ -652,4 +652,8 @@
     <loc>https://notes.eatonphil.com/2025-09-04-analytics-query-goes-6x-faster-edb-postgres-distributeds-new-analytics-engine.html</loc>
     <lastmod>2025-09-04</lastmod>
  </url>
+  <url>
+    <loc>https://notes.eatonphil.com/2025-09-10-simple-clustering-and-replication-solution-postgres.html</loc>
+    <lastmod>2025-09-10</lastmod>
+ </url>
 </urlset>
