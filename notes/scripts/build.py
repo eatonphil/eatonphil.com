@@ -160,11 +160,15 @@ def main():
     post_data.sort(key=lambda post: datetime.strptime(post[2], '%B %d, %Y'))
     post_data.reverse()
     notes = []
+    posts_in_year = 0
     for i, args in enumerate(post_data):
         year = args[2].split(' ')[-1]
         prev_post_year = str(datetime.today().year + 1) if i == 0 else post_data[i-1][2].split(' ')[-1]
         if year != prev_post_year:
+            print(int(year)+1, posts_in_year)
+            posts_in_year = 0
             notes.append('<h3>{}</h3>'.format(year))
+        posts_in_year += 1
         note = POST_SUMMARY.format(*args[2:3], *args[:2], args[6])
         notes.append(note)
 
