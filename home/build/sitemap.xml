@@ -1,131 +1,131 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://eatonphil.com/2023-10-wehack-postgres.html</loc>
-    <lastmod>2024-01-07</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2023-database-internals.html</loc>
-    <lastmod>2025-01-11</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2023-ddia.html</loc>
-    <lastmod>2023-10-21</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2024-01-nvme-ama.html</loc>
-    <lastmod>2024-02-04</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2024-01-wehack-mysql.html</loc>
-    <lastmod>2024-01-17</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2024-database-design-and-implementation.html</loc>
-    <lastmod>2025-01-11</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2024-systems-performance.html</loc>
-    <lastmod>2025-01-11</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2024-understanding-software-dynamics.html</loc>
-    <lastmod>2024-08-18</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2025-art-of-multiprocessor-programming.html</loc>
-    <lastmod>2025-10-05</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2025-concurrency-control-and-recovery-in-database-systems.html</loc>
-    <lastmod>2025-08-02</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2025-holiday-fundraiser.html</loc>
-    <lastmod>2025-12-29</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2025-writing-for-developers.html</loc>
-    <lastmod>2025-04-11</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/2026-ostep.html</loc>
-    <lastmod>2026-02-02</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/30.html</loc>
-    <lastmod>2025-12-19</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/archive.html</loc>
-    <lastmod>2025-05-15</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/banhmi.html</loc>
-    <lastmod>2025-12-31</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/blogs.html</loc>
-    <lastmod>2025-06-15</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/bookclub.html</loc>
-    <lastmod>2026-01-04</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/bookclub2.html</loc>
-    <lastmod>2025-01-01</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/books.html</loc>
-    <lastmod>2025-07-18</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/btrees.html</loc>
-    <lastmod>2025-06-23</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/business.html</loc>
-    <lastmod>2025-03-24</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/call-for-posts.html</loc>
-    <lastmod>2024-02-10</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/cfp-non-raft.html</loc>
-    <lastmod>2024-02-09</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/chat.html</loc>
-    <lastmod>2025-12-31</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/coffee.html</loc>
-    <lastmod>2026-01-04</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/compilers-and-interpreters.html</loc>
-    <lastmod>2023-11-29</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/consensus.html</loc>
-    <lastmod>2024-10-05</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/discord.html</loc>
-    <lastmod>2025-09-16</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/dris.html</loc>
-    <lastmod>2025-03-12</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/editor.html</loc>
-    <lastmod>2025-11-18</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/hire-me.html</loc>
-    <lastmod>2023-11-20</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com</loc>
@@ -133,70 +133,70 @@
   </url>
   <url>
     <loc>https://eatonphil.com/marketing.html</loc>
-    <lastmod>2024-05-05</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/new-york-tech-scene.html</loc>
-    <lastmod>2025-01-01</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/nsg.html</loc>
-    <lastmod>2024-01-16</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/nyc-systems-april-2024.html</loc>
-    <lastmod>2024-05-30</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/nyc-systems-at-night.html</loc>
-    <lastmod>2025-03-19</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/nyc-systems-coffee-club.html</loc>
-    <lastmod>2025-10-22</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/nyc-systems-feb-2024.html</loc>
-    <lastmod>2024-05-30</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/nyc-systems.html</loc>
-    <lastmod>2024-05-30</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/nyc-tech-scene.html</loc>
-    <lastmod>2024-12-01</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/nyc.html</loc>
-    <lastmod>2024-08-31</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/reading-in-the-park-nyc.html</loc>
-    <lastmod>2024-07-28</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/recipes.html</loc>
-    <lastmod>2024-05-04</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/seoul.html</loc>
-    <lastmod>2024-08-31</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/software-resources.html</loc>
-    <lastmod>2025-03-04</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/subscribe.html</loc>
-    <lastmod>2024-01-17</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/tone.html</loc>
-    <lastmod>2024-05-30</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
   <url>
     <loc>https://eatonphil.com/weworks.html</loc>
-    <lastmod>2025-08-14</lastmod>
+    <lastmod>2026-01-17</lastmod>
   </url>
 </urlset>
