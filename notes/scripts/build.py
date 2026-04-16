@@ -9,7 +9,7 @@ from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import guess_lexer, get_lexer_by_name
 
-NOT_PLURAL = ['cities', 'postgres', 'kubernetes', 'distsys', 'companies', 'less', 'css']
+NOT_PLURAL = ['cities', 'postgres', 'kubernetes', 'distsys', 'companies', 'less', 'css', 'theconsensus']
 
 STATIC = [
     'style.css',
