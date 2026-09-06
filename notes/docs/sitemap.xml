@@ -804,4 +804,8 @@
     <loc>https://notes.eatonphil.com/2026-08-23-another-look-at-sqlite-wal-reset.html</loc>
     <lastmod>2026-08-23</lastmod>
  </url>
+  <url>
+    <loc>https://notes.eatonphil.com/2026-09-06-data-races-and-the-limits-of-threadsanitizer-in-c-and-go.html</loc>
+    <lastmod>2026-09-06</lastmod>
+ </url>
 </urlset>
