@@ -1,5 +1,38 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Thu, 29 Oct 2026 12:13:21 +0000</lastBuildDate><item><title>NYC</title><link>http://notes.eatonphil.com/2026-10-29-nyc.html</link><description>&lt;p&gt;The apartment is packed up and empty and I'm leaving New York for Durham this Saturday. Just short of my 9th full year here.&lt;/p&gt;
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Notes on software development</title><link>http://notes.eatonphil.com/</link><description>Notes on software development</description><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><language>en</language><lastBuildDate>Wed, 25 Nov 2026 12:07:20 +0000</lastBuildDate><item><title>How to make sure your developers never write for the company blog</title><link>http://notes.eatonphil.com/2026-11-25-how-to-make-sure-developers-never-write-for-the-company-blog.html</link><description>&lt;p&gt;Bring up writing blogs just once a year at your offsite. Make it clear
+we don't want writing now but after the next big release is out.&lt;/p&gt;
+&lt;p&gt;Make sure writing blogs is seen as the function of the marketing
+team. When you get a draft, mark it all up with Claude
+comments. Rewrite it with Claude generally. Make it well understood
+there is a long and drawn out process to getting published.&lt;/p&gt;
+&lt;p&gt;Make frequent changes to your website without looking at how code or
+technical articles look on the site, or if they even render at
+all. Have external consultants rewrite sections of published articles
+for SEO. Make sure not to ask the author for approval or let them know
+it happened.&lt;/p&gt;
+&lt;p&gt;Do not reward publishing. VPs and directors, let alone founders,
+should not proudly share these posts on social media. Published blog
+posts are the author's own work, surely done on their own time (why
+waste company time on writing a blog post?), and not something to be
+rallied around.&lt;/p&gt;
+&lt;p&gt;Always refer to social media and developer communities as cesspools to
+make it clear how little value there is in them. Use diminutive terms
+like "The Orange Site" so everyone knows it's bad. If a post happens
+to take off on any site, make sure no one in the company acknowledges
+this (internally or externally) or cheers it on (internally or
+externally).&lt;/p&gt;
+&lt;p&gt;Make it really inconvenient for authors to get analytics on their
+post. Analytics is for the marketing team.&lt;/p&gt;
+&lt;p&gt;Do not try to learn all the various programming communities (Reddit,
+Lobsters, LWN, Postgres Weekly, etc.).&lt;/p&gt;
+&lt;p&gt;Hire "developer relations" (who are not experienced programmers) and
+keep them separate from marketing and engineering. Developers don't
+need to write because you've got "developer relations". Impress upon
+everyone the unimportance of domain experts speaking about their work.&lt;/p&gt;
+&lt;p&gt;If you publish anything at all, publish thinkpieces by executives. But
+make sure they're written entirely by AI. You wouldn't want to invite
+humans to read your thoughts.&lt;/p&gt;
+</description><guid isPermaLink="false">http://notes.eatonphil.com/2026-11-25-how-to-make-sure-developers-never-write-for-the-company-blog.html</guid><category domain="http://notes.eatonphil.com/tags/">writing</category><pubDate>Wed, 25 Nov 2026 00:00:00 +0000</pubDate></item><item><title>NYC</title><link>http://notes.eatonphil.com/2026-10-29-nyc.html</link><description>&lt;p&gt;The apartment is packed up and empty and I'm leaving New York for Durham this Saturday. Just short of my 9th full year here.&lt;/p&gt;
 &lt;p&gt;People, visitors mostly I guess, seem to associate New York with skyscrapers and traffic and concrete. To me New York is the water. Looking out from Astoria Park, Brooklyn Bridge Park, Fort Totten Park, Orchard Beach, the parks on both sides of the Hudson, (JFK) Boulevard East, Shore Road Park, and the Belt Parkway looking out at Jamaica Bay. Looking out from the ferries and the bridges. I love the waves and the breeze. The herons and egrets and cormorants and mergansers and red-tailed hawks and red-bellied woodpeckers. Whales and dolphins and seals just a few miles out on a boat from south Brooklyn.&lt;/p&gt;
 &lt;p&gt;And New York is food. Taiwanese in Williamsburg. Thai and Malaysian in Elmhurst. Indian and Nepali in Jackson Heights. Korean in Bayside and Palisades Park. Central Asian cuisines I couldn't name by memory in Sheepshead Bay. What's expensive is usually not good. What's cheapest is also not often good. You just have to explore and see. But that is the case everywhere.&lt;/p&gt;
 &lt;p&gt;It's a big city and it takes a while to get everywhere. Anything you can reach within a 40 minute subway is perfect, anything longer I have a hard time talking myself into. It's nice when things are accessible by bus or subway. To read or sleep or do nothing on the subway. The only civilized way to commute, if I must. But many nice things are not easily accessible by public transportation, particularly when crossing boroughs and honorary boroughs. It's freeing to have a car (I had one for a four year stint), but it's expensive and tedious.&lt;/p&gt;
